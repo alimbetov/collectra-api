@@ -25,7 +25,6 @@ public class Tenant extends AuditableEntity {
         this.slug = slug;
         this.name = name;
         this.status = "ACTIVE";
-
     }
 
     public UUID getId() {

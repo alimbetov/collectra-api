@@ -7,9 +7,7 @@ import com.tngtech.archunit.junit.AnalyzeClasses;
 import com.tngtech.archunit.junit.ArchTest;
 import com.tngtech.archunit.lang.ArchRule;
 
-@AnalyzeClasses(
-        packages = "io.collectra.api",
-        importOptions = ImportOption.DoNotIncludeTests.class)
+@AnalyzeClasses(packages = "io.collectra.api", importOptions = ImportOption.DoNotIncludeTests.class)
 class ArchitectureTest {
 
     @ArchTest
@@ -20,6 +18,5 @@ class ArchitectureTest {
                     .should()
                     .dependOnClassesThat()
                     .resideInAnyPackage(
-                            "io.collectra.api.*.api..",
-                            "io.collectra.api.*.infrastructure..");
+                            "io.collectra.api.*.api..", "io.collectra.api.*.infrastructure..");
 }
