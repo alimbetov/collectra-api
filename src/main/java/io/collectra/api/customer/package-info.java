@@ -1,1 +1,2 @@
-/** Customer bounded context. */ package io.collectra.api.customer;
+/** Customer bounded context. */
+package io.collectra.api.customer;

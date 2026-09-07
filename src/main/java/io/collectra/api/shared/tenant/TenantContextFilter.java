@@ -11,14 +11,21 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 import org.springframework.web.filter.OncePerRequestFilter;
 
 public class TenantContextFilter extends OncePerRequestFilter {
-    @Override protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
+    @Override
+    protected void doFilterInternal(
+            HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
-        Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        Authentication auth =
+                org.springframework.security.core.context.SecurityContextHolder.getContext()
+                        .getAuthentication();
         try {
-            if (auth instanceof JwtAuthenticationToken jwt && jwt.getToken().hasClaim("tenant_id")) {
+            if (auth instanceof JwtAuthenticationToken jwt
+                    && jwt.getToken().hasClaim("tenant_id")) {
                 TenantContext.set(UUID.fromString(jwt.getToken().getClaimAsString("tenant_id")));
             }
             chain.doFilter(request, response);
-        } finally { TenantContext.clear(); }
+        } finally {
+            TenantContext.clear();
+        }
     }
 }

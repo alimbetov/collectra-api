@@ -1,1 +1,2 @@
-/** Contract bounded context. */ package io.collectra.api.contract;
+/** Contract bounded context. */
+package io.collectra.api.contract;

@@ -1,1 +1,2 @@
-/** Data import bounded context. */ package io.collectra.api.importing;
+/** Data import bounded context. */
+package io.collectra.api.importing;

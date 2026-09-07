@@ -1,1 +1,2 @@
-/** Receivables bounded context. */ package io.collectra.api.receivable;
+/** Receivables bounded context. */
+package io.collectra.api.receivable;
