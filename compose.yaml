@@ -1,0 +1,76 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: local_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: devuser
+      POSTGRES_PASSWORD: devpass
+      POSTGRES_DB: app_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-sql:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U devuser -d app_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks: [dev_network]
+
+  rabbitmq:
+    image: rabbitmq:3.12-management-alpine
+    container_name: local_rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: devuser
+      RABBITMQ_DEFAULT_PASS: devpass
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [dev_network]
+
+  rustfs:
+    image: rustfs/rustfs:latest
+    container_name: local_rustfs
+    restart: unless-stopped
+    environment:
+      RUSTFS_ACCESS_KEY: rustfsadmin
+      RUSTFS_SECRET_KEY: rustfsadmin
+      RUSTFS_ADDRESS: ":9000"
+      RUSTFS_CONSOLE_ADDRESS: ":9001"
+      RUSTFS_CONSOLE_ENABLE: "true"
+      RUSTFS_VOLUMES: /data
+      RUSTFS_OBS_LOG_DIRECTORY: /logs
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - rustfs_data:/data
+      - rustfs_logs:/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [dev_network]
+
+volumes:
+  postgres_data:
+  rabbitmq_data:
+  rustfs_data:
+  rustfs_logs:
+
+networks:
+  dev_network:
+    driver: bridge

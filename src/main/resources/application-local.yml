@@ -1,0 +1,20 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/app_db
+    username: devuser
+    password: devpass
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: devuser
+    password: devpass
+  jpa.show-sql: false
+management.endpoint.health.show-details: always
+
+collectra:
+  storage:
+    endpoint: http://localhost:9000
+    access-key: rustfsadmin
+    secret-key: rustfsadmin
+    region: us-east-1
+    path-style-access: true

@@ -1,0 +1,3 @@
+spring:
+  jpa.show-sql: false
+collectra.security.jwt-secret: test-secret-with-at-least-thirty-two-characters

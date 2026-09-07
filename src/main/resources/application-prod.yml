@@ -1,0 +1,5 @@
+spring:
+  jpa.show-sql: false
+server:
+  shutdown: graceful
+management.endpoint.health.show-details: never
