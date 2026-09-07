@@ -1,5 +1,7 @@
 target/
-.idea/
+.idea/*
+!.idea/codeStyles/
+!.idea/codeStyles/**
 *.iml
 .env
 data/

@@ -18,6 +18,20 @@ mvn spring-boot:run -Dspring-boot.run.profiles=local
 
 Учётные данные в `compose.yaml` предназначены только для локальной разработки.
 
+## Форматирование кода
+
+Проект содержит общий IntelliJ IDEA code style и `.editorconfig`. Для форматирования всего Java-кода:
+
+```bash
+mvn spotless:apply
+```
+
+Для проверки форматирования без изменения файлов:
+
+```bash
+mvn spotless:check
+```
+
 Swagger UI: `http://localhost:8080/swagger-ui.html`
 Health: `http://localhost:8080/actuator/health`
 
