@@ -7,5 +7,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface UserAccountRepository extends JpaRepository<UserAccount, UUID> {
     Optional<UserAccount> findByTenantIdAndEmailIgnoreCase(UUID tenantId, String email);
+    Optional<UserAccount> findByTenantIdIsNullAndEmailIgnoreCase(String email);
     boolean existsByTenantIdAndEmailIgnoreCase(UUID tenantId, String email);
 }
