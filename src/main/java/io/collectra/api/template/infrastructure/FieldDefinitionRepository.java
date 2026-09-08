@@ -8,6 +8,10 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface FieldDefinitionRepository extends JpaRepository<FieldDefinition, UUID> {
-    @Query("select f from FieldDefinition f where f.tenantId is null or f.tenantId = :tenantId order by f.category, f.key")
+    @Query("select f from FieldDefinition f where (f.tenantId is null or f.tenantId = :tenantId) "
+            + "and f.status = 'ACTIVE' order by f.category, f.key")
     List<FieldDefinition> findAvailable(@Param("tenantId") UUID tenantId);
+
+    boolean existsByTenantIdAndKeyIgnoreCase(UUID tenantId, String key);
+    boolean existsByTenantIdIsNullAndKeyIgnoreCase(String key);
 }
