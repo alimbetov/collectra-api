@@ -12,7 +12,7 @@ class RbacSeedIntegrationTest extends AbstractIntegrationTest {
     @Test
     void systemRolesHaveExpectedScopeAndPermissionBundles() {
         assertThat(jdbc.queryForObject("select count(*) from roles where system_role", Integer.class))
-                .isEqualTo(4);
+                .isEqualTo(3);
         assertThat(scopeOf("PLATFORM_SUPER_ADMIN")).isEqualTo("PLATFORM");
         assertThat(scopeOf("TENANT_ADMIN")).isEqualTo("TENANT");
         assertThat(scopeOf("TENANT_USER")).isEqualTo("TENANT");
