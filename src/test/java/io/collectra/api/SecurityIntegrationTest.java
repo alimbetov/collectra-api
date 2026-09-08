@@ -11,12 +11,47 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.web.servlet.MockMvc;
 
 @AutoConfigureMockMvc
 class SecurityIntegrationTest extends AbstractIntegrationTest {
     @Autowired MockMvc mockMvc;
     @Autowired ObjectMapper json;
+    @Autowired JwtDecoder jwtDecoder;
+
+    @Test
+    void tenantAdminTokenContainsExpectedRoleAndPermissions() throws Exception {
+        Auth admin = register("claims-" + UUID.randomUUID(), "claims@example.test");
+        var jwt = jwtDecoder.decode(admin.accessToken);
+        assertThat(jwt.getClaimAsString("token_type")).isEqualTo("user");
+        assertThat(jwt.getClaimAsStringList("roles")).containsExactly("TENANT_ADMIN");
+        assertThat(jwt.getClaimAsStringList("permissions"))
+                .contains("USER_READ", "ROLE_ASSIGN", "SERVICE_CLIENT_CREATE", "AUDIT_READ");
+    }
+
+    @Test
+    void customRoleAssignmentInvalidatesPreviousAccessToken() throws Exception {
+        Auth admin = register("custom-role-" + UUID.randomUUID(), "custom-role@example.test");
+        JsonNode users = read(get("/api/v1/identity/users")
+                .header("Authorization", "Bearer " + admin.accessToken));
+        String membershipId = users.get(0).get("id").asText();
+        String code = "COLLECTOR_" + UUID.randomUUID().toString().replace("-", "").toUpperCase();
+        JsonNode role = read(post("/api/v1/identity/roles")
+                .header("Authorization", "Bearer " + admin.accessToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"code\":\"" + code + "\",\"permissions\":[\"USER_READ\"]}"));
+
+        mockMvc.perform(put("/api/v1/identity/memberships/{id}/roles", membershipId)
+                        .header("Authorization", "Bearer " + admin.accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"roleIds\":[\"" + role.get("id").asText() + "\"]}"))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/api/v1/identity/users")
+                        .header("Authorization", "Bearer " + admin.accessToken))
+                .andExpect(status().isUnauthorized());
+    }
 
     @Test
     void tenantAdminCanReadOnlyOwnTenantMembers() throws Exception {

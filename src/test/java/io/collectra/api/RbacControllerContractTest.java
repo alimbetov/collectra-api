@@ -2,6 +2,7 @@ package io.collectra.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.collectra.api.audit.api.SecurityAuditController;
 import io.collectra.api.identity.api.IdentityController;
 import io.collectra.api.integration.api.ServiceClientController;
 import java.lang.reflect.Method;
@@ -16,6 +17,13 @@ class RbacControllerContractTest {
         assertThat(Arrays.stream(IdentityController.class.getDeclaredMethods())
                         .filter(method -> !method.isSynthetic())
                         .filter(method -> method.getName().matches("users|roles|createRole|assignRoles|changeStatus")))
+                .allMatch(method -> method.isAnnotationPresent(PreAuthorize.class));
+    }
+
+    @Test
+    void securityAuditOperationDeclaresPermission() {
+        assertThat(Arrays.stream(SecurityAuditController.class.getDeclaredMethods())
+                        .filter(method -> method.getName().equals("find")))
                 .allMatch(method -> method.isAnnotationPresent(PreAuthorize.class));
     }
 
