@@ -98,12 +98,20 @@ public class AuthService {
         audit.append(null, "USER", userId, "LOGOUT_ALL", "SUCCEEDED", null);
     }
 
+    @Transactional
+    public AuthTokens issueActivated(UserAccount user, TenantMembership membership) {
+        return issue(user, membership, UUID.randomUUID(), null);
+    }
+
     private AuthTokens issue(UserAccount user, TenantMembership membership, UUID family, RefreshSession predecessor) {
         byte[] bytes = new byte[48]; random.nextBytes(bytes);
         String raw = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
         RefreshSession session = sessions.save(new RefreshSession(user.getId(), membership.getTenantId(),
                 membership.getId(), hash(raw), family, Instant.now().plus(refreshTtl)));
-        if (predecessor != null) predecessor.replaceWith(session.getId());
+        if (predecessor != null) {
+            predecessor.usedAt(Instant.now());
+            predecessor.replaceWith(session.getId());
+        }
         String access = jwt.issue(user, membership, rbac.roleCodes(membership.getId()),
                 rbac.permissionCodes(membership.getId()));
         return new AuthTokens(access, raw, "Bearer", jwt.expiresIn());

@@ -13,6 +13,12 @@ public interface RefreshSessionRepository extends JpaRepository<RefreshSession, 
 
     Optional<RefreshSession> findByTokenHash(String tokenHash);
     List<RefreshSession> findAllByFamilyId(UUID familyId);
+    List<RefreshSession> findAllByUserIdAndMembershipIdOrderByCreatedAtDesc(UUID userId, UUID membershipId);
+    Optional<RefreshSession> findByIdAndUserIdAndMembershipId(UUID id, UUID userId, UUID membershipId);
+
+    @Modifying
+    @Query("update RefreshSession session set session.revokedAt = current_timestamp where session.membershipId = :membershipId and session.revokedAt is null")
+    int revokeAllByMembershipId(@Param("membershipId") UUID membershipId);
 
     @Modifying
     @Query("update RefreshSession session set session.revokedAt = current_timestamp where session.userId = :userId and session.revokedAt is null")
