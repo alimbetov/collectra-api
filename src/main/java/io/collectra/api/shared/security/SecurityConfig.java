@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.convert.converter.Converter;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -18,6 +19,7 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.DelegatingPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -35,30 +37,44 @@ import org.springframework.security.web.SecurityFilterChain;
 public class SecurityConfig {
 
     @Bean
-    SecurityFilterChain security(HttpSecurity http) throws Exception {
-        return http.csrf(csrf -> csrf.disable())
+    SecurityFilterChain security(HttpSecurity http, AuthorizationVersionFilter authorizationVersionFilter) throws Exception {
+        return http
+                .csrf(csrf -> csrf.disable())
                 .sessionManagement(
                         session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(
-                        requests ->
-                                requests.requestMatchers(
-                                                "/api/v1/auth/**",
-                                                "/actuator/health",
-                                                "/v3/api-docs/**",
-                                                "/swagger-ui/**",
-                                                "/swagger-ui.html")
-                                        .permitAll()
-                                        .anyRequest()
-                                        .authenticated())
+                        requests -> requests
+                                .requestMatchers(
+                                        "/api/v1/auth/tenants/register",
+                                        "/api/v1/auth/login",
+                                        "/api/v1/auth/refresh",
+                                        "/api/v1/auth/logout",
+                                        "/api/v1/integration/service-token",
+                                        "/actuator/health",
+                                        "/v3/api-docs/**",
+                                        "/swagger-ui/**",
+                                        "/swagger-ui.html")
+                                .permitAll()
+                                .requestMatchers(HttpMethod.POST, "/api/v1/auth/otp/challenges/*/verify")
+                                .permitAll()
+                                .anyRequest()
+                                .authenticated())
                 .oauth2ResourceServer(
-                        oauth2 -> oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtConverter())))
-                .addFilterAfter(new TenantContextFilter(), BearerTokenAuthenticationFilter.class)
+                        oauth2 -> oauth2.jwt(
+                                jwt -> jwt.jwtAuthenticationConverter(jwtConverter())))
+                .addFilterAfter(authorizationVersionFilter, BearerTokenAuthenticationFilter.class)
+                .addFilterAfter(new TenantContextFilter(), AuthorizationVersionFilter.class)
                 .build();
     }
 
     @Bean
     PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder(12);
+        String id = "bcrypt";
+        var encoders = new java.util.HashMap<String, PasswordEncoder>();
+        encoders.put(id, new BCryptPasswordEncoder(12));
+        DelegatingPasswordEncoder encoder = new DelegatingPasswordEncoder(id, encoders);
+        encoder.setDefaultPasswordEncoderForMatches(encoders.get(id));
+        return encoder;
     }
 
     @Bean
@@ -76,8 +92,9 @@ public class SecurityConfig {
 
     @Bean
     JwtDecoder jwtDecoder(SecretKey key) {
-        NimbusJwtDecoder decoder =
-                NimbusJwtDecoder.withSecretKey(key).macAlgorithm(MacAlgorithm.HS256).build();
+        NimbusJwtDecoder decoder = NimbusJwtDecoder.withSecretKey(key)
+                .macAlgorithm(MacAlgorithm.HS256)
+                .build();
         decoder.setJwtValidator(JwtValidators.createDefaultWithIssuer("collectra-api"));
         return decoder;
     }
@@ -89,13 +106,14 @@ public class SecurityConfig {
     }
 
     private Collection<GrantedAuthority> extractAuthorities(Jwt jwt) {
+        java.util.ArrayList<GrantedAuthority> authorities = new java.util.ArrayList<>();
         List<String> roles = jwt.getClaimAsStringList("roles");
-        if (roles == null) {
-            return List.of();
-        }
-
-        return roles.stream()
-                .map(role -> (GrantedAuthority) new SimpleGrantedAuthority("ROLE_" + role))
-                .toList();
+        if (roles != null) roles.forEach(role -> authorities.add(new SimpleGrantedAuthority("ROLE_" + role)));
+        List<String> permissions = jwt.getClaimAsStringList("permissions");
+        if (permissions != null) permissions.forEach(code -> authorities.add(new SimpleGrantedAuthority(code)));
+        String scope = jwt.getClaimAsString("scope");
+        if (scope != null) java.util.Arrays.stream(scope.split(" ")).filter(s -> !s.isBlank())
+                .forEach(code -> authorities.add(new SimpleGrantedAuthority("SCOPE_" + code)));
+        return List.copyOf(authorities);
     }
 }

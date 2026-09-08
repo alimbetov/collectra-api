@@ -35,6 +35,8 @@ mvn spotless:check
 Swagger UI: `http://localhost:8080/swagger-ui.html`
 Health: `http://localhost:8080/actuator/health`
 
+Матрица REST-доступа: [`docs/identity-rbac-rest-api.md`](docs/identity-rbac-rest-api.md).
+
 ## Первый сценарий
 
 1. `POST /api/v1/auth/tenants/register` создаёт tenant и первого администратора.
