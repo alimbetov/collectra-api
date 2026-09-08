@@ -5,7 +5,6 @@ import io.collectra.api.identity.domain.UserAccount;
 import java.time.*;
 import java.util.*;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.oauth2.jose.jws.JwsHeader;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.*;
 import org.springframework.stereotype.Service;
