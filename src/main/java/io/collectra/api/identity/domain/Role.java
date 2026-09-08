@@ -32,4 +32,5 @@ public class Role extends AuditableEntity {
     public String getCode() { return code; }
     public String getScopeType() { return scopeType; }
     public boolean isSystemRole() { return systemRole; }
+    public void rename(String code) { this.code = code; }
 }
