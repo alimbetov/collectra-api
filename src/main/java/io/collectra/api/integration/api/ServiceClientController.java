@@ -18,11 +18,11 @@ public class ServiceClientController {
     @PostMapping("/service-clients") @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAuthority('SERVICE_CLIENT_CREATE')")
     ServiceClientService.SecretResponse create(@Valid @RequestBody CreateRequest request) {
-        return service.create(TenantContext.require(), request.clientId(), request.name(), request.scopes(), request.ipAllowlist());
+        return service.create(TenantContext.requireTenantId(), request.clientId(), request.name(), request.scopes(), request.ipAllowlist());
     }
     @PostMapping("/service-clients/{id}/rotate-secret")
     @PreAuthorize("hasAuthority('SERVICE_CLIENT_ROTATE_SECRET')")
-    ServiceClientService.SecretResponse rotate(@PathVariable UUID id) { return service.rotate(TenantContext.require(), id); }
+    ServiceClientService.SecretResponse rotate(@PathVariable UUID id) { return service.rotate(TenantContext.requireTenantId(), id); }
     @PostMapping("/service-token")
     ServiceClientService.TokenResponse token(@Valid @RequestBody TokenRequest request, HttpServletRequest http) {
         return service.token(request.clientId(), request.clientSecret(), request.scopes(), http.getRemoteAddr());

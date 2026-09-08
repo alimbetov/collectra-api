@@ -25,35 +25,35 @@ public class IdentityController {
     @GetMapping("/users")
     @PreAuthorize("hasAuthority('USER_READ')")
     List<MembershipResponse> users() {
-        return memberships.findAllByTenantId(TenantContext.require()).stream()
+        return memberships.findAllByTenantId(TenantContext.requireTenantId()).stream()
                 .map(m -> new MembershipResponse(m.getId(), m.getUserId(), m.getStatus())).toList();
     }
 
     @GetMapping("/roles")
     @PreAuthorize("hasAuthority('ROLE_READ')")
     List<RoleResponse> roles() {
-        return rbac.roles(TenantContext.require()).stream().map(RoleResponse::from).toList();
+        return rbac.roles(TenantContext.requireTenantId()).stream().map(RoleResponse::from).toList();
     }
 
     @PostMapping("/roles")
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAuthority('ROLE_CREATE')")
     RoleResponse createRole(@Valid @RequestBody CreateRoleRequest request) {
-        return RoleResponse.from(rbac.createRole(TenantContext.require(), request.code(), request.permissions()));
+        return RoleResponse.from(rbac.createRole(TenantContext.requireTenantId(), request.code(), request.permissions()));
     }
 
     @PutMapping("/memberships/{id}/roles")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @PreAuthorize("hasAuthority('ROLE_ASSIGN')")
     void assignRoles(@PathVariable UUID id, @Valid @RequestBody AssignRolesRequest request) {
-        rbac.assignRoles(TenantContext.require(), id, request.roleIds());
+        rbac.assignRoles(TenantContext.requireTenantId(), id, request.roleIds());
     }
 
     @PatchMapping("/memberships/{id}/status")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @PreAuthorize("hasAuthority('USER_BLOCK')")
     void changeStatus(@PathVariable UUID id, @Valid @RequestBody StatusRequest request) {
-        rbac.changeMembershipStatus(TenantContext.require(), id, request.active());
+        rbac.changeMembershipStatus(TenantContext.requireTenantId(), id, request.active());
     }
 
     record MembershipResponse(UUID id, UUID userId, String status) {}
