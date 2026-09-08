@@ -23,6 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/integration")
+@PreAuthorize("hasAuthority('ROLE_HUMAN')")
 public class ServiceClientController {
     private final ServiceClientService service;
 
@@ -32,7 +33,7 @@ public class ServiceClientController {
 
     @PostMapping("/service-clients")
     @ResponseStatus(HttpStatus.CREATED)
-    @PreAuthorize("hasAuthority('SERVICE_CLIENT_CREATE')")
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('SERVICE_CLIENT_CREATE')")
     ServiceClientService.ClientResponse create(@Valid @RequestBody CreateRequest request) {
         return service.create(
                 TenantContext.requireTenantId(),
@@ -45,13 +46,14 @@ public class ServiceClientController {
     }
 
     @GetMapping("/service-clients")
-    @PreAuthorize("hasAuthority('SERVICE_CLIENT_READ')")
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('SERVICE_CLIENT_READ')")
     List<ServiceClientService.ClientResponse> list() {
         return service.list(TenantContext.requireTenantId());
     }
 
     @PostMapping("/service-clients/{id}/rotate-secret")
-    @PreAuthorize("hasAuthority('SERVICE_CLIENT_ROTATE_SECRET')")
+    @PreAuthorize(
+            "hasAuthority('ROLE_HUMAN') and hasAuthority('SERVICE_CLIENT_ROTATE_SECRET')")
     ServiceClientService.ClientResponse startRotation(
             @PathVariable UUID id, @Valid @RequestBody RotateSecretRequest request) {
         return service.startRotation(
@@ -62,7 +64,8 @@ public class ServiceClientController {
     }
 
     @PostMapping("/service-clients/{id}/credentials/{credentialId}/activate")
-    @PreAuthorize("hasAuthority('SERVICE_CLIENT_ROTATE_SECRET')")
+    @PreAuthorize(
+            "hasAuthority('ROLE_HUMAN') and hasAuthority('SERVICE_CLIENT_ROTATE_SECRET')")
     ServiceClientService.ClientResponse completeRotation(
             @PathVariable UUID id, @PathVariable UUID credentialId) {
         return service.completeRotation(TenantContext.requireTenantId(), id, credentialId);
@@ -70,22 +73,16 @@ public class ServiceClientController {
 
     @PostMapping("/service-clients/{id}/block")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    @PreAuthorize("hasAuthority('SERVICE_CLIENT_BLOCK')")
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('SERVICE_CLIENT_BLOCK')")
     void block(@PathVariable UUID id) {
         service.block(TenantContext.requireTenantId(), id);
     }
 
     @PostMapping("/service-clients/{id}/unblock")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    @PreAuthorize("hasAuthority('SERVICE_CLIENT_BLOCK')")
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('SERVICE_CLIENT_BLOCK')")
     void unblock(@PathVariable UUID id) {
         service.unblock(TenantContext.requireTenantId(), id);
-    }
-
-    @PostMapping("/service-token")
-    ServiceClientService.TokenResponse token(@Valid @RequestBody TokenRequest request) {
-        return service.token(
-                request.clientId(), request.clientSecret(), request.scopes());
     }
 
     record CreateRequest(
@@ -99,8 +96,4 @@ public class ServiceClientController {
     record RotateSecretRequest(
             @Size(min = 32, max = 72) String clientSecret, Instant secretExpiresAt) {}
 
-    record TokenRequest(
-            @NotBlank String clientId,
-            @NotBlank String clientSecret,
-            @NotEmpty Set<String> scopes) {}
 }

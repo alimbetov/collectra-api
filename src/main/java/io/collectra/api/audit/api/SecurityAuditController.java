@@ -9,12 +9,13 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/v1/audit/security-events")
+@PreAuthorize("hasAuthority('ROLE_HUMAN')")
 public class SecurityAuditController {
     private final JdbcTemplate jdbc;
     public SecurityAuditController(JdbcTemplate jdbc) { this.jdbc = jdbc; }
 
     @GetMapping
-    @PreAuthorize("hasAuthority('AUDIT_READ')")
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('AUDIT_READ')")
     List<AuditEventResponse> find(@RequestParam(defaultValue = "100") int limit) {
         int safeLimit = Math.max(1, Math.min(limit, 500));
         return jdbc.query("""

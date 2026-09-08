@@ -4,7 +4,7 @@
 
 | Actor / role | Model | Authentication | Authorization | REST management | Automated evidence | Status |
 |---|---|---|---|---|---|---|
-| `PLATFORM_SUPER_ADMIN` | Platform role seeded | No bootstrap/login flow | Platform permissions not seeded | No platform controller | Seed matrix only | Planned |
+| `PLATFORM_SUPER_ADMIN` | Platform role seeded | No bootstrap/login flow | Platform boundary enforced | `/platform/me` entry point | Controller security contract | Foundation |
 | `TENANT_ADMIN` | UserAccount + TenantMembership | Password, access/refresh JWT | All 13 Identity/Integration/Audit permissions | Users, roles, service clients, audit | JWT claims, cross-tenant, custom-role smoke tests | Implemented |
 | `TENANT_USER` | UserAccount + TenantMembership | Invitation, activation, password login and refresh JWT | `USER_READ`, `ROLE_READ` | Profile, password recovery and session management | Lifecycle integration tests | Implemented |
 | Custom tenant role | Tenant-owned Role | Human JWT after login/refresh | Selected permission set | Create and assign supported; update absent | Assignment and authorization-version smoke test | Partial |
@@ -15,6 +15,9 @@
 - `TENANT_USER` is always a human account with a membership.
 - A technical integration is always a `ServiceClient`; it has no password login, membership, UI session or refresh token.
 - Tenant endpoints authorize atomic permissions with `@PreAuthorize`.
+- Identity, audit and service-client administration require a human JWT before permissions are evaluated.
+- `/platform/**` requires `ROLE_PLATFORM_SUPER_ADMIN` at HTTP and method-security boundaries.
+- Future business `/integration/**` endpoints require a service JWT; service-token issuance remains explicitly public.
 - Integration endpoints authorize `SCOPE_...` authorities.
 - Network restrictions belong to API Gateway/WAF; ServiceClient has no IP allowlist.
 - Tenant identity comes only from the verified JWT.
