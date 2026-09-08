@@ -26,6 +26,8 @@ collectra:
     jwt-secret: ${COLLECTRA_JWT_SECRET:local-development-secret-change-me-123456789}
     access-token-ttl: PT15M
     refresh-token-ttl: 30d
+    otp-pepper: ${COLLECTRA_OTP_PEPPER:local-development-otp-pepper-change-me}
+    expose-otp: false
 logging:
   pattern:
     level: "%5p [traceId=%X{traceId:-}, correlationId=%X{correlationId:-}]"
