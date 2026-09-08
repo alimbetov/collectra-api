@@ -1,162 +1,88 @@
 # Collectra Security Management — техническое задание
 
 Статус: `DRAFT FOR REVIEW`  
-Этап: 1 — проектирование, без изменения runtime-кода  
-База проектирования: `main` после PR #6  
-Целевой стек: Java 17, Spring Boot 3.5, Spring Security, PostgreSQL, Liquibase, Redis
+Этап 1: проектирование без изменения runtime-кода  
+База: `main` после PR #6  
+Стек: Java 17, Spring Boot 3.5, Spring Security, PostgreSQL, Liquibase, Redis
 
-## 1. Цель и границы
+## 1. Цель
 
-Цель доработки — завершить platform authentication и административное управление Identity/RBAC,
-устранить локальные механизмы, которые нельзя безопасно масштабировать, и создать проверяемый
-контракт service-to-service авторизации.
+Завершить базовый контур Security/RBAC перед разработкой бизнес-модулей Collectra:
 
-В реализацию входят:
+1. запустить первого `PLATFORM_SUPER_ADMIN`;
+2. реализовать platform login и JWT без tenant context;
+3. управлять platform administrators;
+4. обновлять и удалять custom tenant roles;
+5. предоставить каталог permissions;
+6. дать tenant administrator управление пользовательскими сессиями;
+7. отзывать сессии при блокировке membership;
+8. заменить локальный rate limit на Redis;
+9. закрыть аудит изменений доступа;
+10. подготовить scope-защиту реальных integration API.
 
-1. bootstrap первого `PLATFORM_SUPER_ADMIN`;
-2. platform login/access/refresh/logout flow без tenant membership;
-3. управление platform administrators;
-4. update/delete custom tenant roles;
-5. каталог permissions;
-6. административный просмотр и отзыв пользовательских сессий;
-7. немедленный отзыв refresh-сессий при блокировке membership;
-8. Redis rate limiting;
-9. полный security audit изменений ролей, permissions и service-client scopes;
-10. scope-защищённые integration endpoints для проверки service-client модели.
+Не входят: Keycloak, SSO, MFA, support-доступ к tenant, IP allowlist, API Gateway/WAF, UI и
+бизнес-реализация импорта/уведомлений.
 
-Не входят: SSO/OIDC, Keycloak, MFA platform administrator, временный support-доступ к tenant,
-IP allowlist, бизнес-реализация импорта и уведомлений, UI и API Gateway/WAF policies.
+## 2. Простая целевая модель
 
-## 2. Обязательные архитектурные инварианты
+| Actor | Хранение | JWT `token_type` | Контекст |
+|---|---|---|---|
+| Tenant user | `user_accounts` + `tenant_memberships` | `tenant_user` | tenant + membership |
+| Platform administrator | `user_accounts` + `platform_user_roles` | `platform_user` | без tenant |
+| Service client | `service_clients` | `service` | tenant + scopes |
 
-- `UserAccount` остаётся единственным типом human identity.
-- Tenant-доступ существует только через активный `TenantMembership`.
-- Platform-доступ существует только через `platform_user_roles`; tenant membership для него не нужен.
-- В этой итерации `UserAccount` имеет ровно один identity context: tenant account содержит
-  `tenant_id`, platform-only account имеет `tenant_id=null`. Один email может существовать в обоих
-  контекстах как две независимые учётные записи.
-- Platform JWT не содержит `tenant_id` и `membership_id`.
-- Tenant JWT не получает platform authorities даже при наличии platform role у того же пользователя.
-- Service client не является `UserAccount`, не имеет password/refresh session и получает только scopes.
-- Контроллеры проверяют atomic permissions/scopes. Имена tenant-ролей не используются в бизнес-методах.
-- `ROLE_PLATFORM_SUPER_ADMIN`, `ROLE_HUMAN` и `ROLE_SERVICE` задают actor boundary, но не заменяют
-  atomic permissions для tenant/service операций.
-- Tenant identifier берётся только из проверенного JWT и `TenantContext`; request body/query/path не
-  может переопределить tenant.
-- Изменение доступа увеличивает `authorization_version`, поэтому старый access token становится
-  недействительным немедленно.
-- Все секреты и refresh tokens хранятся только в виде hash.
-- Security audit не должен фиксировать `SUCCEEDED`, если бизнес-транзакция откатилась.
+Правила:
 
-## 3. Целевая структура пакетов
+- tenant access существует только через активный `TenantMembership`;
+- platform access существует только через `platform_user_roles`;
+- platform JWT не содержит `tenant_id`, `membership_id` и tenant permissions;
+- service client не является пользователем и не получает refresh token;
+- контроллеры проверяют permissions/scopes, а не названия custom roles;
+- tenant ID берётся только из проверенного JWT;
+- изменение прав увеличивает `authorization_version` и инвалидирует старый access JWT;
+- passwords, refresh tokens и client secrets хранятся только как hash;
+- cross-tenant ID возвращает `404`, не раскрывая наличие чужого объекта.
 
-```text
-io.collectra.api
-├── identity
-│   ├── api
-│   │   ├── PlatformAuthController
-│   │   ├── PlatformAdministratorController
-│   │   ├── TenantPermissionController
-│   │   ├── TenantRoleController
-│   │   └── TenantMembershipController
-│   ├── application
-│   │   ├── PlatformAuthService
-│   │   ├── PlatformAdministratorService
-│   │   ├── PermissionCatalogService
-│   │   ├── RbacService
-│   │   └── SessionAdministrationService
-│   └── infrastructure
-│       ├── PlatformUserRoleRepository
-│       └── RedisRateLimitRepository
-├── integration
-│   ├── api
-│   │   ├── ServiceClientController
-│   │   └── IntegrationAccessController
-│   └── application
-│       └── ServiceClientService
-└── shared/security
-    ├── AuthorizationVersionFilter
-    ├── RedisRateLimiter
-    ├── SecurityConfig
-    └── SecurityActor
-```
+В этой итерации `UserAccount` относится либо к tenant, либо к platform. Одинаковый email может
+существовать в обоих контекстах как две независимые учётные записи. Объединение identity пока не нужно.
 
-Новые классы создаются только когда у них есть отдельная ответственность. DTO допускается оставлять
-внутренними records контроллера, пока они не переиспользуются.
+## 3. Изменения базы данных
 
-## 4. Модель данных и Liquibase
-
-Изменения оформить последовательными changesets, без редактирования `001`–`005`:
+Существующие changesets `001`–`005` не изменять. Добавить:
 
 - `006-platform-identity.sql`;
-- `007-role-and-session-administration.sql`;
-- `008-security-audit.sql`;
-- `009-service-scope-catalog.sql`.
+- `007-security-management.sql`;
+- `008-service-scope-catalog.sql`.
 
-### 4.1 Platform identity
-
-Текущая `user_accounts.tenant_id NOT NULL` не позволяет platform-only account. В `006`:
+### 3.1 Platform account и sessions
 
 ```sql
 ALTER TABLE user_accounts ALTER COLUMN tenant_id DROP NOT NULL;
-ALTER TABLE user_accounts ALTER COLUMN role DROP NOT NULL;
 ALTER TABLE refresh_sessions ALTER COLUMN tenant_id DROP NOT NULL;
 ALTER TABLE refresh_sessions ALTER COLUMN membership_id DROP NOT NULL;
 
 ALTER TABLE refresh_sessions
-    ADD COLUMN actor_context VARCHAR(20) NOT NULL DEFAULT 'TENANT';
+    ADD COLUMN context_type VARCHAR(20) NOT NULL DEFAULT 'TENANT';
 
 ALTER TABLE refresh_sessions
-    ADD CONSTRAINT ck_refresh_actor_context CHECK (
-        (actor_context = 'TENANT' AND tenant_id IS NOT NULL AND membership_id IS NOT NULL)
+    ADD CONSTRAINT ck_refresh_context CHECK (
+        (context_type = 'TENANT' AND tenant_id IS NOT NULL AND membership_id IS NOT NULL)
         OR
-        (actor_context = 'PLATFORM' AND tenant_id IS NULL AND membership_id IS NULL)
+        (context_type = 'PLATFORM' AND tenant_id IS NULL AND membership_id IS NULL)
     );
 
 CREATE UNIQUE INDEX uk_platform_user_email
     ON user_accounts (lower(email)) WHERE tenant_id IS NULL;
-```
 
-Legacy `user_accounts.role` не использовать для новой авторизации. Его удаление выполняется отдельной
-expand/contract миграцией после подтверждения отсутствия чтений.
-
-Для platform role используется существующая таблица `platform_user_roles`. Нельзя назначать туда
-роль с `scope_type != 'PLATFORM'`.
-
-### 4.2 Role deletion and session lookup
-
-В `007` добавить индексы:
-
-```sql
 CREATE INDEX idx_refresh_membership_active
     ON refresh_sessions (membership_id, created_at DESC)
     WHERE revoked_at IS NULL;
-
-CREATE INDEX idx_platform_user_role_user
-    ON platform_user_roles (user_id);
 ```
 
-Удаление custom role опирается на существующий FK `membership_roles.role_id`. API заранее проверяет
-назначения и возвращает `409`; каскадное снятие роли при delete запрещено.
+Существующее поле `user_accounts.role` не использовать в новой авторизации. Удалять его сейчас не
+нужно: это отдельная cleanup-миграция после проверки legacy-кода.
 
-### 4.3 Audit metadata
-
-В `008` существующая таблица `security_audit_events` сохраняется. В `metadata` записываются только
-идентификаторы, codes и before/after-наборы permissions/scopes. Password, token, secret и их hashes
-в audit запрещены.
-
-При необходимости добавить индексы:
-
-```sql
-CREATE INDEX idx_security_audit_actor_created
-    ON security_audit_events (actor_id, created_at DESC);
-CREATE INDEX idx_security_audit_action_created
-    ON security_audit_events (action, created_at DESC);
-```
-
-### 4.4 Service scope catalog
-
-В `009` создать whitelist:
+### 3.2 Каталог service scopes
 
 ```sql
 CREATE TABLE service_scopes (
@@ -167,66 +93,65 @@ CREATE TABLE service_scopes (
 );
 ```
 
-Начальный каталог:
+Начальные scopes:
 
 - `integration:imports:read`;
 - `integration:imports:write`;
 - `integration:notifications:write`;
 - `integration:notifications:status:read`.
 
-Создание клиента, обновление scopes и выдача service token валидируют scopes по каталогу.
+В `permissions` добавить `SERVICE_CLIENT_UPDATE` и назначить его `TENANT_ADMIN`.
 
-## 5. Bootstrap первого PLATFORM_SUPER_ADMIN
+Новые таблицы для administrators, custom roles и audit не нужны: используются существующие
+`platform_user_roles`, `roles`, `role_permissions`, `membership_roles`, `security_audit_events`.
 
-### 5.1 Конфигурация
+## 4. Bootstrap первого PLATFORM_SUPER_ADMIN
+
+### Конфигурация
 
 ```yaml
-collectra:
-  security:
-    platform-bootstrap:
-      enabled: ${COLLECTRA_PLATFORM_BOOTSTRAP_ENABLED:false}
-      email: ${COLLECTRA_PLATFORM_BOOTSTRAP_EMAIL:}
-      password: ${COLLECTRA_PLATFORM_BOOTSTRAP_PASSWORD:}
+collectra.security.platform-bootstrap:
+  enabled: ${COLLECTRA_PLATFORM_BOOTSTRAP_ENABLED:false}
+  email: ${COLLECTRA_PLATFORM_BOOTSTRAP_EMAIL:}
+  password: ${COLLECTRA_PLATFORM_BOOTSTRAP_PASSWORD:}
 ```
 
-Production defaults всегда `enabled=false`. Значения передаются через Kubernetes Secret/secret
-manager, не сохраняются в Git, image layer, application logs или audit metadata.
+В production bootstrap по умолчанию выключен. Значения передаются через Kubernetes Secret/secret
+manager и не логируются.
 
-### 5.2 Реализация
+### Реализация
 
-`PlatformAdminBootstrap` реализует `ApplicationRunner` и транзакционно вызывает
-`PlatformAdministratorService.bootstrap(email, rawPassword)`.
+Добавить `PlatformAdminBootstrap implements ApplicationRunner` и
+`PlatformAdministratorService.bootstrap(email, password)`.
 
-Алгоритм:
+Алгоритм одной транзакции:
 
-1. Если bootstrap выключен — ничего не делать.
-2. Если email/password отсутствуют или password не проходит общую password policy — остановить startup.
-3. Заблокировать bootstrap через PostgreSQL advisory transaction lock, чтобы несколько replicas не
-   создали разных первых администраторов.
-4. Если в `platform_user_roles` уже есть активный `PLATFORM_SUPER_ADMIN` — ничего не создавать и
-   вывести безопасный INFO без email/password.
-5. Создать `UserAccount(tenantId=null)` с BCrypt hash и `ACTIVE`.
-6. Назначить существующую системную platform role.
-7. Записать `PLATFORM_ADMIN_BOOTSTRAPPED/SUCCEEDED` после успешного commit.
+1. Если `enabled=false`, ничего не делать.
+2. Проверить email и пароль по общей password policy.
+3. Если активный platform administrator уже существует, ничего не создавать.
+4. Создать `UserAccount` с `tenantId=null`, BCrypt hash и статусом `ACTIVE`.
+5. Назначить существующую роль `PLATFORM_SUPER_ADMIN` через `platform_user_roles`.
+6. Записать audit `PLATFORM_ADMIN_BOOTSTRAPPED`.
 
-После первого успешного запуска оператор обязан удалить bootstrap password и установить
-`enabled=false`. Повторный запуск идемпотентен и не меняет пароль существующего администратора.
+Параллельный запуск защищает уникальный индекс email. При конфликте повторно проверить наличие
+administrator и завершиться без ошибки. Advisory lock для MVP не нужен.
 
-## 6. Platform authentication
+После первого запуска оператор выключает bootstrap и удаляет password из окружения. Повторный запуск
+не изменяет существующего пользователя или пароль.
 
-### 6.1 REST contract
+## 5. Platform authentication
 
-| Method | Endpoint | Access | Result |
+| Method | Endpoint | Доступ | Результат |
 |---|---|---|---|
-| POST | `/api/v1/platform/auth/login` | Public + rate limit | access + rotating refresh token |
-| POST | `/api/v1/platform/auth/refresh` | Platform refresh token | rotated token pair |
+| POST | `/api/v1/platform/auth/login` | Public + rate limit | access + refresh token |
+| POST | `/api/v1/platform/auth/refresh` | Platform refresh token | новая token pair |
 | POST | `/api/v1/platform/auth/logout` | Platform refresh token | `204` |
 | POST | `/api/v1/platform/auth/logout-all` | `ROLE_PLATFORM_SUPER_ADMIN` | `204` |
-| GET | `/api/v1/platform/me` | `ROLE_PLATFORM_SUPER_ADMIN` | platform profile |
+| GET | `/api/v1/platform/me` | `ROLE_PLATFORM_SUPER_ADMIN` | profile |
 
-Login request: `{ "email": "...", "password": "..." }`. Tenant ID не принимается.
+Login request принимает только `email` и `password`. Tenant ID отсутствует.
 
-### 6.2 Platform JWT
+### JWT contract
 
 ```json
 {
@@ -241,52 +166,42 @@ Login request: `{ "email": "...", "password": "..." }`. Tenant ID не прин�
 }
 ```
 
-Claims `tenant_id`, `membership_id`, `permissions` и `scope` отсутствуют.
+Изменения кода:
 
-`JwtService` получает отдельный метод `issuePlatform(...)`. Общий private encoder переиспользуется.
-`SecurityConfig.extractAuthorities` добавляет `ROLE_HUMAN` и platform roles для
-`token_type=platform_user`. Platform token не получает tenant permissions.
+- `JwtService.issuePlatform(user, roles)`;
+- `PlatformAuthService` и `PlatformAuthController`;
+- `SecurityConfig.extractAuthorities()` поддерживает `platform_user` как `ROLE_HUMAN` + platform roles;
+- `AuthorizationVersionFilter` проверяет active user, platform role и version.
 
-`AuthorizationVersionFilter` разделяет проверки:
+Tenant refresh принимает только session `context_type=TENANT`, platform refresh — только `PLATFORM`.
+Rotation, reuse detection и family revocation переиспользуют текущую логику.
 
-- `tenant_user` — active user + active membership + совпавшая версия;
-- `platform_user` — active user + запись в `platform_user_roles` + совпавшая версия;
-- `service` — active client + tenant + совпавшая версия;
-- любой другой `token_type` — `401`.
+## 6. Управление platform administrators
 
-Refresh session с `actor_context=PLATFORM` нельзя использовать в tenant refresh endpoint и наоборот.
-Reuse detection и family revocation работают одинаково для обоих human contexts.
-
-## 7. Управление platform administrators
-
-### 7.1 REST contract
-
-| Method | Endpoint | Result |
+| Method | Endpoint | Назначение |
 |---|---|---|
-| GET | `/api/v1/platform/administrators` | список platform admins |
-| POST | `/api/v1/platform/administrators` | создать admin, `201` |
-| PATCH | `/api/v1/platform/administrators/{id}/status` | block/unblock, `204` |
-| POST | `/api/v1/platform/administrators/{id}/reset-password` | установить временный password, `204` |
-| DELETE | `/api/v1/platform/administrators/{id}/role` | снять platform role, `204` |
+| GET | `/api/v1/platform/administrators` | список administrators |
+| POST | `/api/v1/platform/administrators` | создать administrator |
+| PATCH | `/api/v1/platform/administrators/{id}/status` | block/unblock |
+| PUT | `/api/v1/platform/administrators/{id}/password` | установить пароль |
+| DELETE | `/api/v1/platform/administrators/{id}/role` | снять platform role |
 
-Все операции требуют `ROLE_PLATFORM_SUPER_ADMIN`. Response никогда не содержит password hash,
-refresh token или authorization internals.
+Все операции требуют `ROLE_PLATFORM_SUPER_ADMIN`.
 
 Правила:
 
-- email platform account уникален без учёта регистра;
-- нельзя заблокировать или лишить роли последнего активного platform administrator;
-- self-block и self-role-removal возвращают `409`;
-- block/reset-password/role-removal увеличивают `authorization_version` и отзывают все platform
-  refresh sessions пользователя;
-- создание задаёт временный пароль; при первом login пользователь обязан сменить его. Для этого в
-  `user_accounts` добавить `password_change_required BOOLEAN NOT NULL DEFAULT FALSE`;
-- password reset endpoint доступен только до появления email delivery adapter. В response password
-  не возвращается: его передаёт оператор в request body через защищённый канал.
+- platform email уникален без учёта регистра;
+- нельзя заблокировать или лишить роли последнего активного administrator;
+- self-block и self-role-removal возвращают `409 LAST_ADMIN_PROTECTED`;
+- block, password update и role removal отзывают platform refresh sessions пользователя;
+- block и role removal увеличивают `authorization_version`;
+- password не возвращается в response и audit;
+- создание сразу принимает password; temporary password для MVP не вводится.
 
-## 8. Update/delete custom tenant roles
+Сервис: `PlatformAdministratorService`. Для `platform_user_roles` достаточно `JdbcTemplate`; отдельная
+JPA entity пока не нужна.
 
-### 8.1 REST contract
+## 7. Custom tenant roles
 
 | Method | Endpoint | Authority |
 |---|---|---|
@@ -302,30 +217,28 @@ Update request:
 }
 ```
 
-Правила `RbacService.updateRole/deleteRole`:
+`RbacService.updateRole/deleteRole`:
 
-- поиск только `findByIdAndTenantId(id, TenantContext.requireTenantId())`;
-- system role (`system_role=true` или `tenant_id IS NULL`) менять/удалять нельзя;
-- code нормализуется в uppercase и проверяется на уникальность внутри tenant;
-- список permissions непустой и целиком существует в каталоге;
-- обновление permissions выполняется одной транзакцией;
-- после update увеличить `authorization_version` всех пользователей, которым назначена роль;
-- delete назначенной роли возвращает `409 ROLE_IN_USE` и число назначений без user identifiers;
-- cross-tenant ID внешне выглядит как `404`;
-- optimistic-lock conflict возвращает `409`.
+- ищет роль только по `id + tenantId`;
+- запрещает изменение system role и роли другого tenant;
+- нормализует code в uppercase и проверяет уникальность внутри tenant;
+- проверяет существование каждого permission;
+- заменяет permissions одной транзакцией;
+- увеличивает `authorization_version` затронутых пользователей;
+- возвращает `409 ROLE_IN_USE` для назначенной роли;
+- возвращает `409` при optimistic-lock conflict.
 
-## 9. Каталог permissions
+Автоматически снимать назначенную роль при delete запрещено.
 
-`GET /api/v1/identity/permissions` требует `ROLE_HUMAN + ROLE_READ` и возвращает только активный
-системный каталог: `code`, `module`, `description`. Pagination не требуется до 500 записей; порядок
-детерминированный: `module`, затем `code`.
+## 8. Каталог permissions
 
-Tenant не может создавать или изменять permissions. Управление каталогом через REST в этом этапе не
-реализуется: изменения поставляются Liquibase migration и проходят code review.
+`GET /api/v1/identity/permissions` требует `ROLE_HUMAN + ROLE_READ` и возвращает `code`, `module`,
+`description`, отсортированные по `module`, затем `code`.
 
-## 10. Административное управление сессиями
+Pagination не нужна до 500 записей. Tenant не изменяет permissions через REST; каталог меняется только
+Liquibase migration. Класс: `TenantPermissionController`, источник: `PermissionRepository`.
 
-### 10.1 REST contract
+## 9. Административное управление sessions
 
 | Method | Endpoint | Authority |
 |---|---|---|
@@ -333,220 +246,190 @@ Tenant не может создавать или изменять permissions. �
 | DELETE | `/api/v1/identity/memberships/{id}/sessions/{sessionId}` | `USER_UPDATE` |
 | DELETE | `/api/v1/identity/memberships/{id}/sessions` | `USER_UPDATE` |
 
-Сервис всегда сначала загружает membership по `(id, tenantId)`, затем session по
-`(sessionId, userId, membershipId)`. Cross-tenant доступ возвращает `404`.
+`SessionAdministrationService` сначала находит membership по `id + tenantId`, затем session по
+`sessionId + userId + membershipId`.
 
-Session response: `id`, `createdAt`, `expiresAt`, `lastUsedAt`, `revokedAt`, masked `sourceIp`,
-normalized `userAgent`. Refresh token/hash не возвращается.
+Response: `id`, `createdAt`, `expiresAt`, `lastUsedAt`, `revokedAt`, `sourceIp`, `userAgent`. Refresh
+token/hash не возвращается. Повторный revoke идемпотентен.
 
-Повторный revoke идемпотентен. Отзыв одной/всех sessions записывается в audit. Текущий access token
-не отзывается при ручном revoke одной refresh session; для немедленного прекращения всего доступа
-администратор блокирует membership.
+Отзыв refresh session не инвалидирует выданный access JWT. Для немедленного прекращения всего доступа
+administrator блокирует membership.
 
-## 11. Блокировка membership
+## 10. Блокировка membership
 
-`RbacService.changeMembershipStatus(..., active=false)` в одной транзакции:
+`RbacService.changeMembershipStatus(..., active=false)` выполняет одной транзакцией:
 
-1. проверяет tenant ownership и last-active-tenant-admin invariant;
-2. меняет membership status на `BLOCKED`;
-3. отзывает все активные `refresh_sessions` этого membership;
-4. увеличивает `UserAccount.authorization_version`;
-5. добавляет audit event `MEMBERSHIP_BLOCKED`;
-6. после commit старый access token получает `401` в `AuthorizationVersionFilter`.
+1. проверка tenant ownership и последнего `TENANT_ADMIN`;
+2. status membership → `BLOCKED`;
+3. revoke всех refresh sessions membership;
+4. увеличение `UserAccount.authorization_version`;
+5. audit `MEMBERSHIP_BLOCKED`.
 
-Unblock не восстанавливает sessions. Пользователь должен выполнить новый login. Если у пользователя
-позже появятся memberships разных tenants, блокировка одного membership не должна отзывать sessions
-остальных memberships.
+После commit старый access JWT получает `401`. Unblock не восстанавливает sessions — пользователь
+выполняет новый login.
 
-## 12. Redis rate limiting
+## 11. Redis rate limiting
 
-### 12.1 Инфраструктура
-
-Добавить `spring-boot-starter-data-redis`, Redis в `compose.yaml`, health indicator и параметры:
+Добавить `spring-boot-starter-data-redis`, Redis в `compose.yaml` и настройки:
 
 ```yaml
 spring.data.redis:
   host: ${REDIS_HOST:localhost}
   port: ${REDIS_PORT:6379}
   password: ${REDIS_PASSWORD:}
+
 collectra.security.rate-limit:
   key-prefix: collectra:security:rate-limit
-  fail-mode: closed
+  fail-closed: true
 ```
 
-`RedisRateLimiter` реализует существующий application-facing контракт `RateLimiter`, чтобы сервисы
-не зависели от Redis API. `InMemoryRateLimiter` остаётся только для unit/local profile при явной
-конфигурации; production использует Redis.
+Интерфейс:
 
-### 12.2 Алгоритм
+```java
+public interface RateLimiter {
+    void check(String policy, String identity, int limit, Duration window);
+}
+```
 
-Fixed window выполнить атомарным Lua script: `INCR`, первый `EXPIRE`, возврат remaining/reset time.
-Key не содержит raw email, clientId или IP: чувствительная часть предварительно HMAC-SHA256 с
-отдельным `rate-limit-pepper`.
+`RedisRateLimiter` использует атомарный Lua script: `INCR`, при первом запросе `EXPIRE`, возврат TTL.
+Identity преобразуется HMAC-SHA256 с `rate-limit-pepper`, чтобы email/clientId не были видны в keys.
 
-Минимальные policies:
+| Operation | Limit |
+|---|---:|
+| tenant login | 5 / 15 min |
+| platform login | 5 / 15 min |
+| password forgot | 3 / 30 min |
+| OTP verify | 5 / 10 min |
+| service token | 10 / min |
 
-| Operation | Key | Limit |
-|---|---|---:|
-| tenant login | tenant + email + IP | 5 / 15 min |
-| platform login | email + IP | 5 / 15 min |
-| password forgot | tenant + email | 3 / 30 min |
-| OTP verify | challenge + IP | 5 / 10 min |
-| service token | clientId + IP | 10 / min |
+Превышение: `429 RATE_LIMIT_EXCEEDED` + `Retry-After`. Production работает fail-closed для
+login/token/OTP. `InMemoryRateLimiter` остаётся только для unit/local profile.
 
-Превышение возвращает `429`, `Retry-After` и стабильный error code `RATE_LIMIT_EXCEEDED`.
-Production fail mode — closed для login/token/OTP; readiness становится unhealthy при недоступном
-Redis. Метрики: allowed/denied/error по policy, без identity labels.
+Fixed window достаточно. Sliding window, Bucket4j и отдельный rate-limit service не нужны.
 
-## 13. Security audit
+## 12. Security audit
 
-Audit events для новых/изменённых операций:
+Использовать существующие `SecurityAuditService` и `security_audit_events`.
 
-| Action | Actor | Result |
-|---|---|---|
-| `PLATFORM_LOGIN` | USER | SUCCEEDED/DENIED |
-| `PLATFORM_ADMIN_CREATED` | USER | SUCCEEDED/DENIED |
-| `PLATFORM_ADMIN_STATUS_CHANGED` | USER | SUCCEEDED/DENIED |
-| `PLATFORM_ADMIN_ROLE_REMOVED` | USER | SUCCEEDED/DENIED |
-| `TENANT_ROLE_CREATED` | USER | SUCCEEDED/DENIED |
-| `TENANT_ROLE_UPDATED` | USER | SUCCEEDED/DENIED |
-| `TENANT_ROLE_DELETED` | USER | SUCCEEDED/DENIED |
-| `MEMBERSHIP_ROLES_ASSIGNED` | USER | SUCCEEDED/DENIED |
-| `MEMBERSHIP_SESSIONS_REVOKED` | USER | SUCCEEDED/DENIED |
-| `SERVICE_CLIENT_SCOPES_UPDATED` | USER | SUCCEEDED/DENIED |
-| `SERVICE_TOKEN_ISSUED` | SERVICE | SUCCEEDED/DENIED |
+Новые actions:
 
-`SecurityAuditService` принимает structured metadata, сериализуемую `ObjectMapper`. Успешное событие
-публикуется через transaction synchronization `afterCommit` либо отдельный transactional event
-listener. Denied login/token события пишутся в отдельной `REQUIRES_NEW` транзакции, потому что
-основная операция завершается исключением.
+- `PLATFORM_LOGIN`, `PLATFORM_ADMIN_CREATED`, `PLATFORM_ADMIN_STATUS_CHANGED`;
+- `PLATFORM_ADMIN_PASSWORD_CHANGED`, `PLATFORM_ADMIN_ROLE_REMOVED`;
+- `TENANT_ROLE_CREATED`, `TENANT_ROLE_UPDATED`, `TENANT_ROLE_DELETED`;
+- `MEMBERSHIP_ROLES_ASSIGNED`, `MEMBERSHIP_SESSION_REVOKED`, `MEMBERSHIP_SESSIONS_REVOKED`;
+- `MEMBERSHIP_BLOCKED`, `MEMBERSHIP_UNBLOCKED`;
+- `SERVICE_CLIENT_SCOPES_UPDATED`, `SERVICE_TOKEN_ISSUED`.
 
-Каждое событие содержит: tenantId при tenant context, actor type/id, target type/id, action, result,
-reason code, traceId, correlationId, source IP и безопасную metadata.
+Успешный audit сохраняется в той же транзакции, что и изменение: при rollback event тоже откатывается.
+Отдельный `afterCommit` механизм для MVP не нужен.
 
-## 14. Service-client scopes и integration endpoints
+Denied login/token events записываются методом с `REQUIRES_NEW`, поскольку основная операция завершается
+исключением. Audit содержит actor/target IDs, action, result, reason, trace/correlation IDs, IP и
+безопасную metadata. Password, token, secret и hashes запрещены.
 
-### 14.1 Управление scopes
+## 13. Service-client scopes
 
 Добавить:
 
 `PUT /api/v1/integration/service-clients/{id}/scopes`
 
-Authority human actor: `SERVICE_CLIENT_UPDATE`. В `009` добавить permission и выдать
-`TENANT_ADMIN`. Request: `{ "scopes": ["integration:imports:read"] }`.
+Доступ: `ROLE_HUMAN + SERVICE_CLIENT_UPDATE`.
 
-Операция валидирует whitelist, заменяет scopes транзакционно, увеличивает client
-`authorization_version`, пишет before/after audit. Все ранее выпущенные service JWT немедленно
-становятся недействительными.
+Операция проверяет scopes по `service_scopes`, заменяет набор, увеличивает
+`service_clients.authorization_version` и пишет before/after audit. Старые service JWT получают `401`.
 
-### 14.2 Scope-protected endpoints
+Не создавать временные capability/test endpoints в production. Scope contract закрепить на первом
+реальном endpoint модуля `importing` или `communication`:
 
-До реализации бизнес-модулей создать только безопасные capability endpoints, не фиктивный CRUD:
+```java
+@PreAuthorize("hasAuthority('ROLE_SERVICE')")
+class IntegrationImportController {
 
-| Method | Endpoint | Required authority |
-|---|---|---|
-| GET | `/api/v1/integration/access/imports/read` | `SCOPE_integration:imports:read` |
-| POST | `/api/v1/integration/access/imports/write` | `SCOPE_integration:imports:write` |
-| POST | `/api/v1/integration/access/notifications/write` | `SCOPE_integration:notifications:write` |
-| GET | `/api/v1/integration/access/notifications/status` | `SCOPE_integration:notifications:status:read` |
+    @PreAuthorize("hasAuthority('SCOPE_integration:imports:write')")
+    // real business operation
+}
+```
 
-Response для capability endpoint: `204 No Content`. Контроллер имеет class boundary
-`@PreAuthorize("hasAuthority('ROLE_SERVICE')")`; каждый метод — отдельный scope. После появления
-реальных importing/communication endpoints capability controller удаляется, а те же contract tests
-переносятся на реальные API.
+До появления реального API обязательны unit-тест converter и smoke-тест запрета service JWT на
+human/platform API. Неизвестный или не назначенный scope возвращает `400 INVALID_SCOPE`.
 
-Human JWT всегда получает `403` независимо от совпадения строк permissions. Service token endpoint
-выдаёт только запрошенное пересечение `requestedScopes ∩ clientScopes`; запрос неизвестного или не
-назначенного scope возвращает `400 INVALID_SCOPE` и audit DENIED.
+## 14. Error contract
 
-## 15. Error contract
+| Code | HTTP |
+|---|---:|
+| `INVALID_CREDENTIALS` | 401 |
+| `TOKEN_INVALIDATED` | 401 |
+| `ACCESS_DENIED` | 403 |
+| `RESOURCE_NOT_FOUND` | 404 |
+| `LAST_ADMIN_PROTECTED` | 409 |
+| `ROLE_IN_USE` | 409 |
+| `DUPLICATE_EMAIL` | 409 |
+| `DUPLICATE_ROLE_CODE` | 409 |
+| `INVALID_PERMISSION` | 400 |
+| `INVALID_SCOPE` | 400 |
+| `RATE_LIMIT_EXCEEDED` | 429 |
 
-Использовать единый `ApiExceptionHandler` и стабильные codes:
+`ApiExceptionHandler` не возвращает stack trace, secrets или сведения о чужом tenant.
 
-- `INVALID_CREDENTIALS` — `401`;
-- `TOKEN_INVALIDATED` — `401`;
-- `ACCESS_DENIED` — `403`;
-- `RESOURCE_NOT_FOUND` — `404`;
-- `LAST_ADMIN_PROTECTED` — `409`;
-- `ROLE_IN_USE` — `409`;
-- `DUPLICATE_EMAIL` / `DUPLICATE_ROLE_CODE` — `409`;
-- `INVALID_PERMISSION` / `INVALID_SCOPE` — `400`;
-- `RATE_LIMIT_EXCEEDED` — `429`.
+## 15. Тесты
 
-Ответ не раскрывает наличие email, cross-tenant resource, password/hash или внутренний stack trace.
+### Unit tests
 
-## 16. Обязательная тестовая стратегия
+- `JwtServiceUnitTest`: platform JWT без tenant claims;
+- `AuthorizationVersionFilterUnitTest`: tenant/platform/service, stale version, malformed claims;
+- `PlatformAdminBootstrapUnitTest`: disabled, create, repeat run;
+- `PlatformAdministratorServiceUnitTest`: last admin и session revoke;
+- `RbacServiceUnitTest`: update/delete/system role/role in use/cross-tenant;
+- `RedisRateLimiterUnitTest`: allow, deny, TTL, Redis error;
+- `SecurityAuditServiceUnitTest`: отсутствие secrets и rollback success event.
 
-### 16.1 Unit tests
+### Integration/smoke tests
 
-- `JwtServiceUnitTest`: platform claims не содержат tenant/membership; service/human claims разделены.
-- `AuthorizationVersionFilterUnitTest`: все три token types, malformed claims, stale version, blocked actor.
-- `PlatformAdminBootstrapUnitTest`: disabled, partial config, first create, idempotency, concurrent lock.
-- `PlatformAdministratorServiceUnitTest`: last admin, self-block, session revoke, version increment.
-- `RbacServiceUnitTest`: custom update/delete, system-role protection, role-in-use, cross-tenant.
-- `RedisRateLimiterUnitTest`: key hashing, Lua result mapping, retry-after, Redis failure policy.
-- `SecurityAuditServiceUnitTest`: secret redaction и after-commit behavior.
+- bootstrap создаёт одного platform administrator;
+- platform login, refresh rotation/reuse, logout;
+- platform JWT доступен только к `/platform/**`;
+- tenant/service JWT запрещены на `/platform/**`;
+- управление platform administrators и защита последнего;
+- update/delete custom role и invalidation старого JWT;
+- permission catalog по ролям;
+- tenant-isolated session list/revoke;
+- block membership отзывает refresh и access;
+- общий Redis rate limit для двух application instances;
+- audit before/after без secrets;
+- после появления integration API: свой scope разрешён, чужой scope и human JWT запрещены.
 
-### 16.2 Integration/smoke tests с PostgreSQL + Redis Testcontainers
+Тесты используют реально выданные JWT. Искусственные authorities допустимы только в unit-тестах
+converter/filter. Общая проверка: `mvn clean verify`.
 
-- bootstrap создаёт ровно одного platform admin при двух параллельных application contexts;
-- platform login/refresh rotation/reuse/logout;
-- platform JWT вызывает `/platform/**`, но получает `403` на tenant/service API;
-- tenant/service JWT получают `403` на `/platform/**`;
-- platform admin create/block/unblock/reset/remove-role + last-admin protection;
-- tenant admin update/delete custom role + stale-token invalidation;
-- permission catalog доступен `TENANT_ADMIN`/`TENANT_USER`, запрещён service actor;
-- admin session list/revoke tenant-isolated;
-- block membership отзывает refresh tokens и немедленно инвалидирует access token;
-- rate limit общий для двух application instances;
-- audit содержит actor/target/before/after и не содержит secrets;
-- service JWT допускается ровно к endpoint своего scope;
-- изменение scopes инвалидирует старый service JWT.
+## 16. Порядок реализации второго этапа
 
-`RoleAccessSmokeIntegrationTest` расширить строками `PLATFORM_SUPER_ADMIN` и каждым service scope.
-`RbacControllerContractTest` обязан проверять все mapping annotations, включая `DELETE`, и наличие
-effective `@PreAuthorize` на class или method уровне.
+1. PR-A: migration `006`, bootstrap, platform JWT/auth/filter и тесты.
+2. PR-B: управление platform administrators.
+3. PR-C: custom roles, permission catalog и sessions.
+4. PR-D: membership session revoke и audit.
+5. PR-E: Redis rate limiter.
+6. PR-F: service scope catalog/update; endpoint tests — с первым реальным integration API.
 
-## 17. Порядок реализации второго этапа
+Каждый PR обновляет `rbac-coverage-matrix.md`, `identity-rbac-rest-api.md` и проходит CI.
 
-Рекомендуемый порядок, чтобы каждый PR был небольшим и завершённым:
+## 17. Definition of Done
 
-1. PR-A: migrations `006`, platform bootstrap, platform JWT/filter, platform auth tests.
-2. PR-B: platform administrator management и last-admin invariant.
-3. PR-C: role update/delete, permission catalog, administrative session management.
-4. PR-D: membership block session revocation и полный transactional audit.
-5. PR-E: Redis rate limiter + compose/config/Testcontainers.
-6. PR-F: service scope catalog/update/capability endpoints и финальная access matrix.
-
-Каждый PR должен проходить `mvn clean verify`, иметь Liquibase rollback/restart проверку и обновлять
-`docs/rbac-coverage-matrix.md` + `docs/identity-rbac-rest-api.md`.
-
-## 18. Definition of Done
-
-Доработка считается завершённой, если:
-
-- первый platform admin создаётся безопасно и идемпотентно;
-- platform authentication полностью работает без tenant/membership claims;
-- невозможно удалить/заблокировать последнего активного platform или tenant administrator;
-- custom/system/cross-tenant роли обрабатываются согласно инвариантам;
+- bootstrap повторяемо создаёт первого platform administrator;
+- platform authentication работает без tenant/membership claims;
+- нельзя удалить/заблокировать последнего активного platform или tenant administrator;
+- custom/system/cross-tenant roles обрабатываются по правилам;
 - блокировка membership немедленно прекращает access и refresh;
-- production rate limiting не зависит от памяти отдельной replica;
-- каждое изменение доступа имеет корректный committed audit event;
-- service endpoint требует одновременно service actor boundary и конкретный scope;
-- ни один тест не использует отключённые filters или искусственно внедрённые authorities вместо
-  реально выданного JWT, кроме изолированных unit tests converter/filter;
-- полный `mvn clean verify` проходит в CI.
+- rate limit одинаков для всех replicas;
+- изменения доступа имеют audit без secrets;
+- service JWT содержит только разрешённые scopes;
+- первый реальный integration endpoint проверяет `ROLE_SERVICE` и конкретный `SCOPE_*`;
+- `mvn clean verify` проходит в CI.
 
-## 19. Вопросы для review перед реализацией
+## 18. Зафиксированные решения
 
-На втором этапе необходимо явно утвердить:
+1. Platform и tenant accounts пока независимы, даже при одинаковом email.
+2. MFA реализуется отдельным следующим security milestone.
+3. Platform password задаётся при create/update до появления notification worker.
+4. Временные capability endpoints не создаются; scopes подключаются к реальным API.
+5. Redis fail-closed применяется к login/token/OTP, но не к регистрации tenant.
 
-1. Допускается ли одному email одновременно быть platform account и tenant account. Текущее ТЗ
-   допускает две независимые учётные записи с разными identity contexts; объединение identity в этой
-   итерации запрещено.
-2. Нужен ли обязательный MFA для platform login до production launch. Рекомендация: да, отдельным
-   следующим security milestone, не смешивать с текущей RBAC доработкой.
-3. Оставляем ли временный password reset через platform API до появления notification worker.
-4. Устраивает ли capability-controller как временная проверка scopes или первый endpoint следует
-   сразу реализовать в модуле importing.
-5. Требуется ли fail-closed Redis policy для tenant registration, кроме login/token/OTP.
