@@ -11,7 +11,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.UUID;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -19,6 +21,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 @AutoConfigureMockMvc
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @SpringBootTest(properties = {
         "collectra.security.platform-bootstrap.enabled=true",
         "collectra.security.platform-bootstrap.email=platform-admin@example.test",
@@ -27,10 +30,15 @@ import org.springframework.test.web.servlet.MockMvc;
 class PlatformAdministratorManagementIntegrationTest extends AbstractIntegrationTest {
     @Autowired MockMvc mockMvc;
     @Autowired ObjectMapper json;
+    private JsonNode primary;
+
+    @BeforeAll
+    void authenticatePrimaryAdministrator() throws Exception {
+        primary = login("platform-admin@example.test", "PlatformPassword123!");
+    }
 
     @Test
     void platformAdminCreatesListsAndBlocksAnotherAdministrator() throws Exception {
-        JsonNode primary = login("platform-admin@example.test", "PlatformPassword123!");
         String primaryBearer = bearer(primary);
         String email = "second-" + UUID.randomUUID() + "@example.test";
         JsonNode second = read(post("/api/v1/platform/administrators")
@@ -58,7 +66,6 @@ class PlatformAdministratorManagementIntegrationTest extends AbstractIntegration
 
     @Test
     void administratorCannotBlockOrRemoveOwnRole() throws Exception {
-        JsonNode primary = login("platform-admin@example.test", "PlatformPassword123!");
         String bearer = bearer(primary);
         String id = subject(primary);
 
@@ -74,7 +81,6 @@ class PlatformAdministratorManagementIntegrationTest extends AbstractIntegration
 
     @Test
     void passwordChangeRevokesSessionsAndOldPassword() throws Exception {
-        JsonNode primary = login("platform-admin@example.test", "PlatformPassword123!");
         String email = "password-" + UUID.randomUUID() + "@example.test";
         JsonNode account = read(post("/api/v1/platform/administrators")
                 .header("Authorization", bearer(primary))
