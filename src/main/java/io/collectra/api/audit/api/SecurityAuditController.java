@@ -20,7 +20,7 @@ public class SecurityAuditController {
         return jdbc.query("""
                 select id, actor_type, actor_id, action, result, reason, trace_id, correlation_id, created_at
                   from security_audit_events where tenant_id = ? order by created_at desc limit ?
-                "", (rs, row) -> new AuditEventResponse(rs.getObject("id", UUID.class), rs.getString("actor_type"),
+                """, (rs, row) -> new AuditEventResponse(rs.getObject("id", UUID.class), rs.getString("actor_type"),
                 rs.getObject("actor_id", UUID.class), rs.getString("action"), rs.getString("result"),
                 rs.getString("reason"), rs.getString("trace_id"), rs.getString("correlation_id"),
                 rs.getObject("created_at", Instant.class)), TenantContext.require(), safeLimit);

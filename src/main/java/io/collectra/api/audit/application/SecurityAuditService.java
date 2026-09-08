@@ -17,7 +17,7 @@ public class SecurityAuditService {
                 insert into security_audit_events(id, tenant_id, actor_type, actor_id, action, result,
                     reason, trace_id, correlation_id, metadata, created_at)
                 values (?, ?, ?, ?, ?, ?, ?, ?, ?, '{}'::jsonb, now())
-                "", UUID.randomUUID(), tenantId, actorType, actorId, action, result, reason,
+                """, UUID.randomUUID(), tenantId, actorType, actorId, action, result, reason,
                 MDC.get("traceId"), MDC.get("correlationId"));
     }
 }
