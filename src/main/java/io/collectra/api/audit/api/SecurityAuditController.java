@@ -24,7 +24,7 @@ public class SecurityAuditController {
                 """, (rs, row) -> new AuditEventResponse(rs.getObject("id", UUID.class), rs.getString("actor_type"),
                 rs.getObject("actor_id", UUID.class), rs.getString("action"), rs.getString("result"),
                 rs.getString("reason"), rs.getString("trace_id"), rs.getString("correlation_id"),
-                rs.getObject("created_at", Instant.class)), TenantContext.requireTenantId(), safeLimit);
+                rs.getTimestamp("created_at").toInstant()), TenantContext.requireTenantId(), safeLimit);
     }
 
     record AuditEventResponse(UUID id, String actorType, UUID actorId, String action, String result,
