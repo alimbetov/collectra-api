@@ -35,7 +35,22 @@ final class XmlInputParser implements InputParser {
             factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
             factory.setXIncludeAware(false);
             factory.setExpandEntityReferences(false);
-            var document = factory.newDocumentBuilder().parse(new ByteArrayInputStream(content));
+            var builder = factory.newDocumentBuilder();
+            builder.setErrorHandler(
+                    new org.xml.sax.helpers.DefaultHandler() {
+                        @Override
+                        public void error(org.xml.sax.SAXParseException exception)
+                                throws org.xml.sax.SAXException {
+                            throw exception;
+                        }
+
+                        @Override
+                        public void fatalError(org.xml.sax.SAXParseException exception)
+                                throws org.xml.sax.SAXException {
+                            throw exception;
+                        }
+                    });
+            var document = builder.parse(new ByteArrayInputStream(content));
             var xpath = XPathFactory.newInstance().newXPath();
             Map<String, List<JsonNode>> result = new LinkedHashMap<>();
             for (String path : sourcePaths) {

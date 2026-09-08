@@ -88,8 +88,7 @@ class MappingExecutionServiceUnitTest {
         assertThat(result.normalizedPayload().at("/invoice/total").decimalValue())
                 .isEqualByComparingTo("1250.75");
         assertThat(result.normalizedPayload().at("/custom/invoice/tags"))
-                .extracting(JsonNode::toString)
-                .isEqualTo("[\"priority\",\"retail\"]");
+                .isEqualTo(json.readTree("[\"priority\",\"retail\"]"));
     }
 
     @Test
