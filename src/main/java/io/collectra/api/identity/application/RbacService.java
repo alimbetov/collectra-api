@@ -70,6 +70,58 @@ public class RbacService {
 
     public List<Role> roles(UUID tenantId) { return roles.findAvailableTenantRoles(tenantId); }
 
+    public List<String> rolePermissionCodes(UUID roleId) {
+        return jdbc.queryForList("""
+                select p.code from role_permissions rp
+                join permissions p on p.id = rp.permission_id
+                where rp.role_id = ? order by p.code
+                """, String.class, roleId);
+    }
+
+    @Transactional
+    public Role updateRole(UUID tenantId, UUID roleId, String code, Set<String> permissionCodes) {
+        Role role = roles.findByIdAndTenantId(roleId, tenantId)
+                .filter(value -> !value.isSystemRole())
+                .orElseThrow(() -> new NoSuchElementException("Custom role not found"));
+        String normalized = code.trim().toUpperCase(Locale.ROOT);
+        if (!role.getCode().equalsIgnoreCase(normalized)
+                && roles.existsByTenantIdAndCodeIgnoreCase(tenantId, normalized))
+            throw new IllegalArgumentException("Role code already exists");
+        List<Permission> selected = permissions.findAllByCodeIn(permissionCodes);
+        if (selected.size() != permissionCodes.size())
+            throw new IllegalArgumentException("Unknown permission code");
+        role.rename(normalized);
+        jdbc.update("delete from role_permissions where role_id = ?", roleId);
+        selected.forEach(permission -> jdbc.update(
+                "insert into role_permissions(role_id, permission_id) values (?, ?)",
+                roleId, permission.getId()));
+        invalidateUsersWithRole(roleId);
+        return role;
+    }
+
+    @Transactional
+    public void deleteRole(UUID tenantId, UUID roleId) {
+        Role role = roles.findByIdAndTenantId(roleId, tenantId)
+                .filter(value -> !value.isSystemRole())
+                .orElseThrow(() -> new NoSuchElementException("Custom role not found"));
+        Integer assignments = jdbc.queryForObject(
+                "select count(*) from membership_roles where role_id = ?", Integer.class, roleId);
+        if (assignments != null && assignments > 0)
+            throw new IllegalArgumentException("Role is assigned to memberships");
+        roles.delete(role);
+    }
+
+    private void invalidateUsersWithRole(UUID roleId) {
+        jdbc.update("""
+                update user_accounts ua set authorization_version = authorization_version + 1
+                 where exists (
+                    select 1 from tenant_memberships tm
+                    join membership_roles mr on mr.membership_id = tm.id
+                    where tm.user_id = ua.id and mr.role_id = ?
+                 )
+                """, roleId);
+    }
+
     @Transactional
     public void changeMembershipStatus(UUID tenantId, UUID membershipId, boolean active) {
         TenantMembership membership = memberships.findByIdAndTenantId(membershipId, tenantId)
