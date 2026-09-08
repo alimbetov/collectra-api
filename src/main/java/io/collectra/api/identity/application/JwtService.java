@@ -5,6 +5,8 @@ import io.collectra.api.identity.domain.UserAccount;
 import java.time.*;
 import java.util.*;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.oauth2.jose.jws.JwsHeader;
+import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.*;
 import org.springframework.stereotype.Service;
 
@@ -25,7 +27,7 @@ public class JwtService {
                 .claim("membership_id", membership.getId().toString()).claim("roles", roles)
                 .claim("permissions", permissions).claim("authorization_version", user.getAuthorizationVersion())
                 .claim("token_type", "user").build();
-        return encoder.encode(JwtEncoderParameters.from(claims)).getTokenValue();
+        return encode(claims);
     }
 
     public String issueService(UUID subjectId, UUID tenantId, String clientId, List<String> scopes,
@@ -36,7 +38,12 @@ public class JwtService {
                 .claim("tenant_id", tenantId.toString()).claim("client_id", clientId)
                 .claim("scope", String.join(" ", scopes)).claim("authorization_version", authorizationVersion)
                 .claim("token_type", "service").build();
-        return encoder.encode(JwtEncoderParameters.from(claims)).getTokenValue();
+        return encode(claims);
+    }
+
+    private String encode(JwtClaimsSet claims) {
+        JwsHeader headers = JwsHeader.with(MacAlgorithm.HS256).build();
+        return encoder.encode(JwtEncoderParameters.from(headers, claims)).getTokenValue();
     }
 
     public long expiresIn() { return ttl.toSeconds(); }
