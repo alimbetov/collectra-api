@@ -7,7 +7,7 @@ import java.util.UUID;
 @Entity @Table(name="user_accounts", uniqueConstraints=@UniqueConstraint(name="uk_user_tenant_email", columnNames={"tenant_id","email"}))
 public class UserAccount extends AuditableEntity {
     @Id private UUID id;
-    @Column(name="tenant_id", nullable=false) private UUID tenantId;
+    @Column(name="tenant_id") private UUID tenantId;
     @Column(nullable=false, length=254) private String email;
     @Column(name = "display_name", length = 200) private String displayName;
     @Column(length = 10) private String locale;
