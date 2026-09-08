@@ -31,6 +31,30 @@ public class FieldDefinition extends AuditableEntity {
         this.required = required; this.validationRules = validationRules; this.status = "ACTIVE";
     }
     public UUID getId() { return id; } public UUID getTenantId() { return tenantId; }
-    public String getKey() { return key; } public FieldDataType getDataType() { return dataType; }
+    public String getKey() { return key; } public String getLabel() { return label; }
+    public FieldDataType getDataType() { return dataType; }
+    public String getCategory() { return category; }
+    public boolean isCollection() { return collection; }
+    public boolean isRequired() { return required; }
+    public String getDescription() { return description; }
+    public String getExampleValue() { return exampleValue; }
+    public JsonNode getValidationRules() { return validationRules; }
     public String getStatus() { return status; }
+
+    public boolean isSystem() { return tenantId == null; }
+
+    public void update(String label, FieldDataType dataType, String category,
+            boolean collection, boolean required, String description, String exampleValue,
+            JsonNode validationRules) {
+        this.label = label;
+        this.dataType = dataType;
+        this.category = category;
+        this.collection = collection;
+        this.required = required;
+        this.description = description;
+        this.exampleValue = exampleValue;
+        this.validationRules = validationRules;
+    }
+
+    public void archive() { this.status = "ARCHIVED"; }
 }
