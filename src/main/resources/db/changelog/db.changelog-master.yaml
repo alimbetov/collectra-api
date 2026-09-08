@@ -9,3 +9,5 @@ databaseChangeLog:
       file: db/changelog/changes/004-security-core.sql
   - include:
       file: db/changelog/changes/005-tenant-user-lifecycle.sql
+  - include:
+      file: db/changelog/changes/006-platform-identity.sql
