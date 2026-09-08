@@ -10,8 +10,9 @@ import java.util.UUID;
 public class RefreshSession extends AuditableEntity {
     @Id private UUID id;
     @Column(name = "user_id", nullable = false) private UUID userId;
-    @Column(name = "tenant_id", nullable = false) private UUID tenantId;
+    @Column(name = "tenant_id") private UUID tenantId;
     @Column(name = "membership_id") private UUID membershipId;
+    @Column(name = "context_type", nullable = false, length = 20) private String contextType;
     @Column(name = "token_hash", nullable = false, length = 64) private String tokenHash;
     @Column(name = "family_id", nullable = false) private UUID familyId;
     @Column(name = "expires_at", nullable = false) private Instant expiresAt;
@@ -28,7 +29,14 @@ public class RefreshSession extends AuditableEntity {
             UUID familyId, Instant expiresAt) {
         this.id = UUID.randomUUID(); this.userId = userId; this.tenantId = tenantId;
         this.membershipId = membershipId; this.tokenHash = tokenHash; this.familyId = familyId;
-        this.expiresAt = expiresAt;
+        this.expiresAt = expiresAt; this.contextType = "TENANT";
+    }
+
+    public static RefreshSession platform(UUID userId, String tokenHash, UUID familyId, Instant expiresAt) {
+        RefreshSession session = new RefreshSession();
+        session.id = UUID.randomUUID(); session.userId = userId; session.tokenHash = tokenHash;
+        session.familyId = familyId; session.expiresAt = expiresAt; session.contextType = "PLATFORM";
+        return session;
     }
 
     public boolean active() { return revokedAt == null && expiresAt.isAfter(Instant.now()); }
@@ -41,6 +49,7 @@ public class RefreshSession extends AuditableEntity {
     public UUID getFamilyId() { return familyId; }
     public UUID getTenantId() { return tenantId; }
     public UUID getMembershipId() { return membershipId; }
+    public String getContextType() { return contextType; }
     public UUID getReplacedById() { return replacedById; }
     public Instant getExpiresAt() { return expiresAt; }
     public Instant getRevokedAt() { return revokedAt; }

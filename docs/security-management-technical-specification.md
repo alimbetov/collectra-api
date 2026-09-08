@@ -170,7 +170,8 @@ Login request принимает только `email` и `password`. Tenant ID �
 
 - `JwtService.issuePlatform(user, roles)`;
 - `PlatformAuthService` и `PlatformAuthController`;
-- `SecurityConfig.extractAuthorities()` поддерживает `platform_user` как `ROLE_HUMAN` + platform roles;
+- `SecurityConfig.extractAuthorities()` выдаёт `platform_user` только platform roles; `ROLE_HUMAN`
+  остаётся tenant boundary и platform token его не получает;
 - `AuthorizationVersionFilter` проверяет active user, platform role и version.
 
 Tenant refresh принимает только session `context_type=TENANT`, platform refresh — только `PLATFORM`.
@@ -432,4 +433,3 @@ converter/filter. Общая проверка: `mvn clean verify`.
 3. Platform password задаётся при create/update до появления notification worker.
 4. Временные capability endpoints не создаются; scopes подключаются к реальным API.
 5. Redis fail-closed применяется к login/token/OTP, но не к регистрации tenant.
-

@@ -40,6 +40,15 @@ public class JwtService {
         return encode(claims);
     }
 
+    public String issuePlatform(UserAccount user, List<String> roles) {
+        Instant now = Instant.now();
+        JwtClaimsSet claims = JwtClaimsSet.builder().issuer("collectra-api").issuedAt(now)
+                .expiresAt(now.plus(ttl)).subject(user.getId().toString()).audience(List.of("collectra-api"))
+                .claim("roles", roles).claim("authorization_version", user.getAuthorizationVersion())
+                .claim("token_type", "platform_user").build();
+        return encode(claims);
+    }
+
     private String encode(JwtClaimsSet claims) {
         JwsHeader headers = JwsHeader.with(MacAlgorithm.HS256).build();
         return encoder.encode(JwtEncoderParameters.from(headers, claims)).getTokenValue();

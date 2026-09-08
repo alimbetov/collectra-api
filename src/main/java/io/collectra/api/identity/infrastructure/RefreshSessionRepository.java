@@ -23,4 +23,8 @@ public interface RefreshSessionRepository extends JpaRepository<RefreshSession, 
     @Modifying
     @Query("update RefreshSession session set session.revokedAt = current_timestamp where session.userId = :userId and session.revokedAt is null")
     int revokeAllByUserId(@Param("userId") UUID userId);
+
+    @Modifying
+    @Query("update RefreshSession session set session.revokedAt = current_timestamp where session.userId = :userId and session.contextType = 'PLATFORM' and session.revokedAt is null")
+    int revokeAllPlatformByUserId(@Param("userId") UUID userId);
 }
