@@ -1,0 +1,3 @@
+package io.collectra.api.importing.domain;
+
+public enum DefinitionStatus { DRAFT, PUBLISHED, ARCHIVED }
