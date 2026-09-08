@@ -5,10 +5,10 @@
 | Actor / role | Model | Authentication | Authorization | REST management | Automated evidence | Status |
 |---|---|---|---|---|---|---|
 | `PLATFORM_SUPER_ADMIN` | Platform role seeded | No bootstrap/login flow | Platform boundary enforced | `/platform/me` entry point | Controller security contract | Foundation |
-| `TENANT_ADMIN` | UserAccount + TenantMembership | Password, access/refresh JWT | All 13 Identity/Integration/Audit permissions | Users, roles, service clients, audit | JWT claims, cross-tenant, custom-role smoke tests | Implemented |
-| `TENANT_USER` | UserAccount + TenantMembership | Invitation, activation, password login and refresh JWT | `USER_READ`, `ROLE_READ` | Profile, password recovery and session management | Lifecycle integration tests | Implemented |
+| `TENANT_ADMIN` | UserAccount + TenantMembership | Password, access/refresh JWT | All 13 Identity/Integration/Audit permissions | Users, invitations, roles, service clients, audit | Role access matrix, JWT claims, cross-tenant and custom-role smoke tests | Implemented |
+| `TENANT_USER` | UserAccount + TenantMembership | Invitation, activation, password login and refresh JWT | `USER_READ`, `ROLE_READ` | Profile, tenant users and roles (read-only), password recovery and session management | Role access matrix and lifecycle integration tests | Implemented |
 | Custom tenant role | Tenant-owned Role | Human JWT after login/refresh | Selected permission set | Create and assign supported; update absent | Assignment and authorization-version smoke test | Partial |
-| `SERVICE_CLIENT` | Separate non-human entity | clientId + tenant-owned secret → service JWT | Scopes | Create/list/block and zero-downtime rotation | Secret non-disclosure and human-endpoint denial smoke test | Implemented |
+| `SERVICE_CLIENT` | Separate non-human entity | clientId + tenant-owned secret → service JWT | Scopes | Create/list/block and zero-downtime rotation | Full human/platform-zone denial and secret non-disclosure smoke tests | Implemented |
 
 ## Security invariants
 
@@ -25,6 +25,10 @@
 - Secrets are accepted only on create/rotation and are stored only as adaptive hashes.
 
 ## Remaining work
+
+The automated access matrix intentionally covers only executable behavior. Platform administration
+remains `Foundation`: there is no bootstrap/login flow for a platform-only administrator, therefore
+`/platform/me` is currently verified only as forbidden to anonymous, tenant-human and service actors.
 
 1. Platform super-admin bootstrap, platform permissions and time-bound support grants.
 2. Email delivery adapter for invitation and password-reset notifications.

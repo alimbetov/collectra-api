@@ -13,6 +13,7 @@ import java.lang.reflect.Method;
 import java.util.Arrays;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -65,6 +66,19 @@ class RbacControllerContractTest {
         assertMethodsDeclarePermission(ServiceClientController.class);
     }
 
+    @Test
+    void everyMappedManagementOperationIsCoveredByTheContract() {
+        assertThat(Arrays.stream(TenantInvitationController.class.getDeclaredMethods())
+                        .filter(method -> !method.isSynthetic())
+                        .filter(this::isManagementEndpoint))
+                .isNotEmpty()
+                .allMatch(
+                        method ->
+                                method.isAnnotationPresent(PreAuthorize.class)
+                                        || TenantInvitationController.class.isAnnotationPresent(
+                                                PreAuthorize.class));
+    }
+
     private void assertMethodsDeclarePermission(Class<?> controller) {
         assertThat(Arrays.stream(controller.getDeclaredMethods())
                         .filter(method -> !method.isSynthetic())
@@ -78,7 +92,8 @@ class RbacControllerContractTest {
         return method.isAnnotationPresent(GetMapping.class)
                 || method.isAnnotationPresent(PostMapping.class)
                 || method.isAnnotationPresent(PutMapping.class)
-                || method.isAnnotationPresent(PatchMapping.class);
+                || method.isAnnotationPresent(PatchMapping.class)
+                || method.isAnnotationPresent(DeleteMapping.class);
     }
 
     private void assertClassSecurity(Class<?> controller, String expression) {
