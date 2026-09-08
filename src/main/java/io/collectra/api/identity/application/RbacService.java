@@ -40,7 +40,7 @@ public class RbacService {
             throw new IllegalArgumentException("Role code already exists");
         List<Permission> selected = permissions.findAllByCodeIn(permissionCodes);
         if (selected.size() != permissionCodes.size()) throw new IllegalArgumentException("Unknown permission code");
-        Role role = roles.save(new Role(tenantId, normalized));
+        Role role = roles.saveAndFlush(new Role(tenantId, normalized));
         selected.forEach(permission -> jdbc.update(
                 "insert into role_permissions(role_id, permission_id) values (?, ?)", role.getId(), permission.getId()));
         return role;
