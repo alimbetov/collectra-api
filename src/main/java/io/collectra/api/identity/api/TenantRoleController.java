@@ -12,7 +12,10 @@ import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -32,7 +35,7 @@ public class TenantRoleController {
     @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('ROLE_READ')")
     List<RoleResponse> roles() {
         return rbac.roles(TenantContext.requireTenantId()).stream()
-                .map(RoleResponse::from)
+                .map(this::response)
                 .toList();
     }
 
@@ -40,17 +43,32 @@ public class TenantRoleController {
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('ROLE_CREATE')")
     RoleResponse create(@Valid @RequestBody CreateRoleRequest request) {
-        return RoleResponse.from(
+        return response(
                 rbac.createRole(
                         TenantContext.requireTenantId(), request.code(), request.permissions()));
     }
 
-    record RoleResponse(UUID id, String code, String scope, boolean system) {
-        static RoleResponse from(Role role) {
-            return new RoleResponse(
-                    role.getId(), role.getCode(), role.getScopeType(), role.isSystemRole());
-        }
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('ROLE_UPDATE')")
+    RoleResponse update(@PathVariable UUID id, @Valid @RequestBody CreateRoleRequest request) {
+        return response(rbac.updateRole(TenantContext.requireTenantId(), id, request.code(),
+                request.permissions()));
     }
+
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('ROLE_UPDATE')")
+    void delete(@PathVariable UUID id) {
+        rbac.deleteRole(TenantContext.requireTenantId(), id);
+    }
+
+    private RoleResponse response(Role role) {
+        return new RoleResponse(role.getId(), role.getCode(), role.getScopeType(),
+                role.isSystemRole(), rbac.rolePermissionCodes(role.getId()));
+    }
+
+    record RoleResponse(UUID id, String code, String scope, boolean system,
+            List<String> permissions) {}
 
     record CreateRoleRequest(
             @Pattern(regexp = "[A-Z][A-Z0-9_]{2,79}") String code,
