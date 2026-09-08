@@ -13,7 +13,7 @@ public class AuthController {
     @PostMapping("/login") AuthService.AuthTokens login(@Valid @RequestBody LoginRequest r){return auth.login(r.tenantId(),r.email(),r.password());}
     @PostMapping("/refresh") AuthService.AuthTokens refresh(@Valid @RequestBody TokenRequest r){return auth.refresh(r.refreshToken());}
     @PostMapping("/logout") ResponseEntity<Void> logout(@Valid @RequestBody TokenRequest r){auth.logout(r.refreshToken());return ResponseEntity.noContent().build();}
-    @PostMapping("/logout-all") @PreAuthorize("isAuthenticated()") ResponseEntity<Void> logoutAll(JwtAuthenticationToken authentication){auth.logoutAll(UUID.fromString(authentication.getToken().getSubject()));return ResponseEntity.noContent().build();}
+    @PostMapping("/logout-all") @PreAuthorize("hasAuthority('ROLE_HUMAN')") ResponseEntity<Void> logoutAll(JwtAuthenticationToken authentication){auth.logoutAll(UUID.fromString(authentication.getToken().getSubject()));return ResponseEntity.noContent().build();}
     public record RegisterRequest(@Pattern(regexp="[a-z0-9-]{3,80}") String slug,@NotBlank @Size(max=200) String companyName,@Email @NotBlank String email,@Size(min=12,max=72) String password){}
     public record LoginRequest(@NotNull UUID tenantId,@Email @NotBlank String email,@NotBlank String password){}
     public record TokenRequest(@NotBlank String refreshToken){}

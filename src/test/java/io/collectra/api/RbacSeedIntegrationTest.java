@@ -16,10 +16,8 @@ class RbacSeedIntegrationTest extends AbstractIntegrationTest {
         assertThat(scopeOf("PLATFORM_SUPER_ADMIN")).isEqualTo("PLATFORM");
         assertThat(scopeOf("TENANT_ADMIN")).isEqualTo("TENANT");
         assertThat(scopeOf("TENANT_USER")).isEqualTo("TENANT");
-        assertThat(scopeOf("TENANT_TECHNICAL_CLIENT")).isEqualTo("SERVICE");
         assertThat(permissionCount("TENANT_ADMIN")).isEqualTo(13);
         assertThat(permissionCount("TENANT_USER")).isEqualTo(2);
-        assertThat(permissionCount("TENANT_TECHNICAL_CLIENT")).isZero();
     }
 
     private String scopeOf(String role) {

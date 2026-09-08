@@ -22,7 +22,10 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.DelegatingPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
+import org.springframework.security.oauth2.core.OAuth2TokenValidator;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.jwt.JwtClaimValidator;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtValidators;
@@ -95,7 +98,12 @@ public class SecurityConfig {
         NimbusJwtDecoder decoder = NimbusJwtDecoder.withSecretKey(key)
                 .macAlgorithm(MacAlgorithm.HS256)
                 .build();
-        decoder.setJwtValidator(JwtValidators.createDefaultWithIssuer("collectra-api"));
+        OAuth2TokenValidator<Jwt> issuer =
+                JwtValidators.createDefaultWithIssuer("collectra-api");
+        OAuth2TokenValidator<Jwt> audience =
+                new JwtClaimValidator<List<String>>(
+                        "aud", values -> values != null && values.contains("collectra-api"));
+        decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(issuer, audience));
         return decoder;
     }
 
@@ -107,6 +115,12 @@ public class SecurityConfig {
 
     private Collection<GrantedAuthority> extractAuthorities(Jwt jwt) {
         java.util.ArrayList<GrantedAuthority> authorities = new java.util.ArrayList<>();
+        String tokenType = jwt.getClaimAsString("token_type");
+        if ("user".equals(tokenType)) {
+            authorities.add(new SimpleGrantedAuthority("ROLE_HUMAN"));
+        } else if ("service".equals(tokenType)) {
+            authorities.add(new SimpleGrantedAuthority("ROLE_SERVICE"));
+        }
         List<String> roles = jwt.getClaimAsStringList("roles");
         if (roles != null) roles.forEach(role -> authorities.add(new SimpleGrantedAuthority("ROLE_" + role)));
         List<String> permissions = jwt.getClaimAsStringList("permissions");

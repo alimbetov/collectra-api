@@ -36,4 +36,27 @@ public interface RoleRepository extends JpaRepository<Role, UUID> {
                     """,
             nativeQuery = true)
     List<String> findRoleCodes(@Param("membershipId") UUID membershipId);
+
+    @Query(
+            value = """
+                    select exists(
+                        select 1 from membership_roles
+                         where membership_id = :membershipId
+                           and role_id = '00000000-0000-0000-0000-000000000002'::uuid
+                    )
+                    """,
+            nativeQuery = true)
+    boolean hasTenantAdminRole(@Param("membershipId") UUID membershipId);
+
+    @Query(
+            value = """
+                    select count(distinct tm.id)
+                      from tenant_memberships tm
+                      join membership_roles mr on mr.membership_id = tm.id
+                     where tm.tenant_id = :tenantId
+                       and tm.status = 'ACTIVE'
+                       and mr.role_id = '00000000-0000-0000-0000-000000000002'::uuid
+                    """,
+            nativeQuery = true)
+    long countActiveTenantAdmins(@Param("tenantId") UUID tenantId);
 }

@@ -8,8 +8,7 @@
 | `TENANT_ADMIN` | UserAccount + TenantMembership | Password, access/refresh JWT | All 13 Identity/Integration/Audit permissions | Users, roles, service clients, audit | JWT claims, cross-tenant, custom-role smoke tests | Implemented |
 | `TENANT_USER` | System tenant role seeded | JWT path is supported | `USER_READ`, `ROLE_READ` | Invite/create flow is absent | Seed matrix test | Partial |
 | Custom tenant role | Tenant-owned Role | Human JWT after login/refresh | Selected permission set | Create and assign supported; update absent | Assignment and authorization-version smoke test | Partial |
-| `SERVICE_CLIENT` | Separate non-human entity | clientId + tenant-owned secret → service JWT | Scopes + IP allowlist | Create and rotate secret | Secret non-disclosure and human-endpoint denial smoke test | Implemented |
-| `TENANT_TECHNICAL_CLIENT` | Classification seed only | Uses ServiceClient, never UserAccount | Scopes, not human permissions | ServiceClient API | Separation test | Implemented as ServiceClient |
+| `SERVICE_CLIENT` | Separate non-human entity | clientId + tenant-owned secret → service JWT | Scopes | Create/list/block and zero-downtime rotation | Secret non-disclosure and human-endpoint denial smoke test | Implemented |
 
 ## Security invariants
 
@@ -17,6 +16,7 @@
 - A technical integration is always a `ServiceClient`; it has no password login, membership, UI session or refresh token.
 - Tenant endpoints authorize atomic permissions with `@PreAuthorize`.
 - Integration endpoints authorize `SCOPE_...` authorities.
+- Network restrictions belong to API Gateway/WAF; ServiceClient has no IP allowlist.
 - Tenant identity comes only from the verified JWT.
 - Role or scope changes increment `authorization_version` and invalidate older access tokens.
 - Secrets are accepted only on create/rotation and are stored only as adaptive hashes.
@@ -26,6 +26,6 @@
 1. Platform super-admin bootstrap, platform permissions and time-bound support grants.
 2. Tenant-user invitation/activation/password setup flow.
 3. Role update/delete API with protection of system roles and the last tenant admin.
-4. Service-client list/block API and audited scope updates.
+4. Audited scope updates and credential revocation API.
 5. Scope-protected business endpoints for notifications and import batches.
 6. Redis-backed distributed rate limiting for production.

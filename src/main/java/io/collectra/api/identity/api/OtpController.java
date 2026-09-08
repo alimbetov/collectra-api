@@ -13,7 +13,7 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 public class OtpController {
     private final OtpService otp;
     public OtpController(OtpService otp) { this.otp = otp; }
-    @PostMapping("/challenges") @PreAuthorize("isAuthenticated()")
+    @PostMapping("/challenges") @PreAuthorize("hasAuthority('ROLE_HUMAN')")
     OtpService.ChallengeResponse create(@Valid @RequestBody CreateRequest request,
             JwtAuthenticationToken authentication) {
         UUID tenantId = UUID.fromString(authentication.getToken().getClaimAsString("tenant_id"));

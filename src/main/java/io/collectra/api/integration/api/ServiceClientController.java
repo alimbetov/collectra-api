@@ -2,7 +2,6 @@ package io.collectra.api.integration.api;
 
 import io.collectra.api.integration.application.ServiceClientService;
 import io.collectra.api.shared.tenant.TenantContext;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
@@ -41,7 +40,6 @@ public class ServiceClientController {
                 request.name(),
                 request.clientSecret(),
                 request.scopes(),
-                request.ipAllowlist(),
                 request.expiresAt(),
                 request.secretExpiresAt());
     }
@@ -85,13 +83,9 @@ public class ServiceClientController {
     }
 
     @PostMapping("/service-token")
-    ServiceClientService.TokenResponse token(
-            @Valid @RequestBody TokenRequest request, HttpServletRequest http) {
+    ServiceClientService.TokenResponse token(@Valid @RequestBody TokenRequest request) {
         return service.token(
-                request.clientId(),
-                request.clientSecret(),
-                request.scopes(),
-                http.getRemoteAddr());
+                request.clientId(), request.clientSecret(), request.scopes());
     }
 
     record CreateRequest(
@@ -99,15 +93,8 @@ public class ServiceClientController {
             @NotBlank String name,
             @Size(min = 32, max = 72) String clientSecret,
             @NotEmpty Set<String> scopes,
-            Set<String> ipAllowlist,
             Instant expiresAt,
-            Instant secretExpiresAt) {
-        CreateRequest {
-            if (ipAllowlist == null) {
-                ipAllowlist = Set.of();
-            }
-        }
-    }
+            Instant secretExpiresAt) {}
 
     record RotateSecretRequest(
             @Size(min = 32, max = 72) String clientSecret, Instant secretExpiresAt) {}
