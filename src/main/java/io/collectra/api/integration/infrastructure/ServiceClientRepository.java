@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface ServiceClientRepository extends JpaRepository<ServiceClient, UUID> {
     Optional<ServiceClient> findByClientId(String clientId);
+    boolean existsByClientId(String clientId);
     Optional<ServiceClient> findByIdAndTenantId(UUID id, UUID tenantId);
     List<ServiceClient> findAllByTenantId(UUID tenantId);
 }

@@ -17,19 +17,24 @@ public class ServiceClientController {
     public ServiceClientController(ServiceClientService service) { this.service = service; }
     @PostMapping("/service-clients") @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAuthority('SERVICE_CLIENT_CREATE')")
-    ServiceClientService.SecretResponse create(@Valid @RequestBody CreateRequest request) {
-        return service.create(TenantContext.requireTenantId(), request.clientId(), request.name(), request.scopes(), request.ipAllowlist());
+    ServiceClientService.ClientResponse create(@Valid @RequestBody CreateRequest request) {
+        return service.create(TenantContext.requireTenantId(), request.clientId(), request.name(),
+                request.clientSecret(), request.scopes(), request.ipAllowlist());
     }
     @PostMapping("/service-clients/{id}/rotate-secret")
     @PreAuthorize("hasAuthority('SERVICE_CLIENT_ROTATE_SECRET')")
-    ServiceClientService.SecretResponse rotate(@PathVariable UUID id) { return service.rotate(TenantContext.requireTenantId(), id); }
+    ServiceClientService.ClientResponse rotate(@PathVariable UUID id, @Valid @RequestBody RotateSecretRequest request) {
+        return service.rotate(TenantContext.requireTenantId(), id, request.clientSecret());
+    }
     @PostMapping("/service-token")
     ServiceClientService.TokenResponse token(@Valid @RequestBody TokenRequest request, HttpServletRequest http) {
         return service.token(request.clientId(), request.clientSecret(), request.scopes(), http.getRemoteAddr());
     }
     record CreateRequest(@Pattern(regexp = "[a-z0-9-]{3,100}") String clientId, @NotBlank String name,
-            @NotEmpty Set<String> scopes, Set<String> ipAllowlist) {
+            @Size(min = 32, max = 72) String clientSecret, @NotEmpty Set<String> scopes,
+            Set<String> ipAllowlist) {
         CreateRequest { if (ipAllowlist == null) ipAllowlist = Set.of(); }
     }
+    record RotateSecretRequest(@Size(min = 32, max = 72) String clientSecret) {}
     record TokenRequest(@NotBlank String clientId, @NotBlank String clientSecret, @NotEmpty Set<String> scopes) {}
 }

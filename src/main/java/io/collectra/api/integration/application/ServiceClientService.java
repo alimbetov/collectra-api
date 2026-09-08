@@ -4,7 +4,6 @@ import io.collectra.api.identity.application.JwtService;
 import io.collectra.api.integration.domain.ServiceClient;
 import io.collectra.api.integration.infrastructure.ServiceClientRepository;
 import io.collectra.api.shared.security.InMemoryRateLimiter;
-import java.security.SecureRandom;
 import java.time.Duration;
 import java.util.*;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -16,25 +15,30 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class ServiceClientService {
     private final ServiceClientRepository clients; private final PasswordEncoder passwords;
-    private final JwtService jwt; private final InMemoryRateLimiter limiter; private final SecureRandom random = new SecureRandom();
+    private final JwtService jwt; private final InMemoryRateLimiter limiter;
     private final JdbcTemplate jdbc;
     public ServiceClientService(ServiceClientRepository clients, PasswordEncoder passwords, JwtService jwt,
             InMemoryRateLimiter limiter, JdbcTemplate jdbc) {
         this.clients = clients; this.passwords = passwords; this.jwt = jwt; this.limiter = limiter; this.jdbc = jdbc;
     }
     @Transactional
-    public SecretResponse create(UUID tenantId, String clientId, String name, Set<String> scopes, Set<String> ipAllowlist) {
-        String secret = secret();
-        ServiceClient client = clients.save(new ServiceClient(tenantId, clientId, name, passwords.encode(secret), scopes));
+    public ClientResponse create(UUID tenantId, String clientId, String name, String clientSecret,
+            Set<String> scopes, Set<String> ipAllowlist) {
+        validateSecret(clientSecret);
+        if (clients.existsByClientId(clientId)) throw new IllegalArgumentException("Client id already exists");
+        ServiceClient client = clients.save(new ServiceClient(
+                tenantId, clientId, name, passwords.encode(clientSecret), scopes));
         ipAllowlist.forEach(cidr -> jdbc.update(
                 "insert into service_client_ip_rules(id, service_client_id, cidr, enabled) values (?, ?, ?, true)",
                 UUID.randomUUID(), client.getId(), cidr));
-        return new SecretResponse(client.getId(), client.getClientId(), secret);
+        return new ClientResponse(client.getId(), client.getClientId());
     }
     @Transactional
-    public SecretResponse rotate(UUID tenantId, UUID id) {
-        ServiceClient client = clients.findByIdAndTenantId(id, tenantId).orElseThrow(); String secret = secret();
-        client.rotateSecret(passwords.encode(secret)); return new SecretResponse(client.getId(), client.getClientId(), secret);
+    public ClientResponse rotate(UUID tenantId, UUID id, String clientSecret) {
+        validateSecret(clientSecret);
+        ServiceClient client = clients.findByIdAndTenantId(id, tenantId).orElseThrow();
+        client.rotateSecret(passwords.encode(clientSecret));
+        return new ClientResponse(client.getId(), client.getClientId());
     }
     @Transactional(readOnly = true)
     public TokenResponse token(String clientId, String secret, Set<String> requestedScopes, String sourceIp) {
@@ -51,8 +55,12 @@ public class ServiceClientService {
                 List.copyOf(requestedScopes), client.tokenTtl(), client.getAuthorizationVersion());
         return new TokenResponse(token, "Bearer", client.tokenTtl().toSeconds());
     }
-    private String secret() { byte[] bytes = new byte[32]; random.nextBytes(bytes); return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes); }
-    public record SecretResponse(UUID id, String clientId, String clientSecret) {}
+    private void validateSecret(String secret) {
+        int bytes = secret.getBytes(java.nio.charset.StandardCharsets.UTF_8).length;
+        if (bytes < 32 || bytes > 72)
+            throw new IllegalArgumentException("Client secret must contain 32 to 72 UTF-8 bytes");
+    }
+    public record ClientResponse(UUID id, String clientId) {}
     public record TokenResponse(String accessToken, String tokenType, long expiresIn) {}
 
     static final class IpMatcher {

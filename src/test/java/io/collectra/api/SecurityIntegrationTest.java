@@ -51,13 +51,16 @@ class SecurityIntegrationTest extends AbstractIntegrationTest {
     @Test
     void serviceJwtCannotCallHumanPermissionEndpoint() throws Exception {
         Auth admin = register("service-" + UUID.randomUUID(), "service@example.test");
+        String clientSecret = "tenant-owned-service-secret-123456789";
         JsonNode client = read(post("/api/v1/integration/service-clients")
                 .header("Authorization", "Bearer " + admin.accessToken)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"clientId\":\"erp-smoke\",\"name\":\"ERP\",\"scopes\":[\"integration:imports:read\"]}"));
+                .content("{\"clientId\":\"erp-smoke\",\"name\":\"ERP\",\"clientSecret\":\""
+                        + clientSecret + "\",\"scopes\":[\"integration:imports:read\"]}"));
+        assertThat(client.has("clientSecret")).isFalse();
         JsonNode token = read(post("/api/v1/integration/service-token")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"clientId\":\"erp-smoke\",\"clientSecret\":\"" + client.get("clientSecret").asText()
+                .content("{\"clientId\":\"erp-smoke\",\"clientSecret\":\"" + clientSecret
                         + "\",\"scopes\":[\"integration:imports:read\"]}"));
         mockMvc.perform(get("/api/v1/identity/users")
                         .header("Authorization", "Bearer " + token.get("accessToken").asText()))
