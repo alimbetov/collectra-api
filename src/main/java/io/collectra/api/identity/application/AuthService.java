@@ -49,7 +49,7 @@ public class AuthService {
         if (tenants.existsBySlugIgnoreCase(slug)) throw new IllegalArgumentException("Tenant slug already exists");
         Tenant tenant = tenants.save(new Tenant(slug.toLowerCase(Locale.ROOT), company));
         UserAccount user = users.save(new UserAccount(tenant.getId(), email, passwords.encode(password), SystemRole.TENANT_ADMIN));
-        TenantMembership membership = memberships.save(new TenantMembership(tenant.getId(), user.getId()));
+        TenantMembership membership = memberships.saveAndFlush(new TenantMembership(tenant.getId(), user.getId()));
         rbac.assignSystemRole(membership.getId(), RbacService.TENANT_ADMIN_ROLE);
         outbox.append(tenant.getId(), "Tenant", tenant.getId(), "TenantRegistered", "{\"tenantId\":\"" + tenant.getId() + "\"}");
         audit.append(tenant.getId(), "USER", user.getId(), "TENANT_REGISTERED", "SUCCEEDED", null);
