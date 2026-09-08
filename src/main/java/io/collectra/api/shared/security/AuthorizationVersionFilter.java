@@ -2,6 +2,7 @@ package io.collectra.api.shared.security;
 
 import io.collectra.api.identity.infrastructure.UserAccountRepository;
 import io.collectra.api.identity.infrastructure.TenantMembershipRepository;
+import io.collectra.api.identity.infrastructure.PlatformUserRoleRepository;
 import io.collectra.api.integration.infrastructure.ServiceClientRepository;
 import jakarta.servlet.*;
 import jakarta.servlet.http.*;
@@ -17,13 +18,16 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public class AuthorizationVersionFilter extends OncePerRequestFilter {
     private final UserAccountRepository users;
     private final TenantMembershipRepository memberships;
+    private final PlatformUserRoleRepository platformRoles;
     private final ServiceClientRepository clients;
     public AuthorizationVersionFilter(
             UserAccountRepository users,
             TenantMembershipRepository memberships,
+            PlatformUserRoleRepository platformRoles,
             ServiceClientRepository clients) {
         this.users = users;
         this.memberships = memberships;
+        this.platformRoles = platformRoles;
         this.clients = clients;
     }
     @Override protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
@@ -34,10 +38,25 @@ public class AuthorizationVersionFilter extends OncePerRequestFilter {
             String type = jwt.getToken().getClaimAsString("token_type");
             boolean valid = "service".equals(type)
                     ? validServiceToken(jwt, version)
-                    : "user".equals(type) && validUserToken(jwt, version);
+                    : "user".equals(type) ? validUserToken(jwt, version)
+                    : "platform_user".equals(type) && validPlatformToken(jwt, version);
             if (!valid) { SecurityContextHolder.clearContext(); response.sendError(401, "Token is no longer valid"); return; }
         }
         chain.doFilter(request, response);
+    }
+
+    private boolean validPlatformToken(JwtAuthenticationToken jwt, Number version) {
+        try {
+            UUID userId = UUID.fromString(jwt.getToken().getSubject());
+            return users.findById(userId)
+                    .map(user -> version != null && user.getTenantId() == null
+                            && "ACTIVE".equals(user.getStatus())
+                            && user.getAuthorizationVersion() == version.longValue())
+                    .orElse(false)
+                    && platformRoles.hasSuperAdminRole(userId);
+        } catch (RuntimeException invalidClaim) {
+            return false;
+        }
     }
 
     private boolean validServiceToken(JwtAuthenticationToken jwt, Number version) {
