@@ -35,8 +35,28 @@ public class PlatformUserRoleRepository {
         return Boolean.TRUE.equals(result);
     }
 
+    public long activeSuperAdminCount() {
+        Long result = jdbc.queryForObject("""
+                select count(*)
+                  from platform_user_roles pur
+                  join user_accounts ua on ua.id = pur.user_id
+                 where pur.role_id = ? and ua.status = 'ACTIVE'
+                """, Long.class, SUPER_ADMIN_ROLE);
+        return result == null ? 0 : result;
+    }
+
+    public void lockSuperAdminRole() {
+        jdbc.queryForObject("select id from roles where id = ? for update", UUID.class,
+                SUPER_ADMIN_ROLE);
+    }
+
     public void assignSuperAdmin(UUID userId) {
         jdbc.update("insert into platform_user_roles(user_id, role_id) values (?, ?) on conflict do nothing",
+                userId, SUPER_ADMIN_ROLE);
+    }
+
+    public void removeSuperAdmin(UUID userId) {
+        jdbc.update("delete from platform_user_roles where user_id = ? and role_id = ?",
                 userId, SUPER_ADMIN_ROLE);
     }
 

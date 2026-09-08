@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import io.collectra.api.audit.api.SecurityAuditController;
 import io.collectra.api.identity.api.CurrentUserController;
 import io.collectra.api.identity.api.PlatformAccessController;
+import io.collectra.api.identity.api.PlatformAdministratorController;
 import io.collectra.api.identity.api.TenantInvitationController;
 import io.collectra.api.identity.api.TenantMembershipController;
 import io.collectra.api.identity.api.TenantRoleController;
@@ -42,6 +43,7 @@ class RbacControllerContractTest {
     @Test
     void platformControllerDeclaresPlatformBoundary() {
         assertClassSecurity(PlatformAccessController.class, PLATFORM_ADMIN);
+        assertClassSecurity(PlatformAdministratorController.class, PLATFORM_ADMIN);
     }
 
     @Test
