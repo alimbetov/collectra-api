@@ -7,11 +7,19 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.UUID;
+import java.time.Instant;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtEncoder;
+import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
+import org.springframework.security.oauth2.jwt.JwtClaimsSet;
+import org.springframework.security.oauth2.jwt.JwtValidationException;
+import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
+import org.springframework.security.oauth2.jwt.JwsHeader;
 import org.springframework.test.web.servlet.MockMvc;
 
 @AutoConfigureMockMvc
@@ -19,6 +27,25 @@ class SecurityIntegrationTest extends AbstractIntegrationTest {
     @Autowired MockMvc mockMvc;
     @Autowired ObjectMapper json;
     @Autowired JwtDecoder jwtDecoder;
+    @Autowired JwtEncoder jwtEncoder;
+
+    @Test
+    void decoderRejectsTokenForAnotherAudience() {
+        Instant now = Instant.now();
+        JwtClaimsSet claims = JwtClaimsSet.builder()
+                .issuer("collectra-api")
+                .audience(List.of("another-api"))
+                .subject(UUID.randomUUID().toString())
+                .issuedAt(now)
+                .expiresAt(now.plusSeconds(60))
+                .claim("token_type", "user")
+                .build();
+        String token = jwtEncoder.encode(JwtEncoderParameters.from(
+                JwsHeader.with(MacAlgorithm.HS256).build(), claims)).getTokenValue();
+
+        org.junit.jupiter.api.Assertions.assertThrows(
+                JwtValidationException.class, () -> jwtDecoder.decode(token));
+    }
 
     @Test
     void tenantAdminTokenContainsExpectedRoleAndPermissions() throws Exception {
@@ -31,7 +58,7 @@ class SecurityIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void customRoleAssignmentInvalidatesPreviousAccessToken() throws Exception {
+    void lastTenantAdministratorCannotBeDemotedToCustomRole() throws Exception {
         Auth admin = register("custom-role-" + UUID.randomUUID(), "custom-role@example.test");
         JsonNode users = read(get("/api/v1/identity/users")
                 .header("Authorization", "Bearer " + admin.accessToken));
@@ -46,11 +73,7 @@ class SecurityIntegrationTest extends AbstractIntegrationTest {
                         .header("Authorization", "Bearer " + admin.accessToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"roleIds\":[\"" + role.get("id").asText() + "\"]}"))
-                .andExpect(status().isNoContent());
-
-        mockMvc.perform(get("/api/v1/identity/users")
-                        .header("Authorization", "Bearer " + admin.accessToken))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isConflict());
     }
 
     @Test
@@ -100,6 +123,28 @@ class SecurityIntegrationTest extends AbstractIntegrationTest {
         mockMvc.perform(get("/api/v1/identity/users")
                         .header("Authorization", "Bearer " + token.get("accessToken").asText()))
                 .andExpect(status().isForbidden());
+        mockMvc.perform(post("/api/v1/auth/logout-all")
+                        .header("Authorization", "Bearer " + token.get("accessToken").asText()))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(post("/api/v1/auth/otp/challenges")
+                        .header("Authorization", "Bearer " + token.get("accessToken").asText())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"purpose\":\"LOGOUT_ALL\"}"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void lastTenantAdministratorCannotBeBlocked() throws Exception {
+        Auth admin = register("last-admin-" + UUID.randomUUID(), "last-admin@example.test");
+        JsonNode users = read(get("/api/v1/identity/users")
+                .header("Authorization", "Bearer " + admin.accessToken));
+        String membershipId = users.get(0).get("id").asText();
+
+        mockMvc.perform(patch("/api/v1/identity/memberships/{id}/status", membershipId)
+                        .header("Authorization", "Bearer " + admin.accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"active\":false}"))
+                .andExpect(status().isConflict());
     }
 
     @Test

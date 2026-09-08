@@ -14,7 +14,6 @@ import java.util.Set;
 import java.util.UUID;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,21 +31,18 @@ public class ServiceClientService {
     private final PasswordEncoder passwords;
     private final JwtService jwt;
     private final InMemoryRateLimiter limiter;
-    private final JdbcTemplate jdbc;
 
     public ServiceClientService(
             ServiceClientRepository clients,
             ServiceClientCredentialRepository credentials,
             PasswordEncoder passwords,
             JwtService jwt,
-            InMemoryRateLimiter limiter,
-            JdbcTemplate jdbc) {
+            InMemoryRateLimiter limiter) {
         this.clients = clients;
         this.credentials = credentials;
         this.passwords = passwords;
         this.jwt = jwt;
         this.limiter = limiter;
-        this.jdbc = jdbc;
     }
 
     @Transactional
@@ -56,7 +52,6 @@ public class ServiceClientService {
             String name,
             String clientSecret,
             Set<String> scopes,
-            Set<String> ipAllowlist,
             Instant clientExpiresAt,
             Instant secretExpiresAt) {
         validateSecret(clientSecret);
@@ -77,14 +72,6 @@ public class ServiceClientService {
                                 secretHint(clientSecret),
                                 "ACTIVE",
                                 secretExpiresAt));
-        ipAllowlist.forEach(
-                cidr ->
-                        jdbc.update(
-                                "insert into service_client_ip_rules"
-                                        + "(id, service_client_id, cidr, enabled) values (?, ?, ?, true)",
-                                UUID.randomUUID(),
-                                client.getId(),
-                                cidr));
         return response(client, credential);
     }
 
@@ -149,9 +136,8 @@ public class ServiceClientService {
     }
 
     @Transactional
-    public TokenResponse token(
-            String clientId, String secret, Set<String> requestedScopes, String sourceIp) {
-        limiter.check("service:" + clientId + ":" + sourceIp, 30, Duration.ofMinutes(1));
+    public TokenResponse token(String clientId, String secret, Set<String> requestedScopes) {
+        limiter.check("service:" + clientId, 30, Duration.ofMinutes(1));
         validateScopes(requestedScopes);
         Instant now = Instant.now();
         ServiceClient client =
@@ -167,16 +153,6 @@ public class ServiceClientService {
                         .filter(value -> passwords.matches(secret, value.getSecretHash()))
                         .findFirst()
                         .orElseThrow(() -> new BadCredentialsException("Invalid service client"));
-        List<String> rules =
-                jdbc.queryForList(
-                        "select cidr from service_client_ip_rules"
-                                + " where service_client_id = ? and enabled",
-                        String.class,
-                        client.getId());
-        if (!rules.isEmpty()
-                && rules.stream().noneMatch(rule -> IpMatcher.matches(sourceIp, rule))) {
-            throw new BadCredentialsException("Invalid service client");
-        }
         credential.usedAt(now);
         String token =
                 jwt.issueService(
@@ -257,36 +233,4 @@ public class ServiceClientService {
 
     public record TokenResponse(String accessToken, String tokenType, long expiresIn) {}
 
-    static final class IpMatcher {
-        static boolean matches(String address, String rule) {
-            if (!rule.contains("/")) {
-                return rule.equals(address);
-            }
-            try {
-                String[] parts = rule.split("/", 2);
-                int prefix = Integer.parseInt(parts[1]);
-                byte[] candidate = java.net.InetAddress.getByName(address).getAddress();
-                byte[] network = java.net.InetAddress.getByName(parts[0]).getAddress();
-                if (candidate.length != network.length
-                        || prefix < 0
-                        || prefix > candidate.length * 8) {
-                    return false;
-                }
-                int bytes = prefix / 8;
-                int bits = prefix % 8;
-                for (int i = 0; i < bytes; i++) {
-                    if (candidate[i] != network[i]) {
-                        return false;
-                    }
-                }
-                if (bits == 0) {
-                    return true;
-                }
-                int mask = 0xff << (8 - bits);
-                return (candidate[bytes] & mask) == (network[bytes] & mask);
-            } catch (Exception ignored) {
-                return false;
-            }
-        }
-    }
 }

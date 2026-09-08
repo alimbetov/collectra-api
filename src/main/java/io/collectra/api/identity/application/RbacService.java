@@ -50,6 +50,11 @@ public class RbacService {
     public void assignRoles(UUID tenantId, UUID membershipId, Set<UUID> roleIds) {
         TenantMembership membership = memberships.findByIdAndTenantId(membershipId, tenantId)
                 .orElseThrow(() -> new NoSuchElementException("Membership not found"));
+        if (roles.hasTenantAdminRole(membershipId)
+                && !roleIds.contains(TENANT_ADMIN_ROLE)
+                && roles.countActiveTenantAdmins(tenantId) <= 1) {
+            throw new IllegalArgumentException("The last active tenant administrator cannot be demoted");
+        }
         for (UUID roleId : roleIds) {
             Role role = roles.findById(roleId).orElseThrow(() -> new NoSuchElementException("Role not found"));
             if (!"TENANT".equals(role.getScopeType()))
@@ -69,6 +74,12 @@ public class RbacService {
     public void changeMembershipStatus(UUID tenantId, UUID membershipId, boolean active) {
         TenantMembership membership = memberships.findByIdAndTenantId(membershipId, tenantId)
                 .orElseThrow(() -> new NoSuchElementException("Membership not found"));
+        if (!active
+                && membership.active()
+                && roles.hasTenantAdminRole(membershipId)
+                && roles.countActiveTenantAdmins(tenantId) <= 1) {
+            throw new IllegalArgumentException("The last active tenant administrator cannot be blocked");
+        }
         if (active) membership.activate(); else membership.block();
         UserAccount user = users.findById(membership.getUserId()).orElseThrow();
         user.authorizationChanged();
