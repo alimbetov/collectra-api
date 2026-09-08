@@ -3,9 +3,9 @@
 --changeset collectra:011-field-catalog-permissions
 INSERT INTO permissions(id, code, module, description)
 VALUES
-    ('10000000-0000-0000-0000-000000000014', 'FIELD_READ', 'template', 'Read template field catalog'),
-    ('10000000-0000-0000-0000-000000000015', 'FIELD_CREATE', 'template', 'Create custom template fields'),
-    ('10000000-0000-0000-0000-000000000016', 'FIELD_UPDATE', 'template', 'Update or archive custom template fields');
+    ('10000000-0000-0000-0000-000000000017', 'FIELD_READ', 'template', 'Read template field catalog'),
+    ('10000000-0000-0000-0000-000000000018', 'FIELD_CREATE', 'template', 'Create custom template fields'),
+    ('10000000-0000-0000-0000-000000000019', 'FIELD_UPDATE', 'template', 'Update or archive custom template fields');
 
 INSERT INTO role_permissions(role_id, permission_id)
 SELECT '00000000-0000-0000-0000-000000000002', id
