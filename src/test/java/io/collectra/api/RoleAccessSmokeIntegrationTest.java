@@ -92,6 +92,7 @@ class RoleAccessSmokeIntegrationTest extends AbstractIntegrationTest {
                                 .content(
                                         "{\"code\":\"READER_"
                                                 + UUID.randomUUID().toString().replace("-", "")
+                                                        .toUpperCase()
                                                 + "\",\"permissions\":[\"USER_READ\"]}"));
         Actor actor = invitedActor(role.get("id").asText(), admin);
 
