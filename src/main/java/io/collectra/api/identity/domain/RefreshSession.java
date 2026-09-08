@@ -18,6 +18,9 @@ public class RefreshSession extends AuditableEntity {
     @Column(name = "revoked_at") private Instant revokedAt;
     @Column(name = "replaced_by_id") private UUID replacedById;
     @Column(name = "reuse_detected_at") private Instant reuseDetectedAt;
+    @Column(name = "last_used_at") private Instant lastUsedAt;
+    @Column(name = "user_agent", length = 512) private String userAgent;
+    @Column(name = "source_ip", length = 64) private String sourceIp;
 
     protected RefreshSession() {}
 
@@ -39,4 +42,10 @@ public class RefreshSession extends AuditableEntity {
     public UUID getTenantId() { return tenantId; }
     public UUID getMembershipId() { return membershipId; }
     public UUID getReplacedById() { return replacedById; }
+    public Instant getExpiresAt() { return expiresAt; }
+    public Instant getRevokedAt() { return revokedAt; }
+    public Instant getLastUsedAt() { return lastUsedAt; }
+    public String getUserAgent() { return userAgent; }
+    public String getSourceIp() { return sourceIp; }
+    public void usedAt(Instant now) { lastUsedAt = now; }
 }

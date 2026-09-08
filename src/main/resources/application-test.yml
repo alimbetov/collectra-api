@@ -3,3 +3,4 @@ spring:
 collectra.security.jwt-secret: test-secret-with-at-least-thirty-two-characters
 collectra.security.otp-pepper: test-otp-pepper-with-at-least-thirty-two-characters
 collectra.security.expose-otp: true
+collectra.security.expose-development-tokens: true
