@@ -1,8 +1,13 @@
 package io.collectra.api.shared.error;
 
-import io.collectra.api.shared.tenant.MissingTenantException;
-import io.collectra.api.shared.security.RateLimitExceededException;
+import io.collectra.api.file.application.FileNotFoundException;
+import io.collectra.api.file.application.FileNotReadyException;
+import io.collectra.api.file.application.FileTooLargeException;
+import io.collectra.api.file.domain.IllegalFileStateException;
+import io.collectra.api.file.infrastructure.storage.FileStorageException;
 import io.collectra.api.importing.application.ImportBatchFailedException;
+import io.collectra.api.shared.security.RateLimitExceededException;
+import io.collectra.api.shared.tenant.MissingTenantException;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URI;
 import java.util.LinkedHashMap;
@@ -21,42 +26,88 @@ public class ApiExceptionHandler {
     ProblemDetail validation(MethodArgumentNotValidException ex, HttpServletRequest request) {
         ProblemDetail p = base(HttpStatus.BAD_REQUEST, "Validation failed", request);
         Map<String, String> errors = new LinkedHashMap<>();
-        ex.getBindingResult().getFieldErrors().forEach(e -> errors.putIfAbsent(e.getField(), e.getDefaultMessage()));
-        p.setProperty("errors", errors); return p;
+        ex.getBindingResult()
+                .getFieldErrors()
+                .forEach(e -> errors.putIfAbsent(e.getField(), e.getDefaultMessage()));
+        p.setProperty("errors", errors);
+        p.setProperty("code", "VALIDATION_FAILED");
+        return p;
     }
+
     @ExceptionHandler({BadCredentialsException.class, InvalidRefreshTokenException.class})
     ProblemDetail unauthorized(RuntimeException ex, HttpServletRequest request) {
-        return base(HttpStatus.UNAUTHORIZED, ex.getMessage(), request);
+        return withCode(base(HttpStatus.UNAUTHORIZED, ex.getMessage(), request), "UNAUTHORIZED");
     }
+
     @ExceptionHandler(MissingTenantException.class)
     ProblemDetail tenant(MissingTenantException ex, HttpServletRequest request) {
-        return base(HttpStatus.FORBIDDEN, ex.getMessage(), request);
+        return withCode(base(HttpStatus.FORBIDDEN, ex.getMessage(), request), "TENANT_REQUIRED");
     }
+
+    @ExceptionHandler(FileNotFoundException.class)
+    ProblemDetail fileNotFound(FileNotFoundException ex, HttpServletRequest request) {
+        return withCode(base(HttpStatus.NOT_FOUND, ex.getMessage(), request), "FILE_NOT_FOUND");
+    }
+
+    @ExceptionHandler({FileNotReadyException.class, IllegalFileStateException.class})
+    ProblemDetail fileState(RuntimeException ex, HttpServletRequest request) {
+        return withCode(base(HttpStatus.CONFLICT, ex.getMessage(), request), "FILE_STATE_CONFLICT");
+    }
+
+    @ExceptionHandler(FileTooLargeException.class)
+    ProblemDetail fileTooLarge(FileTooLargeException ex, HttpServletRequest request) {
+        return withCode(
+                base(HttpStatus.PAYLOAD_TOO_LARGE, ex.getMessage(), request), "FILE_TOO_LARGE");
+    }
+
+    @ExceptionHandler(FileStorageException.class)
+    ProblemDetail fileStorage(FileStorageException ex, HttpServletRequest request) {
+        return withCode(
+                base(
+                        HttpStatus.SERVICE_UNAVAILABLE,
+                        "Object storage operation failed",
+                        request),
+                "FILE_STORAGE_UNAVAILABLE");
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     ProblemDetail conflict(IllegalArgumentException ex, HttpServletRequest request) {
-        return base(HttpStatus.CONFLICT, ex.getMessage(), request);
+        return withCode(base(HttpStatus.CONFLICT, ex.getMessage(), request), "CONFLICT");
     }
+
     @ExceptionHandler(RateLimitExceededException.class)
     ProblemDetail rateLimit(RateLimitExceededException ex, HttpServletRequest request) {
-        ProblemDetail problem = base(HttpStatus.TOO_MANY_REQUESTS, ex.getMessage(), request);
-        problem.setProperty("code", "RATE_LIMIT_EXCEEDED");
-        return problem;
+        return withCode(
+                base(HttpStatus.TOO_MANY_REQUESTS, ex.getMessage(), request),
+                "RATE_LIMIT_EXCEEDED");
     }
+
     @ExceptionHandler(ImportBatchFailedException.class)
     ProblemDetail importFailed(ImportBatchFailedException ex, HttpServletRequest request) {
-        ProblemDetail problem = base(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage(), request);
+        ProblemDetail problem =
+                base(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage(), request);
         problem.setProperty("code", ex.getErrorCode());
         problem.setProperty("batchId", ex.getBatchId());
         return problem;
     }
+
     @ExceptionHandler(java.util.NoSuchElementException.class)
     ProblemDetail notFound(java.util.NoSuchElementException ex, HttpServletRequest request) {
-        return base(HttpStatus.NOT_FOUND, ex.getMessage(), request);
+        return withCode(base(HttpStatus.NOT_FOUND, ex.getMessage(), request), "NOT_FOUND");
     }
+
+    private ProblemDetail withCode(ProblemDetail problem, String code) {
+        problem.setProperty("code", code);
+        return problem;
+    }
+
     private ProblemDetail base(HttpStatus status, String detail, HttpServletRequest request) {
-        ProblemDetail p = ProblemDetail.forStatusAndDetail(status, detail);
-        p.setTitle(status.getReasonPhrase()); p.setInstance(URI.create(request.getRequestURI()));
-        p.setProperty("traceId", MDC.get("traceId")); p.setProperty("correlationId", MDC.get("correlationId"));
+        String safeDetail = detail == null || detail.isBlank() ? status.getReasonPhrase() : detail;
+        ProblemDetail p = ProblemDetail.forStatusAndDetail(status, safeDetail);
+        p.setTitle(status.getReasonPhrase());
+        p.setInstance(URI.create(request.getRequestURI()));
+        p.setProperty("traceId", MDC.get("traceId"));
+        p.setProperty("correlationId", MDC.get("correlationId"));
         return p;
     }
 }
