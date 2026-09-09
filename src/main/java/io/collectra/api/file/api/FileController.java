@@ -9,6 +9,7 @@ import io.collectra.api.file.domain.FileCategory;
 import io.collectra.api.shared.tenant.TenantContext;
 import java.io.IOException;
 import java.util.UUID;
+import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -26,7 +27,6 @@ import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 @RestController
 @RequestMapping("/api/v1/files")
@@ -67,17 +67,11 @@ public class FileController {
 
     @GetMapping("/{fileId}/content")
     @PreAuthorize("@fileAuthorization.canRead(authentication)")
-    public ResponseEntity<StreamingResponseBody> content(@PathVariable UUID fileId) {
+    public ResponseEntity<InputStreamResource> content(@PathVariable UUID fileId) {
         FileDownload download = fileService.openContent(TenantContext.requireTenantId(), fileId);
-        StreamingResponseBody body =
-                output -> {
-                    try (var input = download.content()) {
-                        input.transferTo(output);
-                    }
-                };
+        FileMetadata metadata = download.metadata();
 
         HttpHeaders headers = new HttpHeaders();
-        FileMetadata metadata = download.metadata();
         if (metadata.contentType() != null && !metadata.contentType().isBlank()) {
             try {
                 headers.setContentType(MediaType.parseMediaType(metadata.contentType()));
@@ -94,7 +88,9 @@ public class FileController {
                 ContentDisposition.attachment()
                         .filename(metadata.originalFilename(), java.nio.charset.StandardCharsets.UTF_8)
                         .build());
-        return ResponseEntity.ok().headers(headers).body(body);
+        return ResponseEntity.ok()
+                .headers(headers)
+                .body(new InputStreamResource(download.content()));
     }
 
     @GetMapping("/{fileId}/download-url")
