@@ -27,3 +27,5 @@ databaseChangeLog:
       file: db/changelog/changes/016-file-service-foundation.sql
   - include:
       file: db/changelog/changes/017-file-service-permissions.sql
+  - include:
+      file: db/changelog/changes/018-fix-stored-file-checksum-type.sql
