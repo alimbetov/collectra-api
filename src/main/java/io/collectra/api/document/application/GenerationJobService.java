@@ -63,6 +63,15 @@ public class GenerationJobService {
         if (formats == null || formats.isEmpty())
             throw new IllegalArgumentException("At least one output format is required");
         var mapped = mappings.execute(tenantId, mappingProfileId, input);
+        return createMapped(tenantId, mappingProfileId, templateVersionId, mapped, formats);
+    }
+
+    @Transactional
+    public GenerationJob createMapped(UUID tenantId, UUID mappingProfileId,
+            UUID templateVersionId, MappingExecutionService.MappingResult mapped,
+            Set<OutputFormat> formats) {
+        if (formats == null || formats.isEmpty())
+            throw new IllegalArgumentException("At least one output format is required");
         TemplateVersion version =
                 versions.findByIdAndTenantId(templateVersionId, tenantId)
                         .orElseThrow(

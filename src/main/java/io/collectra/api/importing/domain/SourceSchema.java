@@ -34,6 +34,21 @@ public class SourceSchema extends AuditableEntity {
     @Column(nullable = false, length = 20)
     private DefinitionStatus status;
 
+    @Column(name = "record_path", length = 300)
+    private String recordPath;
+
+    @Column(name = "row_type_field_id")
+    private UUID rowTypeFieldId;
+
+    @Column(name = "item_row_values", length = 500)
+    private String itemRowValues;
+
+    @Column(name = "total_row_values", length = 500)
+    private String totalRowValues;
+
+    @Column(name = "ignored_row_values", length = 500)
+    private String ignoredRowValues;
+
     protected SourceSchema() {}
 
     public SourceSchema(
@@ -73,6 +88,36 @@ public class SourceSchema extends AuditableEntity {
     public DefinitionStatus getStatus() {
         return status;
     }
+    public String getRecordPath() { return recordPath; }
+    public UUID getRowTypeFieldId() { return rowTypeFieldId; }
+    public java.util.Set<String> getItemRowValues() { return values(itemRowValues); }
+    public java.util.Set<String> getTotalRowValues() { return values(totalRowValues); }
+    public java.util.Set<String> getIgnoredRowValues() { return values(ignoredRowValues); }
+
+    public void configureRows(String recordPath, UUID rowTypeFieldId,
+            java.util.Set<String> itemValues, java.util.Set<String> totalValues,
+            java.util.Set<String> ignoredValues) {
+        if (status != DefinitionStatus.DRAFT)
+            throw new IllegalStateException("Only draft schema can be changed");
+        this.recordPath = blankToNull(recordPath);
+        this.rowTypeFieldId = rowTypeFieldId;
+        this.itemRowValues = join(itemValues);
+        this.totalRowValues = join(totalValues);
+        this.ignoredRowValues = join(ignoredValues);
+    }
+
+    private String join(java.util.Set<String> values) {
+        if (values == null || values.isEmpty()) return null;
+        return values.stream().map(String::trim).filter(v -> !v.isEmpty())
+                .map(v -> v.toUpperCase(java.util.Locale.ROOT)).sorted()
+                .collect(java.util.stream.Collectors.joining(","));
+    }
+    private java.util.Set<String> values(String source) {
+        if (source == null || source.isBlank()) return java.util.Set.of();
+        return java.util.Arrays.stream(source.split(","))
+                .collect(java.util.stream.Collectors.toUnmodifiableSet());
+    }
+    private String blankToNull(String value) { return value == null || value.isBlank() ? null : value.trim(); }
 
     public void publish() {
         if (status != DefinitionStatus.VALIDATED)

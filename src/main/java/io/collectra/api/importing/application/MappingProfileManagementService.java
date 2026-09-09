@@ -25,7 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class MappingProfileManagementService {
     private static final Set<String> SUPPORTED = Set.of(
             "NONE", "TRIM", "UPPERCASE", "LOWERCASE", "DATE_PARSE", "DECIMAL_PARSE",
-            "BOOLEAN_PARSE");
+            "BOOLEAN_PARSE", "SPLIT", "CHANNELS_PARSE", "NORMALIZE_PHONE", "VALIDATE_EMAIL");
     private final MappingProfileDefinitionRepository definitions;
     private final MappingProfileRepository versions;
     private final MappingRuleRepository rules;

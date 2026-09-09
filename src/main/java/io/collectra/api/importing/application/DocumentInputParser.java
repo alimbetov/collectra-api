@@ -25,12 +25,17 @@ public class DocumentInputParser {
     }
 
     public ParsedInput parse(SourceFormat format, byte[] content, Collection<String> sourcePaths) {
+        return parse(format, content, sourcePaths, null);
+    }
+
+    public ParsedInput parse(SourceFormat format, byte[] content, Collection<String> sourcePaths,
+            String recordPath) {
         if (content == null || content.length == 0)
             throw new IllegalArgumentException("Input document is empty");
         if (content.length > MAX_INPUT_BYTES)
             throw new IllegalArgumentException("Input document exceeds 10 MB limit");
         if (sourcePaths == null || sourcePaths.isEmpty())
             throw new IllegalArgumentException("Source schema has no fields");
-        return parsers.get(format).parse(content, sourcePaths);
+        return parsers.get(format).parse(content, sourcePaths, recordPath);
     }
 }

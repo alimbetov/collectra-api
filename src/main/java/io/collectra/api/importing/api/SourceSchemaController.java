@@ -4,6 +4,8 @@ import io.collectra.api.importing.application.SourceSchemaManagementService;
 import io.collectra.api.importing.domain.DefinitionStatus;
 import io.collectra.api.importing.domain.SourceField;
 import io.collectra.api.importing.domain.SourceFormat;
+import io.collectra.api.importing.domain.SourceFieldScope;
+import io.collectra.api.importing.domain.FieldValuePolicy;
 import io.collectra.api.importing.domain.SourceSchema;
 import io.collectra.api.importing.domain.SourceSchemaDefinition;
 import io.collectra.api.shared.tenant.TenantContext;
@@ -65,7 +67,8 @@ public class SourceSchemaController {
     @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('SOURCE_SCHEMA_MANAGE')")
     FieldResponse addField(@PathVariable UUID versionId, @Valid @RequestBody FieldRequest request) {
         return FieldResponse.from(service.addField(tenant(), versionId, request.sourcePath(),
-                request.detectedType(), request.sampleValue(), request.required(), request.position()));
+                request.detectedType(), request.sampleValue(), request.required(), request.position(),
+                scope(request.scope()), request.documentKey(), policy(request.valuePolicy())));
     }
 
     @PutMapping("/versions/{versionId}/fields/{fieldId}")
@@ -74,7 +77,8 @@ public class SourceSchemaController {
             @Valid @RequestBody FieldRequest request) {
         return FieldResponse.from(service.updateField(tenant(), versionId, fieldId,
                 request.sourcePath(), request.detectedType(), request.sampleValue(),
-                request.required(), request.position()));
+                request.required(), request.position(), scope(request.scope()),
+                request.documentKey(), policy(request.valuePolicy())));
     }
 
     @DeleteMapping("/versions/{versionId}/fields/{fieldId}")
@@ -82,6 +86,15 @@ public class SourceSchemaController {
     @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('SOURCE_SCHEMA_MANAGE')")
     void deleteField(@PathVariable UUID versionId, @PathVariable UUID fieldId) {
         service.deleteField(tenant(), versionId, fieldId);
+    }
+
+    @PutMapping("/versions/{versionId}/row-configuration")
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('SOURCE_SCHEMA_MANAGE')")
+    VersionResponse configureRows(@PathVariable UUID versionId,
+            @Valid @RequestBody RowConfigurationRequest request) {
+        return VersionResponse.from(service.configureRows(tenant(), versionId, request.recordPath(),
+                request.rowTypeFieldId(), request.itemValues(), request.totalValues(),
+                request.ignoredValues()));
     }
 
     @PostMapping("/versions/{versionId}/validate")
@@ -103,18 +116,27 @@ public class SourceSchemaController {
     }
 
     private UUID tenant() { return TenantContext.requireTenantId(); }
+    private SourceFieldScope scope(SourceFieldScope value) { return value == null ? SourceFieldScope.DOCUMENT : value; }
+    private FieldValuePolicy policy(FieldValuePolicy value) { return value == null ? FieldValuePolicy.FIRST_NON_EMPTY : value; }
     record DefinitionRequest(@NotBlank @Size(max=100) String code, @NotBlank @Size(max=200) String name) {}
     record RenameRequest(@NotBlank @Size(max=200) String name) {}
     record VersionRequest(@NotNull SourceFormat format) {}
     record FieldRequest(@NotBlank @Size(max=300) String sourcePath, @Size(max=30) String detectedType,
-            @Size(max=500) String sampleValue, boolean required, Integer position) {}
+            @Size(max=500) String sampleValue, boolean required, Integer position,
+            SourceFieldScope scope, boolean documentKey, FieldValuePolicy valuePolicy) {}
+    record RowConfigurationRequest(@Size(max=300) String recordPath, UUID rowTypeFieldId,
+            java.util.Set<String> itemValues, java.util.Set<String> totalValues,
+            java.util.Set<String> ignoredValues) {}
     record DefinitionResponse(UUID id, String code, String name) {
         static DefinitionResponse from(SourceSchemaDefinition v) { return new DefinitionResponse(v.getId(), v.getCode(), v.getName()); }
     }
-    record VersionResponse(UUID id, UUID definitionId, int version, SourceFormat format, DefinitionStatus status) {
-        static VersionResponse from(SourceSchema v) { return new VersionResponse(v.getId(), v.getDefinitionId(), v.getSchemaVersion(), v.getSourceFormat(), v.getStatus()); }
+    record VersionResponse(UUID id, UUID definitionId, int version, SourceFormat format,
+            DefinitionStatus status, String recordPath, UUID rowTypeFieldId) {
+        static VersionResponse from(SourceSchema v) { return new VersionResponse(v.getId(), v.getDefinitionId(), v.getSchemaVersion(), v.getSourceFormat(), v.getStatus(), v.getRecordPath(), v.getRowTypeFieldId()); }
     }
-    record FieldResponse(UUID id, String sourcePath, String detectedType, String sampleValue, boolean required, Integer position) {
-        static FieldResponse from(SourceField v) { return new FieldResponse(v.getId(), v.getSourcePath(), v.getDetectedType(), v.getSampleValue(), v.isRequired(), v.getPosition()); }
+    record FieldResponse(UUID id, String sourcePath, String detectedType, String sampleValue,
+            boolean required, Integer position, SourceFieldScope scope, boolean documentKey,
+            FieldValuePolicy valuePolicy) {
+        static FieldResponse from(SourceField v) { return new FieldResponse(v.getId(), v.getSourcePath(), v.getDetectedType(), v.getSampleValue(), v.isRequired(), v.getPosition(), v.getScope(), v.isDocumentKey(), v.getValuePolicy()); }
     }
 }
