@@ -13,3 +13,4 @@ collectra.storage.region: us-east-1
 collectra.storage.path-style-access: true
 collectra.storage.bucket: collectra-test
 collectra.messaging.outbox-enabled: false
+management.health.rabbit.enabled: false
