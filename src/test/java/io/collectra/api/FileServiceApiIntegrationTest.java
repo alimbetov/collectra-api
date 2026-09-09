@@ -45,13 +45,18 @@ class FileServiceApiIntegrationTest extends AbstractIntegrationTest {
                 .thenAnswer(
                         invocation -> {
                             UploadObject command = invocation.getArgument(0);
-                            long transferred = command.content().transferTo(java.io.OutputStream.nullOutputStream());
+                            long transferred =
+                                    command.content()
+                                            .transferTo(java.io.OutputStream.nullOutputStream());
                             return new StoredObject(transferred, "etag");
                         });
         when(storage.download(any()))
-                .thenReturn(new ByteArrayInputStream("stored-content".getBytes(StandardCharsets.UTF_8)));
+                .thenReturn(
+                        new ByteArrayInputStream(
+                                "stored-content".getBytes(StandardCharsets.UTF_8)));
         when(storage.generatePresignedGetUrl(any(), any(Duration.class)))
-                .thenReturn(URI.create("https://storage.example.test/download?signature=redacted"));
+                .thenReturn(
+                        URI.create("https://storage.example.test/download?signature=redacted"));
     }
 
     @Test
@@ -62,14 +67,16 @@ class FileServiceApiIntegrationTest extends AbstractIntegrationTest {
                         "file",
                         "source.xlsx",
                         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        "hello-file".getBytes(StandardCharsets.UTF_8));
+                        "stored-content".getBytes(StandardCharsets.UTF_8));
 
         String response =
                 mockMvc.perform(
                                 multipart("/api/v1/files")
                                         .file(multipartFile)
                                         .param("category", "IMPORT_SOURCE")
-                                        .header("Authorization", "Bearer " + admin.accessToken))
+                                        .header(
+                                                "Authorization",
+                                                "Bearer " + admin.accessToken()))
                         .andExpect(status().isCreated())
                         .andExpect(jsonPath("$.status").value("READY"))
                         .andExpect(jsonPath("$.originalFilename").value("source.xlsx"))
@@ -81,32 +88,36 @@ class FileServiceApiIntegrationTest extends AbstractIntegrationTest {
 
         mockMvc.perform(
                         get("/api/v1/files/{fileId}", fileId)
-                                .header("Authorization", "Bearer " + admin.accessToken))
+                                .header("Authorization", "Bearer " + admin.accessToken()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.fileId").value(fileId.toString()));
 
         mockMvc.perform(
                         get("/api/v1/files/{fileId}/content", fileId)
-                                .header("Authorization", "Bearer " + admin.accessToken))
+                                .header("Authorization", "Bearer " + admin.accessToken()))
                 .andExpect(status().isOk())
-                .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.containsString("source.xlsx")))
+                .andExpect(
+                        header()
+                                .string(
+                                        "Content-Disposition",
+                                        org.hamcrest.Matchers.containsString("source.xlsx")))
                 .andExpect(content().bytes("stored-content".getBytes(StandardCharsets.UTF_8)));
 
         mockMvc.perform(
                         get("/api/v1/files/{fileId}/download-url", fileId)
-                                .header("Authorization", "Bearer " + admin.accessToken))
+                                .header("Authorization", "Bearer " + admin.accessToken()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.fileId").value(fileId.toString()))
                 .andExpect(jsonPath("$.expiresInSeconds").value(600));
 
         mockMvc.perform(
                         delete("/api/v1/files/{fileId}", fileId)
-                                .header("Authorization", "Bearer " + admin.accessToken))
+                                .header("Authorization", "Bearer " + admin.accessToken()))
                 .andExpect(status().isNoContent());
 
         mockMvc.perform(
                         get("/api/v1/files/{fileId}/content", fileId)
-                                .header("Authorization", "Bearer " + admin.accessToken))
+                                .header("Authorization", "Bearer " + admin.accessToken()))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("FILE_STATE_CONFLICT"));
     }
@@ -119,25 +130,38 @@ class FileServiceApiIntegrationTest extends AbstractIntegrationTest {
 
         mockMvc.perform(
                         get("/api/v1/files/{fileId}", fileId)
-                                .header("Authorization", "Bearer " + second.accessToken))
+                                .header("Authorization", "Bearer " + second.accessToken()))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("FILE_NOT_FOUND"));
     }
 
     @Test
     void storageFailureIsMappedToSanitized503ProblemDetail() throws Exception {
-        Auth admin = register("file-failure-" + UUID.randomUUID(), "file-failure@example.test");
-        doThrow(new FileStorageException("internal endpoint leaked", new RuntimeException("boom")))
+        Auth admin =
+                register("file-failure-" + UUID.randomUUID(), "file-failure@example.test");
+        doThrow(
+                        new FileStorageException(
+                                "internal endpoint leaked", new RuntimeException("boom")))
                 .when(storage)
                 .delete(any());
         UUID fileId = upload(admin, "delete-me.txt", "data");
 
         mockMvc.perform(
                         delete("/api/v1/files/{fileId}", fileId)
-                                .header("Authorization", "Bearer " + admin.accessToken))
+                                .header("Authorization", "Bearer " + admin.accessToken()))
                 .andExpect(status().isServiceUnavailable())
                 .andExpect(jsonPath("$.code").value("FILE_STORAGE_UNAVAILABLE"))
                 .andExpect(jsonPath("$.detail").value("Object storage operation failed"));
+    }
+
+    @Test
+    void tenantAdminCannotRunCrossTenantCleanup() throws Exception {
+        Auth admin =
+                register("file-cleanup-" + UUID.randomUUID(), "file-cleanup@example.test");
+        mockMvc.perform(
+                        post("/internal/files/cleanup")
+                                .header("Authorization", "Bearer " + admin.accessToken()))
+                .andExpect(status().isForbidden());
     }
 
     @Test
@@ -149,13 +173,18 @@ class FileServiceApiIntegrationTest extends AbstractIntegrationTest {
     private UUID upload(Auth auth, String filename, String body) throws Exception {
         MockMultipartFile file =
                 new MockMultipartFile(
-                        "file", filename, MediaType.TEXT_PLAIN_VALUE, body.getBytes(StandardCharsets.UTF_8));
+                        "file",
+                        filename,
+                        MediaType.TEXT_PLAIN_VALUE,
+                        body.getBytes(StandardCharsets.UTF_8));
         String response =
                 mockMvc.perform(
                                 multipart("/api/v1/files")
                                         .file(file)
                                         .param("category", "TEMP")
-                                        .header("Authorization", "Bearer " + auth.accessToken))
+                                        .header(
+                                                "Authorization",
+                                                "Bearer " + auth.accessToken()))
                         .andExpect(status().isCreated())
                         .andReturn()
                         .getResponse()
@@ -177,7 +206,8 @@ class FileServiceApiIntegrationTest extends AbstractIntegrationTest {
         return new Auth(response.get("accessToken").asText());
     }
 
-    private JsonNode read(org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder request)
+    private JsonNode read(
+            org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder request)
             throws Exception {
         String body =
                 mockMvc.perform(request)
