@@ -91,6 +91,7 @@ public class FileStorageProperties {
         private String cron = "0 0 3 * * *";
         private int batchSize = 500;
         private int maxDeleteAttempts = 10;
+        private int maxBatchesPerRun = 20;
         private Duration retryDelay = Duration.ofMinutes(15);
 
         public String getCron() { return cron; }
@@ -99,6 +100,8 @@ public class FileStorageProperties {
         public void setBatchSize(int value) { this.batchSize = value; }
         public int getMaxDeleteAttempts() { return maxDeleteAttempts; }
         public void setMaxDeleteAttempts(int value) { this.maxDeleteAttempts = value; }
+        public int getMaxBatchesPerRun() { return maxBatchesPerRun; }
+        public void setMaxBatchesPerRun(int value) { this.maxBatchesPerRun = value; }
         public Duration getRetryDelay() { return retryDelay; }
         public void setRetryDelay(Duration value) { this.retryDelay = value; }
     }
