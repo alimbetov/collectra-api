@@ -58,7 +58,8 @@ class FileCleanupServiceIntegrationTest extends AbstractIntegrationTest {
                 .when(storage)
                 .delete(any());
 
-        try (var executor = Executors.newFixedThreadPool(2)) {
+        var executor = Executors.newFixedThreadPool(2);
+        try {
             var first = executor.submit(() -> cleanupService.cleanupExpiredFiles(now));
             assertThat(deleteStarted.await(5, TimeUnit.SECONDS)).isTrue();
 
@@ -68,6 +69,9 @@ class FileCleanupServiceIntegrationTest extends AbstractIntegrationTest {
             releaseDelete.countDown();
             FileCleanupService.CleanupResult firstResult = first.get(5, TimeUnit.SECONDS);
             assertThat(firstResult.deleted()).isEqualTo(1);
+        } finally {
+            releaseDelete.countDown();
+            executor.shutdownNow();
         }
 
         verify(storage, times(1)).delete(any());
