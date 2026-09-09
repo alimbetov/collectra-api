@@ -25,51 +25,51 @@ public class SourceSchemaController {
     public SourceSchemaController(SourceSchemaManagementService service) { this.service = service; }
 
     @GetMapping
-    @PreAuthorize("hasAuthority('SOURCE_SCHEMA_READ')")
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('SOURCE_SCHEMA_READ')")
     List<DefinitionResponse> list() { return service.list(tenant()).stream().map(DefinitionResponse::from).toList(); }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    @PreAuthorize("hasAuthority('SOURCE_SCHEMA_MANAGE')")
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('SOURCE_SCHEMA_MANAGE')")
     DefinitionResponse create(@Valid @RequestBody DefinitionRequest request) {
         return DefinitionResponse.from(service.create(tenant(), request.code(), request.name()));
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('SOURCE_SCHEMA_MANAGE')")
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('SOURCE_SCHEMA_MANAGE')")
     DefinitionResponse rename(@PathVariable UUID id, @Valid @RequestBody RenameRequest request) {
         return DefinitionResponse.from(service.rename(tenant(), id, request.name()));
     }
 
     @GetMapping("/{id}/versions")
-    @PreAuthorize("hasAuthority('SOURCE_SCHEMA_READ')")
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('SOURCE_SCHEMA_READ')")
     List<VersionResponse> versions(@PathVariable UUID id) {
         return service.versions(tenant(), id).stream().map(VersionResponse::from).toList();
     }
 
     @PostMapping("/{id}/versions")
     @ResponseStatus(HttpStatus.CREATED)
-    @PreAuthorize("hasAuthority('SOURCE_SCHEMA_MANAGE')")
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('SOURCE_SCHEMA_MANAGE')")
     VersionResponse createVersion(@PathVariable UUID id, @Valid @RequestBody VersionRequest request) {
         return VersionResponse.from(service.createVersion(tenant(), id, request.format()));
     }
 
     @GetMapping("/versions/{versionId}/fields")
-    @PreAuthorize("hasAuthority('SOURCE_SCHEMA_READ')")
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('SOURCE_SCHEMA_READ')")
     List<FieldResponse> fields(@PathVariable UUID versionId) {
         return service.fields(tenant(), versionId).stream().map(FieldResponse::from).toList();
     }
 
     @PostMapping("/versions/{versionId}/fields")
     @ResponseStatus(HttpStatus.CREATED)
-    @PreAuthorize("hasAuthority('SOURCE_SCHEMA_MANAGE')")
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('SOURCE_SCHEMA_MANAGE')")
     FieldResponse addField(@PathVariable UUID versionId, @Valid @RequestBody FieldRequest request) {
         return FieldResponse.from(service.addField(tenant(), versionId, request.sourcePath(),
                 request.detectedType(), request.sampleValue(), request.required(), request.position()));
     }
 
     @PutMapping("/versions/{versionId}/fields/{fieldId}")
-    @PreAuthorize("hasAuthority('SOURCE_SCHEMA_MANAGE')")
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('SOURCE_SCHEMA_MANAGE')")
     FieldResponse updateField(@PathVariable UUID versionId, @PathVariable UUID fieldId,
             @Valid @RequestBody FieldRequest request) {
         return FieldResponse.from(service.updateField(tenant(), versionId, fieldId,
@@ -79,19 +79,19 @@ public class SourceSchemaController {
 
     @DeleteMapping("/versions/{versionId}/fields/{fieldId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    @PreAuthorize("hasAuthority('SOURCE_SCHEMA_MANAGE')")
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('SOURCE_SCHEMA_MANAGE')")
     void deleteField(@PathVariable UUID versionId, @PathVariable UUID fieldId) {
         service.deleteField(tenant(), versionId, fieldId);
     }
 
     @PostMapping("/versions/{versionId}/validate")
-    @PreAuthorize("hasAuthority('SOURCE_SCHEMA_MANAGE')")
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('SOURCE_SCHEMA_MANAGE')")
     SourceSchemaManagementService.ValidationResult validate(@PathVariable UUID versionId) {
         return service.validate(tenant(), versionId);
     }
 
     @PostMapping("/versions/{versionId}/{action:publish|reopen|archive}")
-    @PreAuthorize("hasAuthority('SOURCE_SCHEMA_MANAGE')")
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('SOURCE_SCHEMA_MANAGE')")
     VersionResponse transition(@PathVariable UUID versionId, @PathVariable String action) {
         SourceSchema value = switch (action) {
             case "publish" -> service.publish(tenant(), versionId);

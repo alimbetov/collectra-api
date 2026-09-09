@@ -26,41 +26,41 @@ public class MappingProfileController {
     public MappingProfileController(MappingProfileManagementService service) { this.service = service; }
 
     @GetMapping
-    @PreAuthorize("hasAuthority('MAPPING_PROFILE_READ')")
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('MAPPING_PROFILE_READ')")
     List<DefinitionResponse> list() { return service.list(tenant()).stream().map(DefinitionResponse::from).toList(); }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    @PreAuthorize("hasAuthority('MAPPING_PROFILE_MANAGE')")
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('MAPPING_PROFILE_MANAGE')")
     DefinitionResponse create(@Valid @RequestBody DefinitionRequest request) {
         return DefinitionResponse.from(service.create(tenant(), request.code(), request.name(), request.documentType()));
     }
 
     @GetMapping("/{id}/versions")
-    @PreAuthorize("hasAuthority('MAPPING_PROFILE_READ')")
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('MAPPING_PROFILE_READ')")
     List<VersionResponse> versions(@PathVariable UUID id) { return service.versions(tenant(), id).stream().map(VersionResponse::from).toList(); }
 
     @PostMapping("/{id}/versions")
     @ResponseStatus(HttpStatus.CREATED)
-    @PreAuthorize("hasAuthority('MAPPING_PROFILE_MANAGE')")
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('MAPPING_PROFILE_MANAGE')")
     VersionResponse createVersion(@PathVariable UUID id, @Valid @RequestBody VersionRequest request) {
         return VersionResponse.from(service.createVersion(tenant(), id, request.sourceSchemaVersionId()));
     }
 
     @GetMapping("/versions/{versionId}/rules")
-    @PreAuthorize("hasAuthority('MAPPING_PROFILE_READ')")
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('MAPPING_PROFILE_READ')")
     List<RuleResponse> rules(@PathVariable UUID versionId) { return service.rules(tenant(), versionId).stream().map(RuleResponse::from).toList(); }
 
     @PostMapping("/versions/{versionId}/rules")
     @ResponseStatus(HttpStatus.CREATED)
-    @PreAuthorize("hasAuthority('MAPPING_PROFILE_MANAGE')")
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('MAPPING_PROFILE_MANAGE')")
     RuleResponse addRule(@PathVariable UUID versionId, @Valid @RequestBody RuleRequest request) {
         return RuleResponse.from(service.addRule(tenant(), versionId, request.sourceFieldId(),
                 request.targetFieldId(), request.transformation(), request.defaultValue(), request.required()));
     }
 
     @PutMapping("/versions/{versionId}/rules/{ruleId}")
-    @PreAuthorize("hasAuthority('MAPPING_PROFILE_MANAGE')")
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('MAPPING_PROFILE_MANAGE')")
     RuleResponse updateRule(@PathVariable UUID versionId, @PathVariable UUID ruleId,
             @Valid @RequestBody RuleRequest request) {
         return RuleResponse.from(service.updateRule(tenant(), versionId, ruleId, request.sourceFieldId(),
@@ -69,28 +69,28 @@ public class MappingProfileController {
 
     @DeleteMapping("/versions/{versionId}/rules/{ruleId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    @PreAuthorize("hasAuthority('MAPPING_PROFILE_MANAGE')")
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('MAPPING_PROFILE_MANAGE')")
     void deleteRule(@PathVariable UUID versionId, @PathVariable UUID ruleId) { service.deleteRule(tenant(), versionId, ruleId); }
 
     @PostMapping("/versions/{versionId}/validate")
-    @PreAuthorize("hasAuthority('MAPPING_PROFILE_MANAGE')")
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('MAPPING_PROFILE_MANAGE')")
     SourceSchemaManagementService.ValidationResult validate(@PathVariable UUID versionId) { return service.validate(tenant(), versionId); }
 
     @PostMapping(value="/versions/{versionId}/test", consumes="multipart/form-data")
-    @PreAuthorize("hasAuthority('MAPPING_PROFILE_MANAGE')")
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('MAPPING_PROFILE_MANAGE')")
     MappingExecutionService.MappingResult test(@PathVariable UUID versionId, @RequestPart("file") MultipartFile file) throws IOException {
         return service.test(tenant(), versionId, file.getBytes());
     }
 
     @PostMapping("/versions/{versionId}/rules/{ruleId}/test")
-    @PreAuthorize("hasAuthority('MAPPING_PROFILE_MANAGE')")
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('MAPPING_PROFILE_MANAGE')")
     MappingExecutionService.RuleTestResult testRule(@PathVariable UUID versionId,
             @PathVariable UUID ruleId, @RequestBody RuleTestRequest request) {
         return service.testRule(tenant(), versionId, ruleId, request.sourceValue());
     }
 
     @PostMapping("/versions/{versionId}/{action:publish|reopen|archive}")
-    @PreAuthorize("hasAuthority('MAPPING_PROFILE_MANAGE')")
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('MAPPING_PROFILE_MANAGE')")
     VersionResponse transition(@PathVariable UUID versionId, @PathVariable String action) {
         MappingProfile value = switch (action) {
             case "publish" -> service.publish(tenant(), versionId);

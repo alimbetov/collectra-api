@@ -25,54 +25,54 @@ public class TemplateManagementController {
     public TemplateManagementController(TemplateManagementService service) { this.service=service; }
 
     @GetMapping
-    @PreAuthorize("hasAuthority('TEMPLATE_READ')")
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('TEMPLATE_READ')")
     List<TemplateResponse> list() { return service.list(tenant()).stream().map(TemplateResponse::from).toList(); }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    @PreAuthorize("hasAuthority('TEMPLATE_MANAGE')")
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('TEMPLATE_MANAGE')")
     TemplateResponse create(@Valid @RequestBody TemplateRequest request) {
         return TemplateResponse.from(service.create(tenant(),request.code(),request.name(),request.documentType()));
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('TEMPLATE_MANAGE')")
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('TEMPLATE_MANAGE')")
     TemplateResponse rename(@PathVariable UUID id,@Valid @RequestBody RenameRequest request) {
         return TemplateResponse.from(service.rename(tenant(),id,request.name()));
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    @PreAuthorize("hasAuthority('TEMPLATE_MANAGE')")
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('TEMPLATE_MANAGE')")
     void archiveTemplate(@PathVariable UUID id) { service.archiveTemplate(tenant(),id); }
 
     @GetMapping("/{id}/versions")
-    @PreAuthorize("hasAuthority('TEMPLATE_READ')")
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('TEMPLATE_READ')")
     List<VersionResponse> versions(@PathVariable UUID id) { return service.versions(tenant(),id).stream().map(VersionResponse::from).toList(); }
 
     @PostMapping("/{id}/versions")
     @ResponseStatus(HttpStatus.CREATED)
-    @PreAuthorize("hasAuthority('TEMPLATE_MANAGE')")
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('TEMPLATE_MANAGE')")
     VersionResponse createVersion(@PathVariable UUID id,@Valid @RequestBody VersionRequest request) {
         return VersionResponse.from(service.createVersion(tenant(),id,request.locale(),request.contentHtml(),request.stylesheet()));
     }
 
     @PutMapping("/versions/{id}")
-    @PreAuthorize("hasAuthority('TEMPLATE_MANAGE')")
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('TEMPLATE_MANAGE')")
     VersionResponse update(@PathVariable UUID id,@Valid @RequestBody VersionContent request) {
         return VersionResponse.from(service.update(tenant(),id,request.contentHtml(),request.stylesheet()));
     }
 
     @PostMapping("/versions/{id}/validate")
-    @PreAuthorize("hasAuthority('TEMPLATE_MANAGE')")
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('TEMPLATE_MANAGE')")
     SourceSchemaManagementService.ValidationResult validate(@PathVariable UUID id) { return service.validate(tenant(),id); }
 
     @PostMapping("/versions/{id}/preview")
-    @PreAuthorize("hasAuthority('TEMPLATE_MANAGE')")
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('TEMPLATE_MANAGE')")
     TemplateRenderer.RenderResult preview(@PathVariable UUID id,@RequestBody JsonNode payload) { return service.preview(tenant(),id,payload); }
 
     @PostMapping("/versions/{id}/{action:publish|reopen|archive}")
-    @PreAuthorize("hasAuthority('TEMPLATE_PUBLISH')")
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('TEMPLATE_PUBLISH')")
     VersionResponse transition(@PathVariable UUID id,@PathVariable String action) {
         TemplateVersion value=switch(action) { case "publish"->service.publish(tenant(),id);
             case "reopen"->service.reopen(tenant(),id); case "archive"->service.archive(tenant(),id);
