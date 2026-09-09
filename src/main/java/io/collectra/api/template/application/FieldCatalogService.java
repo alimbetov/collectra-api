@@ -14,16 +14,17 @@ import java.util.List;
 import java.util.Locale;
 import java.util.NoSuchElementException;
 import java.util.UUID;
-import java.util.regex.Pattern;
 
 @Service
 public class FieldCatalogService {
-    private static final Pattern CUSTOM_KEY = Pattern.compile("custom(?:\\.[a-z][a-z0-9_]*){2,}");
-
     private final FieldDefinitionRepository fields;
+    private final FieldKeyValidator fieldKeyValidator;
 
-    public FieldCatalogService(FieldDefinitionRepository fields) {
+    public FieldCatalogService(
+            FieldDefinitionRepository fields,
+            FieldKeyValidator fieldKeyValidator) {
         this.fields = fields;
+        this.fieldKeyValidator = fieldKeyValidator;
     }
 
     @Transactional(readOnly = true)
@@ -43,12 +44,12 @@ public class FieldCatalogService {
             String description,
             String exampleValue,
             JsonNode validationRules) {
-        String normalizedKey = normalizeKey(key);
-        ensureKeyAvailable(tenantId, normalizedKey);
+        String canonicalKey = fieldKeyValidator.validateCustomFieldKey(key).canonical();
+        ensureKeyAvailable(tenantId, canonicalKey);
         FieldDefinition field =
                 new FieldDefinition(
                         tenantId,
-                        normalizedKey,
+                        canonicalKey,
                         label.trim(),
                         dataType,
                         normalizeCategory(category),
@@ -111,14 +112,6 @@ public class FieldCatalogService {
         if (fields.existsByTenantIdIsNullAndKeyIgnoreCase(key)
                 || fields.existsByTenantIdAndKeyIgnoreCase(tenantId, key))
             throw new IllegalArgumentException("Field key already exists");
-    }
-
-    private String normalizeKey(String key) {
-        String value = key.trim().toLowerCase(Locale.ROOT);
-        if (!CUSTOM_KEY.matcher(value).matches())
-            throw new IllegalArgumentException(
-                    "Custom field key must match custom.<namespace>.<name>");
-        return value;
     }
 
     private String normalizeCategory(String category) {

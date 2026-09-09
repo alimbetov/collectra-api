@@ -13,7 +13,9 @@ import java.util.UUID;
 
 class TemplateRendererUnitTest {
     private final ObjectMapper json = new ObjectMapper();
-    private final TemplateRenderer renderer = new TemplateRenderer(new HtmlTemplatePolicy());
+    private final HtmlTemplatePolicy policy = new HtmlTemplatePolicy();
+    private final TemplateCompiler compiler = new TemplateCompiler(policy, new PlaceholderScanner());
+    private final TemplateRenderer renderer = new TemplateRenderer(compiler);
 
     @Test
     void rendersNestedValuesEscapesDataAndAddsStylesheet() throws Exception {
@@ -41,13 +43,67 @@ class TemplateRendererUnitTest {
     }
 
     @Test
-    void rejectsMissingValuesAndUnescapedExpressions() throws Exception {
-        TemplateVersion missing =
+    void rendersCompiledTemplateWithoutRequiringSourceTemplateAgain() throws Exception {
+        TemplateVersion version =
                 new TemplateVersion(
-                        UUID.randomUUID(), 1, "ru-KZ", "<p>{{customer.name}}</p>", null);
-        assertThatThrownBy(() -> renderer.render(missing, json.readTree("{}")))
+                        UUID.randomUUID(),
+                        1,
+                        "ru-KZ",
+                        "<p>{{customer.name}} / {{document.number}}</p>",
+                        null);
+        CompiledTemplate compiled = compiler.compile(version);
+
+        String html =
+                renderer.render(
+                                compiled,
+                                json.readTree(
+                                        "{\"customer\":{\"name\":\"Acme\"},\"document\":{\"number\":\"42\"}}"))
+                        .html();
+
+        assertThat(html).contains("<p>Acme / 42</p>");
+        assertThat(compiled.templateVersionId()).isEqualTo(version.getId());
+    }
+
+    @Test
+    void rejectsMissingAndNullValuesButKeepsFalseZeroAndEmptyString() throws Exception {
+        TemplateVersion version =
+                new TemplateVersion(
+                        UUID.randomUUID(),
+                        1,
+                        "ru-KZ",
+                        "{{data.zero}}|{{data.flag}}|{{data.empty}}",
+                        null);
+
+        String html =
+                renderer.render(
+                                version,
+                                json.readTree(
+                                        "{\"data\":{\"zero\":0,\"flag\":false,\"empty\":\"\"}}"))
+                        .html();
+        assertThat(html).contains("0|false|");
+
+        assertThatThrownBy(() -> renderer.render(version, json.readTree("{\"data\":{}}")))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("customer.name");
+                .hasMessageContaining("data.zero", "data.flag", "data.empty");
+
+        assertThatThrownBy(
+                        () ->
+                                renderer.render(
+                                        version,
+                                        json.readTree(
+                                                "{\"data\":{\"zero\":null,\"flag\":false,\"empty\":\"\"}}")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("data.zero");
+    }
+
+    @Test
+    void rejectsNonCanonicalAndUnescapedExpressions() throws Exception {
+        TemplateVersion uppercase =
+                new TemplateVersion(
+                        UUID.randomUUID(), 1, "ru-KZ", "<p>{{Customer.Name}}</p>", null);
+        assertThatThrownBy(() -> renderer.render(uppercase, json.readTree("{}")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("canonical lowercase");
 
         TemplateVersion unsafe =
                 new TemplateVersion(
@@ -58,7 +114,7 @@ class TemplateRendererUnitTest {
                                         unsafe,
                                         json.readTree("{\"customer\":{\"html\":\"<b>x</b>\"}}")))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Unescaped");
+                .hasMessageContaining("Nested or unescaped");
     }
 
     @Test
