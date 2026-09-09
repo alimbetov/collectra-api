@@ -2,6 +2,8 @@ package io.collectra.api.importing.application;
 
 import io.collectra.api.importing.domain.DefinitionStatus;
 import io.collectra.api.importing.domain.SourceField;
+import io.collectra.api.importing.domain.SourceFieldScope;
+import io.collectra.api.importing.domain.FieldValuePolicy;
 import io.collectra.api.importing.domain.SourceFormat;
 import io.collectra.api.importing.domain.SourceSchema;
 import io.collectra.api.importing.domain.SourceSchemaDefinition;
@@ -56,7 +58,8 @@ public class SourceSchemaManagementService {
         latest.ifPresent(previous -> fields.findAllBySourceSchemaIdOrderByPositionAsc(previous.getId())
                 .forEach(field -> fields.save(new SourceField(created.getId(), field.getSourcePath(),
                         field.getDetectedType(), field.getSampleValue(), field.isRequired(),
-                        field.getPosition()))));
+                        field.getPosition(), field.getScope(), field.isDocumentKey(),
+                        field.getValuePolicy()))));
         return created;
     }
 
@@ -69,18 +72,52 @@ public class SourceSchemaManagementService {
     @Transactional
     public SourceField addField(UUID tenantId, UUID versionId, String path, String type,
             String sample, boolean required, Integer position) {
+        return addField(tenantId, versionId, path, type, sample, required, position,
+                SourceFieldScope.DOCUMENT, false, FieldValuePolicy.FIRST_NON_EMPTY);
+    }
+
+    @Transactional
+    public SourceField addField(UUID tenantId, UUID versionId, String path, String type,
+            String sample, boolean required, Integer position, SourceFieldScope scope,
+            boolean documentKey, FieldValuePolicy valuePolicy) {
         var version = requireDraft(tenantId, versionId);
-        return fields.save(new SourceField(version.getId(), path.trim(), type, sample, required, position));
+        return fields.save(new SourceField(version.getId(), path.trim(), type, sample, required,
+                position, scope, documentKey, valuePolicy));
     }
 
     @Transactional
     public SourceField updateField(UUID tenantId, UUID versionId, UUID fieldId, String path,
             String type, String sample, boolean required, Integer position) {
+        var existing = fields.findByIdAndSourceSchemaId(fieldId, versionId)
+                .orElseThrow(() -> new NoSuchElementException("Source field not found"));
+        return updateField(tenantId, versionId, fieldId, path, type, sample, required, position,
+                existing.getScope(), existing.isDocumentKey(), existing.getValuePolicy());
+    }
+
+    @Transactional
+    public SourceField updateField(UUID tenantId, UUID versionId, UUID fieldId, String path,
+            String type, String sample, boolean required, Integer position, SourceFieldScope scope,
+            boolean documentKey, FieldValuePolicy valuePolicy) {
         requireDraft(tenantId, versionId);
         var field = fields.findByIdAndSourceSchemaId(fieldId, versionId)
                 .orElseThrow(() -> new NoSuchElementException("Source field not found"));
-        field.update(path.trim(), type, sample, required, position);
+        field.update(path.trim(), type, sample, required, position, scope, documentKey, valuePolicy);
         return field;
+    }
+
+    @Transactional
+    public SourceSchema configureRows(UUID tenantId, UUID versionId, String recordPath,
+            UUID rowTypeFieldId, java.util.Set<String> itemValues,
+            java.util.Set<String> totalValues, java.util.Set<String> ignoredValues) {
+        var version = requireDraft(tenantId, versionId);
+        if (rowTypeFieldId != null) {
+            var classifier = fields.findByIdAndSourceSchemaId(rowTypeFieldId, versionId)
+                    .orElseThrow(() -> new IllegalArgumentException("Row classifier field does not belong to schema"));
+            if (classifier.getScope() != SourceFieldScope.ROW_CONTROL)
+                throw new IllegalArgumentException("Row classifier field must have ROW_CONTROL scope");
+        }
+        version.configureRows(recordPath, rowTypeFieldId, itemValues, totalValues, ignoredValues);
+        return version;
     }
 
     @Transactional

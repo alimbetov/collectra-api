@@ -25,7 +25,7 @@ final class XmlInputParser implements InputParser {
     }
 
     @Override
-    public ParsedInput parse(byte[] content, Collection<String> sourcePaths) {
+    public ParsedInput parse(byte[] content, Collection<String> sourcePaths, String recordPath) {
         try {
             DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
             factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
@@ -52,19 +52,45 @@ final class XmlInputParser implements InputParser {
                     });
             var document = builder.parse(new ByteArrayInputStream(content));
             var xpath = XPathFactory.newInstance().newXPath();
-            Map<String, List<JsonNode>> result = new LinkedHashMap<>();
-            for (String path : sourcePaths) {
-                NodeList nodes = (NodeList) xpath.evaluate(path, document, XPathConstants.NODESET);
-                List<JsonNode> values = new ArrayList<>();
-                for (int index = 0; index < nodes.getLength(); index++) {
-                    String value = nodes.item(index).getTextContent().trim();
-                    if (!value.isEmpty()) values.add(json.getNodeFactory().textNode(value));
-                }
-                result.put(path, List.copyOf(values));
+            NodeList records;
+            if (recordPath == null || recordPath.isBlank()) {
+                records = new SingleNodeList(document.getDocumentElement());
+            } else {
+                records = (NodeList) xpath.evaluate(recordPath, document, XPathConstants.NODESET);
+                if (records.getLength() == 0)
+                    throw new IllegalArgumentException("XML record path has no records");
             }
-            return new ParsedInput(result);
+            List<ParsedInput.ParsedRow> rows = new ArrayList<>();
+            for (int row = 0; row < records.getLength(); row++) {
+                Map<String, JsonNode> values = new LinkedHashMap<>();
+                for (String path : sourcePaths) {
+                    NodeList nodes = (NodeList) xpath.evaluate(path, records.item(row), XPathConstants.NODESET);
+                    if (nodes.getLength() == 0) values.put(path, json.nullNode());
+                    else if (nodes.getLength() == 1) values.put(path,
+                            text(nodes.item(0).getTextContent()));
+                    else {
+                        var array = json.createArrayNode();
+                        for (int index = 0; index < nodes.getLength(); index++)
+                            array.add(text(nodes.item(index).getTextContent()));
+                        values.put(path, array);
+                    }
+                }
+                rows.add(new ParsedInput.ParsedRow(row + 1,
+                        (recordPath == null ? "/" : recordPath) + "[" + (row + 1) + "]", values));
+            }
+            return new ParsedInput(rows);
         } catch (Exception ex) {
             throw new IllegalArgumentException("Invalid XML document or XPath", ex);
         }
+    }
+
+    private JsonNode text(String value) {
+        String normalized = value == null ? "" : value.trim();
+        return normalized.isEmpty() ? json.nullNode() : json.getNodeFactory().textNode(normalized);
+    }
+
+    private record SingleNodeList(org.w3c.dom.Node node) implements NodeList {
+        @Override public org.w3c.dom.Node item(int index) { return index == 0 ? node : null; }
+        @Override public int getLength() { return 1; }
     }
 }

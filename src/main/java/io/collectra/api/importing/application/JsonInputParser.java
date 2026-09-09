@@ -17,17 +17,46 @@ final class JsonInputParser implements InputParser {
     }
 
     @Override
-    public ParsedInput parse(byte[] content, Collection<String> sourcePaths) {
+    public ParsedInput parse(byte[] content, Collection<String> sourcePaths, String recordPath) {
         try {
             JsonNode root = json.readTree(content);
-            Map<String, List<JsonNode>> result = new LinkedHashMap<>();
-            for (String path : sourcePaths) result.put(path, evaluate(root, path));
-            return new ParsedInput(result);
+            List<JsonNode> records = records(root, recordPath);
+            List<ParsedInput.ParsedRow> rows = new ArrayList<>();
+            for (int index = 0; index < records.size(); index++) {
+                Map<String, JsonNode> values = new LinkedHashMap<>();
+                for (String path : sourcePaths) {
+                    List<JsonNode> matches = evaluate(records.get(index), path);
+                    if (matches.isEmpty()) values.put(path, json.nullNode());
+                    else if (matches.size() == 1) values.put(path, matches.get(0));
+                    else {
+                        var array = json.createArrayNode();
+                        matches.forEach(array::add);
+                        values.put(path, array);
+                    }
+                }
+                rows.add(new ParsedInput.ParsedRow(index + 1,
+                        recordPath == null || recordPath.isBlank() ? "$[" + index + "]"
+                                : recordPath + "[" + index + "]", values));
+            }
+            return new ParsedInput(rows);
         } catch (com.fasterxml.jackson.core.JsonProcessingException ex) {
             throw new IllegalArgumentException("Invalid JSON document", ex);
         } catch (java.io.IOException ex) {
             throw new IllegalStateException("Cannot read JSON document", ex);
         }
+    }
+
+    private List<JsonNode> records(JsonNode root, String recordPath) {
+        if (recordPath == null || recordPath.isBlank()) {
+            if (!root.isArray()) return List.of(root);
+            List<JsonNode> result = new ArrayList<>();
+            root.forEach(result::add);
+            return result;
+        }
+        String path = recordPath.trim().replace("$.", "").replace("[*]", "[]");
+        List<JsonNode> selected = evaluate(root, path);
+        if (selected.isEmpty()) throw new IllegalArgumentException("JSON record path has no records");
+        return selected;
     }
 
     private List<JsonNode> evaluate(JsonNode root, String path) {

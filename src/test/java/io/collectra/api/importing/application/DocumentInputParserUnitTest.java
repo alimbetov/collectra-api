@@ -50,6 +50,38 @@ class DocumentInputParserUnitTest {
         assertThat(input.valuesAt("Amount"))
                 .extracting(node -> node.asText())
                 .containsExactly("10,50", "20,00");
+        assertThat(input.rows()).hasSize(2);
+        assertThat(input.rows().get(0).values().get("Name").asText()).isEqualTo("Alpha");
+        assertThat(input.rows().get(1).values().get("Name").asText()).isEqualTo("Beta");
+    }
+
+    @Test
+    void keepsEmptyCellsInsideTheirOrderedCsvRow() {
+        ParsedInput input = parser.parse(SourceFormat.CSV,
+                "Item;Quantity;Price\nPaper;;500\nPen;5;100\n".getBytes(StandardCharsets.UTF_8),
+                List.of("Item", "Quantity", "Price"));
+
+        assertThat(input.rows()).extracting(ParsedInput.ParsedRow::order).containsExactly(1, 2);
+        assertThat(input.rows().get(0).values().get("Quantity").isNull()).isTrue();
+        assertThat(input.rows().get(0).values().get("Price").asText()).isEqualTo("500");
+        assertThat(input.rows().get(1).values().get("Quantity").asText()).isEqualTo("5");
+    }
+
+    @Test
+    void turnsJsonArrayAndRepeatedXmlNodesIntoOrderedRows() {
+        ParsedInput jsonInput = parser.parse(SourceFormat.JSON,
+                "{\"rows\":[{\"id\":\"A\",\"value\":1},{\"id\":\"B\"}]}"
+                        .getBytes(StandardCharsets.UTF_8),
+                List.of("id", "value"), "$.rows[*]");
+        assertThat(jsonInput.rows()).extracting(ParsedInput.ParsedRow::order).containsExactly(1, 2);
+        assertThat(jsonInput.rows().get(1).values().get("value").isNull()).isTrue();
+
+        ParsedInput xmlInput = parser.parse(SourceFormat.XML,
+                "<rows><row><id>A</id></row><row><id>B</id></row></rows>"
+                        .getBytes(StandardCharsets.UTF_8),
+                List.of("id"), "/rows/row");
+        assertThat(xmlInput.rows()).extracting(row -> row.values().get("id").asText())
+                .containsExactly("A", "B");
     }
 
     @Test

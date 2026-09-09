@@ -23,9 +23,7 @@ final class ExcelInputParser implements InputParser {
     }
 
     @Override
-    public ParsedInput parse(byte[] content, Collection<String> sourcePaths) {
-        Map<String, List<JsonNode>> result = new LinkedHashMap<>();
-        sourcePaths.forEach(path -> result.put(path, new ArrayList<>()));
+    public ParsedInput parse(byte[] content, Collection<String> sourcePaths, String recordPath) {
         try (var workbook = WorkbookFactory.create(new ByteArrayInputStream(content))) {
             if (workbook.getNumberOfSheets() == 0)
                 throw new IllegalArgumentException("Excel workbook has no sheets");
@@ -42,22 +40,24 @@ final class ExcelInputParser implements InputParser {
                 if (!name.isEmpty()) columns.put(name, column);
             }
             int rows = 0;
+            List<ParsedInput.ParsedRow> parsedRows = new ArrayList<>();
             for (int index = header.getRowNum() + 1; index <= sheet.getLastRowNum(); index++) {
                 Row row = sheet.getRow(index);
                 if (row == null) continue;
                 if (++rows > MAX_ROWS)
                     throw new IllegalArgumentException("Excel exceeds 10000 rows");
+                Map<String, JsonNode> values = new LinkedHashMap<>();
                 for (String path : sourcePaths) {
                     Integer column = columns.get(path);
-                    if (column == null) continue;
-                    String value = formatter.formatCellValue(row.getCell(column), evaluator).trim();
-                    if (!value.isEmpty())
-                        result.get(path).add(json.getNodeFactory().textNode(value));
+                    String value = column == null ? null
+                            : formatter.formatCellValue(row.getCell(column), evaluator).trim();
+                    values.put(path, value == null || value.isEmpty()
+                            ? json.nullNode() : json.getNodeFactory().textNode(value));
                 }
+                parsedRows.add(new ParsedInput.ParsedRow(rows,
+                        "sheet:" + sheet.getSheetName() + ",row:" + (index + 1), values));
             }
-            Map<String, List<JsonNode>> immutable = new LinkedHashMap<>();
-            result.forEach((key, value) -> immutable.put(key, List.copyOf(value)));
-            return new ParsedInput(immutable);
+            return new ParsedInput(parsedRows);
         } catch (IllegalArgumentException ex) {
             throw ex;
         } catch (Exception ex) {
