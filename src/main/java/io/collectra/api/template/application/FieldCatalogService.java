@@ -17,13 +17,14 @@ import java.util.UUID;
 
 @Service
 public class FieldCatalogService {
-    private static final String CUSTOM_NAMESPACE = "custom";
-    private static final int MIN_CUSTOM_SEGMENTS = 3;
-
     private final FieldDefinitionRepository fields;
+    private final FieldKeyValidator fieldKeyValidator;
 
-    public FieldCatalogService(FieldDefinitionRepository fields) {
+    public FieldCatalogService(
+            FieldDefinitionRepository fields,
+            FieldKeyValidator fieldKeyValidator) {
         this.fields = fields;
+        this.fieldKeyValidator = fieldKeyValidator;
     }
 
     @Transactional(readOnly = true)
@@ -43,7 +44,7 @@ public class FieldCatalogService {
             String description,
             String exampleValue,
             JsonNode validationRules) {
-        String canonicalKey = validateCustomPlaceholderKey(key);
+        String canonicalKey = fieldKeyValidator.validateCustomFieldKey(key).canonical();
         ensureKeyAvailable(tenantId, canonicalKey);
         FieldDefinition field =
                 new FieldDefinition(
@@ -111,17 +112,6 @@ public class FieldCatalogService {
         if (fields.existsByTenantIdIsNullAndKeyIgnoreCase(key)
                 || fields.existsByTenantIdAndKeyIgnoreCase(tenantId, key))
             throw new IllegalArgumentException("Field key already exists");
-    }
-
-    private String validateCustomPlaceholderKey(String key) {
-        FieldPath path = PlaceholderGrammar.parse(key);
-        List<String> segments = path.segments();
-        if (segments.size() < MIN_CUSTOM_SEGMENTS
-                || !CUSTOM_NAMESPACE.equals(segments.get(0))) {
-            throw new IllegalArgumentException(
-                    "Custom field key must match custom.<namespace>.<name> and be a valid placeholder key");
-        }
-        return path.canonical();
     }
 
     private String normalizeCategory(String category) {
