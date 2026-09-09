@@ -17,5 +17,6 @@ collectra.file.storage.access-key: test
 collectra.file.storage.secret-key: test-secret
 collectra.file.storage.region: us-east-1
 collectra.file.storage.path-style-access: true
+collectra.file.cleanup.enabled: false
 collectra.messaging.outbox-enabled: false
 management.health.rabbit.enabled: false
