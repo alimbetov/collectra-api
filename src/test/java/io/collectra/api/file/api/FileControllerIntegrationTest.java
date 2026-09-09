@@ -63,7 +63,7 @@ class FileControllerIntegrationTest extends AbstractIntegrationTest {
     void tenantAdminCanUploadReadDownloadAndDeleteFile() throws Exception {
         Auth admin = register("files-" + UUID.randomUUID(), "files@example.test");
         JsonNode uploaded = upload(admin.accessToken());
-        UUID fileId = UUID.fromString(uploaded.get("id").asText());
+        UUID fileId = UUID.fromString(uploaded.get("fileId").asText());
 
         assertThat(uploaded.get("status").asText()).isEqualTo("READY");
         assertThat(uploaded.get("category").asText()).isEqualTo("IMPORT_SOURCE");
@@ -74,7 +74,7 @@ class FileControllerIntegrationTest extends AbstractIntegrationTest {
                         get("/api/v1/files/{fileId}", fileId)
                                 .header("Authorization", "Bearer " + admin.accessToken()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(fileId.toString()))
+                .andExpect(jsonPath("$.fileId").value(fileId.toString()))
                 .andExpect(jsonPath("$.status").value("READY"));
 
         mockMvc.perform(
@@ -115,7 +115,7 @@ class FileControllerIntegrationTest extends AbstractIntegrationTest {
     void fileIdFromAnotherTenantIsReportedAsNotFound() throws Exception {
         Auth owner = register("file-owner-" + UUID.randomUUID(), "owner@example.test");
         Auth outsider = register("file-outsider-" + UUID.randomUUID(), "outsider@example.test");
-        UUID fileId = UUID.fromString(upload(owner.accessToken()).get("id").asText());
+        UUID fileId = UUID.fromString(upload(owner.accessToken()).get("fileId").asText());
 
         mockMvc.perform(
                         get("/api/v1/files/{fileId}", fileId)
@@ -140,6 +140,8 @@ class FileControllerIntegrationTest extends AbstractIntegrationTest {
                                         .param("category", "IMPORT_SOURCE")
                                         .header("Authorization", "Bearer " + accessToken))
                         .andExpect(status().isCreated())
+                        .andExpect(jsonPath("$.fileId").isString())
+                        .andExpect(jsonPath("$.status").value("READY"))
                         .andReturn()
                         .getResponse()
                         .getContentAsString();
