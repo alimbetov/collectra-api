@@ -28,18 +28,19 @@ public class TemplateRenderer {
         List<String> missing = new ArrayList<>();
 
         for (TemplateToken token : template.tokens()) {
-            switch (token) {
-                case TemplateToken.Text text -> rendered.append(text.value());
-                case TemplateToken.Placeholder placeholder -> {
-                    FieldPath path = placeholder.path();
-                    JsonNode value = normalizedPayload.at(path.jsonPointer());
-                    if (value.isMissingNode() || value.isNull()) {
-                        missing.add(path.canonical());
-                    } else {
-                        String text = value.isValueNode() ? value.asText() : value.toString();
-                        rendered.append(HtmlUtils.htmlEscape(text));
-                    }
-                }
+            if (token instanceof TemplateToken.Text text) {
+                rendered.append(text.value());
+                continue;
+            }
+
+            TemplateToken.Placeholder placeholder = (TemplateToken.Placeholder) token;
+            FieldPath path = placeholder.path();
+            JsonNode value = normalizedPayload.at(path.jsonPointer());
+            if (value.isMissingNode() || value.isNull()) {
+                missing.add(path.canonical());
+            } else {
+                String text = value.isValueNode() ? value.asText() : value.toString();
+                rendered.append(HtmlUtils.htmlEscape(text));
             }
         }
 
