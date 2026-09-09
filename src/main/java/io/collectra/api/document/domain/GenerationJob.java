@@ -26,6 +26,15 @@ public class GenerationJob extends AuditableEntity {
     @Column(name = "mapping_profile_id")
     private UUID mappingProfileId;
 
+    @Column(name = "source_schema_version_id")
+    private UUID sourceSchemaVersionId;
+
+    @Column(name = "mapping_config_sha256", length = 64)
+    private String mappingConfigSha256;
+
+    @Column(name = "template_config_sha256", length = 64)
+    private String templateConfigSha256;
+
     @Column(name = "template_version_id", nullable = false)
     private UUID templateVersionId;
 
@@ -103,6 +112,18 @@ public class GenerationJob extends AuditableEntity {
         this.status = GenerationJobStatus.PENDING;
     }
 
+    public GenerationJob(
+            UUID tenantId, String documentType, UUID sourceSchemaVersionId,
+            UUID mappingProfileId, UUID templateVersionId, UUID inputFileId,
+            JsonNode normalizedPayload, java.util.Set<OutputFormat> outputFormats,
+            String mappingConfigSha256, String templateConfigSha256) {
+        this(tenantId, documentType, mappingProfileId, templateVersionId, inputFileId,
+                normalizedPayload, outputFormats);
+        this.sourceSchemaVersionId = sourceSchemaVersionId;
+        this.mappingConfigSha256 = mappingConfigSha256;
+        this.templateConfigSha256 = templateConfigSha256;
+    }
+
     public UUID getId() {
         return id;
     }
@@ -114,6 +135,11 @@ public class GenerationJob extends AuditableEntity {
     public UUID getTemplateVersionId() {
         return templateVersionId;
     }
+
+    public UUID getSourceSchemaVersionId() { return sourceSchemaVersionId; }
+    public UUID getMappingProfileId() { return mappingProfileId; }
+    public String getMappingConfigSha256() { return mappingConfigSha256; }
+    public String getTemplateConfigSha256() { return templateConfigSha256; }
 
     public JsonNode getNormalizedPayload() {
         return normalizedPayload;

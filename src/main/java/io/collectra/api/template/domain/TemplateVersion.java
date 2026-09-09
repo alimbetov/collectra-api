@@ -55,6 +55,9 @@ public class TemplateVersion extends AuditableEntity {
         return templateId;
     }
 
+    public int getTemplateVersion() { return templateVersion; }
+    public String getLocale() { return locale; }
+
     public TemplateVersionStatus getStatus() {
         return status;
     }
@@ -68,8 +71,33 @@ public class TemplateVersion extends AuditableEntity {
     }
 
     public void publish() {
-        if (status != TemplateVersionStatus.DRAFT)
-            throw new IllegalStateException("Only draft template can be published");
+        if (status != TemplateVersionStatus.VALIDATED)
+            throw new IllegalStateException("Only validated template can be published");
         status = TemplateVersionStatus.PUBLISHED;
+    }
+
+    public void update(String contentHtml, String stylesheet) {
+        if (status != TemplateVersionStatus.DRAFT)
+            throw new IllegalStateException("Only draft template can be changed");
+        this.contentHtml = contentHtml;
+        this.stylesheet = stylesheet;
+    }
+
+    public void validated() {
+        if (status != TemplateVersionStatus.DRAFT)
+            throw new IllegalStateException("Only draft template can be validated");
+        status = TemplateVersionStatus.VALIDATED;
+    }
+
+    public void reopen() {
+        if (status != TemplateVersionStatus.VALIDATED)
+            throw new IllegalStateException("Only validated template can return to draft");
+        status = TemplateVersionStatus.DRAFT;
+    }
+
+    public void archive() {
+        if (status != TemplateVersionStatus.PUBLISHED)
+            throw new IllegalStateException("Only published template can be archived");
+        status = TemplateVersionStatus.ARCHIVED;
     }
 }

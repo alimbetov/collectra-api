@@ -7,4 +7,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface SourceFieldRepository extends JpaRepository<SourceField, UUID> {
     List<SourceField> findAllBySourceSchemaIdOrderByPositionAsc(UUID sourceSchemaId);
+    java.util.Optional<SourceField> findByIdAndSourceSchemaId(UUID id, UUID sourceSchemaId);
 }

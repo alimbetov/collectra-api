@@ -57,6 +57,12 @@ class RoleAccessSmokeIntegrationTest extends AbstractIntegrationTest {
                         get("/api/v1/audit/security-events")
                                 .header("Authorization", bearer(token)))
                 .andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/source-schemas").header("Authorization", bearer(token)))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/mapping-profiles").header("Authorization", bearer(token)))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/templates").header("Authorization", bearer(token)))
+                .andExpect(status().isOk());
         mockMvc.perform(get("/api/v1/platform/me").header("Authorization", bearer(token)))
                 .andExpect(status().isForbidden());
     }
@@ -144,6 +150,12 @@ class RoleAccessSmokeIntegrationTest extends AbstractIntegrationTest {
                 .andExpect(status().isForbidden());
         mockMvc.perform(get("/api/v1/audit/security-events").header("Authorization", bearer(token)))
                 .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/v1/source-schemas").header("Authorization", bearer(token)))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/v1/mapping-profiles").header("Authorization", bearer(token)))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/v1/templates").header("Authorization", bearer(token)))
+                .andExpect(status().isForbidden());
         mockMvc.perform(get("/api/v1/platform/me").header("Authorization", bearer(token)))
                 .andExpect(status().isForbidden());
     }
@@ -158,6 +170,12 @@ class RoleAccessSmokeIntegrationTest extends AbstractIntegrationTest {
                                 .header("Authorization", bearer(token)))
                 .andExpect(status().isForbidden());
         mockMvc.perform(get("/api/v1/audit/security-events").header("Authorization", bearer(token)))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/v1/source-schemas").header("Authorization", bearer(token)))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/v1/mapping-profiles").header("Authorization", bearer(token)))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/v1/templates").header("Authorization", bearer(token)))
                 .andExpect(status().isForbidden());
         mockMvc.perform(get("/api/v1/platform/me").header("Authorization", bearer(token)))
                 .andExpect(status().isForbidden());

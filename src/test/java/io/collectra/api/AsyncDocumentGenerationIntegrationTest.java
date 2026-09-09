@@ -92,6 +92,7 @@ class AsyncDocumentGenerationIntegrationTest extends AbstractIntegrationTest {
 
         SourceSchema schema =
                 new SourceSchema(tenant.getId(), "INVOICE_CSV", "Invoice CSV", SourceFormat.CSV, 1);
+        schema.validated();
         schema.publish();
         schemas.saveAndFlush(schema);
         SourceField customerSource =
@@ -104,6 +105,7 @@ class AsyncDocumentGenerationIntegrationTest extends AbstractIntegrationTest {
         MappingProfile profile =
                 new MappingProfile(
                         tenant.getId(), schema.getId(), "INVOICE_CSV", "Invoice CSV", "INVOICE", 1);
+        profile.validated();
         profile.publish();
         profiles.saveAndFlush(profile);
         rules.saveAndFlush(
@@ -135,6 +137,7 @@ class AsyncDocumentGenerationIntegrationTest extends AbstractIntegrationTest {
                         "en",
                         "<h1>{{custom.invoice.customer}}</h1><p>{{custom.invoice.total}}</p>",
                         "body { font-family: sans-serif; }");
+        version.validated();
         version.publish();
         versions.saveAndFlush(version);
 

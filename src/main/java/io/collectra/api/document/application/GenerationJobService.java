@@ -82,11 +82,15 @@ public class GenerationJobService {
                         new GenerationJob(
                                 tenantId,
                                 mapped.documentType(),
+                                mapped.sourceSchemaVersionId(),
                                 mappingProfileId,
                                 templateVersionId,
                                 null,
                                 mapped.normalizedPayload(),
-                                formats));
+                                formats,
+                                mapped.mappingConfigSha256(),
+                                sha256(version.getContentHtml() + "\n" +
+                                        (version.getStylesheet() == null ? "" : version.getStylesheet()))));
         try {
             outbox.append(
                     tenantId,
@@ -118,5 +122,15 @@ public class GenerationJobService {
         return documents
                 .findByGenerationJobIdAndFormat(jobId, format)
                 .orElseThrow(() -> new NoSuchElementException("Generated document not found"));
+    }
+
+    private String sha256(String value) {
+        try {
+            byte[] digest = java.security.MessageDigest.getInstance("SHA-256")
+                    .digest(value.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            return java.util.HexFormat.of().formatHex(digest);
+        } catch (java.security.NoSuchAlgorithmException ex) {
+            throw new IllegalStateException("SHA-256 is unavailable", ex);
+        }
     }
 }

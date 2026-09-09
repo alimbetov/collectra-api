@@ -12,6 +12,7 @@ import java.util.UUID;
 
 public interface TemplateVersionRepository extends JpaRepository<TemplateVersion, UUID> {
     List<TemplateVersion> findAllByTemplateIdOrderByTemplateVersionDesc(UUID templateId);
+    List<TemplateVersion> findAllByTemplateIdAndLocaleOrderByTemplateVersionDesc(UUID templateId, String locale);
 
     @Query(
             "select v from TemplateVersion v, DocumentTemplate t where v.id = :id "

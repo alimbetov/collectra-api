@@ -14,6 +14,9 @@ public class MappingProfile extends AuditableEntity {
     @Column(name = "tenant_id", nullable = false)
     private UUID tenantId;
 
+    @Column(name = "definition_id")
+    private UUID definitionId;
+
     @Column(name = "source_schema_id", nullable = false)
     private UUID sourceSchemaId;
 
@@ -42,8 +45,20 @@ public class MappingProfile extends AuditableEntity {
             String name,
             String documentType,
             int profileVersion) {
+        this(tenantId, null, sourceSchemaId, code, name, documentType, profileVersion);
+    }
+
+    public MappingProfile(
+            UUID tenantId,
+            UUID definitionId,
+            UUID sourceSchemaId,
+            String code,
+            String name,
+            String documentType,
+            int profileVersion) {
         this.id = UUID.randomUUID();
         this.tenantId = tenantId;
+        this.definitionId = definitionId;
         this.sourceSchemaId = sourceSchemaId;
         this.code = code;
         this.name = name;
@@ -64,6 +79,11 @@ public class MappingProfile extends AuditableEntity {
         return sourceSchemaId;
     }
 
+    public UUID getDefinitionId() { return definitionId; }
+    public String getCode() { return code; }
+    public String getName() { return name; }
+    public int getProfileVersion() { return profileVersion; }
+
     public String getDocumentType() {
         return documentType;
     }
@@ -73,8 +93,26 @@ public class MappingProfile extends AuditableEntity {
     }
 
     public void publish() {
-        if (status != DefinitionStatus.DRAFT)
-            throw new IllegalStateException("Only draft mapping profile can be published");
+        if (status != DefinitionStatus.VALIDATED)
+            throw new IllegalStateException("Only validated mapping profile can be published");
         status = DefinitionStatus.PUBLISHED;
+    }
+
+    public void validated() {
+        if (status != DefinitionStatus.DRAFT)
+            throw new IllegalStateException("Only draft mapping profile can be validated");
+        status = DefinitionStatus.VALIDATED;
+    }
+
+    public void reopen() {
+        if (status != DefinitionStatus.VALIDATED)
+            throw new IllegalStateException("Only validated mapping profile can return to draft");
+        status = DefinitionStatus.DRAFT;
+    }
+
+    public void archive() {
+        if (status != DefinitionStatus.PUBLISHED)
+            throw new IllegalStateException("Only published mapping profile can be archived");
+        status = DefinitionStatus.ARCHIVED;
     }
 }

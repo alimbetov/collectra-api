@@ -52,7 +52,21 @@ public class SourceField {
         return sourcePath;
     }
 
+    public UUID getSourceSchemaId() { return sourceSchemaId; }
+    public String getDetectedType() { return detectedType; }
+    public String getSampleValue() { return sampleValue; }
+    public Integer getPosition() { return position; }
+
     public boolean isRequired() {
         return required;
+    }
+
+    public void update(String sourcePath, String detectedType, String sampleValue,
+            boolean required, Integer position) {
+        this.sourcePath = sourcePath;
+        this.detectedType = detectedType;
+        this.sampleValue = sampleValue;
+        this.required = required;
+        this.position = position;
     }
 }

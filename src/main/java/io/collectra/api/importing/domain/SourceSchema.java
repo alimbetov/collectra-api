@@ -14,6 +14,9 @@ public class SourceSchema extends AuditableEntity {
     @Column(name = "tenant_id", nullable = false)
     private UUID tenantId;
 
+    @Column(name = "definition_id")
+    private UUID definitionId;
+
     @Column(nullable = false, length = 100)
     private String code;
 
@@ -35,8 +38,14 @@ public class SourceSchema extends AuditableEntity {
 
     public SourceSchema(
             UUID tenantId, String code, String name, SourceFormat format, int schemaVersion) {
+        this(tenantId, null, code, name, format, schemaVersion);
+    }
+
+    public SourceSchema(
+            UUID tenantId, UUID definitionId, String code, String name, SourceFormat format, int schemaVersion) {
         this.id = UUID.randomUUID();
         this.tenantId = tenantId;
+        this.definitionId = definitionId;
         this.code = code;
         this.name = name;
         this.sourceFormat = format;
@@ -52,6 +61,11 @@ public class SourceSchema extends AuditableEntity {
         return tenantId;
     }
 
+    public UUID getDefinitionId() { return definitionId; }
+    public String getCode() { return code; }
+    public String getName() { return name; }
+    public int getSchemaVersion() { return schemaVersion; }
+
     public SourceFormat getSourceFormat() {
         return sourceFormat;
     }
@@ -61,8 +75,26 @@ public class SourceSchema extends AuditableEntity {
     }
 
     public void publish() {
-        if (status != DefinitionStatus.DRAFT)
-            throw new IllegalStateException("Only draft schema can be published");
+        if (status != DefinitionStatus.VALIDATED)
+            throw new IllegalStateException("Only validated schema can be published");
         status = DefinitionStatus.PUBLISHED;
+    }
+
+    public void validated() {
+        if (status != DefinitionStatus.DRAFT)
+            throw new IllegalStateException("Only draft schema can be validated");
+        status = DefinitionStatus.VALIDATED;
+    }
+
+    public void reopen() {
+        if (status != DefinitionStatus.VALIDATED)
+            throw new IllegalStateException("Only validated schema can return to draft");
+        status = DefinitionStatus.DRAFT;
+    }
+
+    public void archive() {
+        if (status != DefinitionStatus.PUBLISHED)
+            throw new IllegalStateException("Only published schema can be archived");
+        status = DefinitionStatus.ARCHIVED;
     }
 }

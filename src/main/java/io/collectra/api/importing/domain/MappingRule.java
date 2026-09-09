@@ -55,6 +55,8 @@ public class MappingRule {
         return id;
     }
 
+    public UUID getMappingProfileId() { return mappingProfileId; }
+
     public UUID getSourceFieldId() {
         return sourceFieldId;
     }
@@ -73,5 +75,14 @@ public class MappingRule {
 
     public boolean isRequired() {
         return required;
+    }
+
+    public void update(UUID sourceFieldId, UUID targetFieldId, JsonNode transformation,
+            String defaultValue, boolean required) {
+        this.sourceFieldId = sourceFieldId;
+        this.targetFieldId = targetFieldId;
+        this.transformation = transformation;
+        this.defaultValue = defaultValue;
+        this.required = required;
     }
 }

@@ -17,3 +17,5 @@ databaseChangeLog:
       file: db/changelog/changes/011-field-catalog-api.sql
   - include:
       file: db/changelog/changes/012-async-document-generation.sql
+  - include:
+      file: db/changelog/changes/013-versioned-configuration-api.sql

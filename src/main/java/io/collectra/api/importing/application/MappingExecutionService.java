@@ -62,14 +62,48 @@ public class MappingExecutionService {
 
     @Transactional(readOnly = true)
     public MappingResult execute(UUID tenantId, UUID mappingProfileId, byte[] content) {
+        return executeInternal(tenantId, mappingProfileId, content, true);
+    }
+
+    @Transactional(readOnly = true)
+    public MappingResult test(UUID tenantId, UUID mappingProfileId, byte[] content) {
+        return executeInternal(tenantId, mappingProfileId, content, false);
+    }
+
+    @Transactional(readOnly = true)
+    public RuleTestResult testRule(
+            UUID tenantId, UUID mappingProfileId, UUID ruleId, JsonNode sourceValue) {
+        MappingProfile profile = profiles.findByIdAndTenantId(mappingProfileId, tenantId)
+                .orElseThrow(() -> new NoSuchElementException("Mapping profile not found"));
+        MappingRule rule = rules.findByIdAndMappingProfileId(ruleId, mappingProfileId)
+                .orElseThrow(() -> new NoSuchElementException("Mapping rule not found"));
+        SourceField source = sourceFields.findById(rule.getSourceFieldId())
+                .orElseThrow(() -> new NoSuchElementException("Source field not found"));
+        FieldDefinition target = targetFields.findById(rule.getTargetFieldId())
+                .orElseThrow(() -> new NoSuchElementException("Target field not found"));
+        if (!profile.getSourceSchemaId().equals(source.getSourceSchemaId()))
+            throw new IllegalArgumentException("Source field does not belong to mapping schema");
+        validateDefinition(tenantId, source, target);
+        JsonNode input = sourceValue == null ? json.nullNode() : sourceValue;
+        List<JsonNode> transformed = transform(List.of(input), rule.getTransformation(), target,
+                source.getSourcePath());
+        JsonNode result = transformed.isEmpty() ? json.nullNode() : transformed.get(0);
+        String operation = rule.getTransformation() == null
+                ? "NONE" : rule.getTransformation().path("type").asText("NONE").toUpperCase(Locale.ROOT);
+        return new RuleTestResult(input, result, target.getDataType().name(),
+                List.of(new RuleTestStep(operation, result)));
+    }
+
+    private MappingResult executeInternal(
+            UUID tenantId, UUID mappingProfileId, byte[] content, boolean publishedOnly) {
         MappingProfile profile =
                 profiles.findByIdAndTenantId(mappingProfileId, tenantId)
                         .orElseThrow(() -> new NoSuchElementException("Mapping profile not found"));
         SourceSchema schema =
                 schemas.findByIdAndTenantId(profile.getSourceSchemaId(), tenantId)
                         .orElseThrow(() -> new NoSuchElementException("Source schema not found"));
-        if (profile.getStatus() != DefinitionStatus.PUBLISHED
-                || schema.getStatus() != DefinitionStatus.PUBLISHED)
+        if (publishedOnly && (profile.getStatus() != DefinitionStatus.PUBLISHED
+                || schema.getStatus() != DefinitionStatus.PUBLISHED))
             throw new IllegalStateException(
                     "Only published source schemas and mapping profiles can be executed");
         List<SourceField> sources =
@@ -79,12 +113,15 @@ public class MappingExecutionService {
                         schema.getSourceFormat(),
                         content,
                         sources.stream().map(SourceField::getSourcePath).toList());
-        return apply(
+        List<MappingRule> configuredRules = rules.findAllByMappingProfileId(mappingProfileId);
+        MappingResult result = apply(
                 tenantId,
                 profile,
                 input,
                 sources,
-                rules.findAllByMappingProfileId(mappingProfileId));
+                configuredRules);
+        return new MappingResult(result.mappingProfileId(), result.sourceSchemaVersionId(),
+                result.documentType(), result.normalizedPayload(), configHash(profile, configuredRules));
     }
 
     MappingResult apply(
@@ -151,7 +188,7 @@ public class MappingExecutionService {
             if (!values.isEmpty()) put(payload, target, values);
         }
         if (!violations.isEmpty()) throw new MappingValidationException(violations);
-        return new MappingResult(profile.getId(), profile.getDocumentType(), payload);
+        return new MappingResult(profile.getId(), profile.getSourceSchemaId(), profile.getDocumentType(), payload, null);
     }
 
     private void validateDefinition(UUID tenantId, SourceField source, FieldDefinition target) {
@@ -267,6 +304,33 @@ public class MappingExecutionService {
         } else parent.set(leaf, values.get(0));
     }
 
+    private String configHash(MappingProfile profile, List<MappingRule> configuredRules) {
+        ObjectNode snapshot = json.createObjectNode();
+        snapshot.put("profileId", profile.getId().toString());
+        snapshot.put("sourceSchemaVersionId", profile.getSourceSchemaId().toString());
+        ArrayNode values = snapshot.putArray("rules");
+        configuredRules.stream().sorted(java.util.Comparator.comparing(MappingRule::getId))
+                .forEach(rule -> {
+                    ObjectNode item = values.addObject();
+                    item.put("sourceFieldId", rule.getSourceFieldId().toString());
+                    item.put("targetFieldId", rule.getTargetFieldId().toString());
+                    item.set("transformation", rule.getTransformation());
+                    item.put("defaultValue", rule.getDefaultValue());
+                    item.put("required", rule.isRequired());
+                });
+        try {
+            byte[] digest = java.security.MessageDigest.getInstance("SHA-256")
+                    .digest(json.writeValueAsBytes(snapshot));
+            return java.util.HexFormat.of().formatHex(digest);
+        } catch (java.security.NoSuchAlgorithmException | com.fasterxml.jackson.core.JsonProcessingException ex) {
+            throw new IllegalStateException("Cannot hash mapping configuration", ex);
+        }
+    }
+
     public record MappingResult(
-            UUID mappingProfileId, String documentType, ObjectNode normalizedPayload) {}
+            UUID mappingProfileId, UUID sourceSchemaVersionId, String documentType,
+            ObjectNode normalizedPayload, String mappingConfigSha256) {}
+    public record RuleTestStep(String operation, JsonNode result) {}
+    public record RuleTestResult(JsonNode sourceValue, JsonNode result, String resultType,
+            List<RuleTestStep> steps) {}
 }

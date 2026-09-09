@@ -9,4 +9,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface MappingProfileRepository extends JpaRepository<MappingProfile, UUID> {
     Optional<MappingProfile> findByIdAndTenantId(UUID id, UUID tenantId);
     List<MappingProfile> findAllByTenantIdOrderByCodeAscProfileVersionDesc(UUID tenantId);
+    List<MappingProfile> findAllByDefinitionIdOrderByProfileVersionDesc(UUID definitionId);
+    Optional<MappingProfile> findTopByDefinitionIdOrderByProfileVersionDesc(UUID definitionId);
 }
