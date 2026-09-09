@@ -16,7 +16,7 @@ public class InternalFileController {
     }
 
     @PostMapping("/cleanup")
-    @PreAuthorize("@fileAuthorization.canAdmin(authentication)")
+    @PreAuthorize("hasAuthority('ROLE_PLATFORM_SUPER_ADMIN')")
     public FileCleanupService.CleanupResult cleanup() {
         return cleanupService.cleanupExpiredFiles();
     }
