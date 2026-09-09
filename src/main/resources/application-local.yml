@@ -18,3 +18,10 @@ collectra:
     secret-key: rustfsadmin
     region: us-east-1
     path-style-access: true
+  file:
+    storage:
+      endpoint: http://localhost:9000
+      access-key: rustfsadmin
+      secret-key: rustfsadmin
+      region: us-east-1
+      path-style-access: true
