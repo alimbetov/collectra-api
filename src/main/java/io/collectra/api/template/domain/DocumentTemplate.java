@@ -19,5 +19,12 @@ public class DocumentTemplate extends AuditableEntity {
     }
     public UUID getId() { return id; } public UUID getTenantId() { return tenantId; }
     public String getCode() { return code; }
+    public String getName() { return name; }
     public String getDocumentType() { return documentType; }
+    public String getStatus() { return status; }
+    public void rename(String name) {
+        if (!"ACTIVE".equals(status)) throw new IllegalStateException("Archived template cannot be changed");
+        this.name = name;
+    }
+    public void archive() { this.status = "ARCHIVED"; }
 }
