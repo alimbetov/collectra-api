@@ -82,6 +82,13 @@ public class MappingProfileController {
         return service.test(tenant(), versionId, file.getBytes());
     }
 
+    @PostMapping("/versions/{versionId}/rules/{ruleId}/test")
+    @PreAuthorize("hasAuthority('MAPPING_PROFILE_MANAGE')")
+    MappingExecutionService.RuleTestResult testRule(@PathVariable UUID versionId,
+            @PathVariable UUID ruleId, @RequestBody RuleTestRequest request) {
+        return service.testRule(tenant(), versionId, ruleId, request.sourceValue());
+    }
+
     @PostMapping("/versions/{versionId}/{action:publish|reopen|archive}")
     @PreAuthorize("hasAuthority('MAPPING_PROFILE_MANAGE')")
     VersionResponse transition(@PathVariable UUID versionId, @PathVariable String action) {
@@ -100,6 +107,7 @@ public class MappingProfileController {
     record VersionRequest(@NotNull UUID sourceSchemaVersionId) {}
     record RuleRequest(@NotNull UUID sourceFieldId, @NotNull UUID targetFieldId,
             JsonNode transformation, @Size(max=500) String defaultValue, boolean required) {}
+    record RuleTestRequest(JsonNode sourceValue) {}
     record DefinitionResponse(UUID id, String code, String name, String documentType) {
         static DefinitionResponse from(MappingProfileDefinition v) { return new DefinitionResponse(v.getId(), v.getCode(), v.getName(), v.getDocumentType()); }
     }

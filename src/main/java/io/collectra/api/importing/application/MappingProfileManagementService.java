@@ -171,6 +171,13 @@ public class MappingProfileManagementService {
         return execution.test(tenantId, versionId, input);
     }
 
+    @Transactional(readOnly = true)
+    public MappingExecutionService.RuleTestResult testRule(UUID tenantId, UUID versionId,
+            UUID ruleId, JsonNode sourceValue) {
+        requireVersion(tenantId, versionId);
+        return execution.testRule(tenantId, versionId, ruleId, sourceValue);
+    }
+
     @Transactional
     public MappingProfile publish(UUID tenantId, UUID id) { var v = requireVersion(tenantId, id); v.publish(); return v; }
     @Transactional

@@ -47,8 +47,14 @@ class VersionedConfigurationIntegrationTest extends AbstractIntegrationTest {
 
         var mappingDefinition = mappings.create(tenant.getId(), "INVOICE_MAP", "Invoice map", "INVOICE");
         var mappingV1 = mappings.createVersion(tenant.getId(), mappingDefinition.getId(), schemaV1.getId());
-        mappings.addRule(tenant.getId(), mappingV1.getId(), source.getId(), target.getId(),
+        var rule = mappings.addRule(tenant.getId(), mappingV1.getId(), source.getId(), target.getId(),
                 json.createObjectNode().put("type", "TRIM"), null, true);
+        var ruleTest = mappings.testRule(tenant.getId(), mappingV1.getId(), rule.getId(),
+                json.getNodeFactory().textNode("  Acme  "));
+        assertThat(ruleTest.result().asText()).isEqualTo("Acme");
+        assertThat(ruleTest.steps()).singleElement().extracting(
+                io.collectra.api.importing.application.MappingExecutionService.RuleTestStep::operation)
+                .isEqualTo("TRIM");
         assertThat(mappings.validate(tenant.getId(), mappingV1.getId()).valid()).isTrue();
         var testResult = mappings.test(tenant.getId(), mappingV1.getId(),
                 "Customer\n  Acme  \n".getBytes(StandardCharsets.UTF_8));

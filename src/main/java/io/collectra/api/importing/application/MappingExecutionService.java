@@ -70,6 +70,30 @@ public class MappingExecutionService {
         return executeInternal(tenantId, mappingProfileId, content, false);
     }
 
+    @Transactional(readOnly = true)
+    public RuleTestResult testRule(
+            UUID tenantId, UUID mappingProfileId, UUID ruleId, JsonNode sourceValue) {
+        MappingProfile profile = profiles.findByIdAndTenantId(mappingProfileId, tenantId)
+                .orElseThrow(() -> new NoSuchElementException("Mapping profile not found"));
+        MappingRule rule = rules.findByIdAndMappingProfileId(ruleId, mappingProfileId)
+                .orElseThrow(() -> new NoSuchElementException("Mapping rule not found"));
+        SourceField source = sourceFields.findById(rule.getSourceFieldId())
+                .orElseThrow(() -> new NoSuchElementException("Source field not found"));
+        FieldDefinition target = targetFields.findById(rule.getTargetFieldId())
+                .orElseThrow(() -> new NoSuchElementException("Target field not found"));
+        if (!profile.getSourceSchemaId().equals(source.getSourceSchemaId()))
+            throw new IllegalArgumentException("Source field does not belong to mapping schema");
+        validateDefinition(tenantId, source, target);
+        JsonNode input = sourceValue == null ? json.nullNode() : sourceValue;
+        List<JsonNode> transformed = transform(List.of(input), rule.getTransformation(), target,
+                source.getSourcePath());
+        JsonNode result = transformed.isEmpty() ? json.nullNode() : transformed.get(0);
+        String operation = rule.getTransformation() == null
+                ? "NONE" : rule.getTransformation().path("type").asText("NONE").toUpperCase(Locale.ROOT);
+        return new RuleTestResult(input, result, target.getDataType().name(),
+                List.of(new RuleTestStep(operation, result)));
+    }
+
     private MappingResult executeInternal(
             UUID tenantId, UUID mappingProfileId, byte[] content, boolean publishedOnly) {
         MappingProfile profile =
@@ -306,4 +330,7 @@ public class MappingExecutionService {
     public record MappingResult(
             UUID mappingProfileId, UUID sourceSchemaVersionId, String documentType,
             ObjectNode normalizedPayload, String mappingConfigSha256) {}
+    public record RuleTestStep(String operation, JsonNode result) {}
+    public record RuleTestResult(JsonNode sourceValue, JsonNode result, String resultType,
+            List<RuleTestStep> steps) {}
 }
