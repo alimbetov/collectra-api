@@ -3,10 +3,15 @@ package io.collectra.api.file.infrastructure.scheduler;
 import io.collectra.api.file.application.FileCleanupService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 @Component
+@ConditionalOnProperty(
+        name = "collectra.file.cleanup.enabled",
+        havingValue = "true",
+        matchIfMissing = true)
 public class FileCleanupScheduler {
     private static final Logger log = LoggerFactory.getLogger(FileCleanupScheduler.class);
 
