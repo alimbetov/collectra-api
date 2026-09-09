@@ -62,7 +62,7 @@ public class FileCleanupService {
                     markDeleted(candidate.fileId(), Instant.now());
                     deleted++;
                 } catch (RuntimeException ex) {
-                    registerFailure(candidate.fileId(), Instant.now(), ex.getMessage());
+                    registerFailure(candidate.fileId(), candidate.claimedAt(), ex.getMessage());
                     failed++;
                     log.warn(
                             "File cleanup failed fileId={} tenantId={} category={} attemptResult=retryable",
@@ -101,7 +101,7 @@ public class FileCleanupService {
                             List<CleanupCandidate> claimed = new ArrayList<>(entities.size());
                             for (StoredFile file : entities) {
                                 file.claimDeleteAttempt(now);
-                                claimed.add(CleanupCandidate.from(file));
+                                claimed.add(CleanupCandidate.from(file, now));
                             }
                             files.saveAllAndFlush(entities);
                             return List.copyOf(claimed);
@@ -151,13 +151,15 @@ public class FileCleanupService {
             UUID fileId,
             UUID tenantId,
             io.collectra.api.file.domain.FileCategory category,
-            StorageLocation location) {
-        private static CleanupCandidate from(StoredFile file) {
+            StorageLocation location,
+            Instant claimedAt) {
+        private static CleanupCandidate from(StoredFile file, Instant claimedAt) {
             return new CleanupCandidate(
                     file.getId(),
                     file.getTenantId(),
                     file.getCategory(),
-                    new StorageLocation(file.getBucket(), file.getObjectKey()));
+                    new StorageLocation(file.getBucket(), file.getObjectKey()),
+                    claimedAt);
         }
     }
 
