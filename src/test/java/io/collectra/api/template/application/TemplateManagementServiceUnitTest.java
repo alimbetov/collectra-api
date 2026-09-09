@@ -46,10 +46,12 @@ class TemplateManagementServiceUnitTest {
                         "ru-kz",
                         "<p>{{customer.name}}</p><b>{{custom.erp.code}}</b>",
                         null);
+        FieldDefinition customerName = field("customer.name");
+        FieldDefinition customErpCode = field("custom.erp.code");
         when(versions.findByIdAndTenantId(version.getId(), tenantId))
                 .thenReturn(Optional.of(version));
         when(fields.findAvailable(tenantId))
-                .thenReturn(List.of(field("customer.name"), field("custom.erp.code")));
+                .thenReturn(List.of(customerName, customErpCode));
 
         var result = service.validate(tenantId, version.getId());
 
@@ -67,9 +69,10 @@ class TemplateManagementServiceUnitTest {
                         "ru-kz",
                         "<p>{{customer.unknown}}</p>",
                         null);
+        FieldDefinition customerName = field("customer.name");
         when(versions.findByIdAndTenantId(version.getId(), tenantId))
                 .thenReturn(Optional.of(version));
-        when(fields.findAvailable(tenantId)).thenReturn(List.of(field("customer.name")));
+        when(fields.findAvailable(tenantId)).thenReturn(List.of(customerName));
 
         var result = service.validate(tenantId, version.getId());
 
