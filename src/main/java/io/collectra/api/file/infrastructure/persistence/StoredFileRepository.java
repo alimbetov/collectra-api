@@ -23,8 +23,8 @@ public interface StoredFileRepository extends JpaRepository<StoredFile, UUID> {
                       and delete_attempts < :maxAttempts
                       and (last_delete_attempt_at is null or last_delete_attempt_at <= :retryBefore)
                     order by expires_at asc, id asc
-                    for update skip locked
                     limit :batchSize
+                    for update skip locked
                     """,
             nativeQuery = true)
     List<UUID> lockCleanupCandidateIds(
