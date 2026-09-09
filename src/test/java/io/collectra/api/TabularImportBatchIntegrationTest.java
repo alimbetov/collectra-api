@@ -8,6 +8,7 @@ import io.collectra.api.document.application.DocumentStorage;
 import io.collectra.api.document.domain.OutputFormat;
 import io.collectra.api.document.infrastructure.GenerationJobRepository;
 import io.collectra.api.importing.application.ImportBatchService;
+import io.collectra.api.importing.application.ImportBatchFailedException;
 import io.collectra.api.importing.domain.*;
 import io.collectra.api.importing.infrastructure.MappingProfileRepository;
 import io.collectra.api.importing.infrastructure.MappingRuleRepository;
@@ -46,7 +47,7 @@ class TabularImportBatchIntegrationTest extends AbstractIntegrationTest {
     @Autowired ObjectMapper json;
 
     @Test
-    void createsOrderedJobsAndItemsAndReplaysIdempotentRequest() {
+    void createsOrderedJobsAndItemsAndReplaysIdempotentRequest() throws Exception {
         Tenant tenant = tenants.saveAndFlush(new Tenant("batch-" + UUID.randomUUID(), "Batch"));
         FieldDefinition documentNumber = field("document.number");
         FieldDefinition itemName = field("items.name");
@@ -107,6 +108,42 @@ class TabularImportBatchIntegrationTest extends AbstractIntegrationTest {
         assertThatThrownBy(() -> batches.create(tenant.getId(), "erp-event-1", profile.getId(),
                 templateVersion.getId(), "other".getBytes(StandardCharsets.UTF_8),
                 Set.of(OutputFormat.HTML))).isInstanceOf(IllegalArgumentException.class);
+
+        long jobCount = jobs.count();
+        byte[] invalid = ("Type;Invoice;Item;Quantity\nITEM;;Paper;2\n")
+                .getBytes(StandardCharsets.UTF_8);
+        ImportBatchFailedException failed = org.assertj.core.api.Assertions.catchThrowableOfType(
+                () -> batches.create(tenant.getId(), "erp-event-failed", profile.getId(),
+                        templateVersion.getId(), invalid, Set.of(OutputFormat.HTML)),
+                ImportBatchFailedException.class);
+        assertThat(failed.getErrorCode()).isEqualTo("INVALID_IMPORT_INPUT");
+        var failedBatch = batches.get(tenant.getId(), failed.getBatchId());
+        assertThat(failedBatch.status()).isEqualTo("FAILED");
+        assertThat(failedBatch.failure().code()).isEqualTo("INVALID_IMPORT_INPUT");
+        assertThat(jobs.count()).isEqualTo(jobCount);
+
+        var ready = new java.util.concurrent.CountDownLatch(2);
+        var start = new java.util.concurrent.CountDownLatch(1);
+        var executor = java.util.concurrent.Executors.newFixedThreadPool(2);
+        try {
+            java.util.concurrent.Callable<ImportBatchService.BatchResult> reserve = () -> {
+                ready.countDown();
+                start.await();
+                return batches.create(tenant.getId(), "concurrent-key", profile.getId(),
+                        templateVersion.getId(), input, Set.of(OutputFormat.HTML));
+            };
+            var firstFuture = executor.submit(reserve);
+            var secondFuture = executor.submit(reserve);
+            ready.await();
+            start.countDown();
+            var first = firstFuture.get();
+            var second = secondFuture.get();
+            assertThat(first.batchId()).isEqualTo(second.batchId());
+            assertThat(java.util.List.of(first, second)).filteredOn(
+                    ImportBatchService.BatchResult::replayed).hasSize(1);
+        } finally {
+            executor.shutdownNow();
+        }
     }
 
     private FieldDefinition field(String key) {

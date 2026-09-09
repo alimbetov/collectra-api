@@ -21,3 +21,5 @@ databaseChangeLog:
       file: db/changelog/changes/013-versioned-configuration-api.sql
   - include:
       file: db/changelog/changes/014-tabular-multi-document-import.sql
+  - include:
+      file: db/changelog/changes/015-import-batch-reliability.sql

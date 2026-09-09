@@ -2,6 +2,7 @@ package io.collectra.api.shared.error;
 
 import io.collectra.api.shared.tenant.MissingTenantException;
 import io.collectra.api.shared.security.RateLimitExceededException;
+import io.collectra.api.importing.application.ImportBatchFailedException;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URI;
 import java.util.LinkedHashMap;
@@ -39,6 +40,13 @@ public class ApiExceptionHandler {
     ProblemDetail rateLimit(RateLimitExceededException ex, HttpServletRequest request) {
         ProblemDetail problem = base(HttpStatus.TOO_MANY_REQUESTS, ex.getMessage(), request);
         problem.setProperty("code", "RATE_LIMIT_EXCEEDED");
+        return problem;
+    }
+    @ExceptionHandler(ImportBatchFailedException.class)
+    ProblemDetail importFailed(ImportBatchFailedException ex, HttpServletRequest request) {
+        ProblemDetail problem = base(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage(), request);
+        problem.setProperty("code", ex.getErrorCode());
+        problem.setProperty("batchId", ex.getBatchId());
         return problem;
     }
     @ExceptionHandler(java.util.NoSuchElementException.class)

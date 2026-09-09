@@ -38,7 +38,8 @@ class VersionedConfigurationIntegrationTest extends AbstractIntegrationTest {
         var schemaDefinition = schemas.create(tenant.getId(), "INVOICE_CSV", "Invoice CSV");
         var schemaV1 = schemas.createVersion(tenant.getId(), schemaDefinition.getId(), SourceFormat.CSV);
         var source = schemas.addField(tenant.getId(), schemaV1.getId(), "Customer", "STRING",
-                "Acme", true, 1);
+                "Acme", true, 1, io.collectra.api.importing.domain.SourceFieldScope.DOCUMENT,
+                true, io.collectra.api.importing.domain.FieldValuePolicy.REQUIRE_SAME);
         assertThat(schemas.validate(tenant.getId(), schemaV1.getId()).valid()).isTrue();
         assertThat(schemas.publish(tenant.getId(), schemaV1.getId()).getStatus())
                 .isEqualTo(DefinitionStatus.PUBLISHED);
