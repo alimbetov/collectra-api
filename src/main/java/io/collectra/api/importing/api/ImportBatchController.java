@@ -20,7 +20,7 @@ public class ImportBatchController {
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @ResponseStatus(HttpStatus.ACCEPTED)
-    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('DOCUMENT_GENERATE')")
+    @PreAuthorize("@importBatchAuthorization.canCreate(authentication)")
     ImportBatchService.BatchResult create(
             @RequestHeader("Idempotency-Key") String idempotencyKey,
             @RequestParam UUID mappingProfileVersionId,
@@ -33,7 +33,7 @@ public class ImportBatchController {
 
     @PostMapping(value = "/json", consumes = MediaType.APPLICATION_JSON_VALUE)
     @ResponseStatus(HttpStatus.ACCEPTED)
-    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('DOCUMENT_GENERATE')")
+    @PreAuthorize("@importBatchAuthorization.canCreate(authentication)")
     ImportBatchService.BatchResult createJson(
             @RequestHeader("Idempotency-Key") String idempotencyKey,
             @RequestParam UUID mappingProfileVersionId,
@@ -46,7 +46,7 @@ public class ImportBatchController {
 
     @PostMapping(value = "/xml", consumes = {MediaType.APPLICATION_XML_VALUE, MediaType.TEXT_XML_VALUE})
     @ResponseStatus(HttpStatus.ACCEPTED)
-    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('DOCUMENT_GENERATE')")
+    @PreAuthorize("@importBatchAuthorization.canCreate(authentication)")
     ImportBatchService.BatchResult createXml(
             @RequestHeader("Idempotency-Key") String idempotencyKey,
             @RequestParam UUID mappingProfileVersionId,
@@ -58,7 +58,7 @@ public class ImportBatchController {
     }
 
     @GetMapping("/{batchId}")
-    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('DOCUMENT_READ')")
+    @PreAuthorize("@importBatchAuthorization.canRead(authentication)")
     ImportBatchService.BatchResult get(@PathVariable UUID batchId) {
         return service.get(TenantContext.requireTenantId(), batchId);
     }

@@ -140,11 +140,55 @@ public class SourceSchemaManagementService {
         if (version.getStatus() != DefinitionStatus.DRAFT)
             throw new IllegalArgumentException("Only draft schema can be validated");
         var errors = new java.util.ArrayList<ValidationIssue>();
+        var warnings = new java.util.ArrayList<ValidationIssue>();
         var configured = fields.findAllBySourceSchemaIdOrderByPositionAsc(versionId);
         if (configured.isEmpty()) errors.add(new ValidationIssue("FIELDS_EMPTY", "fields",
                 "At least one source field is required"));
+        java.util.Set<String> paths = new java.util.HashSet<>();
+        for (var field : configured) {
+            String path = field.getSourcePath() == null ? "" : field.getSourcePath().trim();
+            if (path.isEmpty()) errors.add(issue("SOURCE_PATH_EMPTY", "fields." + field.getId(),
+                    "Source path is required"));
+            else if (!paths.add(path.toLowerCase(java.util.Locale.ROOT)))
+                errors.add(issue("SOURCE_PATH_DUPLICATE", "fields." + field.getId(),
+                        "Source path must be unique"));
+            if (field.isDocumentKey() && field.getScope() != SourceFieldScope.DOCUMENT)
+                errors.add(issue("DOCUMENT_KEY_SCOPE_INVALID", "fields." + field.getId() + ".scope",
+                        "Document key must have DOCUMENT scope"));
+        }
+        if (configured.stream().noneMatch(SourceField::isDocumentKey))
+            errors.add(issue("DOCUMENT_KEY_MISSING", "fields", "At least one document key is required"));
+        if (configured.stream().allMatch(field -> field.getScope() == SourceFieldScope.IGNORE))
+            errors.add(issue("NON_IGNORED_FIELD_MISSING", "fields",
+                    "At least one non-ignored source field is required"));
+
+        var itemValues = version.getItemRowValues();
+        var totalValues = version.getTotalRowValues();
+        var ignoredValues = version.getIgnoredRowValues();
+        addOverlap(errors, itemValues, totalValues, "ITEM_TOTAL_VALUES_OVERLAP");
+        addOverlap(errors, itemValues, ignoredValues, "ITEM_IGNORE_VALUES_OVERLAP");
+        addOverlap(errors, totalValues, ignoredValues, "TOTAL_IGNORE_VALUES_OVERLAP");
+        boolean classifierValuesConfigured = !itemValues.isEmpty() || !totalValues.isEmpty()
+                || !ignoredValues.isEmpty();
+        if (version.getRowTypeFieldId() == null && classifierValuesConfigured)
+            errors.add(issue("ROW_CLASSIFIER_MISSING", "rowTypeFieldId",
+                    "Classifier values require a row type field"));
+        if (version.getRowTypeFieldId() != null) {
+            var classifier = configured.stream()
+                    .filter(field -> field.getId().equals(version.getRowTypeFieldId())).findFirst();
+            if (classifier.isEmpty()) errors.add(issue("ROW_CLASSIFIER_NOT_FOUND", "rowTypeFieldId",
+                    "Row classifier must belong to this schema version"));
+            else if (classifier.get().getScope() != SourceFieldScope.ROW_CONTROL)
+                errors.add(issue("ROW_CLASSIFIER_SCOPE_INVALID", "rowTypeFieldId",
+                        "Row classifier must have ROW_CONTROL scope"));
+        }
+        if (configured.stream().anyMatch(field -> field.getScope() == SourceFieldScope.ITEM)
+                && version.getRowTypeFieldId() == null)
+            warnings.add(issue("IMPLICIT_ITEM_DETECTION", "rowTypeFieldId",
+                    "Rows with any non-empty ITEM field will be treated as item rows"));
+        validateRecordPath(version, errors);
         if (errors.isEmpty()) version.validated();
-        return new ValidationResult(errors.isEmpty(), errors, List.of());
+        return new ValidationResult(errors.isEmpty(), List.copyOf(errors), List.copyOf(warnings));
     }
 
     @Transactional
@@ -190,6 +234,34 @@ public class SourceSchemaManagementService {
         if (!value.matches("[A-Z][A-Z0-9_]{1,99}"))
             throw new IllegalArgumentException("Invalid source schema code");
         return value;
+    }
+
+    private void addOverlap(java.util.List<ValidationIssue> errors, java.util.Set<String> left,
+            java.util.Set<String> right, String code) {
+        java.util.Set<String> overlap = new java.util.TreeSet<>(left);
+        overlap.retainAll(right);
+        if (!overlap.isEmpty()) errors.add(issue(code, "rowClassification",
+                "Classifier values overlap: " + String.join(",", overlap)));
+    }
+
+    private void validateRecordPath(SourceSchema version, java.util.List<ValidationIssue> errors) {
+        String path = version.getRecordPath();
+        if (path == null) return;
+        if (version.getSourceFormat() == SourceFormat.CSV
+                || version.getSourceFormat() == SourceFormat.EXCEL)
+            errors.add(issue("RECORD_PATH_UNSUPPORTED", "recordPath",
+                    "Record path is supported only for JSON and XML"));
+        else if (version.getSourceFormat() == SourceFormat.JSON
+                && !(path.startsWith("$") || path.startsWith("/")))
+            errors.add(issue("JSON_RECORD_PATH_INVALID", "recordPath",
+                    "JSON record path must start with $ or /"));
+        else if (version.getSourceFormat() == SourceFormat.XML && !path.startsWith("/"))
+            errors.add(issue("XML_RECORD_PATH_INVALID", "recordPath",
+                    "XML record path must be absolute"));
+    }
+
+    private ValidationIssue issue(String code, String path, String message) {
+        return new ValidationIssue(code, path, message);
     }
 
     public record ValidationIssue(String code, String path, String message) {}

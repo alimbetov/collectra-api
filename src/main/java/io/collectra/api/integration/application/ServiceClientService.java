@@ -24,7 +24,9 @@ public class ServiceClientService {
                     "integration:notifications:send",
                     "integration:otp:create",
                     "integration:imports:create",
-                    "integration:imports:read");
+                    "integration:imports:read",
+                    "document:generate",
+                    "document:read");
 
     private final ServiceClientRepository clients;
     private final ServiceClientCredentialRepository credentials;
