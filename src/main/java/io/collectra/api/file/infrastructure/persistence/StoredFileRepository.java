@@ -5,7 +5,6 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -13,18 +12,24 @@ import org.springframework.data.repository.query.Param;
 public interface StoredFileRepository extends JpaRepository<StoredFile, UUID> {
     Optional<StoredFile> findByIdAndTenantId(UUID id, UUID tenantId);
 
-    @Query("""
-            select f
-            from StoredFile f
-            where f.expiresAt is not null
-              and f.expiresAt <= :now
-              and f.status in (io.collectra.api.file.domain.FileStatus.READY,
-                               io.collectra.api.file.domain.FileStatus.DELETE_PENDING)
-              and f.deleteAttempts < :maxAttempts
-            order by f.expiresAt asc, f.id asc
-            """)
-    List<StoredFile> findCleanupCandidates(
+    @Query(
+            value =
+                    """
+                    select id
+                    from stored_file
+                    where expires_at is not null
+                      and expires_at <= :now
+                      and status in ('READY', 'DELETE_PENDING')
+                      and delete_attempts < :maxAttempts
+                      and (last_delete_attempt_at is null or last_delete_attempt_at <= :retryBefore)
+                    order by expires_at asc, id asc
+                    for update skip locked
+                    limit :batchSize
+                    """,
+            nativeQuery = true)
+    List<UUID> lockCleanupCandidateIds(
             @Param("now") Instant now,
+            @Param("retryBefore") Instant retryBefore,
             @Param("maxAttempts") int maxAttempts,
-            Pageable pageable);
+            @Param("batchSize") int batchSize);
 }
