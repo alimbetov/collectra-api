@@ -117,10 +117,12 @@ public class FileService {
     public PresignedDownload generateDownloadUrl(UUID tenantId, UUID fileId) {
         StoredFile file = requireReadyFile(tenantId, fileId);
         var ttl = properties.getPresignedUrl().getDownloadTtl();
-        return new PresignedDownload(fileId, storage.generatePresignedGetUrl(location(file), ttl), ttl);
+        return new PresignedDownload(
+                fileId, storage.generatePresignedGetUrl(location(file), ttl), ttl);
     }
 
     public void delete(UUID tenantId, UUID fileId) {
+        Instant claimedAt = Instant.now();
         StoredFile claimed =
                 transactions.execute(
                         status -> {
@@ -130,8 +132,8 @@ public class FileService {
                                     && current.getStatus() != FileStatus.DELETE_PENDING) {
                                 throw new FileNotReadyException(fileId, current.getStatus());
                             }
-                            current.markDeletePending();
-                            return files.save(current);
+                            current.claimDeleteAttempt(claimedAt);
+                            return files.saveAndFlush(current);
                         });
 
         if (claimed == null || claimed.getStatus() == FileStatus.DELETED) return;
@@ -141,6 +143,7 @@ public class FileService {
             transactions.executeWithoutResult(
                     status -> {
                         StoredFile current = requireFile(tenantId, fileId);
+                        if (current.getStatus() == FileStatus.DELETED) return;
                         current.markDeleted(Instant.now());
                         files.save(current);
                     });
@@ -148,8 +151,10 @@ public class FileService {
             transactions.executeWithoutResult(
                     status -> {
                         StoredFile current = requireFile(tenantId, fileId);
-                        current.registerDeleteFailure(Instant.now(), ex.getMessage());
-                        files.save(current);
+                        if (current.getStatus() == FileStatus.DELETE_PENDING) {
+                            current.registerDeleteFailure(Instant.now(), ex.getMessage());
+                            files.save(current);
+                        }
                     });
             throw ex;
         }
@@ -178,7 +183,8 @@ public class FileService {
         if (tenantId == null || fileId == null) {
             throw new IllegalArgumentException("tenantId and fileId are required");
         }
-        return files.findByIdAndTenantId(fileId, tenantId).orElseThrow(() -> new FileNotFoundException(fileId));
+        return files.findByIdAndTenantId(fileId, tenantId)
+                .orElseThrow(() -> new FileNotFoundException(fileId));
     }
 
     private StorageLocation location(StoredFile file) {
