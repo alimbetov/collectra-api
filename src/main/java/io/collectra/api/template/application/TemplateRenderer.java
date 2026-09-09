@@ -18,9 +18,15 @@ public class TemplateRenderer {
             Pattern.compile(
                     "\\{\\{\\s*([a-z][a-z0-9_]*(?:\\.[a-z][a-z0-9_]*)+)\\s*}}",
                     Pattern.CASE_INSENSITIVE);
+    private final HtmlTemplatePolicy policy;
+
+    public TemplateRenderer(HtmlTemplatePolicy policy) {
+        this.policy = policy;
+    }
 
     public RenderResult render(TemplateVersion version, JsonNode normalizedPayload) {
-        String template = version.getContentHtml();
+        policy.validateStylesheet(version.getStylesheet());
+        String template = policy.sanitize(version.getContentHtml());
         if (template.contains("{{{"))
             throw new IllegalArgumentException("Unescaped template expressions are forbidden");
         Matcher matcher = PLACEHOLDER.matcher(template);

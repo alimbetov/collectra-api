@@ -71,4 +71,10 @@ public class MappingProfile extends AuditableEntity {
     public DefinitionStatus getStatus() {
         return status;
     }
+
+    public void publish() {
+        if (status != DefinitionStatus.DRAFT)
+            throw new IllegalStateException("Only draft mapping profile can be published");
+        status = DefinitionStatus.PUBLISHED;
+    }
 }

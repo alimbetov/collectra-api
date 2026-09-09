@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
+import io.collectra.api.importing.domain.DefinitionStatus;
 import io.collectra.api.importing.domain.MappingProfile;
 import io.collectra.api.importing.domain.MappingRule;
 import io.collectra.api.importing.domain.SourceField;
@@ -67,6 +68,10 @@ public class MappingExecutionService {
         SourceSchema schema =
                 schemas.findByIdAndTenantId(profile.getSourceSchemaId(), tenantId)
                         .orElseThrow(() -> new NoSuchElementException("Source schema not found"));
+        if (profile.getStatus() != DefinitionStatus.PUBLISHED
+                || schema.getStatus() != DefinitionStatus.PUBLISHED)
+            throw new IllegalStateException(
+                    "Only published source schemas and mapping profiles can be executed");
         List<SourceField> sources =
                 sourceFields.findAllBySourceSchemaIdOrderByPositionAsc(schema.getId());
         ParsedInput input =
@@ -97,17 +102,44 @@ public class MappingExecutionService {
 
         ObjectNode payload = json.createObjectNode();
         List<MappingValidationException.Violation> violations = new ArrayList<>();
+        java.util.Set<UUID> mappedSources =
+                configuredRules.stream()
+                        .map(MappingRule::getSourceFieldId)
+                        .collect(java.util.stream.Collectors.toSet());
+        sources.stream()
+                .filter(SourceField::isRequired)
+                .filter(source -> !mappedSources.contains(source.getId()))
+                .filter(
+                        source ->
+                                input.valuesAt(source.getSourcePath()).stream()
+                                        .allMatch(this::isEmpty))
+                .forEach(
+                        source ->
+                                violations.add(
+                                        new MappingValidationException.Violation(
+                                                source.getSourcePath(),
+                                                null,
+                                                "REQUIRED_SOURCE_MISSING",
+                                                "Required source value is missing")));
         for (MappingRule rule : configuredRules) {
             SourceField source = sourceById.get(rule.getSourceFieldId());
             FieldDefinition target = targetById.get(rule.getTargetFieldId());
             validateDefinition(tenantId, source, target);
             List<JsonNode> values = new ArrayList<>(input.valuesAt(source.getSourcePath()));
+            if (source.isRequired() && values.stream().allMatch(this::isEmpty)) {
+                violations.add(
+                        new MappingValidationException.Violation(
+                                source.getSourcePath(),
+                                target.getKey(),
+                                "REQUIRED_SOURCE_MISSING",
+                                "Required source value is missing"));
+                continue;
+            }
             if (values.isEmpty() && rule.getDefaultValue() != null)
                 values.add(json.getNodeFactory().textNode(rule.getDefaultValue()));
             values = transform(values, rule.getTransformation(), target, source.getSourcePath());
             values = values.stream().filter(value -> !isEmpty(value)).toList();
-            if (values.isEmpty()
-                    && (source.isRequired() || rule.isRequired() || target.isRequired())) {
+            if (values.isEmpty() && (rule.isRequired() || target.isRequired())) {
                 violations.add(
                         new MappingValidationException.Violation(
                                 source.getSourcePath(),

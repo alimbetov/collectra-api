@@ -126,6 +126,41 @@ class MappingExecutionServiceUnitTest {
                                         .isEqualTo("document.number"));
     }
 
+    @Test
+    void sourceRequiredCannotBeReplacedByDefaultValue() {
+        UUID tenantId = UUID.randomUUID();
+        MappingProfile profile =
+                new MappingProfile(tenantId, UUID.randomUUID(), "MAP", "Map", "INVOICE", 1);
+        SourceField source =
+                new SourceField(profile.getSourceSchemaId(), "Number", "STRING", null, true, 1);
+        FieldDefinition target = field(null, "document.number", FieldDataType.STRING, false, false);
+        MappingRule rule =
+                new MappingRule(
+                        profile.getId(),
+                        source.getId(),
+                        target.getId(),
+                        json.createObjectNode(),
+                        "DEFAULT",
+                        false);
+        when(targets.findAllById(anyCollection())).thenReturn(List.of(target));
+
+        assertThatThrownBy(
+                        () ->
+                                service.apply(
+                                        tenantId,
+                                        profile,
+                                        new ParsedInput(Map.of("Number", List.of())),
+                                        List.of(source),
+                                        List.of(rule)))
+                .isInstanceOfSatisfying(
+                        MappingValidationException.class,
+                        error ->
+                                assertThat(error.getViolations())
+                                        .singleElement()
+                                        .extracting(MappingValidationException.Violation::code)
+                                        .isEqualTo("REQUIRED_SOURCE_MISSING"));
+    }
+
     private FieldDefinition field(
             UUID tenantId, String key, FieldDataType type, boolean collection, boolean required) {
         return new FieldDefinition(
