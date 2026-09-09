@@ -23,3 +23,7 @@ databaseChangeLog:
       file: db/changelog/changes/014-tabular-multi-document-import.sql
   - include:
       file: db/changelog/changes/015-import-batch-reliability.sql
+  - include:
+      file: db/changelog/changes/016-file-service-foundation.sql
+  - include:
+      file: db/changelog/changes/017-file-service-permissions.sql

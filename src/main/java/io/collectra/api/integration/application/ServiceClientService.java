@@ -26,7 +26,10 @@ public class ServiceClientService {
                     "integration:imports:create",
                     "integration:imports:read",
                     "document:generate",
-                    "document:read");
+                    "document:read",
+                    "file:upload",
+                    "file:read",
+                    "file:delete");
 
     private final ServiceClientRepository clients;
     private final ServiceClientCredentialRepository credentials;
@@ -234,5 +237,4 @@ public class ServiceClientService {
             Instant lastUsedAt) {}
 
     public record TokenResponse(String accessToken, String tokenType, long expiresIn) {}
-
 }

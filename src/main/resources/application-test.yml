@@ -12,5 +12,11 @@ collectra.storage.secret-key: test-secret
 collectra.storage.region: us-east-1
 collectra.storage.path-style-access: true
 collectra.storage.bucket: collectra-test
+collectra.file.storage.endpoint: http://localhost:9000
+collectra.file.storage.access-key: test
+collectra.file.storage.secret-key: test-secret
+collectra.file.storage.region: us-east-1
+collectra.file.storage.path-style-access: true
+collectra.file.cleanup.enabled: false
 collectra.messaging.outbox-enabled: false
 management.health.rabbit.enabled: false
