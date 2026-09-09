@@ -51,6 +51,10 @@ public class TemplateVersion extends AuditableEntity {
         return id;
     }
 
+    public UUID getTemplateId() {
+        return templateId;
+    }
+
     public TemplateVersionStatus getStatus() {
         return status;
     }

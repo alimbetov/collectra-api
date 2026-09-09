@@ -19,4 +19,5 @@ public class DocumentTemplate extends AuditableEntity {
     }
     public UUID getId() { return id; } public UUID getTenantId() { return tenantId; }
     public String getCode() { return code; }
+    public String getDocumentType() { return documentType; }
 }

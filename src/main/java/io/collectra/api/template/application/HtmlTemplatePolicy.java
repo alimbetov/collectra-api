@@ -17,12 +17,25 @@ public class HtmlTemplatePolicy {
                         .addAttributes(":all", "class", "id")
                         .addAttributes("meta", "charset")
                         .addAttributes("td", "colspan", "rowspan")
-                        .addAttributes("th", "colspan", "rowspan");
+                        .addAttributes("th", "colspan", "rowspan")
+                        .addProtocols("img", "src", "data");
         this.cleaner = new Cleaner(allowed);
     }
 
     public String sanitize(String html) {
         Document dirty = Jsoup.parseBodyFragment(html);
+        dirty.select("img[src]")
+                .forEach(
+                        image -> {
+                            String source =
+                                    image.attr("src").trim().toLowerCase(java.util.Locale.ROOT);
+                            if (!source.startsWith("data:image/png;base64,")
+                                    && !source.startsWith("data:image/jpeg;base64,")
+                                    && !source.startsWith("data:image/gif;base64,"))
+                                throw new IllegalArgumentException(
+                                        "External image URLs are forbidden; upload a managed"
+                                                + " template asset");
+                        });
         Document clean = cleaner.clean(dirty);
         return clean.body().html();
     }

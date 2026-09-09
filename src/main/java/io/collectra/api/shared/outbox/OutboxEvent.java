@@ -1,10 +1,12 @@
 package io.collectra.api.shared.outbox;
 
 import jakarta.persistence.*;
-import java.time.Instant;
-import java.util.UUID;
+
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
+
+import java.time.Instant;
+import java.util.UUID;
 
 @Entity
 @Table(name = "outbox_events")
@@ -56,5 +58,31 @@ public class OutboxEvent {
         this.status = "PENDING";
         this.nextAttemptAt = Instant.now();
         this.createdAt = Instant.now();
+    }
+
+    public UUID getId() {
+        return id;
+    }
+
+    public String getEventType() {
+        return eventType;
+    }
+
+    public String getPayload() {
+        return payload;
+    }
+
+    public int getAttemptCount() {
+        return attemptCount;
+    }
+
+    public void published() {
+        this.status = "PUBLISHED";
+    }
+
+    public void failed() {
+        this.attemptCount++;
+        this.nextAttemptAt =
+                Instant.now().plusSeconds(Math.min(300, 1L << Math.min(attemptCount, 8)));
     }
 }

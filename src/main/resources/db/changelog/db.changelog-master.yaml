@@ -15,3 +15,5 @@ databaseChangeLog:
       file: db/changelog/changes/010-template-mapping-domain.sql
   - include:
       file: db/changelog/changes/011-field-catalog-api.sql
+  - include:
+      file: db/changelog/changes/012-async-document-generation.sql

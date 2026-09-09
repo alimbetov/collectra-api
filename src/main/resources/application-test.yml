@@ -1,6 +1,16 @@
 spring:
   jpa.show-sql: false
+  rabbitmq.listener.simple.auto-startup: false
+  task.scheduling.enabled: false
 collectra.security.jwt-secret: test-secret-with-at-least-thirty-two-characters
 collectra.security.otp-pepper: test-otp-pepper-with-at-least-thirty-two-characters
 collectra.security.expose-otp: true
 collectra.security.expose-development-tokens: true
+collectra.storage.endpoint: http://localhost:9000
+collectra.storage.access-key: test
+collectra.storage.secret-key: test-secret
+collectra.storage.region: us-east-1
+collectra.storage.path-style-access: true
+collectra.storage.bucket: collectra-test
+collectra.messaging.outbox-enabled: false
+management.health.rabbit.enabled: false
