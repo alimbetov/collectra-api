@@ -24,7 +24,8 @@ import java.util.UUID;
 
 class FieldCatalogServiceUnitTest {
     private final FieldDefinitionRepository fields = mock(FieldDefinitionRepository.class);
-    private final FieldCatalogService service = new FieldCatalogService(fields);
+    private final FieldKeyValidator fieldKeyValidator = new FieldKeyValidator();
+    private final FieldCatalogService service = new FieldCatalogService(fields, fieldKeyValidator);
 
     @Test
     void createsCustomFieldOnlyAfterSharedPlaceholderGrammarAcceptsItsKey() {
