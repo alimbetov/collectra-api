@@ -1,5 +1,32 @@
 spring:
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
   jpa.show-sql: false
 server:
   shutdown: graceful
-management.endpoint.health.show-details: never
+management:
+  endpoint.health.show-details: never
+  tracing.sampling.probability: ${TRACING_SAMPLING_PROBABILITY:0.1}
+
+collectra:
+  storage:
+    endpoint: ${COLLECTRA_STORAGE_ENDPOINT}
+    access-key: ${COLLECTRA_STORAGE_ACCESS_KEY}
+    secret-key: ${COLLECTRA_STORAGE_SECRET_KEY}
+    bucket: ${COLLECTRA_STORAGE_BUCKET}
+  file:
+    storage:
+      endpoint: ${RUSTFS_ENDPOINT}
+      access-key: ${RUSTFS_ACCESS_KEY}
+      secret-key: ${RUSTFS_SECRET_KEY}
+      region: ${RUSTFS_REGION:us-east-1}
+      buckets:
+        source: ${RUSTFS_BUCKET_SOURCE:collectra-source}
+        generated: ${RUSTFS_BUCKET_GENERATED:collectra-generated}
+        assets: ${RUSTFS_BUCKET_ASSETS:collectra-assets}
+        temp: ${RUSTFS_BUCKET_TEMP:collectra-temp}
+  security:
+    jwt-secret: ${COLLECTRA_JWT_SECRET}
+    otp-pepper: ${COLLECTRA_OTP_PEPPER}
