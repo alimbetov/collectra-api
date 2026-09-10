@@ -96,6 +96,13 @@ public class ApiExceptionHandler {
         return withCode(base(HttpStatus.NOT_FOUND, ex.getMessage(), request), "NOT_FOUND");
     }
 
+    @ExceptionHandler(Exception.class)
+    ProblemDetail internal(Exception ex, HttpServletRequest request) {
+        return withCode(
+                base(HttpStatus.INTERNAL_SERVER_ERROR, "Internal server error", request),
+                "INTERNAL_ERROR");
+    }
+
     private ProblemDetail withCode(ProblemDetail problem, String code) {
         problem.setProperty("code", code);
         return problem;
