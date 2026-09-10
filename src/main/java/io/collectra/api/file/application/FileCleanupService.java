@@ -74,8 +74,9 @@ public class FileCleanupService {
                     deleted++;
                     deletedCounter.increment();
                 } catch (RuntimeException ex) {
-                    FailureResult failure = registerFailure(
-                            candidate.fileId(), candidate.claimedAt(), ex.getMessage());
+                    FailureResult failure =
+                            registerFailure(
+                                    candidate.fileId(), candidate.claimedAt(), ex.getMessage());
                     failed++;
                     failedCounter.increment();
                     if (failure.exhausted()) {
@@ -101,64 +102,73 @@ public class FileCleanupService {
     }
 
     private List<CleanupCandidate> claimBatch(Instant now) {
-        List<CleanupCandidate> result = transactions.execute(status -> {
-            var cleanup = properties.getCleanup();
-            Instant retryBefore = now.minus(cleanup.getRetryDelay());
-            List<UUID> ids = files.lockCleanupCandidateIds(
-                    now,
-                    retryBefore,
-                    cleanup.getMaxDeleteAttempts(),
-                    cleanup.getBatchSize());
-            if (ids.isEmpty()) return List.of();
+        List<CleanupCandidate> result =
+                transactions.execute(
+                        status -> {
+                            var cleanup = properties.getCleanup();
+                            Instant retryBefore = now.minus(cleanup.getRetryDelay());
+                            List<UUID> ids =
+                                    files.lockCleanupCandidateIds(
+                                            now,
+                                            retryBefore,
+                                            cleanup.getMaxDeleteAttempts(),
+                                            cleanup.getBatchSize());
+                            if (ids.isEmpty()) return List.of();
 
-            List<StoredFile> entities = files.findAllById(ids);
-            List<CleanupCandidate> claimed = new ArrayList<>(entities.size());
-            for (StoredFile file : entities) {
-                file.claimDeleteAttempt(now);
-                claimed.add(CleanupCandidate.from(file, now));
-            }
-            files.saveAllAndFlush(entities);
-            return List.copyOf(claimed);
-        });
+                            List<StoredFile> entities = files.findAllById(ids);
+                            List<CleanupCandidate> claimed = new ArrayList<>(entities.size());
+                            for (StoredFile file : entities) {
+                                file.claimDeleteAttempt(now);
+                                claimed.add(CleanupCandidate.from(file, now));
+                            }
+                            files.saveAllAndFlush(entities);
+                            return List.copyOf(claimed);
+                        });
         return result == null ? List.of() : result;
     }
 
     private void markDeleted(UUID fileId, Instant deletedAt) {
-        transactions.executeWithoutResult(status -> {
-            StoredFile current = files.findById(fileId).orElse(null);
-            if (current == null || current.getStatus() == FileStatus.DELETED) return;
-            if (current.getStatus() != FileStatus.DELETE_PENDING) {
-                log.warn(
-                        "Skipping cleanup completion for fileId={} because status={}",
-                        fileId,
-                        current.getStatus());
-                return;
-            }
-            current.markDeleted(deletedAt);
-            files.save(current);
-        });
+        transactions.executeWithoutResult(
+                status -> {
+                    StoredFile current = files.findById(fileId).orElse(null);
+                    if (current == null || current.getStatus() == FileStatus.DELETED) return;
+                    if (current.getStatus() != FileStatus.DELETE_PENDING) {
+                        log.warn(
+                                "Skipping cleanup completion for fileId={} because status={}",
+                                fileId,
+                                current.getStatus());
+                        return;
+                    }
+                    current.markDeleted(deletedAt);
+                    files.save(current);
+                });
     }
 
     private FailureResult registerFailure(UUID fileId, Instant attemptedAt, String error) {
-        FailureResult result = transactions.execute(status -> {
-            StoredFile current = files.findById(fileId).orElse(null);
-            if (current == null || current.getStatus() == FileStatus.DELETED) {
-                return new FailureResult(false, 0);
-            }
-            if (current.getStatus() != FileStatus.DELETE_PENDING) {
-                log.warn(
-                        "Skipping cleanup failure registration for fileId={} because status={}",
-                        fileId,
-                        current.getStatus());
-                return new FailureResult(current.getStatus() == FileStatus.DELETE_FAILED, current.getDeleteAttempts());
-            }
-            boolean exhausted = current.registerDeleteFailure(
-                    attemptedAt,
-                    error,
-                    properties.getCleanup().getMaxDeleteAttempts());
-            files.save(current);
-            return new FailureResult(exhausted, current.getDeleteAttempts());
-        });
+        FailureResult result =
+                transactions.execute(
+                        status -> {
+                            StoredFile current = files.findById(fileId).orElse(null);
+                            if (current == null || current.getStatus() == FileStatus.DELETED) {
+                                return new FailureResult(false, 0);
+                            }
+                            if (current.getStatus() != FileStatus.DELETE_PENDING) {
+                                log.warn(
+                                        "Skipping cleanup failure registration for fileId={} because status={}",
+                                        fileId,
+                                        current.getStatus());
+                                return new FailureResult(
+                                        current.getStatus() == FileStatus.DELETE_FAILED,
+                                        current.getDeleteAttempts());
+                            }
+                            boolean exhausted =
+                                    current.registerDeleteFailure(
+                                            attemptedAt,
+                                            error,
+                                            properties.getCleanup().getMaxDeleteAttempts());
+                            files.save(current);
+                            return new FailureResult(exhausted, current.getDeleteAttempts());
+                        });
         return result == null ? new FailureResult(false, 0) : result;
     }
 
@@ -180,5 +190,6 @@ public class FileCleanupService {
 
     private record FailureResult(boolean exhausted, int deleteAttempts) {}
 
-    public record CleanupResult(int processed, int deleted, int failed, int exhausted, int batches) {}
+    public record CleanupResult(
+            int processed, int deleted, int failed, int exhausted, int batches) {}
 }

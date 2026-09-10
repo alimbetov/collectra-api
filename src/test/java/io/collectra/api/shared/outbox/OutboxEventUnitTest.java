@@ -68,8 +68,7 @@ class OutboxEventUnitTest {
         event.markPublished(NOW.plusSeconds(1));
 
         assertThatThrownBy(
-                        () -> event.scheduleRetry(
-                                NOW.plusSeconds(60), "BROKER_NACK", "late retry"))
+                        () -> event.scheduleRetry(NOW.plusSeconds(60), "BROKER_NACK", "late retry"))
                 .isInstanceOf(IllegalStateException.class);
     }
 
@@ -78,10 +77,7 @@ class OutboxEventUnitTest {
         OutboxEvent event = event();
         event.claim("worker-a", NOW);
 
-        event.recover(
-                NOW.plusSeconds(120),
-                "PROCESSING_TIMEOUT_RECOVERED",
-                "publisher stopped");
+        event.recover(NOW.plusSeconds(120), "PROCESSING_TIMEOUT_RECOVERED", "publisher stopped");
 
         assertThat(event.getStatus()).isEqualTo(OutboxEventStatus.RETRY_WAIT);
         assertThat(event.getAttemptCount()).isEqualTo(1);

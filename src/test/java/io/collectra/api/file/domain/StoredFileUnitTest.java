@@ -49,8 +49,8 @@ class StoredFileUnitTest {
         file.registerDeleteFailure(ATTEMPTED_AT, "first failure", 2);
         file.claimDeleteAttempt(ATTEMPTED_AT.plusSeconds(60));
 
-        boolean exhausted = file.registerDeleteFailure(
-                ATTEMPTED_AT.plusSeconds(60), "persistent failure", 2);
+        boolean exhausted =
+                file.registerDeleteFailure(ATTEMPTED_AT.plusSeconds(60), "persistent failure", 2);
 
         assertThat(exhausted).isTrue();
         assertThat(file.getStatus()).isEqualTo(FileStatus.DELETE_FAILED);
@@ -83,8 +83,7 @@ class StoredFileUnitTest {
     void shouldRejectInvalidTransition() {
         StoredFile file = file();
 
-        assertThatThrownBy(file::markDeletePending)
-                .isInstanceOf(IllegalFileStateException.class);
+        assertThatThrownBy(file::markDeletePending).isInstanceOf(IllegalFileStateException.class);
     }
 
     @Test

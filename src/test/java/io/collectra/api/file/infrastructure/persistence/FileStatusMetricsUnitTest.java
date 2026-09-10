@@ -19,6 +19,7 @@ class FileStatusMetricsUnitTest {
         new FileStatusMetrics(files, registry);
 
         assertThat(registry.get("collectra.file.cleanup.pending").gauge().value()).isEqualTo(4.0);
-        assertThat(registry.get("collectra.file.cleanup.delete.failed").gauge().value()).isEqualTo(2.0);
+        assertThat(registry.get("collectra.file.cleanup.delete.failed").gauge().value())
+                .isEqualTo(2.0);
     }
 }

@@ -32,7 +32,8 @@ class FileServiceDeleteUnitTest {
         StoredFile file = readyFile(tenantId);
         StoredFileRepository files = mock(StoredFileRepository.class);
         when(files.findByIdAndTenantId(file.getId(), tenantId)).thenReturn(Optional.of(file));
-        when(files.saveAndFlush(any(StoredFile.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(files.saveAndFlush(any(StoredFile.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
         when(files.save(any(StoredFile.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         ObjectStorage storage = mock(ObjectStorage.class);
@@ -42,13 +43,14 @@ class FileServiceDeleteUnitTest {
 
         FileStorageProperties properties = new FileStorageProperties();
         properties.getCleanup().setMaxDeleteAttempts(10);
-        FileService service = new FileService(
-                files,
-                storage,
-                mock(FileKeyGenerator.class),
-                mock(FileRetentionPolicy.class),
-                properties,
-                noOpTransactions());
+        FileService service =
+                new FileService(
+                        files,
+                        storage,
+                        mock(FileKeyGenerator.class),
+                        mock(FileRetentionPolicy.class),
+                        properties,
+                        noOpTransactions());
 
         for (int attempt = 1; attempt <= 10; attempt++) {
             assertThatThrownBy(() -> service.delete(tenantId, file.getId()))
@@ -68,7 +70,8 @@ class FileServiceDeleteUnitTest {
         StoredFile file = readyFile(tenantId);
         StoredFileRepository files = mock(StoredFileRepository.class);
         when(files.findByIdAndTenantId(file.getId(), tenantId)).thenReturn(Optional.of(file));
-        when(files.saveAndFlush(any(StoredFile.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(files.saveAndFlush(any(StoredFile.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
         when(files.save(any(StoredFile.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         ObjectStorage storage = mock(ObjectStorage.class);
@@ -78,13 +81,14 @@ class FileServiceDeleteUnitTest {
 
         FileStorageProperties properties = new FileStorageProperties();
         properties.getCleanup().setMaxDeleteAttempts(3);
-        FileService service = new FileService(
-                files,
-                storage,
-                mock(FileKeyGenerator.class),
-                mock(FileRetentionPolicy.class),
-                properties,
-                noOpTransactions());
+        FileService service =
+                new FileService(
+                        files,
+                        storage,
+                        mock(FileKeyGenerator.class),
+                        mock(FileRetentionPolicy.class),
+                        properties,
+                        noOpTransactions());
 
         assertThatThrownBy(() -> service.delete(tenantId, file.getId()))
                 .isInstanceOf(FileStorageException.class);
@@ -96,18 +100,19 @@ class FileServiceDeleteUnitTest {
 
     private StoredFile readyFile(UUID tenantId) {
         UUID fileId = UUID.randomUUID();
-        StoredFile file = new StoredFile(
-                fileId,
-                tenantId,
-                null,
-                FileCategory.TEMP,
-                "rustfs",
-                "collectra-temp",
-                "temp/" + tenantId + "/" + fileId,
-                "sample.tmp",
-                "application/octet-stream",
-                Instant.parse("2026-09-10T10:00:00Z"),
-                null);
+        StoredFile file =
+                new StoredFile(
+                        fileId,
+                        tenantId,
+                        null,
+                        FileCategory.TEMP,
+                        "rustfs",
+                        "collectra-temp",
+                        "temp/" + tenantId + "/" + fileId,
+                        "sample.tmp",
+                        "application/octet-stream",
+                        Instant.parse("2026-09-10T10:00:00Z"),
+                        null);
         file.markReady(4, "application/octet-stream", "a".repeat(64));
         return file;
     }

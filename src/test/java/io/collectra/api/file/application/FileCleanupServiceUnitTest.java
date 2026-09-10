@@ -42,7 +42,8 @@ class FileCleanupServiceUnitTest {
         assertThat(result.deleted()).isEqualTo(1);
         assertThat(result.failed()).isZero();
         assertThat(result.exhausted()).isZero();
-        assertThat(registry.get("collectra.file.cleanup.processed").counter().count()).isEqualTo(1.0);
+        assertThat(registry.get("collectra.file.cleanup.processed").counter().count())
+                .isEqualTo(1.0);
         assertThat(registry.get("collectra.file.cleanup.deleted").counter().count()).isEqualTo(1.0);
         assertThat(registry.get("collectra.file.cleanup.failed").counter().count()).isZero();
         assertThat(registry.get("collectra.file.cleanup.exhausted").counter().count()).isZero();
@@ -72,7 +73,8 @@ class FileCleanupServiceUnitTest {
         assertThat(file.getStatus()).isEqualTo(FileStatus.DELETE_FAILED);
         assertThat(file.getDeleteAttempts()).isEqualTo(10);
         assertThat(registry.get("collectra.file.cleanup.failed").counter().count()).isEqualTo(1.0);
-        assertThat(registry.get("collectra.file.cleanup.exhausted").counter().count()).isEqualTo(1.0);
+        assertThat(registry.get("collectra.file.cleanup.exhausted").counter().count())
+                .isEqualTo(1.0);
     }
 
     private FileCleanupService service(
@@ -94,18 +96,19 @@ class FileCleanupServiceUnitTest {
     private StoredFile readyFile() {
         UUID tenantId = UUID.randomUUID();
         UUID fileId = UUID.randomUUID();
-        StoredFile file = new StoredFile(
-                fileId,
-                tenantId,
-                null,
-                FileCategory.TEMP,
-                "rustfs",
-                "collectra-temp",
-                "temp/" + tenantId + "/" + fileId,
-                "sample.tmp",
-                "application/octet-stream",
-                NOW.minusSeconds(60),
-                null);
+        StoredFile file =
+                new StoredFile(
+                        fileId,
+                        tenantId,
+                        null,
+                        FileCategory.TEMP,
+                        "rustfs",
+                        "collectra-temp",
+                        "temp/" + tenantId + "/" + fileId,
+                        "sample.tmp",
+                        "application/octet-stream",
+                        NOW.minusSeconds(60),
+                        null);
         file.markReady(4, "application/octet-stream", "a".repeat(64));
         return file;
     }

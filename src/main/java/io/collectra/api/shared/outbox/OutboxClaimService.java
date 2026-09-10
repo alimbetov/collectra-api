@@ -29,15 +29,19 @@ public class OutboxClaimService {
 
     @Transactional
     public int recoverStale(Instant now, Duration processingTimeout) {
-        if (processingTimeout == null || processingTimeout.isNegative() || processingTimeout.isZero()) {
+        if (processingTimeout == null
+                || processingTimeout.isNegative()
+                || processingTimeout.isZero()) {
             throw new IllegalArgumentException("processingTimeout must be positive");
         }
         Instant cutoff = now.minus(processingTimeout);
         List<OutboxEvent> stale = events.findStaleForUpdate(cutoff, RECOVERY_BATCH_SIZE);
-        stale.forEach(event -> event.recover(
-                now,
-                "PROCESSING_TIMEOUT_RECOVERED",
-                "Recovered stale outbox event after publisher interruption"));
+        stale.forEach(
+                event ->
+                        event.recover(
+                                now,
+                                "PROCESSING_TIMEOUT_RECOVERED",
+                                "Recovered stale outbox event after publisher interruption"));
         metrics.recovered(stale.size());
         return stale.size();
     }

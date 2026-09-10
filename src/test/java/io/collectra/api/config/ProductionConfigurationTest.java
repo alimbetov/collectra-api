@@ -57,7 +57,8 @@ class ProductionConfigurationTest {
     void testProfileKeepsBackgroundWorkersDisabled() throws IOException {
         PropertySource<?> test = load("application-test.yml");
 
-        assertThat(test.getProperty("spring.rabbitmq.listener.simple.auto-startup")).isEqualTo(false);
+        assertThat(test.getProperty("spring.rabbitmq.listener.simple.auto-startup"))
+                .isEqualTo(false);
         assertThat(test.getProperty("spring.task.scheduling.enabled")).isEqualTo(false);
         assertThat(test.getProperty("collectra.file.cleanup.enabled")).isEqualTo(false);
         assertThat(test.getProperty("collectra.messaging.outbox-enabled")).isEqualTo(false);

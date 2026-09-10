@@ -40,18 +40,19 @@ class OutboxPublisherUnitTest {
         router = mock(OutboxEventRouter.class);
         metrics = mock(OutboxMetrics.class);
         rabbit = mock(RabbitTemplate.class);
-        publisher = new OutboxPublisher(
-                claims,
-                states,
-                router,
-                new OutboxRetryPolicy(3),
-                metrics,
-                rabbit,
-                new ObjectMapper(),
-                Clock.fixed(NOW, ZoneOffset.UTC),
-                100,
-                50,
-                Duration.ofMinutes(2));
+        publisher =
+                new OutboxPublisher(
+                        claims,
+                        states,
+                        router,
+                        new OutboxRetryPolicy(3),
+                        metrics,
+                        rabbit,
+                        new ObjectMapper(),
+                        Clock.fixed(NOW, ZoneOffset.UTC),
+                        100,
+                        50,
+                        Duration.ofMinutes(2));
     }
 
     @Test
@@ -78,7 +79,8 @@ class OutboxPublisherUnitTest {
 
         publisher.publishOne(event.id());
 
-        verify(states).markDead(eq(event.id()), anyString(), eq("INVALID_EVENT_PAYLOAD"), anyString());
+        verify(states)
+                .markDead(eq(event.id()), anyString(), eq("INVALID_EVENT_PAYLOAD"), anyString());
         verify(metrics).dead();
         verifyNoInteractions(rabbit);
     }
@@ -88,13 +90,15 @@ class OutboxPublisherUnitTest {
         var event = event(1, "{\"jobId\":\"123\"}");
         when(states.loadForPublish(eq(event.id()), anyString())).thenReturn(Optional.of(event));
         when(router.route(event.eventType())).thenReturn(new OutboxRoute("documents", "generate"));
-        when(states.scheduleRetry(eq(event.id()), anyString(), eq(NOW), eq("BROKER_NACK"), eq("nack")))
+        when(states.scheduleRetry(
+                        eq(event.id()), anyString(), eq(NOW), eq("BROKER_NACK"), eq("nack")))
                 .thenReturn(true);
         completePublishWithAck(false, "nack");
 
         publisher.publishOne(event.id());
 
-        verify(states).scheduleRetry(eq(event.id()), anyString(), eq(NOW), eq("BROKER_NACK"), eq("nack"));
+        verify(states)
+                .scheduleRetry(eq(event.id()), anyString(), eq(NOW), eq("BROKER_NACK"), eq("nack"));
         verify(metrics).retry();
         verify(metrics, never()).dead();
     }
@@ -110,17 +114,21 @@ class OutboxPublisherUnitTest {
 
         publisher.publishOne(event.id());
 
-        verify(states).markDead(eq(event.id()), anyString(), eq("BROKER_MAX_ATTEMPTS"), anyString());
+        verify(states)
+                .markDead(eq(event.id()), anyString(), eq("BROKER_MAX_ATTEMPTS"), anyString());
         verify(states, never()).scheduleRetry(any(), anyString(), any(), anyString(), anyString());
         verify(metrics).dead();
     }
 
     private void completePublishWithAck(boolean ack, String reason) {
-        doAnswer(invocation -> {
-                    CorrelationData correlation = invocation.getArgument(4);
-                    correlation.getFuture().complete(new CorrelationData.Confirm(ack, reason));
-                    return null;
-                })
+        doAnswer(
+                        invocation -> {
+                            CorrelationData correlation = invocation.getArgument(4);
+                            correlation
+                                    .getFuture()
+                                    .complete(new CorrelationData.Confirm(ack, reason));
+                            return null;
+                        })
                 .when(rabbit)
                 .convertAndSend(
                         anyString(),
