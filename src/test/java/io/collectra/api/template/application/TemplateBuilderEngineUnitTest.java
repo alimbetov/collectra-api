@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.UUID;
+import org.jsoup.Jsoup;
 import org.junit.jupiter.api.Test;
 
 class TemplateBuilderEngineUnitTest {
@@ -34,11 +35,15 @@ class TemplateBuilderEngineUnitTest {
                         """);
 
         String html = renderer.render(compiled, payload).html();
+        var rows = Jsoup.parse(html).select("tbody > tr");
 
-        assertThat(html).contains("<td>1</td><td>Laptop</td><td>100000</td>");
-        assertThat(html).contains("<td>2</td><td>Mouse &amp; Cable</td><td>20000</td>");
-        assertThat(html.indexOf("Laptop")).isLessThan(html.indexOf("Mouse &amp; Cable"));
-        assertThat(html.indexOf("Mouse &amp; Cable")).isLessThan(html.indexOf("Keyboard"));
+        assertThat(rows).hasSize(3);
+        assertThat(rows.get(0).select("td")).extracting(element -> element.text())
+                .containsExactly("1", "Laptop", "100000");
+        assertThat(rows.get(1).select("td")).extracting(element -> element.text())
+                .containsExactly("2", "Mouse & Cable", "20000");
+        assertThat(rows.get(2).select("td")).extracting(element -> element.text())
+                .containsExactly("3", "Keyboard", "5000");
     }
 
     @Test
