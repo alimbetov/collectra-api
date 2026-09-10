@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import io.collectra.api.AbstractIntegrationTest;
 
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -17,13 +18,19 @@ import java.util.UUID;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Stream;
 
 class OutboxClaimIntegrationTest extends AbstractIntegrationTest {
     @Autowired private OutboxRepository events;
     @Autowired private PlatformTransactionManager transactionManager;
 
+    @BeforeEach
+    void cleanBefore() {
+        events.deleteAll();
+    }
+
     @AfterEach
-    void clean() {
+    void cleanAfter() {
         events.deleteAll();
     }
 
@@ -55,7 +62,10 @@ class OutboxClaimIntegrationTest extends AbstractIntegrationTest {
             HashSet<UUID> intersection = new HashSet<>(a);
             intersection.retainAll(b);
             assertThat(intersection).isEmpty();
-            assertThat(events.findAll())
+
+            List<UUID> claimedIds = Stream.concat(a.stream(), b.stream()).toList();
+            assertThat(events.findAllById(claimedIds))
+                    .hasSize(4)
                     .allMatch(event -> event.getStatus() == OutboxEventStatus.PROCESSING);
         } finally {
             pool.shutdownNow();
