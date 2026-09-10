@@ -9,13 +9,16 @@ spring:
     username: devuser
     password: devpass
   jpa.show-sql: false
-management.endpoint.health.show-details: always
+management:
+  endpoint.health.show-details: always
+  tracing.sampling.probability: 1.0
 
 collectra:
   storage:
     endpoint: http://localhost:9000
     access-key: rustfsadmin
     secret-key: rustfsadmin
+    bucket: collectra-documents
     region: us-east-1
     path-style-access: true
   file:
@@ -25,3 +28,6 @@ collectra:
       secret-key: rustfsadmin
       region: us-east-1
       path-style-access: true
+  security:
+    jwt-secret: local-development-secret-change-me-123456789
+    otp-pepper: local-development-otp-pepper-change-me

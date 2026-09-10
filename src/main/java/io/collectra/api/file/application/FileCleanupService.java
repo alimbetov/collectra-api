@@ -6,6 +6,8 @@ import io.collectra.api.file.infrastructure.persistence.StoredFileRepository;
 import io.collectra.api.file.infrastructure.storage.FileStorageProperties;
 import io.collectra.api.file.infrastructure.storage.ObjectStorage;
 import io.collectra.api.file.infrastructure.storage.StorageLocation;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -24,16 +26,25 @@ public class FileCleanupService {
     private final ObjectStorage storage;
     private final FileStorageProperties properties;
     private final TransactionTemplate transactions;
+    private final Counter processedCounter;
+    private final Counter deletedCounter;
+    private final Counter failedCounter;
+    private final Counter exhaustedCounter;
 
     public FileCleanupService(
             StoredFileRepository files,
             ObjectStorage storage,
             FileStorageProperties properties,
-            PlatformTransactionManager transactionManager) {
+            PlatformTransactionManager transactionManager,
+            MeterRegistry meterRegistry) {
         this.files = files;
         this.storage = storage;
         this.properties = properties;
         this.transactions = new TransactionTemplate(transactionManager);
+        this.processedCounter = meterRegistry.counter("collectra.file.cleanup.processed");
+        this.deletedCounter = meterRegistry.counter("collectra.file.cleanup.deleted");
+        this.failedCounter = meterRegistry.counter("collectra.file.cleanup.failed");
+        this.exhaustedCounter = meterRegistry.counter("collectra.file.cleanup.exhausted");
     }
 
     public CleanupResult cleanupExpiredFiles() {
@@ -44,41 +55,50 @@ public class FileCleanupService {
         int processed = 0;
         int deleted = 0;
         int failed = 0;
+        int exhausted = 0;
         int batches = 0;
         int batchSize = properties.getCleanup().getBatchSize();
         int maxBatches = properties.getCleanup().getMaxBatchesPerRun();
 
         while (batches < maxBatches) {
             List<CleanupCandidate> candidates = claimBatch(now);
-            if (candidates.isEmpty()) {
-                break;
-            }
+            if (candidates.isEmpty()) break;
             batches++;
 
             for (CleanupCandidate candidate : candidates) {
                 processed++;
+                processedCounter.increment();
                 try {
                     storage.delete(candidate.location());
                     markDeleted(candidate.fileId(), Instant.now());
                     deleted++;
+                    deletedCounter.increment();
                 } catch (RuntimeException ex) {
-                    registerFailure(candidate.fileId(), candidate.claimedAt(), ex.getMessage());
+                    FailureResult failure =
+                            registerFailure(
+                                    candidate.fileId(), candidate.claimedAt(), ex.getMessage());
                     failed++;
+                    failedCounter.increment();
+                    if (failure.exhausted()) {
+                        exhausted++;
+                        exhaustedCounter.increment();
+                    }
                     log.warn(
-                            "File cleanup failed fileId={} tenantId={} category={} attemptResult=retryable",
+                            "File cleanup failed fileId={} tenantId={} category={} deleteAttempt={} maxDeleteAttempts={} attemptResult={}",
                             candidate.fileId(),
                             candidate.tenantId(),
                             candidate.category(),
+                            failure.deleteAttempts(),
+                            properties.getCleanup().getMaxDeleteAttempts(),
+                            failure.exhausted() ? "exhausted" : "retryable",
                             ex);
                 }
             }
 
-            if (candidates.size() < batchSize) {
-                break;
-            }
+            if (candidates.size() < batchSize) break;
         }
 
-        return new CleanupResult(processed, deleted, failed, batches);
+        return new CleanupResult(processed, deleted, failed, exhausted, batches);
     }
 
     private List<CleanupCandidate> claimBatch(Instant now) {
@@ -93,9 +113,7 @@ public class FileCleanupService {
                                             retryBefore,
                                             cleanup.getMaxDeleteAttempts(),
                                             cleanup.getBatchSize());
-                            if (ids.isEmpty()) {
-                                return List.of();
-                            }
+                            if (ids.isEmpty()) return List.of();
 
                             List<StoredFile> entities = files.findAllById(ids);
                             List<CleanupCandidate> claimed = new ArrayList<>(entities.size());
@@ -113,9 +131,7 @@ public class FileCleanupService {
         transactions.executeWithoutResult(
                 status -> {
                     StoredFile current = files.findById(fileId).orElse(null);
-                    if (current == null || current.getStatus() == FileStatus.DELETED) {
-                        return;
-                    }
+                    if (current == null || current.getStatus() == FileStatus.DELETED) return;
                     if (current.getStatus() != FileStatus.DELETE_PENDING) {
                         log.warn(
                                 "Skipping cleanup completion for fileId={} because status={}",
@@ -128,23 +144,32 @@ public class FileCleanupService {
                 });
     }
 
-    private void registerFailure(UUID fileId, Instant attemptedAt, String error) {
-        transactions.executeWithoutResult(
-                status -> {
-                    StoredFile current = files.findById(fileId).orElse(null);
-                    if (current == null || current.getStatus() == FileStatus.DELETED) {
-                        return;
-                    }
-                    if (current.getStatus() != FileStatus.DELETE_PENDING) {
-                        log.warn(
-                                "Skipping cleanup failure registration for fileId={} because status={}",
-                                fileId,
-                                current.getStatus());
-                        return;
-                    }
-                    current.registerDeleteFailure(attemptedAt, error);
-                    files.save(current);
-                });
+    private FailureResult registerFailure(UUID fileId, Instant attemptedAt, String error) {
+        FailureResult result =
+                transactions.execute(
+                        status -> {
+                            StoredFile current = files.findById(fileId).orElse(null);
+                            if (current == null || current.getStatus() == FileStatus.DELETED) {
+                                return new FailureResult(false, 0);
+                            }
+                            if (current.getStatus() != FileStatus.DELETE_PENDING) {
+                                log.warn(
+                                        "Skipping cleanup failure registration for fileId={} because status={}",
+                                        fileId,
+                                        current.getStatus());
+                                return new FailureResult(
+                                        current.getStatus() == FileStatus.DELETE_FAILED,
+                                        current.getDeleteAttempts());
+                            }
+                            boolean exhausted =
+                                    current.registerDeleteFailure(
+                                            attemptedAt,
+                                            error,
+                                            properties.getCleanup().getMaxDeleteAttempts());
+                            files.save(current);
+                            return new FailureResult(exhausted, current.getDeleteAttempts());
+                        });
+        return result == null ? new FailureResult(false, 0) : result;
     }
 
     private record CleanupCandidate(
@@ -163,5 +188,8 @@ public class FileCleanupService {
         }
     }
 
-    public record CleanupResult(int processed, int deleted, int failed, int batches) {}
+    private record FailureResult(boolean exhausted, int deleteAttempts) {}
+
+    public record CleanupResult(
+            int processed, int deleted, int failed, int exhausted, int batches) {}
 }

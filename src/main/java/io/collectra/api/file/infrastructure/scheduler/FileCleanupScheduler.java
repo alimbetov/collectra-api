@@ -25,10 +25,11 @@ public class FileCleanupScheduler {
     public void cleanup() {
         FileCleanupService.CleanupResult result = cleanupService.cleanupExpiredFiles();
         log.info(
-                "File cleanup completed processed={} deleted={} failed={} batches={}",
+                "File cleanup completed processed={} deleted={} failed={} exhausted={} batches={}",
                 result.processed(),
                 result.deleted(),
                 result.failed(),
+                result.exhausted(),
                 result.batches());
     }
 }

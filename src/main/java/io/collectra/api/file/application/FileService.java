@@ -152,7 +152,10 @@ public class FileService {
                     status -> {
                         StoredFile current = requireFile(tenantId, fileId);
                         if (current.getStatus() == FileStatus.DELETE_PENDING) {
-                            current.registerDeleteFailure(Instant.now(), ex.getMessage());
+                            current.registerDeleteFailure(
+                                    Instant.now(),
+                                    ex.getMessage(),
+                                    properties.getCleanup().getMaxDeleteAttempts());
                             files.save(current);
                         }
                     });

@@ -1,12 +1,11 @@
 package io.collectra.api.shared.outbox;
 
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class OutboxClaimService {
@@ -28,7 +27,9 @@ public class OutboxClaimService {
 
     @Transactional
     public int recoverStale(Instant now, Duration processingTimeout) {
-        if (processingTimeout == null || processingTimeout.isNegative() || processingTimeout.isZero()) {
+        if (processingTimeout == null
+                || processingTimeout.isNegative()
+                || processingTimeout.isZero()) {
             throw new IllegalArgumentException("processingTimeout must be positive");
         }
         Instant cutoff = now.minus(processingTimeout);

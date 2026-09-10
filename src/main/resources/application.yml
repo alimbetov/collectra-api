@@ -3,10 +3,6 @@ spring:
     name: collectra-api
   profiles:
     default: local
-  datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/collectra}
-    username: ${DB_USERNAME:collectra}
-    password: ${DB_PASSWORD:collectra}
   jpa:
     open-in-view: false
     hibernate:
@@ -27,7 +23,6 @@ spring:
 management:
   endpoints.web.exposure.include: health,info,metrics,prometheus
   endpoint.health.probes.enabled: true
-  tracing.sampling.probability: 1.0
 springdoc:
   swagger-ui.path: /swagger-ui.html
 collectra:
@@ -38,26 +33,17 @@ collectra:
     outbox-max-attempts: 6
     outbox-processing-timeout: PT2M
     publisher-confirm-timeout-ms: 5000
-  # Legacy document storage. Kept until GeneratedOutputService is migrated to FileService.
-  storage:
-    endpoint: ${COLLECTRA_STORAGE_ENDPOINT:http://localhost:9000}
-    access-key: ${COLLECTRA_STORAGE_ACCESS_KEY:rustfsadmin}
-    secret-key: ${COLLECTRA_STORAGE_SECRET_KEY:rustfsadmin}
-    bucket: ${COLLECTRA_STORAGE_BUCKET:collectra-documents}
   file:
     direct-upload-max-size: 50MB
     storage:
       provider: rustfs
-      endpoint: ${RUSTFS_ENDPOINT:http://localhost:9000}
-      access-key: ${RUSTFS_ACCESS_KEY:}
-      secret-key: ${RUSTFS_SECRET_KEY:}
-      region: ${RUSTFS_REGION:us-east-1}
+      region: us-east-1
       path-style-access: true
       buckets:
-        source: ${RUSTFS_BUCKET_SOURCE:collectra-source}
-        generated: ${RUSTFS_BUCKET_GENERATED:collectra-generated}
-        assets: ${RUSTFS_BUCKET_ASSETS:collectra-assets}
-        temp: ${RUSTFS_BUCKET_TEMP:collectra-temp}
+        source: collectra-source
+        generated: collectra-generated
+        assets: collectra-assets
+        temp: collectra-temp
     retention:
       import-source: 90d
       report: 90d
@@ -67,15 +53,14 @@ collectra:
       cron: "0 0 3 * * *"
       batch-size: 500
       max-delete-attempts: 10
+      max-batches-per-run: 20
       retry-delay: 15m
     presigned-url:
       download-ttl: 10m
       upload-ttl: 30m
   security:
-    jwt-secret: ${COLLECTRA_JWT_SECRET:local-development-secret-change-me-123456789}
     access-token-ttl: PT15M
     refresh-token-ttl: 30d
-    otp-pepper: ${COLLECTRA_OTP_PEPPER:local-development-otp-pepper-change-me}
     expose-otp: false
 logging:
   pattern:

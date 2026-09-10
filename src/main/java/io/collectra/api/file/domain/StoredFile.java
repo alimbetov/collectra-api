@@ -133,11 +133,19 @@ public class StoredFile extends AuditableEntity {
         this.lastError = null;
     }
 
-    public void registerDeleteFailure(Instant attemptedAt, String error) {
+    public boolean registerDeleteFailure(Instant attemptedAt, String error, int maxDeleteAttempts) {
         requireStatus(FileStatus.DELETE_PENDING, "register delete failure");
+        if (maxDeleteAttempts < 1) {
+            throw new IllegalArgumentException("maxDeleteAttempts must be positive");
+        }
         this.deleteAttempts++;
         this.lastDeleteAttemptAt = require(attemptedAt, "attemptedAt");
         this.lastError = sanitizeError(error);
+        if (this.deleteAttempts >= maxDeleteAttempts) {
+            this.status = FileStatus.DELETE_FAILED;
+            return true;
+        }
+        return false;
     }
 
     public void markDeleted(Instant deletedAt) {
@@ -171,9 +179,7 @@ public class StoredFile extends AuditableEntity {
     private static String normalizeText(String value, int maxLength) {
         if (value == null || value.isBlank()) return null;
         String normalized = value.trim();
-        return normalized.length() <= maxLength
-                ? normalized
-                : normalized.substring(0, maxLength);
+        return normalized.length() <= maxLength ? normalized : normalized.substring(0, maxLength);
     }
 
     private static String requireText(String value, String field, int maxLength) {
