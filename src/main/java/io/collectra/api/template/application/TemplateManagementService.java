@@ -3,6 +3,7 @@ package io.collectra.api.template.application;
 import com.fasterxml.jackson.databind.JsonNode;
 import io.collectra.api.importing.application.SourceSchemaManagementService;
 import io.collectra.api.template.domain.DocumentTemplate;
+import io.collectra.api.template.domain.TemplateChannel;
 import io.collectra.api.template.domain.TemplateVersion;
 import io.collectra.api.template.domain.TemplateVersionStatus;
 import io.collectra.api.template.infrastructure.DocumentTemplateRepository;
@@ -22,23 +23,23 @@ public class TemplateManagementService {
     private final DocumentTemplateRepository templates;
     private final TemplateVersionRepository versions;
     private final FieldDefinitionRepository fields;
-    private final HtmlTemplatePolicy policy;
     private final TemplateCompiler compiler;
     private final TemplateRenderer renderer;
+    private final TemplateAssetService assets;
 
     public TemplateManagementService(
             DocumentTemplateRepository templates,
             TemplateVersionRepository versions,
             FieldDefinitionRepository fields,
-            HtmlTemplatePolicy policy,
             TemplateCompiler compiler,
-            TemplateRenderer renderer) {
+            TemplateRenderer renderer,
+            TemplateAssetService assets) {
         this.templates = templates;
         this.versions = versions;
         this.fields = fields;
-        this.policy = policy;
         this.compiler = compiler;
         this.renderer = renderer;
+        this.assets = assets;
     }
 
     @Transactional
@@ -49,8 +50,7 @@ public class TemplateManagementService {
             throw new IllegalArgumentException("Template code already exists");
         }
         return templates.save(
-                new DocumentTemplate(
-                        tenantId, normalized, name.trim(), normalizeCode(documentType)));
+                new DocumentTemplate(tenantId, normalized, name.trim(), normalizeCode(documentType)));
     }
 
     @Transactional(readOnly = true)
@@ -77,22 +77,69 @@ public class TemplateManagementService {
             String locale,
             String contentHtml,
             String stylesheet) {
-        requireActiveTemplate(tenantId, templateId);
-        String normalizedLocale = locale.trim().toLowerCase(Locale.ROOT);
-        var existing =
-                versions.findAllByTemplateIdAndLocaleOrderByTemplateVersionDesc(
-                        templateId, normalizedLocale);
-        int number = existing.isEmpty() ? 1 : existing.get(0).getTemplateVersion() + 1;
-        if ((contentHtml == null || contentHtml.isBlank()) && !existing.isEmpty()) {
-            contentHtml = existing.get(0).getContentHtml();
-            stylesheet = existing.get(0).getStylesheet();
+        return createVersion(
+                tenantId,
+                templateId,
+                locale,
+                TemplateChannel.PDF,
+                null,
+                contentHtml,
+                stylesheet);
+    }
+
+    @Transactional
+    public TemplateVersion createVersion(
+            UUID tenantId,
+            UUID templateId,
+            String locale,
+            TemplateChannel channel,
+            String subject,
+            String contentHtml,
+            String stylesheet) {
+        VersionSeed seed = nextVersionSeed(tenantId, templateId, locale, channel);
+        String effectiveContent = contentHtml;
+        String effectiveStylesheet = stylesheet;
+        String effectiveSubject = subject;
+        if ((effectiveContent == null || effectiveContent.isBlank()) && seed.latest() != null) {
+            effectiveContent = seed.latest().getContentHtml();
+            effectiveStylesheet = seed.latest().getStylesheet();
+            if (effectiveSubject == null) effectiveSubject = seed.latest().getSubject();
         }
-        if (contentHtml == null || contentHtml.isBlank()) {
-            throw new IllegalArgumentException("Template HTML is required");
+        if (effectiveContent == null || effectiveContent.isBlank()) {
+            throw new IllegalArgumentException("Template content is required");
         }
         return versions.save(
                 new TemplateVersion(
-                        templateId, number, normalizedLocale, contentHtml, stylesheet));
+                        templateId,
+                        seed.number(),
+                        seed.locale(),
+                        seed.channel(),
+                        effectiveSubject,
+                        effectiveContent,
+                        effectiveStylesheet));
+    }
+
+    @Transactional
+    public TemplateVersion createBuilderVersion(
+            UUID tenantId,
+            UUID templateId,
+            String locale,
+            TemplateChannel channel,
+            String subject,
+            JsonNode builderJson,
+            String renderedHtml,
+            String stylesheet) {
+        VersionSeed seed = nextVersionSeed(tenantId, templateId, locale, channel);
+        return versions.save(
+                new TemplateVersion(
+                        templateId,
+                        seed.number(),
+                        seed.locale(),
+                        seed.channel(),
+                        subject,
+                        builderJson,
+                        renderedHtml,
+                        stylesheet));
     }
 
     @Transactional(readOnly = true)
@@ -109,6 +156,27 @@ public class TemplateManagementService {
     }
 
     @Transactional
+    public TemplateVersion update(
+            UUID tenantId, UUID versionId, String subject, String content, String css) {
+        var version = requireVersion(tenantId, versionId);
+        version.update(subject, content, css);
+        return version;
+    }
+
+    @Transactional
+    public TemplateVersion updateBuilder(
+            UUID tenantId,
+            UUID versionId,
+            String subject,
+            JsonNode builderJson,
+            String renderedHtml,
+            String css) {
+        var version = requireVersion(tenantId, versionId);
+        version.updateBuilder(subject, builderJson, renderedHtml, css);
+        return version;
+    }
+
+    @Transactional
     public SourceSchemaManagementService.ValidationResult validate(UUID tenantId, UUID versionId) {
         var version = requireVersion(tenantId, versionId);
         if (version.getStatus() != TemplateVersionStatus.DRAFT) {
@@ -116,43 +184,117 @@ public class TemplateManagementService {
         }
 
         List<SourceSchemaManagementService.ValidationIssue> errors = new ArrayList<>();
-        CompiledTemplate compiled = null;
-        try {
-            compiled = compiler.compile(version);
-        } catch (IllegalArgumentException ex) {
-            errors.add(issue("INVALID_TEMPLATE", "contentHtml", ex.getMessage()));
+        CompiledTemplate body = compileBody(version, errors);
+        CompiledTemplate subject = null;
+        if (version.getChannel() == TemplateChannel.EMAIL) {
+            subject = compileText(version.getId(), version.getSubject(), "subject", errors);
         }
 
-        if (compiled != null) {
-            Set<String> available =
-                    fields.findAvailable(tenantId).stream()
-                            .map(f -> f.getKey().toLowerCase(Locale.ROOT))
-                            .collect(java.util.stream.Collectors.toSet());
-
-            for (TemplateToken token : compiled.tokens()) {
-                if (token instanceof TemplateToken.Placeholder placeholder) {
-                    String key = placeholder.path().canonical();
-                    if (!available.contains(key)) {
-                        errors.add(
-                                issue(
-                                        "UNKNOWN_PLACEHOLDER",
-                                        "contentHtml",
-                                        "Unknown placeholder: " + key));
-                    }
-                }
-            }
+        if (!errors.isEmpty()) {
+            return new SourceSchemaManagementService.ValidationResult(false, errors, List.of());
         }
 
-        if (errors.isEmpty()) {
-            version.validated();
-        }
+        Set<String> available =
+                fields.findAvailable(tenantId).stream()
+                        .map(f -> f.getKey().toLowerCase(Locale.ROOT))
+                        .collect(java.util.stream.Collectors.toSet());
+        validateCompiled(tenantId, "contentHtml", body, available, errors);
+        if (subject != null) validateCompiled(tenantId, "subject", subject, available, errors);
+
+        if (errors.isEmpty()) version.validated();
         return new SourceSchemaManagementService.ValidationResult(
                 errors.isEmpty(), errors, List.of());
     }
 
+    private CompiledTemplate compileBody(
+            TemplateVersion version, List<SourceSchemaManagementService.ValidationIssue> errors) {
+        try {
+            return compiler.compile(version);
+        } catch (IllegalArgumentException ex) {
+            errors.add(issue("INVALID_TEMPLATE", "contentHtml", ex.getMessage()));
+            return null;
+        }
+    }
+
+    private CompiledTemplate compileText(
+            UUID versionId,
+            String text,
+            String path,
+            List<SourceSchemaManagementService.ValidationIssue> errors) {
+        try {
+            return compiler.compileText(versionId, text);
+        } catch (IllegalArgumentException ex) {
+            errors.add(issue("INVALID_TEMPLATE", path, ex.getMessage()));
+            return null;
+        }
+    }
+
+    private void validateCompiled(
+            UUID tenantId,
+            String sourcePath,
+            CompiledTemplate compiled,
+            Set<String> available,
+            List<SourceSchemaManagementService.ValidationIssue> errors) {
+        if (compiled == null) return;
+        boolean insideItems = false;
+        for (TemplateToken token : compiled.tokens()) {
+            if (token instanceof TemplateToken.EachStart start) {
+                insideItems = "items".equals(start.collectionKey());
+                continue;
+            }
+            if (token instanceof TemplateToken.EachEnd) {
+                insideItems = false;
+                continue;
+            }
+            if (!(token instanceof TemplateToken.Placeholder placeholder)) continue;
+
+            String key = placeholder.path().canonical();
+            String catalogKey = key;
+            if (key.startsWith("item.")) {
+                if (!insideItems) {
+                    errors.add(
+                            issue(
+                                    "ITEM_PLACEHOLDER_OUTSIDE_BLOCK",
+                                    sourcePath,
+                                    "Item placeholder must be inside {{#each items}}: " + key));
+                    continue;
+                }
+                catalogKey = "items." + key.substring("item.".length());
+            } else if (key.startsWith("items.")) {
+                errors.add(
+                        issue(
+                                "COLLECTION_PLACEHOLDER_REQUIRES_BLOCK",
+                                sourcePath,
+                                "Use {{item.*}} inside {{#each items}} instead of: " + key));
+                continue;
+            }
+
+            if (catalogKey.startsWith("asset.")) {
+                String assetKey = catalogKey.substring("asset.".length());
+                if (!assets.exists(tenantId, assetKey)) {
+                    errors.add(issue("UNKNOWN_ASSET", sourcePath, "Unknown template asset: " + assetKey));
+                }
+                continue;
+            }
+            if (!available.contains(catalogKey)) {
+                errors.add(
+                        issue(
+                                "UNKNOWN_PLACEHOLDER",
+                                sourcePath,
+                                "Unknown placeholder: " + key));
+            }
+        }
+    }
+
     @Transactional(readOnly = true)
     public TemplateRenderer.RenderResult preview(UUID tenantId, UUID versionId, JsonNode payload) {
-        return renderer.render(requireVersion(tenantId, versionId), payload);
+        TemplateVersion version = requireVersion(tenantId, versionId);
+        return renderer.render(version, assets.enrichPayload(tenantId, payload));
+    }
+
+    @Transactional(readOnly = true)
+    public TemplateVersion getVersion(UUID tenantId, UUID versionId) {
+        return requireVersion(tenantId, versionId);
     }
 
     @Transactional
@@ -174,6 +316,22 @@ public class TemplateManagementService {
         var version = requireVersion(tenantId, id);
         version.archive();
         return version;
+    }
+
+    private VersionSeed nextVersionSeed(
+            UUID tenantId, UUID templateId, String locale, TemplateChannel channel) {
+        requireActiveTemplate(tenantId, templateId);
+        String normalizedLocale = locale.trim().toLowerCase(Locale.ROOT);
+        TemplateChannel normalizedChannel = channel == null ? TemplateChannel.PDF : channel;
+        var existing =
+                versions.findAllByTemplateIdAndLocaleAndChannelOrderByTemplateVersionDesc(
+                        templateId, normalizedLocale, normalizedChannel);
+        int number = existing.isEmpty() ? 1 : existing.get(0).getTemplateVersion() + 1;
+        return new VersionSeed(
+                normalizedLocale,
+                normalizedChannel,
+                number,
+                existing.isEmpty() ? null : existing.get(0));
     }
 
     private DocumentTemplate requireTemplate(UUID tenantId, UUID id) {
@@ -206,4 +364,7 @@ public class TemplateManagementService {
             String code, String path, String message) {
         return new SourceSchemaManagementService.ValidationIssue(code, path, message);
     }
+
+    private record VersionSeed(
+            String locale, TemplateChannel channel, int number, TemplateVersion latest) {}
 }
