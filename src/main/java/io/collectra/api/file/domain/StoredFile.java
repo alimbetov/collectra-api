@@ -133,11 +133,19 @@ public class StoredFile extends AuditableEntity {
         this.lastError = null;
     }
 
-    public void registerDeleteFailure(Instant attemptedAt, String error) {
+    public boolean registerDeleteFailure(Instant attemptedAt, String error, int maxDeleteAttempts) {
         requireStatus(FileStatus.DELETE_PENDING, "register delete failure");
+        if (maxDeleteAttempts < 1) {
+            throw new IllegalArgumentException("maxDeleteAttempts must be positive");
+        }
         this.deleteAttempts++;
         this.lastDeleteAttemptAt = require(attemptedAt, "attemptedAt");
         this.lastError = sanitizeError(error);
+        if (this.deleteAttempts >= maxDeleteAttempts) {
+            this.status = FileStatus.DELETE_FAILED;
+            return true;
+        }
+        return false;
     }
 
     public void markDeleted(Instant deletedAt) {
@@ -171,14 +179,11 @@ public class StoredFile extends AuditableEntity {
     private static String normalizeText(String value, int maxLength) {
         if (value == null || value.isBlank()) return null;
         String normalized = value.trim();
-        return normalized.length() <= maxLength
-                ? normalized
-                : normalized.substring(0, maxLength);
+        return normalized.length() <= maxLength ? normalized : normalized.substring(0, maxLength);
     }
 
     private static String requireText(String value, String field, int maxLength) {
-        if (value == null || value.isBlank())
-            throw new IllegalArgumentException(field + " is required");
+        if (value == null || value.isBlank()) throw new IllegalArgumentException(field + " is required");
         String normalized = value.trim();
         if (normalized.length() > maxLength) {
             throw new IllegalArgumentException(field + " exceeds " + maxLength + " characters");
@@ -191,75 +196,22 @@ public class StoredFile extends AuditableEntity {
         return value;
     }
 
-    public UUID getId() {
-        return id;
-    }
-
-    public UUID getTenantId() {
-        return tenantId;
-    }
-
-    public UUID getProjectId() {
-        return projectId;
-    }
-
-    public FileCategory getCategory() {
-        return category;
-    }
-
-    public String getStorageProvider() {
-        return storageProvider;
-    }
-
-    public String getBucket() {
-        return bucket;
-    }
-
-    public String getObjectKey() {
-        return objectKey;
-    }
-
-    public String getOriginalFilename() {
-        return originalFilename;
-    }
-
-    public String getContentType() {
-        return contentType;
-    }
-
-    public Long getSizeBytes() {
-        return sizeBytes;
-    }
-
-    public String getChecksumSha256() {
-        return checksumSha256;
-    }
-
-    public FileStatus getStatus() {
-        return status;
-    }
-
-    public Instant getExpiresAt() {
-        return expiresAt;
-    }
-
-    public Instant getDeletedAt() {
-        return deletedAt;
-    }
-
-    public UUID getCreatedBy() {
-        return createdBy;
-    }
-
-    public int getDeleteAttempts() {
-        return deleteAttempts;
-    }
-
-    public Instant getLastDeleteAttemptAt() {
-        return lastDeleteAttemptAt;
-    }
-
-    public String getLastError() {
-        return lastError;
-    }
+    public UUID getId() { return id; }
+    public UUID getTenantId() { return tenantId; }
+    public UUID getProjectId() { return projectId; }
+    public FileCategory getCategory() { return category; }
+    public String getStorageProvider() { return storageProvider; }
+    public String getBucket() { return bucket; }
+    public String getObjectKey() { return objectKey; }
+    public String getOriginalFilename() { return originalFilename; }
+    public String getContentType() { return contentType; }
+    public Long getSizeBytes() { return sizeBytes; }
+    public String getChecksumSha256() { return checksumSha256; }
+    public FileStatus getStatus() { return status; }
+    public Instant getExpiresAt() { return expiresAt; }
+    public Instant getDeletedAt() { return deletedAt; }
+    public UUID getCreatedBy() { return createdBy; }
+    public int getDeleteAttempts() { return deleteAttempts; }
+    public Instant getLastDeleteAttemptAt() { return lastDeleteAttemptAt; }
+    public String getLastError() { return lastError; }
 }
