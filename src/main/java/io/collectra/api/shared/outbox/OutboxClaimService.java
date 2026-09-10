@@ -12,11 +12,9 @@ public class OutboxClaimService {
     private static final int RECOVERY_BATCH_SIZE = 200;
 
     private final OutboxRepository events;
-    private final OutboxMetrics metrics;
 
-    public OutboxClaimService(OutboxRepository events, OutboxMetrics metrics) {
+    public OutboxClaimService(OutboxRepository events) {
         this.events = events;
-        this.metrics = metrics;
     }
 
     @Transactional
@@ -42,7 +40,6 @@ public class OutboxClaimService {
                                 now,
                                 "PROCESSING_TIMEOUT_RECOVERED",
                                 "Recovered stale outbox event after publisher interruption"));
-        metrics.recovered(stale.size());
         return stale.size();
     }
 }
