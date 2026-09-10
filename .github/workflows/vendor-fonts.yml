@@ -2,12 +2,6 @@ name: Vendor bundled fonts
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - feature/locales-font-bundle
-    paths:
-      - .github/workflows/vendor-fonts.yml
-      - scripts/vendor-fonts.sh
 
 permissions:
   contents: write
