@@ -18,16 +18,19 @@ public class TemplateBuilderService {
     private final TemplateAssetService assets;
     private final TemplateCompiler compiler;
     private final TemplateRenderer renderer;
+    private final TemplateBuilderDocumentCompiler documentCompiler;
 
     public TemplateBuilderService(
             FieldCatalogService fieldCatalog,
             TemplateAssetService assets,
             TemplateCompiler compiler,
-            TemplateRenderer renderer) {
+            TemplateRenderer renderer,
+            TemplateBuilderDocumentCompiler documentCompiler) {
         this.fieldCatalog = fieldCatalog;
         this.assets = assets;
         this.compiler = compiler;
         this.renderer = renderer;
+        this.documentCompiler = documentCompiler;
     }
 
     public BuilderCatalog catalog(UUID tenantId) {
@@ -36,7 +39,8 @@ public class TemplateBuilderService {
                 assets.list(tenantId),
                 List.of(TemplateChannel.values()),
                 "{{#each items}}...{{item.field}}...{{/each}}",
-                "{{asset.company_logo}}");
+                "{{asset.company_logo}}",
+                "1.0");
     }
 
     public ValidationResult validate(UUID tenantId, BuilderDraft draft) {
@@ -50,53 +54,15 @@ public class TemplateBuilderService {
         }
 
         TemplateChannel channel = draft.channel() == null ? TemplateChannel.PDF : draft.channel();
-        if (channel == TemplateChannel.EMAIL && (draft.subject() == null || draft.subject().isBlank())) {
-            errors.add(new ValidationIssue("SUBJECT_REQUIRED", "subject", "Email subject is required"));
-        }
-        if (isTextChannel(channel)) {
-            if (draft.stylesheet() != null && !draft.stylesheet().isBlank()) {
-                errors.add(
-                        new ValidationIssue(
-                                "STYLESHEET_NOT_SUPPORTED",
-                                "stylesheet",
-                                "Stylesheet is supported only for EMAIL and PDF templates"));
-            }
-            if (draft.content() != null && draft.content().matches("(?s).*<[^>]+>.*")) {
-                errors.add(
-                        new ValidationIssue(
-                                "HTML_NOT_SUPPORTED",
-                                "content",
-                                "HTML markup is not supported for SMS, WhatsApp or Telegram text variants"));
-            }
-        }
+        validateChannelRules(channel, draft.subject(), draft.content(), draft.stylesheet(), errors);
 
-        Set<String> available =
-                fieldCatalog.catalog(tenantId).stream()
-                        .map(FieldDefinition::getKey)
-                        .map(value -> value.toLowerCase(Locale.ROOT))
-                        .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
-
-        CompiledTemplate body = null;
-        try {
-            body =
-                    isTextChannel(channel)
-                            ? compiler.compileText(UUID.randomUUID(), draft.content())
-                            : compiler.compileBody(UUID.randomUUID(), draft.content(), draft.stylesheet());
-        } catch (IllegalArgumentException ex) {
-            errors.add(new ValidationIssue("INVALID_TEMPLATE", "content", ex.getMessage()));
-        }
+        Set<String> available = availableFields(tenantId);
+        CompiledTemplate body = compileBody(channel, draft.content(), draft.stylesheet(), errors);
         if (body != null) validateTokens(tenantId, "content", body.tokens(), available, errors);
 
-        if (channel == TemplateChannel.EMAIL && draft.subject() != null && !draft.subject().isBlank()) {
-            try {
-                CompiledTemplate subject = compiler.compileText(UUID.randomUUID(), draft.subject());
-                validateTokens(tenantId, "subject", subject.tokens(), available, errors);
-            } catch (IllegalArgumentException ex) {
-                errors.add(new ValidationIssue("INVALID_TEMPLATE", "subject", ex.getMessage()));
-            }
-        }
+        validateSubject(tenantId, channel, draft.subject(), available, errors);
 
-        if (body != null && body.tokens().stream().noneMatch(t -> t instanceof TemplateToken.Placeholder)) {
+        if (body != null && body.tokens().stream().noneMatch(this::isDynamicToken)) {
             warnings.add(
                     new ValidationIssue(
                             "NO_DYNAMIC_FIELDS", "content", "Template does not contain dynamic placeholders"));
@@ -104,18 +70,81 @@ public class TemplateBuilderService {
         return new ValidationResult(errors.isEmpty(), List.copyOf(errors), List.copyOf(warnings));
     }
 
+    public ValidationResult validateDocument(UUID tenantId, BuilderDocumentDraft draft) {
+        if (draft == null) {
+            return new ValidationResult(
+                    false,
+                    List.of(new ValidationIssue("DRAFT_REQUIRED", "draft", "Builder draft is required")),
+                    List.of());
+        }
+        String content;
+        try {
+            content = documentCompiler.compile(draft.builderJson());
+        } catch (IllegalArgumentException ex) {
+            return new ValidationResult(
+                    false,
+                    List.of(new ValidationIssue("INVALID_BUILDER_JSON", "builderJson", ex.getMessage())),
+                    List.of());
+        }
+        return validate(
+                tenantId,
+                new BuilderDraft(
+                        draft.channel(), draft.locale(), draft.subject(), content, draft.stylesheet()));
+    }
+
     public PreviewResult preview(UUID tenantId, BuilderDraft draft, JsonNode payload) {
         ValidationResult validation = validate(tenantId, draft);
         if (!validation.valid()) {
             throw new IllegalArgumentException("Builder draft is invalid: " + validation.errors());
         }
-        TemplateChannel channel = draft.channel() == null ? TemplateChannel.PDF : draft.channel();
+        return renderPreview(
+                tenantId,
+                draft.channel(),
+                draft.subject(),
+                draft.content(),
+                draft.stylesheet(),
+                payload);
+    }
+
+    public PreviewResult previewDocument(
+            UUID tenantId, BuilderDocumentDraft draft, JsonNode payload) {
+        ValidationResult validation = validateDocument(tenantId, draft);
+        if (!validation.valid()) {
+            throw new IllegalArgumentException("Builder document is invalid: " + validation.errors());
+        }
+        String content = documentCompiler.compile(draft.builderJson());
+        return renderPreview(
+                tenantId,
+                draft.channel(),
+                draft.subject(),
+                content,
+                draft.stylesheet(),
+                payload);
+    }
+
+    public CompiledBuilderDocument compileDocument(UUID tenantId, BuilderDocumentDraft draft) {
+        ValidationResult validation = validateDocument(tenantId, draft);
+        if (!validation.valid()) {
+            throw new IllegalArgumentException("Builder document is invalid: " + validation.errors());
+        }
+        return new CompiledBuilderDocument(
+                draft.builderJson().deepCopy(), documentCompiler.compile(draft.builderJson()));
+    }
+
+    private PreviewResult renderPreview(
+            UUID tenantId,
+            TemplateChannel requestedChannel,
+            String subjectTemplate,
+            String contentTemplate,
+            String stylesheet,
+            JsonNode payload) {
+        TemplateChannel channel = requestedChannel == null ? TemplateChannel.PDF : requestedChannel;
         JsonNode effectivePayload = assets.enrichPayload(tenantId, payload);
         UUID previewId = UUID.randomUUID();
         CompiledTemplate body =
                 isTextChannel(channel)
-                        ? compiler.compileText(previewId, draft.content())
-                        : compiler.compileBody(previewId, draft.content(), draft.stylesheet());
+                        ? compiler.compileText(previewId, contentTemplate)
+                        : compiler.compileBody(previewId, contentTemplate, stylesheet);
         String content =
                 isTextChannel(channel)
                         ? renderer.renderText(body, effectivePayload)
@@ -123,9 +152,78 @@ public class TemplateBuilderService {
         String subject =
                 channel == TemplateChannel.EMAIL
                         ? renderer.renderText(
-                                compiler.compileText(previewId, draft.subject()), effectivePayload)
+                                compiler.compileText(previewId, subjectTemplate), effectivePayload)
                         : null;
         return new PreviewResult(channel, subject, content);
+    }
+
+    private void validateChannelRules(
+            TemplateChannel channel,
+            String subject,
+            String content,
+            String stylesheet,
+            List<ValidationIssue> errors) {
+        if (channel == TemplateChannel.EMAIL && (subject == null || subject.isBlank())) {
+            errors.add(new ValidationIssue("SUBJECT_REQUIRED", "subject", "Email subject is required"));
+        }
+        if (content == null || content.isBlank()) {
+            errors.add(new ValidationIssue("CONTENT_REQUIRED", "content", "Template content is required"));
+            return;
+        }
+        if (isTextChannel(channel)) {
+            if (stylesheet != null && !stylesheet.isBlank()) {
+                errors.add(
+                        new ValidationIssue(
+                                "STYLESHEET_NOT_SUPPORTED",
+                                "stylesheet",
+                                "Stylesheet is supported only for EMAIL and PDF templates"));
+            }
+            if (content.matches("(?s).*<[^>]+>.*")) {
+                errors.add(
+                        new ValidationIssue(
+                                "HTML_NOT_SUPPORTED",
+                                "content",
+                                "HTML markup is not supported for SMS, WhatsApp or Telegram text variants"));
+            }
+        }
+    }
+
+    private CompiledTemplate compileBody(
+            TemplateChannel channel,
+            String content,
+            String stylesheet,
+            List<ValidationIssue> errors) {
+        if (content == null || content.isBlank()) return null;
+        try {
+            return isTextChannel(channel)
+                    ? compiler.compileText(UUID.randomUUID(), content)
+                    : compiler.compileBody(UUID.randomUUID(), content, stylesheet);
+        } catch (IllegalArgumentException ex) {
+            errors.add(new ValidationIssue("INVALID_TEMPLATE", "content", ex.getMessage()));
+            return null;
+        }
+    }
+
+    private void validateSubject(
+            UUID tenantId,
+            TemplateChannel channel,
+            String subject,
+            Set<String> available,
+            List<ValidationIssue> errors) {
+        if (channel != TemplateChannel.EMAIL || subject == null || subject.isBlank()) return;
+        try {
+            CompiledTemplate compiled = compiler.compileText(UUID.randomUUID(), subject);
+            validateTokens(tenantId, "subject", compiled.tokens(), available, errors);
+        } catch (IllegalArgumentException ex) {
+            errors.add(new ValidationIssue("INVALID_TEMPLATE", "subject", ex.getMessage()));
+        }
+    }
+
+    private Set<String> availableFields(UUID tenantId) {
+        return fieldCatalog.catalog(tenantId).stream()
+                .map(FieldDefinition::getKey)
+                .map(value -> value.toLowerCase(Locale.ROOT))
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
     }
 
     private void validateTokens(
@@ -188,6 +286,10 @@ public class TemplateBuilderService {
         }
     }
 
+    private boolean isDynamicToken(TemplateToken token) {
+        return token instanceof TemplateToken.Placeholder || token instanceof TemplateToken.EachStart;
+    }
+
     private boolean isTextChannel(TemplateChannel channel) {
         return channel == TemplateChannel.SMS
                 || channel == TemplateChannel.WHATSAPP
@@ -196,6 +298,15 @@ public class TemplateBuilderService {
 
     public record BuilderDraft(
             TemplateChannel channel, String locale, String subject, String content, String stylesheet) {}
+
+    public record BuilderDocumentDraft(
+            TemplateChannel channel,
+            String locale,
+            String subject,
+            JsonNode builderJson,
+            String stylesheet) {}
+
+    public record CompiledBuilderDocument(JsonNode builderJson, String contentHtml) {}
 
     public record ValidationIssue(String code, String path, String message) {}
 
@@ -209,5 +320,6 @@ public class TemplateBuilderService {
             List<TemplateAsset> assets,
             List<TemplateChannel> channels,
             String eachSyntax,
-            String assetSyntax) {}
+            String assetSyntax,
+            String builderSchemaVersion) {}
 }
