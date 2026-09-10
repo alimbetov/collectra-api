@@ -87,7 +87,7 @@ class FileCleanupServiceUnitTest {
     private StoredFileRepository repositoryFor(StoredFile file) {
         StoredFileRepository files = mock(StoredFileRepository.class);
         when(files.lockCleanupCandidateIds(any(), any(), anyInt(), anyInt()))
-                .thenReturn(List.of(file.getId()));
+                .thenReturn(List.of(file.getId()), List.of());
         when(files.findAllById(List.of(file.getId()))).thenReturn(List.of(file));
         when(files.findById(file.getId())).thenReturn(Optional.of(file));
         return files;
