@@ -108,8 +108,11 @@ public class TemplateVersion extends AuditableEntity {
 
     public void update(String subject, String contentHtml, String stylesheet) {
         ensureDraft();
+        if (isBuilderManaged()) {
+            throw new IllegalStateException(
+                    "Builder-managed template must be updated through the builder API");
+        }
         this.subject = normalizeSubject(channel, subject);
-        this.builderJson = null;
         this.contentHtml = requireContent(contentHtml);
         this.stylesheet = stylesheet;
     }
