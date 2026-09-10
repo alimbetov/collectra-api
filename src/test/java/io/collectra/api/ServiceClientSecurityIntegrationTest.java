@@ -29,32 +29,38 @@ class ServiceClientSecurityIntegrationTest extends AbstractIntegrationTest {
         JsonNode client = createClient(adminToken, clientId, oldSecret, "document:read");
         String oldServiceJwt = issueToken(clientId, oldSecret, "document:read");
 
-        mockMvc.perform(get("/api/v1/import-batches/{id}", UUID.randomUUID())
-                        .header("Authorization", "Bearer " + oldServiceJwt))
+        mockMvc.perform(
+                        get("/api/v1/import-batches/{id}", UUID.randomUUID())
+                                .header("Authorization", "Bearer " + oldServiceJwt))
                 .andExpect(status().isNotFound());
 
-        JsonNode rotating = read(post(
-                        "/api/v1/integration/service-clients/{id}/rotate-secret",
-                        client.get("id").asText())
-                .header("Authorization", "Bearer " + adminToken)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"clientSecret\":\"" + newSecret + "\"}"));
+        JsonNode rotating =
+                read(
+                        post(
+                                        "/api/v1/integration/service-clients/{id}/rotate-secret",
+                                        client.get("id").asText())
+                                .header("Authorization", "Bearer " + adminToken)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"clientSecret\":\"" + newSecret + "\"}"));
 
-        mockMvc.perform(post(
-                        "/api/v1/integration/service-clients/{id}/credentials/{credentialId}/activate",
-                        client.get("id").asText(),
-                        rotating.get("credentialId").asText())
-                .header("Authorization", "Bearer " + adminToken))
+        mockMvc.perform(
+                        post(
+                                        "/api/v1/integration/service-clients/{id}/credentials/{credentialId}/activate",
+                                        client.get("id").asText(),
+                                        rotating.get("credentialId").asText())
+                                .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isOk());
 
-        mockMvc.perform(get("/api/v1/import-batches/{id}", UUID.randomUUID())
-                        .header("Authorization", "Bearer " + oldServiceJwt))
+        mockMvc.perform(
+                        get("/api/v1/import-batches/{id}", UUID.randomUUID())
+                                .header("Authorization", "Bearer " + oldServiceJwt))
                 .andExpect(status().isUnauthorized());
 
         token(clientId, oldSecret, "document:read").andExpect(status().isUnauthorized());
         String newServiceJwt = issueToken(clientId, newSecret, "document:read");
-        mockMvc.perform(get("/api/v1/import-batches/{id}", UUID.randomUUID())
-                        .header("Authorization", "Bearer " + newServiceJwt))
+        mockMvc.perform(
+                        get("/api/v1/import-batches/{id}", UUID.randomUUID())
+                                .header("Authorization", "Bearer " + newServiceJwt))
                 .andExpect(status().isNotFound());
     }
 
@@ -62,35 +68,45 @@ class ServiceClientSecurityIntegrationTest extends AbstractIntegrationTest {
     void tenantCannotRotateOrBlockAnotherTenantsServiceClient() throws Exception {
         String tenantA = registerTenant();
         String tenantB = registerTenant();
-        JsonNode foreignClient = createClient(
-                tenantB,
-                "foreign-" + UUID.randomUUID().toString().substring(0, 8),
-                "foreign-service-secret-12345678901234567890",
-                "document:read");
+        JsonNode foreignClient =
+                createClient(
+                        tenantB,
+                        "foreign-" + UUID.randomUUID().toString().substring(0, 8),
+                        "foreign-service-secret-12345678901234567890",
+                        "document:read");
 
-        mockMvc.perform(post(
-                        "/api/v1/integration/service-clients/{id}/rotate-secret",
-                        foreignClient.get("id").asText())
-                .header("Authorization", "Bearer " + tenantA)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"clientSecret\":\"replacement-secret-12345678901234567890\"}"))
+        mockMvc.perform(
+                        post(
+                                        "/api/v1/integration/service-clients/{id}/rotate-secret",
+                                        foreignClient.get("id").asText())
+                                .header("Authorization", "Bearer " + tenantA)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        "{\"clientSecret\":\"replacement-secret-12345678901234567890\"}"))
                 .andExpect(status().isNotFound());
 
-        mockMvc.perform(post(
-                        "/api/v1/integration/service-clients/{id}/block",
-                        foreignClient.get("id").asText())
-                .header("Authorization", "Bearer " + tenantA))
+        mockMvc.perform(
+                        post(
+                                        "/api/v1/integration/service-clients/{id}/block",
+                                        foreignClient.get("id").asText())
+                                .header("Authorization", "Bearer " + tenantA))
                 .andExpect(status().isNotFound());
     }
 
     private JsonNode createClient(String adminToken, String clientId, String secret, String scope)
             throws Exception {
-        return read(post("/api/v1/integration/service-clients")
-                .header("Authorization", "Bearer " + adminToken)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"clientId\":\"" + clientId
-                        + "\",\"name\":\"Service Client\",\"clientSecret\":\"" + secret
-                        + "\",\"scopes\":[\"" + scope + "\"]}"));
+        return read(
+                post("/api/v1/integration/service-clients")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(
+                                "{\"clientId\":\""
+                                        + clientId
+                                        + "\",\"name\":\"Service Client\",\"clientSecret\":\""
+                                        + secret
+                                        + "\",\"scopes\":[\""
+                                        + scope
+                                        + "\"]}"));
     }
 
     private String issueToken(String clientId, String secret, String scope) throws Exception {
@@ -99,30 +115,42 @@ class ServiceClientSecurityIntegrationTest extends AbstractIntegrationTest {
 
     private org.springframework.test.web.servlet.ResultActions token(
             String clientId, String secret, String scope) throws Exception {
-        return mockMvc.perform(post("/api/v1/integration/service-token")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"clientId\":\"" + clientId + "\",\"clientSecret\":\"" + secret
-                        + "\",\"scopes\":[\"" + scope + "\"]}"));
+        return mockMvc.perform(
+                post("/api/v1/integration/service-token")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(
+                                "{\"clientId\":\""
+                                        + clientId
+                                        + "\",\"clientSecret\":\""
+                                        + secret
+                                        + "\",\"scopes\":[\""
+                                        + scope
+                                        + "\"]}"));
     }
 
     private String registerTenant() throws Exception {
-        JsonNode response = read(post("/api/v1/auth/tenants/register")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"slug\":\"service-security-" + UUID.randomUUID()
-                        + "\",\"companyName\":\"Security Company\",\"email\":\""
-                        + UUID.randomUUID()
-                        + "@example.test\",\"password\":\"StrongPassword123!\"}"));
+        JsonNode response =
+                read(
+                        post("/api/v1/auth/tenants/register")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        "{\"slug\":\"service-security-"
+                                                + UUID.randomUUID()
+                                                + "\",\"companyName\":\"Security Company\",\"email\":\""
+                                                + UUID.randomUUID()
+                                                + "@example.test\",\"password\":\"StrongPassword123!\"}"));
         return response.get("accessToken").asText();
     }
 
     private JsonNode read(
             org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder request)
             throws Exception {
-        String body = mockMvc.perform(request)
-                .andExpect(status().is2xxSuccessful())
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
+        String body =
+                mockMvc.perform(request)
+                        .andExpect(status().is2xxSuccessful())
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString();
         return json.readTree(body);
     }
 }

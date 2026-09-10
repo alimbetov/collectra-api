@@ -40,8 +40,8 @@ class ImportBatchReservationConcurrencyIntegrationTest extends AbstractIntegrati
 
     @Test
     void concurrentReservationsProduceExactlyOneBatchForTenantAndKey() throws Exception {
-        Tenant tenant = tenants.saveAndFlush(
-                new Tenant("import-race-" + UUID.randomUUID(), "Import Race"));
+        Tenant tenant =
+                tenants.saveAndFlush(new Tenant("import-race-" + UUID.randomUUID(), "Import Race"));
         References references = references(tenant);
         String key = "same-key-" + UUID.randomUUID();
         String requestHash = "a".repeat(64);
@@ -49,22 +49,23 @@ class ImportBatchReservationConcurrencyIntegrationTest extends AbstractIntegrati
         CountDownLatch ready = new CountDownLatch(2);
         CountDownLatch start = new CountDownLatch(1);
 
-        Callable<Object> reserve = () -> {
-            ready.countDown();
-            if (!start.await(5, TimeUnit.SECONDS)) {
-                throw new IllegalStateException("reservation race did not start");
-            }
-            try {
-                return reservations.reserve(
-                        tenant.getId(),
-                        key,
-                        requestHash,
-                        references.mappingProfileId(),
-                        references.templateVersionId());
-            } catch (DataIntegrityViolationException conflict) {
-                return conflict;
-            }
-        };
+        Callable<Object> reserve =
+                () -> {
+                    ready.countDown();
+                    if (!start.await(5, TimeUnit.SECONDS)) {
+                        throw new IllegalStateException("reservation race did not start");
+                    }
+                    try {
+                        return reservations.reserve(
+                                tenant.getId(),
+                                key,
+                                requestHash,
+                                references.mappingProfileId(),
+                                references.templateVersionId());
+                    } catch (DataIntegrityViolationException conflict) {
+                        return conflict;
+                    }
+                };
 
         try {
             Future<Object> first = executor.submit(reserve);
@@ -75,13 +76,17 @@ class ImportBatchReservationConcurrencyIntegrationTest extends AbstractIntegrati
             results.add(first.get(10, TimeUnit.SECONDS));
             results.add(second.get(10, TimeUnit.SECONDS));
 
-            assertThat(results.stream()
-                            .filter(ImportBatchReservationService.Reservation.class::isInstance)
-                            .count())
+            assertThat(
+                            results.stream()
+                                    .filter(
+                                            ImportBatchReservationService.Reservation.class
+                                                    ::isInstance)
+                                    .count())
                     .isEqualTo(1);
-            assertThat(results.stream()
-                            .filter(DataIntegrityViolationException.class::isInstance)
-                            .count())
+            assertThat(
+                            results.stream()
+                                    .filter(DataIntegrityViolationException.class::isInstance)
+                                    .count())
                     .isEqualTo(1);
             assertThat(batches.findByTenantIdAndIdempotencyKey(tenant.getId(), key)).isPresent();
             assertThat(reservations.existing(tenant.getId(), key, requestHash).created()).isFalse();
@@ -92,27 +97,29 @@ class ImportBatchReservationConcurrencyIntegrationTest extends AbstractIntegrati
 
     @Test
     void sameIdempotencyKeyIsIndependentAcrossTenants() {
-        Tenant first = tenants.saveAndFlush(
-                new Tenant("import-a-" + UUID.randomUUID(), "Import A"));
-        Tenant second = tenants.saveAndFlush(
-                new Tenant("import-b-" + UUID.randomUUID(), "Import B"));
+        Tenant first =
+                tenants.saveAndFlush(new Tenant("import-a-" + UUID.randomUUID(), "Import A"));
+        Tenant second =
+                tenants.saveAndFlush(new Tenant("import-b-" + UUID.randomUUID(), "Import B"));
         References firstReferences = references(first);
         References secondReferences = references(second);
         String key = "shared-key";
         String requestHash = "b".repeat(64);
 
-        var firstReservation = reservations.reserve(
-                first.getId(),
-                key,
-                requestHash,
-                firstReferences.mappingProfileId(),
-                firstReferences.templateVersionId());
-        var secondReservation = reservations.reserve(
-                second.getId(),
-                key,
-                requestHash,
-                secondReferences.mappingProfileId(),
-                secondReferences.templateVersionId());
+        var firstReservation =
+                reservations.reserve(
+                        first.getId(),
+                        key,
+                        requestHash,
+                        firstReferences.mappingProfileId(),
+                        firstReferences.templateVersionId());
+        var secondReservation =
+                reservations.reserve(
+                        second.getId(),
+                        key,
+                        requestHash,
+                        secondReferences.mappingProfileId(),
+                        secondReferences.templateVersionId());
 
         assertThat(firstReservation.batch().getId())
                 .isNotEqualTo(secondReservation.batch().getId());
@@ -122,19 +129,30 @@ class ImportBatchReservationConcurrencyIntegrationTest extends AbstractIntegrati
 
     private References references(Tenant tenant) {
         String suffix = UUID.randomUUID().toString().substring(0, 8);
-        SourceSchema schema = schemas.saveAndFlush(new SourceSchema(
-                tenant.getId(), "IMPORT_" + suffix, "Import Schema", SourceFormat.JSON, 1));
-        MappingProfile profile = profiles.saveAndFlush(new MappingProfile(
-                tenant.getId(),
-                schema.getId(),
-                "IMPORT_" + suffix,
-                "Import Profile",
-                "INVOICE",
-                1));
-        DocumentTemplate template = templates.saveAndFlush(new DocumentTemplate(
-                tenant.getId(), "IMPORT_" + suffix, "Import Template", "INVOICE"));
-        TemplateVersion version = versions.saveAndFlush(
-                new TemplateVersion(template.getId(), 1, "en", "<p>import</p>", null));
+        SourceSchema schema =
+                schemas.saveAndFlush(
+                        new SourceSchema(
+                                tenant.getId(),
+                                "IMPORT_" + suffix,
+                                "Import Schema",
+                                SourceFormat.JSON,
+                                1));
+        MappingProfile profile =
+                profiles.saveAndFlush(
+                        new MappingProfile(
+                                tenant.getId(),
+                                schema.getId(),
+                                "IMPORT_" + suffix,
+                                "Import Profile",
+                                "INVOICE",
+                                1));
+        DocumentTemplate template =
+                templates.saveAndFlush(
+                        new DocumentTemplate(
+                                tenant.getId(), "IMPORT_" + suffix, "Import Template", "INVOICE"));
+        TemplateVersion version =
+                versions.saveAndFlush(
+                        new TemplateVersion(template.getId(), 1, "en", "<p>import</p>", null));
         return new References(profile.getId(), version.getId());
     }
 

@@ -63,10 +63,7 @@ public class ApiExceptionHandler {
     @ExceptionHandler(FileStorageException.class)
     ProblemDetail fileStorage(FileStorageException ex, HttpServletRequest request) {
         return withCode(
-                base(
-                        HttpStatus.SERVICE_UNAVAILABLE,
-                        "Object storage operation failed",
-                        request),
+                base(HttpStatus.SERVICE_UNAVAILABLE, "Object storage operation failed", request),
                 "FILE_STORAGE_UNAVAILABLE");
     }
 
@@ -84,8 +81,7 @@ public class ApiExceptionHandler {
 
     @ExceptionHandler(ImportBatchFailedException.class)
     ProblemDetail importFailed(ImportBatchFailedException ex, HttpServletRequest request) {
-        ProblemDetail problem =
-                base(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage(), request);
+        ProblemDetail problem = base(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage(), request);
         problem.setProperty("code", ex.getErrorCode());
         problem.setProperty("batchId", ex.getBatchId());
         return problem;

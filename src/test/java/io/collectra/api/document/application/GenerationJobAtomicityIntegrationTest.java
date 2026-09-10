@@ -45,38 +45,46 @@ class GenerationJobAtomicityIntegrationTest extends AbstractIntegrationTest {
     @Test
     void outboxFailureRollsBackGenerationJob() {
         Tenant tenant = tenants.saveAndFlush(new Tenant("atomic-" + UUID.randomUUID(), "Atomic"));
-        SourceSchema schema = new SourceSchema(
-                tenant.getId(), "ATOMIC_JSON", "Atomic JSON", SourceFormat.JSON, 1);
+        SourceSchema schema =
+                new SourceSchema(
+                        tenant.getId(), "ATOMIC_JSON", "Atomic JSON", SourceFormat.JSON, 1);
         schema.validated();
         schema.publish();
         schemas.saveAndFlush(schema);
-        MappingProfile profile = new MappingProfile(
-                tenant.getId(), schema.getId(), "ATOMIC_JSON", "Atomic JSON", "INVOICE", 1);
+        MappingProfile profile =
+                new MappingProfile(
+                        tenant.getId(), schema.getId(), "ATOMIC_JSON", "Atomic JSON", "INVOICE", 1);
         profile.validated();
         profile.publish();
         profiles.saveAndFlush(profile);
-        DocumentTemplate template = templates.saveAndFlush(
-                new DocumentTemplate(tenant.getId(), "ATOMIC_TEMPLATE", "Atomic", "INVOICE"));
-        TemplateVersion version = new TemplateVersion(
-                template.getId(), 1, "en", "<p>{{custom.invoice.number}}</p>", null);
+        DocumentTemplate template =
+                templates.saveAndFlush(
+                        new DocumentTemplate(
+                                tenant.getId(), "ATOMIC_TEMPLATE", "Atomic", "INVOICE"));
+        TemplateVersion version =
+                new TemplateVersion(
+                        template.getId(), 1, "en", "<p>{{custom.invoice.number}}</p>", null);
         version.validated();
         version.publish();
         versions.saveAndFlush(version);
         var payload = json.createObjectNode();
         payload.putObject("custom").putObject("invoice").put("number", "INV-1");
-        var mapped = new MappingExecutionService.MappingResult(
-                profile.getId(), schema.getId(), "INVOICE", payload, "mapping-sha");
+        var mapped =
+                new MappingExecutionService.MappingResult(
+                        profile.getId(), schema.getId(), "INVOICE", payload, "mapping-sha");
         long before = jobs.count();
         doThrow(new IllegalStateException("outbox unavailable"))
                 .when(outbox)
                 .append(any(), anyString(), any(), anyString(), anyString());
 
-        assertThatThrownBy(() -> generation.createMapped(
-                        tenant.getId(),
-                        profile.getId(),
-                        version.getId(),
-                        mapped,
-                        Set.of(OutputFormat.HTML)))
+        assertThatThrownBy(
+                        () ->
+                                generation.createMapped(
+                                        tenant.getId(),
+                                        profile.getId(),
+                                        version.getId(),
+                                        mapped,
+                                        Set.of(OutputFormat.HTML)))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("outbox unavailable");
 

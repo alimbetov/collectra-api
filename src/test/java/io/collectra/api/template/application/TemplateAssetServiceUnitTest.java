@@ -18,7 +18,6 @@ import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -42,7 +41,14 @@ class TemplateAssetServiceUnitTest {
         UUID tenantId = UUID.randomUUID();
         UUID fileId = UUID.randomUUID();
         when(files.get(tenantId, fileId))
-                .thenReturn(metadata(tenantId, fileId, FileCategory.UPLOAD, FileStatus.READY, "image/png", 10L));
+                .thenReturn(
+                        metadata(
+                                tenantId,
+                                fileId,
+                                FileCategory.UPLOAD,
+                                FileStatus.READY,
+                                "image/png",
+                                10L));
 
         assertThatThrownBy(() -> service.register(tenantId, "logo", fileId, "Logo"))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -54,7 +60,14 @@ class TemplateAssetServiceUnitTest {
         UUID tenantId = UUID.randomUUID();
         UUID fileId = UUID.randomUUID();
         when(files.get(tenantId, fileId))
-                .thenReturn(metadata(tenantId, fileId, FileCategory.ASSET, FileStatus.DELETE_FAILED, "image/png", 10L));
+                .thenReturn(
+                        metadata(
+                                tenantId,
+                                fileId,
+                                FileCategory.ASSET,
+                                FileStatus.DELETE_FAILED,
+                                "image/png",
+                                10L));
 
         assertThatThrownBy(() -> service.register(tenantId, "logo", fileId, "Logo"))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -66,7 +79,14 @@ class TemplateAssetServiceUnitTest {
         UUID tenantId = UUID.randomUUID();
         UUID fileId = UUID.randomUUID();
         when(files.get(tenantId, fileId))
-                .thenReturn(metadata(tenantId, fileId, FileCategory.ASSET, FileStatus.READY, "image/svg+xml", 10L));
+                .thenReturn(
+                        metadata(
+                                tenantId,
+                                fileId,
+                                FileCategory.ASSET,
+                                FileStatus.READY,
+                                "image/svg+xml",
+                                10L));
 
         assertThatThrownBy(() -> service.register(tenantId, "logo", fileId, "Logo"))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -78,7 +98,14 @@ class TemplateAssetServiceUnitTest {
         UUID tenantId = UUID.randomUUID();
         UUID fileId = UUID.randomUUID();
         when(files.get(tenantId, fileId))
-                .thenReturn(metadata(tenantId, fileId, FileCategory.ASSET, FileStatus.READY, "image/png", 2L * 1024 * 1024 + 1));
+                .thenReturn(
+                        metadata(
+                                tenantId,
+                                fileId,
+                                FileCategory.ASSET,
+                                FileStatus.READY,
+                                "image/png",
+                                2L * 1024 * 1024 + 1));
 
         assertThatThrownBy(() -> service.register(tenantId, "logo", fileId, "Logo"))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -95,8 +122,14 @@ class TemplateAssetServiceUnitTest {
         when(asset.getFileId()).thenReturn(fileId);
         when(assets.findAllByTenantIdAndStatusOrderByAssetKeyAsc(tenantId, "ACTIVE"))
                 .thenReturn(List.of(asset));
-        FileMetadata metadata = metadata(
-                tenantId, fileId, FileCategory.ASSET, FileStatus.READY, "image/png", (long) content.length);
+        FileMetadata metadata =
+                metadata(
+                        tenantId,
+                        fileId,
+                        FileCategory.ASSET,
+                        FileStatus.READY,
+                        "image/png",
+                        (long) content.length);
         when(files.get(tenantId, fileId)).thenReturn(metadata);
         when(files.openContent(tenantId, fileId))
                 .thenReturn(new FileDownload(metadata, new ByteArrayInputStream(content)));

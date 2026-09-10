@@ -36,10 +36,13 @@ class CorrelationFilterUnitTest {
         when(span.context()).thenReturn(context);
         when(context.traceId()).thenReturn("trace-456");
 
-        filter.doFilter(request, response, (ignoredRequest, ignoredResponse) -> {
-            assertThat(MDC.get("correlationId")).isEqualTo("corr-123");
-            assertThat(MDC.get("traceId")).isEqualTo("trace-456");
-        });
+        filter.doFilter(
+                request,
+                response,
+                (ignoredRequest, ignoredResponse) -> {
+                    assertThat(MDC.get("correlationId")).isEqualTo("corr-123");
+                    assertThat(MDC.get("traceId")).isEqualTo("trace-456");
+                });
 
         verify(response).setHeader(CorrelationFilter.CORRELATION_HEADER, "corr-123");
         verify(response).setHeader("X-Trace-Id", "trace-456");
@@ -51,18 +54,21 @@ class CorrelationFilterUnitTest {
     void invalidCorrelationIdIsReplacedAndMdcIsClearedAfterFailure() {
         HttpServletRequest request = mock(HttpServletRequest.class);
         HttpServletResponse response = mock(HttpServletResponse.class);
-        when(request.getHeader(CorrelationFilter.CORRELATION_HEADER)).thenReturn("invalid value with spaces");
+        when(request.getHeader(CorrelationFilter.CORRELATION_HEADER))
+                .thenReturn("invalid value with spaces");
         when(tracer.currentSpan()).thenReturn(null);
 
-        assertThatThrownBy(() -> filter.doFilter(
-                        request,
-                        response,
-                        (ignoredRequest, ignoredResponse) -> {
-                            assertThat(MDC.get("correlationId"))
-                                    .matches("[0-9a-fA-F-]{36}");
-                            assertThat(MDC.get("traceId")).matches("[0-9a-f]{32}");
-                            throw new IllegalStateException("downstream failure");
-                        }))
+        assertThatThrownBy(
+                        () ->
+                                filter.doFilter(
+                                        request,
+                                        response,
+                                        (ignoredRequest, ignoredResponse) -> {
+                                            assertThat(MDC.get("correlationId"))
+                                                    .matches("[0-9a-fA-F-]{36}");
+                                            assertThat(MDC.get("traceId")).matches("[0-9a-f]{32}");
+                                            throw new IllegalStateException("downstream failure");
+                                        }))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("downstream failure");
 

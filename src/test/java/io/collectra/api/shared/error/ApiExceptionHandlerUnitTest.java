@@ -24,7 +24,8 @@ class ApiExceptionHandlerUnitTest {
 
     @Test
     void unauthorizedUsesStableStatusAndCode() {
-        var problem = handler.unauthorized(new BadCredentialsException("Invalid credentials"), request);
+        var problem =
+                handler.unauthorized(new BadCredentialsException("Invalid credentials"), request);
 
         assertThat(problem.getStatus()).isEqualTo(HttpStatus.UNAUTHORIZED.value());
         assertThat(problem.getDetail()).isEqualTo("Invalid credentials");

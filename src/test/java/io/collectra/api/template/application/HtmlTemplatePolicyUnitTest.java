@@ -12,12 +12,13 @@ class HtmlTemplatePolicyUnitTest {
     private final HtmlTemplatePolicy policy = new HtmlTemplatePolicy();
 
     @ParameterizedTest
-    @ValueSource(strings = {
-        "<script>alert(1)</script><p>safe</p>",
-        "<iframe src='https://evil.example'></iframe><p>safe</p>",
-        "<object data='https://evil.example'></object><p>safe</p>",
-        "<embed src='https://evil.example'><p>safe</p>"
-    })
+    @ValueSource(
+            strings = {
+                "<script>alert(1)</script><p>safe</p>",
+                "<iframe src='https://evil.example'></iframe><p>safe</p>",
+                "<object data='https://evil.example'></object><p>safe</p>",
+                "<embed src='https://evil.example'><p>safe</p>"
+            })
     void removesDangerousElements(String html) {
         String sanitized = policy.sanitize(html);
 
@@ -31,8 +32,9 @@ class HtmlTemplatePolicyUnitTest {
 
     @Test
     void removesInlineEventHandlersAndJavascriptLinks() {
-        String sanitized = policy.sanitize(
-                "<div onclick='alert(1)'>safe</div><a href='javascript:alert(1)'>link</a>");
+        String sanitized =
+                policy.sanitize(
+                        "<div onclick='alert(1)'>safe</div><a href='javascript:alert(1)'>link</a>");
 
         assertThat(sanitized)
                 .contains("safe", "link")
@@ -41,14 +43,15 @@ class HtmlTemplatePolicyUnitTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {
-        "<img src='http://evil.example/logo.png'>",
-        "<img src='https://evil.example/logo.png'>",
-        "<img src='javascript:alert(1)'>",
-        "<img src='file:///etc/passwd'>",
-        "<img src='data:image/svg+xml;base64,PHN2Zz48L3N2Zz4='>",
-        "<img src='data:text/html;base64,PGgxPmJvb208L2gxPg=='>"
-    })
+    @ValueSource(
+            strings = {
+                "<img src='http://evil.example/logo.png'>",
+                "<img src='https://evil.example/logo.png'>",
+                "<img src='javascript:alert(1)'>",
+                "<img src='file:///etc/passwd'>",
+                "<img src='data:image/svg+xml;base64,PHN2Zz48L3N2Zz4='>",
+                "<img src='data:text/html;base64,PGgxPmJvb208L2gxPg=='>"
+            })
     void rejectsImagesThatAreNotManagedOrApprovedInlineTypes(String html) {
         assertThatThrownBy(() -> policy.sanitize(html))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -56,11 +59,12 @@ class HtmlTemplatePolicyUnitTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {
-        "data:image/png;base64,iVBORw0KGgo=",
-        "data:image/jpeg;base64,/9j/4AAQSkZJRg=",
-        "data:image/gif;base64,R0lGODlhAQABAAAAACw="
-    })
+    @ValueSource(
+            strings = {
+                "data:image/png;base64,iVBORw0KGgo=",
+                "data:image/jpeg;base64,/9j/4AAQSkZJRg=",
+                "data:image/gif;base64,R0lGODlhAQABAAAAACw="
+            })
     void allowsApprovedInlineImageTypes(String source) {
         String sanitized = policy.sanitize("<img src='" + source + "'>");
 
@@ -75,12 +79,13 @@ class HtmlTemplatePolicyUnitTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {
-        "body { background: url(https://evil.example/x.png); }",
-        "body { background: URL(https://evil.example/x.png); }",
-        "@import 'https://evil.example/x.css';",
-        "@IMPORT 'https://evil.example/x.css';"
-    })
+    @ValueSource(
+            strings = {
+                "body { background: url(https://evil.example/x.png); }",
+                "body { background: URL(https://evil.example/x.png); }",
+                "@import 'https://evil.example/x.css';",
+                "@IMPORT 'https://evil.example/x.css';"
+            })
     void rejectsStylesheetsThatLoadExternalResources(String stylesheet) {
         assertThatThrownBy(() -> policy.validateStylesheet(stylesheet))
                 .isInstanceOf(IllegalArgumentException.class)
