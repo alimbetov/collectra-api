@@ -4,12 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-
 import io.collectra.api.template.domain.TemplateVersion;
-
-import org.junit.jupiter.api.Test;
-
 import java.util.UUID;
+import org.junit.jupiter.api.Test;
 
 class TemplateRendererUnitTest {
     private final ObjectMapper json = new ObjectMapper();
@@ -40,6 +37,22 @@ class TemplateRendererUnitTest {
                         "<h1>INV-1</h1>",
                         "A&amp;B &lt;Company&gt;",
                         "<style>h1 { color: navy; }</style>");
+    }
+
+    @Test
+    void textRenderingDoesNotHtmlEscapeMessageValues() throws Exception {
+        CompiledTemplate compiled =
+                compiler.compileText(UUID.randomUUID(), "Hello {{recipient.name}}: {{invoice.number}}");
+
+        String text =
+                renderer.renderText(
+                        compiled,
+                        json.readTree(
+                                """
+                                {"recipient":{"name":"A&B <Company>"},"invoice":{"number":"INV&1"}}
+                                """));
+
+        assertThat(text).isEqualTo("Hello A&B <Company>: INV&1");
     }
 
     @Test
