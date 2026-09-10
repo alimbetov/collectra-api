@@ -106,7 +106,8 @@ public class RbacService {
                     roles.findById(roleId)
                             .orElseThrow(() -> new NoSuchElementException("Role not found"));
             if (!"TENANT".equals(role.getScopeType())) {
-                throw new IllegalArgumentException("Only tenant roles can be assigned to a membership");
+                throw new IllegalArgumentException(
+                        "Only tenant roles can be assigned to a membership");
             }
             if (role.getTenantId() != null && !tenantId.equals(role.getTenantId())) {
                 throw new IllegalArgumentException("Cross-tenant role assignment is forbidden");
