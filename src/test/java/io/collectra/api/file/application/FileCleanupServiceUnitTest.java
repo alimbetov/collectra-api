@@ -2,6 +2,7 @@ package io.collectra.api.file.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -83,7 +84,7 @@ class FileCleanupServiceUnitTest {
 
     private StoredFileRepository repositoryFor(StoredFile file) {
         StoredFileRepository files = mock(StoredFileRepository.class);
-        when(files.lockCleanupCandidateIds(any(), any(), any(Integer.class), any(Integer.class)))
+        when(files.lockCleanupCandidateIds(any(), any(), anyInt(), anyInt()))
                 .thenReturn(List.of(file.getId()));
         when(files.findAllById(List.of(file.getId()))).thenReturn(List.of(file));
         when(files.findById(file.getId())).thenReturn(Optional.of(file));
