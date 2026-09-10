@@ -15,6 +15,11 @@ spring:
       hibernate.jdbc.time_zone: UTC
   liquibase:
     change-log: classpath:db/changelog/db.changelog-master.yaml
+  rabbitmq:
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    template:
+      mandatory: true
   servlet:
     multipart:
       max-file-size: 50MB
@@ -28,6 +33,11 @@ springdoc:
 collectra:
   messaging:
     outbox-publish-delay-ms: 1000
+    outbox-recovery-delay-ms: 60000
+    outbox-batch-size: 50
+    outbox-max-attempts: 6
+    outbox-processing-timeout: PT2M
+    publisher-confirm-timeout-ms: 5000
   # Legacy document storage. Kept until GeneratedOutputService is migrated to FileService.
   storage:
     endpoint: ${COLLECTRA_STORAGE_ENDPOINT:http://localhost:9000}
