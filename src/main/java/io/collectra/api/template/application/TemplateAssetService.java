@@ -77,7 +77,8 @@ public class TemplateAssetService {
     public JsonNode enrichPayload(UUID tenantId, JsonNode payload) {
         ObjectNode root;
         if (payload == null || payload.isNull()) root = json.createObjectNode();
-        else if (!payload.isObject()) throw new IllegalArgumentException("Preview payload must be a JSON object");
+        else if (!payload.isObject())
+            throw new IllegalArgumentException("Preview payload must be a JSON object");
         else root = ((ObjectNode) payload).deepCopy();
 
         ObjectNode assetNode = root.with("asset");
@@ -110,18 +111,21 @@ public class TemplateAssetService {
             throw new IllegalArgumentException("Template asset file must be READY");
         }
         String contentType =
-                metadata.contentType() == null ? "" : metadata.contentType().toLowerCase(Locale.ROOT);
+                metadata.contentType() == null
+                        ? ""
+                        : metadata.contentType().toLowerCase(Locale.ROOT);
         if (!ALLOWED_IMAGE_TYPES.contains(contentType)) {
             throw new IllegalArgumentException("Template asset must be PNG, JPEG or GIF");
         }
-        if (metadata.sizeBytes() != null && metadata.sizeBytes() > MAX_INLINE_ASSET_BYTES) {
+        if (metadata.sizeBytes() > MAX_INLINE_ASSET_BYTES) {
             throw new IllegalArgumentException("Template asset exceeds 2 MB inline limit");
         }
         return metadata;
     }
 
     private String validateKey(String key) {
-        if (key == null || key.isBlank()) throw new IllegalArgumentException("Asset key is required");
+        if (key == null || key.isBlank())
+            throw new IllegalArgumentException("Asset key is required");
         String normalized = key.trim().toLowerCase(Locale.ROOT);
         FieldPath path = fieldKeyValidator.validatePlaceholderKey("asset." + normalized);
         if (path.segments().size() != 2) {
