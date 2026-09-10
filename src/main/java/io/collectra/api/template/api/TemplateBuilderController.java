@@ -45,7 +45,8 @@ public class TemplateBuilderController {
                 catalog.assets().stream().map(AssetResponse::from).toList(),
                 catalog.channels(),
                 catalog.eachSyntax(),
-                catalog.assetSyntax());
+                catalog.assetSyntax(),
+                catalog.builderSchemaVersion());
     }
 
     @PostMapping("/validate")
@@ -58,6 +59,20 @@ public class TemplateBuilderController {
     @PreAuthorize("hasAuthority('TEMPLATE_MANAGE')")
     TemplateBuilderService.PreviewResult preview(@Valid @RequestBody PreviewRequest request) {
         return builder.preview(tenant(), request.draft().toDraft(), request.payload());
+    }
+
+    @PostMapping("/documents/validate")
+    @PreAuthorize("hasAuthority('TEMPLATE_MANAGE')")
+    TemplateBuilderService.ValidationResult validateDocument(
+            @Valid @RequestBody BuilderDocumentRequest request) {
+        return builder.validateDocument(tenant(), request.toDraft());
+    }
+
+    @PostMapping("/documents/preview")
+    @PreAuthorize("hasAuthority('TEMPLATE_MANAGE')")
+    TemplateBuilderService.PreviewResult previewDocument(
+            @Valid @RequestBody BuilderDocumentPreviewRequest request) {
+        return builder.previewDocument(tenant(), request.draft().toDraft(), request.payload());
     }
 
     @PostMapping("/templates/{templateId}/versions")
@@ -76,14 +91,30 @@ public class TemplateBuilderController {
                         request.stylesheet()));
     }
 
+    @PostMapping("/templates/{templateId}/versions/builder")
+    @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasAuthority('TEMPLATE_MANAGE')")
+    VersionResponse saveBuilderDraft(
+            @PathVariable UUID templateId, @Valid @RequestBody BuilderDocumentRequest request) {
+        var compiled = builder.compileDocument(tenant(), request.toDraft());
+        return VersionResponse.from(
+                templates.createBuilderVersion(
+                        tenant(),
+                        templateId,
+                        request.locale(),
+                        request.channel(),
+                        request.subject(),
+                        compiled.builderJson(),
+                        compiled.contentHtml(),
+                        request.stylesheet()));
+    }
+
     @PutMapping("/versions/{versionId}")
     @PreAuthorize("hasAuthority('TEMPLATE_MANAGE')")
     VersionResponse updateDraft(
             @PathVariable UUID versionId, @Valid @RequestBody DraftRequest request) {
         TemplateVersion existing = templates.getVersion(tenant(), versionId);
-        if (request.channel() != null && request.channel() != existing.getChannel()) {
-            throw new IllegalArgumentException("Template channel cannot be changed inside an existing version");
-        }
+        ensureChannelUnchanged(request.channel(), existing);
         return VersionResponse.from(
                 templates.update(
                         tenant(),
@@ -91,6 +122,29 @@ public class TemplateBuilderController {
                         request.subject(),
                         request.content(),
                         request.stylesheet()));
+    }
+
+    @PutMapping("/versions/{versionId}/builder")
+    @PreAuthorize("hasAuthority('TEMPLATE_MANAGE')")
+    VersionResponse updateBuilderDraft(
+            @PathVariable UUID versionId, @Valid @RequestBody BuilderDocumentRequest request) {
+        TemplateVersion existing = templates.getVersion(tenant(), versionId);
+        ensureChannelUnchanged(request.channel(), existing);
+        var compiled = builder.compileDocument(tenant(), request.toDraft());
+        return VersionResponse.from(
+                templates.updateBuilder(
+                        tenant(),
+                        versionId,
+                        request.subject(),
+                        compiled.builderJson(),
+                        compiled.contentHtml(),
+                        request.stylesheet()));
+    }
+
+    @GetMapping("/versions/{versionId}")
+    @PreAuthorize("hasAuthority('TEMPLATE_READ')")
+    VersionResponse getVersion(@PathVariable UUID versionId) {
+        return VersionResponse.from(templates.getVersion(tenant(), versionId));
     }
 
     @PostMapping("/versions/{versionId}/validate")
@@ -126,6 +180,13 @@ public class TemplateBuilderController {
         assets.archive(tenant(), assetId);
     }
 
+    private void ensureChannelUnchanged(TemplateChannel requested, TemplateVersion existing) {
+        if (requested != null && requested != existing.getChannel()) {
+            throw new IllegalArgumentException(
+                    "Template channel cannot be changed inside an existing version");
+        }
+    }
+
     private UUID tenant() {
         return TenantContext.requireTenantId();
     }
@@ -142,7 +203,22 @@ public class TemplateBuilderController {
         }
     }
 
+    record BuilderDocumentRequest(
+            TemplateChannel channel,
+            @NotBlank @Size(max = 10) String locale,
+            @Size(max = 300) String subject,
+            @NotNull JsonNode builderJson,
+            String stylesheet) {
+        TemplateBuilderService.BuilderDocumentDraft toDraft() {
+            return new TemplateBuilderService.BuilderDocumentDraft(
+                    channel, locale, subject, builderJson, stylesheet);
+        }
+    }
+
     record PreviewRequest(@Valid @NotNull DraftRequest draft, @NotNull JsonNode payload) {}
+
+    record BuilderDocumentPreviewRequest(
+            @Valid @NotNull BuilderDocumentRequest draft, @NotNull JsonNode payload) {}
 
     record AssetRequest(
             @NotBlank @Size(max = 64) String key,
@@ -154,7 +230,8 @@ public class TemplateBuilderController {
             List<AssetResponse> assets,
             List<TemplateChannel> channels,
             String eachSyntax,
-            String assetSyntax) {}
+            String assetSyntax,
+            String builderSchemaVersion) {}
 
     record FieldResponse(
             UUID id,
@@ -196,6 +273,7 @@ public class TemplateBuilderController {
             String locale,
             TemplateChannel channel,
             String subject,
+            JsonNode builderJson,
             String content,
             String stylesheet,
             String status) {
@@ -207,6 +285,7 @@ public class TemplateBuilderController {
                     version.getLocale(),
                     version.getChannel(),
                     version.getSubject(),
+                    version.getBuilderJson(),
                     version.getContentHtml(),
                     version.getStylesheet(),
                     version.getStatus().name());
