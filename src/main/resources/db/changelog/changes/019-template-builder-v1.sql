@@ -59,6 +59,26 @@ VALUES
      'BOOLEAN', 'RECIPIENT', FALSE, FALSE, 'Telegram delivery consent', 'true', '{}', 'ACTIVE', now(), now(), 0);
 
 --changeset collectra:019-items-canonical-fields
+UPDATE field_definitions
+SET category = 'ITEMS',
+    collection = TRUE,
+    required = FALSE,
+    description = 'Product or service name',
+    example_value = 'Service fee',
+    updated_at = now()
+WHERE tenant_id IS NULL
+  AND field_key = 'items.name';
+
+UPDATE field_definitions
+SET category = 'ITEMS',
+    collection = TRUE,
+    required = FALSE,
+    description = 'Detail line amount',
+    example_value = '10000',
+    updated_at = now()
+WHERE tenant_id IS NULL
+  AND field_key = 'items.amount';
+
 INSERT INTO field_definitions(id, tenant_id, field_key, label, data_type, category,
         collection, required, description, example_value, validation_rules, status,
         created_at, updated_at, version)
@@ -67,8 +87,6 @@ VALUES
      'INTEGER', 'ITEMS', TRUE, FALSE, 'Ordered document detail line number', '1', '{}', 'ACTIVE', now(), now(), 0),
     ('20000000-0000-0000-0000-000000000122', NULL, 'items.code', 'Item code',
      'STRING', 'ITEMS', TRUE, FALSE, 'Product or service code', 'SKU-001', '{}', 'ACTIVE', now(), now(), 0),
-    ('20000000-0000-0000-0000-000000000123', NULL, 'items.name', 'Item name',
-     'STRING', 'ITEMS', TRUE, FALSE, 'Product or service name', 'Service fee', '{}', 'ACTIVE', now(), now(), 0),
     ('20000000-0000-0000-0000-000000000124', NULL, 'items.description', 'Item description',
      'STRING', 'ITEMS', TRUE, FALSE, 'Optional detail description', 'Monthly service', '{}', 'ACTIVE', now(), now(), 0),
     ('20000000-0000-0000-0000-000000000125', NULL, 'items.qty', 'Item quantity',
@@ -76,6 +94,4 @@ VALUES
     ('20000000-0000-0000-0000-000000000126', NULL, 'items.unit', 'Item unit',
      'STRING', 'ITEMS', TRUE, FALSE, 'Quantity unit', 'pcs', '{}', 'ACTIVE', now(), now(), 0),
     ('20000000-0000-0000-0000-000000000127', NULL, 'items.price', 'Item price',
-     'DECIMAL', 'ITEMS', TRUE, FALSE, 'Unit price', '5000', '{}', 'ACTIVE', now(), now(), 0),
-    ('20000000-0000-0000-0000-000000000128', NULL, 'items.amount', 'Item amount',
-     'DECIMAL', 'ITEMS', TRUE, FALSE, 'Detail line amount', '10000', '{}', 'ACTIVE', now(), now(), 0);
+     'DECIMAL', 'ITEMS', TRUE, FALSE, 'Unit price', '5000', '{}', 'ACTIVE', now(), now(), 0);
