@@ -71,10 +71,15 @@ class StoredFileUnitTest {
 
     @Test
     void registerDeleteFailureRejectsInvalidMaxAttempts() {
-        StoredFile file = readyFile();
-        file.claimDeleteAttempt(ATTEMPTED_AT);
+        StoredFile zeroLimit = readyFile();
+        zeroLimit.claimDeleteAttempt(ATTEMPTED_AT);
+        StoredFile negativeLimit = readyFile();
+        negativeLimit.claimDeleteAttempt(ATTEMPTED_AT);
 
-        assertThatThrownBy(() -> file.registerDeleteFailure(ATTEMPTED_AT, "failure", 0))
+        assertThatThrownBy(() -> zeroLimit.registerDeleteFailure(ATTEMPTED_AT, "failure", 0))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("maxDeleteAttempts");
+        assertThatThrownBy(() -> negativeLimit.registerDeleteFailure(ATTEMPTED_AT, "failure", -1))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("maxDeleteAttempts");
     }
