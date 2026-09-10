@@ -10,7 +10,6 @@ import io.collectra.api.template.preset.TemplatePresetCatalog;
 import io.collectra.api.template.preset.TemplatePresetCode;
 import io.collectra.api.template.preset.TemplatePresetContent;
 import io.collectra.api.template.preset.TemplatePresetService;
-import io.collectra.api.template.preset.TemplatePresetTranslation;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -54,19 +53,18 @@ public class TemplatePresetCatalogService {
             supportedByCode.put(locale.getCode(), locale);
         }
 
-        List<LocaleView> locales = enabledTenantLocales.stream()
-                .map(locale -> localeView(locale, supportedByCode, defaultLocale))
-                .toList();
+        List<LocaleView> locales =
+                enabledTenantLocales.stream()
+                        .map(locale -> localeView(locale, supportedByCode, defaultLocale))
+                        .toList();
 
-        List<PresetView> presetViews = catalog.list().stream()
-                .map(preset -> presetView(preset, enabledTenantLocales, supportedByCode))
-                .toList();
+        List<PresetView> presetViews =
+                catalog.list().stream()
+                        .map(preset -> presetView(preset, enabledTenantLocales, supportedByCode))
+                        .toList();
 
-        List<String> categories = presetViews.stream()
-                .map(PresetView::category)
-                .distinct()
-                .sorted()
-                .toList();
+        List<String> categories =
+                presetViews.stream().map(PresetView::category).distinct().sorted().toList();
 
         return new CatalogView(defaultLocale, locales, categories, presetViews);
     }
@@ -87,7 +85,8 @@ public class TemplatePresetCatalogService {
             String defaultLocale) {
         SupportedLocale supported = supportedByCode.get(tenantLocale.getLocale());
         if (supported == null) {
-            throw new IllegalStateException("Enabled tenant locale is not globally supported: " + tenantLocale.getLocale());
+            throw new IllegalStateException(
+                    "Enabled tenant locale is not globally supported: " + tenantLocale.getLocale());
         }
         return new LocaleView(
                 supported.getCode(),
@@ -102,14 +101,23 @@ public class TemplatePresetCatalogService {
             TemplatePreset preset,
             List<TenantLocale> enabledTenantLocales,
             Map<String, SupportedLocale> supportedByCode) {
-        List<ChannelView> channels = preset.supportedChannels().stream()
-                .map(channel -> new ChannelView(
-                        channel,
-                        contentType(channel),
-                        enabledTenantLocales.stream()
-                                .map(locale -> compatibility(preset, channel, locale.getLocale(), supportedByCode))
-                                .toList()))
-                .toList();
+        List<ChannelView> channels =
+                preset.supportedChannels().stream()
+                        .map(
+                                channel ->
+                                        new ChannelView(
+                                                channel,
+                                                contentType(channel),
+                                                enabledTenantLocales.stream()
+                                                        .map(
+                                                                locale ->
+                                                                        compatibility(
+                                                                                preset,
+                                                                                channel,
+                                                                                locale.getLocale(),
+                                                                                supportedByCode))
+                                                        .toList()))
+                        .toList();
 
         return new PresetView(
                 preset.code(),
@@ -146,12 +154,15 @@ public class TemplatePresetCatalogService {
         visited.add(currentCode);
         while (true) {
             SupportedLocale current = supportedByCode.get(currentCode);
-            if (current == null || current.getFallbackLocale() == null || current.getFallbackLocale().isBlank()) {
+            if (current == null
+                    || current.getFallbackLocale() == null
+                    || current.getFallbackLocale().isBlank()) {
                 break;
             }
             String fallback = supportedLocales.canonicalize(current.getFallbackLocale());
             if (!visited.add(fallback)) {
-                throw new IllegalStateException("Locale fallback cycle detected for " + requestedLocale);
+                throw new IllegalStateException(
+                        "Locale fallback cycle detected for " + requestedLocale);
             }
             if (preset.translations().containsKey(fallback)) {
                 return fallback;
@@ -163,10 +174,13 @@ public class TemplatePresetCatalogService {
             return PLATFORM_DEFAULT_LOCALE;
         }
         throw new IllegalStateException(
-                "No translation can be resolved for preset " + preset.code() + " and locale " + requestedLocale);
+                "No translation can be resolved for preset "
+                        + preset.code()
+                        + " and locale "
+                        + requestedLocale);
     }
 
-    private static String contentType(TemplateChannel channel) {
+    public static String contentType(TemplateChannel channel) {
         return switch (channel) {
             case EMAIL, PDF -> "HTML";
             case SMS, WHATSAPP, TELEGRAM -> "TEXT";
