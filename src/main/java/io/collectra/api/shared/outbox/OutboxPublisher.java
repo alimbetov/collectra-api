@@ -42,11 +42,9 @@ public class OutboxPublisher {
             RabbitTemplate rabbit,
             ObjectMapper json,
             Clock clock,
-            @Value("${collectra.messaging.publisher-confirm-timeout-ms:5000}")
-                    long confirmTimeoutMs,
+            @Value("${collectra.messaging.publisher-confirm-timeout-ms:5000}") long confirmTimeoutMs,
             @Value("${collectra.messaging.outbox-batch-size:50}") int batchSize,
-            @Value("${collectra.messaging.outbox-processing-timeout:PT2M}")
-                    Duration processingTimeout) {
+            @Value("${collectra.messaging.outbox-processing-timeout:PT2M}") Duration processingTimeout) {
         this.claims = claims;
         this.states = states;
         this.router = router;
@@ -70,12 +68,12 @@ public class OutboxPublisher {
 
     @Scheduled(fixedDelayString = "${collectra.messaging.outbox-recovery-delay-ms:60000}")
     public void recoverStale() {
-        claims.recoverStale(Instant.now(clock), processingTimeout);
+        int recovered = claims.recoverStale(Instant.now(clock), processingTimeout);
+        metrics.recovered(recovered);
     }
 
     void publishOne(UUID eventId) {
-        Optional<OutboxStateService.PublishableEvent> loaded =
-                states.loadForPublish(eventId, workerId);
+        Optional<OutboxStateService.PublishableEvent> loaded = states.loadForPublish(eventId, workerId);
         if (loaded.isEmpty()) return;
         OutboxStateService.PublishableEvent event = loaded.get();
 
@@ -101,8 +99,7 @@ public class OutboxPublisher {
                     payload,
                     message -> {
                         message.getMessageProperties().setMessageId(event.id().toString());
-                        message.getMessageProperties()
-                                .setHeader("x-event-id", event.id().toString());
+                        message.getMessageProperties().setHeader("x-event-id", event.id().toString());
                         message.getMessageProperties().setHeader("x-event-type", event.eventType());
                         if (event.tenantId() != null) {
                             message.getMessageProperties()
@@ -120,8 +117,7 @@ public class OutboxPublisher {
                     correlation.getFuture().get(confirmTimeoutMs, TimeUnit.MILLISECONDS);
 
             if (correlation.getReturned() != null) {
-                transientFailure(
-                        event, "BROKER_RETURNED", "RabbitMQ returned the message as unroutable");
+                transientFailure(event, "BROKER_RETURNED", "RabbitMQ returned the message as unroutable");
             } else if (confirm.isAck()) {
                 if (states.markPublished(event.id(), workerId, Instant.now(clock))) {
                     metrics.published();
