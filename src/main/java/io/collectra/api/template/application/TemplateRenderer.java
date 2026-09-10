@@ -21,16 +21,17 @@ public class TemplateRenderer {
     }
 
     public RenderResult render(CompiledTemplate template, JsonNode normalizedPayload) {
-        String rendered = renderContent(template, normalizedPayload);
+        String rendered = renderContent(template, normalizedPayload, true);
         return new RenderResult(
                 template.templateVersionId(), addDocumentStructure(rendered, template.stylesheet()));
     }
 
     public String renderText(CompiledTemplate template, JsonNode normalizedPayload) {
-        return renderContent(template, normalizedPayload);
+        return renderContent(template, normalizedPayload, false);
     }
 
-    private String renderContent(CompiledTemplate template, JsonNode normalizedPayload) {
+    private String renderContent(
+            CompiledTemplate template, JsonNode normalizedPayload, boolean escapeHtml) {
         StringBuilder rendered = new StringBuilder();
         List<String> missing = new ArrayList<>();
         renderRange(
@@ -40,7 +41,8 @@ public class TemplateRenderer {
                 normalizedPayload,
                 null,
                 rendered,
-                missing);
+                missing,
+                escapeHtml);
         if (!missing.isEmpty()) {
             throw new IllegalArgumentException(
                     "Template values are missing: " + String.join(", ", missing));
@@ -55,7 +57,8 @@ public class TemplateRenderer {
             JsonNode payload,
             JsonNode currentItem,
             StringBuilder rendered,
-            List<String> missing) {
+            List<String> missing,
+            boolean escapeHtml) {
         int index = from;
         while (index < to) {
             TemplateToken token = tokens.get(index);
@@ -65,7 +68,8 @@ public class TemplateRenderer {
                 continue;
             }
             if (token instanceof TemplateToken.Placeholder placeholder) {
-                appendPlaceholder(placeholder.path(), payload, currentItem, rendered, missing);
+                appendPlaceholder(
+                        placeholder.path(), payload, currentItem, rendered, missing, escapeHtml);
                 index++;
                 continue;
             }
@@ -76,7 +80,15 @@ public class TemplateRenderer {
                     missing.add(each.collectionKey() + "[]");
                 } else {
                     for (JsonNode item : collection) {
-                        renderRange(tokens, index + 1, end, payload, item, rendered, missing);
+                        renderRange(
+                                tokens,
+                                index + 1,
+                                end,
+                                payload,
+                                item,
+                                rendered,
+                                missing,
+                                escapeHtml);
                     }
                 }
                 index = end + 1;
@@ -100,7 +112,8 @@ public class TemplateRenderer {
             JsonNode payload,
             JsonNode currentItem,
             StringBuilder rendered,
-            List<String> missing) {
+            List<String> missing,
+            boolean escapeHtml) {
         JsonNode value;
         String canonical = path.canonical();
         if (canonical.startsWith("item.")) {
@@ -119,7 +132,7 @@ public class TemplateRenderer {
             return;
         }
         String text = value.isValueNode() ? value.asText() : value.toString();
-        rendered.append(HtmlUtils.htmlEscape(text));
+        rendered.append(escapeHtml ? HtmlUtils.htmlEscape(text) : text);
     }
 
     private String addDocumentStructure(String html, String stylesheet) {
