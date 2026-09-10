@@ -1,5 +1,6 @@
 package io.collectra.api.file.infrastructure.persistence;
 
+import io.collectra.api.file.domain.FileStatus;
 import io.collectra.api.file.domain.StoredFile;
 import java.time.Instant;
 import java.util.List;
@@ -11,6 +12,8 @@ import org.springframework.data.repository.query.Param;
 
 public interface StoredFileRepository extends JpaRepository<StoredFile, UUID> {
     Optional<StoredFile> findByIdAndTenantId(UUID id, UUID tenantId);
+
+    long countByStatus(FileStatus status);
 
     @Query(
             value =
