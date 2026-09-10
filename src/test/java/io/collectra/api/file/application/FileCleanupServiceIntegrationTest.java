@@ -26,14 +26,14 @@ import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 class FileCleanupServiceIntegrationTest extends AbstractIntegrationTest {
     @Autowired FileCleanupService cleanupService;
     @Autowired StoredFileRepository files;
     @Autowired TenantRepository tenants;
 
-    @MockBean ObjectStorage storage;
+    @MockitoBean ObjectStorage storage;
 
     @BeforeEach
     void resetStorage() {
@@ -47,14 +47,13 @@ class FileCleanupServiceIntegrationTest extends AbstractIntegrationTest {
         CountDownLatch deleteStarted = new CountDownLatch(1);
         CountDownLatch releaseDelete = new CountDownLatch(1);
 
-        doAnswer(
-                        invocation -> {
-                            deleteStarted.countDown();
-                            if (!releaseDelete.await(5, TimeUnit.SECONDS)) {
-                                throw new AssertionError("Timed out waiting to release storage delete");
-                            }
-                            return null;
-                        })
+        doAnswer(invocation -> {
+                    deleteStarted.countDown();
+                    if (!releaseDelete.await(5, TimeUnit.SECONDS)) {
+                        throw new AssertionError("Timed out waiting to release storage delete");
+                    }
+                    return null;
+                })
                 .when(storage)
                 .delete(any());
 
@@ -90,18 +89,17 @@ class FileCleanupServiceIntegrationTest extends AbstractIntegrationTest {
 
         FileCleanupService.CleanupResult first = cleanupService.cleanupExpiredFiles(now);
         assertThat(first.failed()).isEqualTo(1);
+        assertThat(first.exhausted()).isZero();
         StoredFile failed = files.findById(file.getId()).orElseThrow();
         assertThat(failed.getStatus()).isEqualTo(FileStatus.DELETE_PENDING);
         assertThat(failed.getDeleteAttempts()).isEqualTo(1);
         assertThat(failed.getLastError()).contains("rustfs unavailable");
 
-        FileCleanupService.CleanupResult tooEarly =
-                cleanupService.cleanupExpiredFiles(now.plusSeconds(60));
+        FileCleanupService.CleanupResult tooEarly = cleanupService.cleanupExpiredFiles(now.plusSeconds(60));
         assertThat(tooEarly.processed()).isZero();
         verify(storage, times(1)).delete(any());
 
-        FileCleanupService.CleanupResult retry =
-                cleanupService.cleanupExpiredFiles(now.plusSeconds(16 * 60));
+        FileCleanupService.CleanupResult retry = cleanupService.cleanupExpiredFiles(now.plusSeconds(16 * 60));
         assertThat(retry.deleted()).isEqualTo(1);
         verify(storage, times(2)).delete(any());
         assertThat(files.findById(file.getId()).orElseThrow().getStatus())
@@ -109,19 +107,24 @@ class FileCleanupServiceIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void maxDeleteAttemptsStopsPoisonFileFromBeingClaimedAgain() {
+    void maxDeleteAttemptsMovesPoisonFileToDeleteFailedAndStopsFurtherClaims() {
         Instant base = Instant.now().minusSeconds(60 * 60);
         StoredFile file = expiredReadyFile(base.minusSeconds(10));
         doThrow(new FileStorageException("persistent failure", new RuntimeException("down")))
                 .when(storage)
                 .delete(any());
 
+        FileCleanupService.CleanupResult last = null;
         for (int attempt = 0; attempt < 10; attempt++) {
-            cleanupService.cleanupExpiredFiles(base.plusSeconds(attempt * 16L * 60L));
+            last = cleanupService.cleanupExpiredFiles(base.plusSeconds(attempt * 16L * 60L));
         }
+
+        assertThat(last).isNotNull();
+        assertThat(last.exhausted()).isEqualTo(1);
         StoredFile exhausted = files.findById(file.getId()).orElseThrow();
         assertThat(exhausted.getDeleteAttempts()).isEqualTo(10);
-        assertThat(exhausted.getStatus()).isEqualTo(FileStatus.DELETE_PENDING);
+        assertThat(exhausted.getStatus()).isEqualTo(FileStatus.DELETE_FAILED);
+        assertThat(exhausted.getLastError()).contains("persistent failure");
 
         FileCleanupService.CleanupResult afterLimit =
                 cleanupService.cleanupExpiredFiles(base.plusSeconds(11L * 16L * 60L));
@@ -130,23 +133,21 @@ class FileCleanupServiceIntegrationTest extends AbstractIntegrationTest {
     }
 
     private StoredFile expiredReadyFile(Instant expiresAt) {
-        Tenant tenant =
-                tenants.saveAndFlush(
-                        new Tenant("cleanup-" + UUID.randomUUID(), "Cleanup Integration Tenant"));
+        Tenant tenant = tenants.saveAndFlush(
+                new Tenant("cleanup-" + UUID.randomUUID(), "Cleanup Integration Tenant"));
         UUID fileId = UUID.randomUUID();
-        StoredFile file =
-                new StoredFile(
-                        fileId,
-                        tenant.getId(),
-                        null,
-                        FileCategory.TEMP,
-                        "rustfs",
-                        "collectra-temp",
-                        "temp/" + tenant.getId() + "/" + fileId,
-                        "expired.tmp",
-                        "application/octet-stream",
-                        expiresAt,
-                        null);
+        StoredFile file = new StoredFile(
+                fileId,
+                tenant.getId(),
+                null,
+                FileCategory.TEMP,
+                "rustfs",
+                "collectra-temp",
+                "temp/" + tenant.getId() + "/" + fileId,
+                "expired.tmp",
+                "application/octet-stream",
+                expiresAt,
+                null);
         file.markReady(4, "application/octet-stream", "a".repeat(64));
         return files.saveAndFlush(file);
     }
