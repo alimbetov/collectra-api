@@ -21,18 +21,31 @@ public class TemplateRenderer {
     }
 
     public RenderResult render(CompiledTemplate template, JsonNode normalizedPayload) {
+        String rendered = renderContent(template, normalizedPayload);
+        return new RenderResult(
+                template.templateVersionId(), addDocumentStructure(rendered, template.stylesheet()));
+    }
+
+    public String renderText(CompiledTemplate template, JsonNode normalizedPayload) {
+        return renderContent(template, normalizedPayload);
+    }
+
+    private String renderContent(CompiledTemplate template, JsonNode normalizedPayload) {
         StringBuilder rendered = new StringBuilder();
         List<String> missing = new ArrayList<>();
-        renderRange(template.tokens(), 0, template.tokens().size(), normalizedPayload, null, rendered, missing);
-
+        renderRange(
+                template.tokens(),
+                0,
+                template.tokens().size(),
+                normalizedPayload,
+                null,
+                rendered,
+                missing);
         if (!missing.isEmpty()) {
             throw new IllegalArgumentException(
                     "Template values are missing: " + String.join(", ", missing));
         }
-
-        return new RenderResult(
-                template.templateVersionId(),
-                addDocumentStructure(rendered.toString(), template.stylesheet()));
+        return rendered.toString();
     }
 
     private void renderRange(
@@ -95,7 +108,8 @@ public class TemplateRenderer {
                 missing.add(canonical);
                 return;
             }
-            String relative = "/" + String.join("/", path.segments().subList(1, path.segments().size()));
+            String relative =
+                    "/" + String.join("/", path.segments().subList(1, path.segments().size()));
             value = currentItem.at(relative);
         } else {
             value = payload.at(path.jsonPointer());
