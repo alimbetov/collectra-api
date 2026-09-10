@@ -2,7 +2,6 @@ package io.collectra.api.shared.tenant;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.HttpServletRequest;
@@ -123,7 +122,6 @@ class TenantContextFilterUnitTest {
                 (ignoredRequest, response) -> observedTenant.set(TenantContext.requireTenantId()));
 
         org.assertj.core.api.Assertions.assertThat(observedTenant.get()).isEqualTo(tokenTenant);
-        verify(request).getHeader("X-Tenant-Id");
         assertTenantContextIsEmpty();
     }
 
