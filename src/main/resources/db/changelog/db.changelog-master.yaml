@@ -31,3 +31,5 @@ databaseChangeLog:
       file: db/changelog/changes/018-fix-stored-file-checksum-type.sql
   - include:
       file: db/changelog/changes/019-template-builder-v1.sql
+  - include:
+      file: db/changelog/changes/020-supported-locales-fonts.sql
