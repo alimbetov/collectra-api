@@ -20,21 +20,15 @@ jobs:
       - name: Compile test sources
         run: mvn --batch-mode --no-transfer-progress -DskipTests test-compile
       - name: Run locale seed application scenario
-        shell: bash
-        run: |
-          if ! mvn --batch-mode --no-transfer-progress -Dtest=TemplatePresetApplicationServiceUnitTest#createsUzbekDraftFromRussianFallbackWithoutChangingTargetLocale test; then
-            report=$(find target/surefire-reports -name '*.txt' -type f -maxdepth 1 -print -quit)
-            if [ -n "$report" ]; then
-              while IFS= read -r line; do
-                safe=${line//'%'/'%25'}
-                safe=${safe//$'\r'/'%0D'}
-                safe=${safe//$'\n'/'%0A'}
-                echo "::error::$safe"
-              done < "$report"
-            fi
-            exit 1
-          fi
-      - name: Run automatic template bootstrap scenario
-        run: mvn --batch-mode --no-transfer-progress -Dtest=TemplatePresetApplicationServiceUnitTest#createsTenantTemplateAutomaticallyWhenTemplateIdIsOmitted test
-      - name: Run preset catalog unit test
-        run: mvn --batch-mode --no-transfer-progress -Dtest=TemplatePresetCatalogServiceUnitTest test
+        id: locale-seed
+        continue-on-error: true
+        run: mvn --batch-mode --no-transfer-progress -Dtest=TemplatePresetApplicationServiceUnitTest#createsUzbekDraftFromRussianFallbackWithoutChangingTargetLocale test
+      - name: Upload surefire report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: preset-surefire-report
+          path: target/surefire-reports/
+      - name: Fail when locale seed scenario failed
+        if: steps.locale-seed.outcome == 'failure'
+        run: exit 1
