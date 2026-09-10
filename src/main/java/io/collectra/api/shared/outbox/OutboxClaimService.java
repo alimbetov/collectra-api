@@ -1,21 +1,22 @@
 package io.collectra.api.shared.outbox;
 
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class OutboxClaimService {
     private static final int RECOVERY_BATCH_SIZE = 200;
 
     private final OutboxRepository events;
+    private final OutboxMetrics metrics;
 
-    public OutboxClaimService(OutboxRepository events) {
+    public OutboxClaimService(OutboxRepository events, OutboxMetrics metrics) {
         this.events = events;
+        this.metrics = metrics;
     }
 
     @Transactional
@@ -33,12 +34,11 @@ public class OutboxClaimService {
         }
         Instant cutoff = now.minus(processingTimeout);
         List<OutboxEvent> stale = events.findStaleForUpdate(cutoff, RECOVERY_BATCH_SIZE);
-        stale.forEach(
-                event ->
-                        event.recover(
-                                now,
-                                "PROCESSING_TIMEOUT_RECOVERED",
-                                "Recovered stale outbox event after publisher interruption"));
+        stale.forEach(event -> event.recover(
+                now,
+                "PROCESSING_TIMEOUT_RECOVERED",
+                "Recovered stale outbox event after publisher interruption"));
+        metrics.recovered(stale.size());
         return stale.size();
     }
 }
