@@ -15,6 +15,7 @@ import java.util.Map;
 import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -37,6 +38,11 @@ public class ApiExceptionHandler {
     @ExceptionHandler({BadCredentialsException.class, InvalidRefreshTokenException.class})
     ProblemDetail unauthorized(RuntimeException ex, HttpServletRequest request) {
         return withCode(base(HttpStatus.UNAUTHORIZED, ex.getMessage(), request), "UNAUTHORIZED");
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    ProblemDetail forbidden(AccessDeniedException ex, HttpServletRequest request) {
+        return withCode(base(HttpStatus.FORBIDDEN, "Access denied", request), "FORBIDDEN");
     }
 
     @ExceptionHandler(MissingTenantException.class)

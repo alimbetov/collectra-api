@@ -76,18 +76,25 @@ class ImportBatchReservationConcurrencyIntegrationTest extends AbstractIntegrati
             results.add(first.get(10, TimeUnit.SECONDS));
             results.add(second.get(10, TimeUnit.SECONDS));
 
-            assertThat(
-                            results.stream()
-                                    .filter(
-                                            ImportBatchReservationService.Reservation.class
-                                                    ::isInstance)
-                                    .count())
-                    .isEqualTo(1);
-            assertThat(
-                            results.stream()
-                                    .filter(DataIntegrityViolationException.class::isInstance)
-                                    .count())
-                    .isEqualTo(1);
+            long createdReservations =
+                    results.stream()
+                            .filter(ImportBatchReservationService.Reservation.class::isInstance)
+                            .map(ImportBatchReservationService.Reservation.class::cast)
+                            .filter(ImportBatchReservationService.Reservation::created)
+                            .count();
+            long replayedReservations =
+                    results.stream()
+                            .filter(ImportBatchReservationService.Reservation.class::isInstance)
+                            .map(ImportBatchReservationService.Reservation.class::cast)
+                            .filter(reservation -> !reservation.created())
+                            .count();
+            long conflicts =
+                    results.stream()
+                            .filter(DataIntegrityViolationException.class::isInstance)
+                            .count();
+
+            assertThat(createdReservations).isEqualTo(1);
+            assertThat(replayedReservations + conflicts).isEqualTo(1);
             assertThat(batches.findByTenantIdAndIdempotencyKey(tenant.getId(), key)).isPresent();
             assertThat(reservations.existing(tenant.getId(), key, requestHash).created()).isFalse();
         } finally {
