@@ -19,7 +19,9 @@ jobs:
         run: mvn --batch-mode --no-transfer-progress -DskipTests compile
       - name: Compile test sources
         run: mvn --batch-mode --no-transfer-progress -DskipTests test-compile
-      - name: Run preset application unit test
-        run: mvn --batch-mode --no-transfer-progress -Dtest=TemplatePresetApplicationServiceUnitTest test
+      - name: Run locale seed application scenario
+        run: mvn --batch-mode --no-transfer-progress -Dtest=TemplatePresetApplicationServiceUnitTest#createsUzbekDraftFromRussianFallbackWithoutChangingTargetLocale test
+      - name: Run automatic template bootstrap scenario
+        run: mvn --batch-mode --no-transfer-progress -Dtest=TemplatePresetApplicationServiceUnitTest#createsTenantTemplateAutomaticallyWhenTemplateIdIsOmitted test
       - name: Run preset catalog unit test
         run: mvn --batch-mode --no-transfer-progress -Dtest=TemplatePresetCatalogServiceUnitTest test
