@@ -2,6 +2,7 @@ package io.collectra.api.template.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -24,6 +25,7 @@ class TemplateManagementServiceUnitTest {
     private final DocumentTemplateRepository templates = mock(DocumentTemplateRepository.class);
     private final TemplateVersionRepository versions = mock(TemplateVersionRepository.class);
     private final FieldDefinitionRepository fields = mock(FieldDefinitionRepository.class);
+    private final TemplateAssetService assets = mock(TemplateAssetService.class);
     private final HtmlTemplatePolicy policy = new HtmlTemplatePolicy();
     private final TemplateCompiler compiler = new TemplateCompiler(policy, new PlaceholderScanner());
     private final TemplateRenderer renderer = new TemplateRenderer(compiler);
@@ -34,7 +36,7 @@ class TemplateManagementServiceUnitTest {
 
     @BeforeEach
     void setUp() {
-        service = new TemplateManagementService(templates, versions, fields, compiler, renderer);
+        service = new TemplateManagementService(templates, versions, fields, compiler, renderer, assets);
         tenantId = UUID.randomUUID();
     }
 
@@ -95,6 +97,52 @@ class TemplateManagementServiceUnitTest {
         assertThat(version.isBuilderManaged()).isTrue();
         assertThat(version.getBuilderJson()).isEqualTo(builderJson);
         assertThat(version.getContentHtml()).contains("{{customer.name}}");
+    }
+
+    @Test
+    void rejectsUnknownManagedAssetOnSavedVersion() {
+        TemplateVersion version =
+                new TemplateVersion(
+                        UUID.randomUUID(),
+                        1,
+                        "ru",
+                        "<img src=\"{{asset.company_logo}}\">",
+                        null);
+        when(versions.findByIdAndTenantId(version.getId(), tenantId))
+                .thenReturn(Optional.of(version));
+        when(fields.findAvailable(tenantId)).thenReturn(List.of());
+        when(assets.exists(tenantId, "company_logo")).thenReturn(false);
+
+        var result = service.validate(tenantId, version.getId());
+
+        assertThat(result.valid()).isFalse();
+        assertThat(result.errors()).anyMatch(error -> "UNKNOWN_ASSET".equals(error.code()));
+        assertThat(version.getStatus()).isEqualTo(TemplateVersionStatus.DRAFT);
+    }
+
+    @Test
+    void enrichesPayloadWithManagedAssetsBeforeSavedPreview() throws Exception {
+        TemplateVersion version =
+                new TemplateVersion(
+                        UUID.randomUUID(),
+                        1,
+                        "ru",
+                        "<img src=\"{{asset.company_logo}}\">",
+                        null);
+        var payload = json.readTree("{}");
+        var enriched =
+                json.readTree(
+                        """
+                        {"asset":{"company_logo":"data:image/png;base64,AAA="}}
+                        """);
+        when(versions.findByIdAndTenantId(version.getId(), tenantId))
+                .thenReturn(Optional.of(version));
+        when(assets.enrichPayload(tenantId, payload)).thenReturn(enriched);
+
+        var result = service.preview(tenantId, version.getId(), payload);
+
+        assertThat(result.html()).contains("data:image/png;base64,AAA=");
+        verify(assets).enrichPayload(tenantId, payload);
     }
 
     @Test
