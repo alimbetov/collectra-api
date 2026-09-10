@@ -34,9 +34,13 @@ final class JsonInputParser implements InputParser {
                         values.put(path, array);
                     }
                 }
-                rows.add(new ParsedInput.ParsedRow(index + 1,
-                        recordPath == null || recordPath.isBlank() ? "$[" + index + "]"
-                                : recordPath + "[" + index + "]", values));
+                rows.add(
+                        new ParsedInput.ParsedRow(
+                                index + 1,
+                                recordPath == null || recordPath.isBlank()
+                                        ? "$[" + index + "]"
+                                        : recordPath + "[" + index + "]",
+                                values));
             }
             return new ParsedInput(rows);
         } catch (com.fasterxml.jackson.core.JsonProcessingException ex) {
@@ -62,7 +66,7 @@ final class JsonInputParser implements InputParser {
     private List<JsonNode> evaluate(JsonNode root, String path) {
         if (path.startsWith("/")) {
             JsonNode value = root.at(path);
-            return value.isMissingNode() || value.isNull() ? List.of() : expand(value);
+            return value.isMissingNode() ? List.of() : expand(value);
         }
         List<JsonNode> current = List.of(root);
         for (String rawSegment : path.split("\\.")) {
@@ -71,7 +75,10 @@ final class JsonInputParser implements InputParser {
             List<JsonNode> next = new ArrayList<>();
             for (JsonNode node : current) {
                 JsonNode value = segment.isEmpty() ? node : node.path(segment);
-                if (value.isMissingNode() || value.isNull()) continue;
+                if (value.isMissingNode() || value.isNull()) {
+                    if (!array) next.add(json.nullNode());
+                    continue;
+                }
                 if (array) {
                     if (!value.isArray())
                         throw new IllegalArgumentException("JSON path expects array: " + path);
