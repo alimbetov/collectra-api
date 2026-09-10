@@ -25,28 +25,34 @@ class ImportTenantIsolationIntegrationTest extends AbstractIntegrationTest {
 
     @Test
     void tenantCannotExecuteAnotherTenantsMappingProfile() {
-        Tenant tenantA = tenants.saveAndFlush(
-                new Tenant("mapping-a-" + UUID.randomUUID(), "Mapping A"));
-        Tenant tenantB = tenants.saveAndFlush(
-                new Tenant("mapping-b-" + UUID.randomUUID(), "Mapping B"));
-        SourceSchema schemaB = new SourceSchema(
-                tenantB.getId(), "FOREIGN_JSON", "Foreign JSON", SourceFormat.JSON, 1);
+        Tenant tenantA =
+                tenants.saveAndFlush(new Tenant("mapping-a-" + UUID.randomUUID(), "Mapping A"));
+        Tenant tenantB =
+                tenants.saveAndFlush(new Tenant("mapping-b-" + UUID.randomUUID(), "Mapping B"));
+        SourceSchema schemaB =
+                new SourceSchema(
+                        tenantB.getId(), "FOREIGN_JSON", "Foreign JSON", SourceFormat.JSON, 1);
         schemaB.validated();
         schemaB.publish();
         schemas.saveAndFlush(schemaB);
-        MappingProfile profileB = new MappingProfile(
-                tenantB.getId(),
-                schemaB.getId(),
-                "FOREIGN_JSON",
-                "Foreign Mapping",
-                "INVOICE",
-                1);
+        MappingProfile profileB =
+                new MappingProfile(
+                        tenantB.getId(),
+                        schemaB.getId(),
+                        "FOREIGN_JSON",
+                        "Foreign Mapping",
+                        "INVOICE",
+                        1);
         profileB.validated();
         profileB.publish();
         profiles.saveAndFlush(profileB);
 
-        assertThatThrownBy(() -> mappings.execute(
-                        tenantA.getId(), profileB.getId(), "{}".getBytes(StandardCharsets.UTF_8)))
+        assertThatThrownBy(
+                        () ->
+                                mappings.execute(
+                                        tenantA.getId(),
+                                        profileB.getId(),
+                                        "{}".getBytes(StandardCharsets.UTF_8)))
                 .isInstanceOf(NoSuchElementException.class)
                 .hasMessage("Mapping profile not found");
     }
