@@ -81,7 +81,8 @@ public class TemplateAssetService {
             throw new IllegalArgumentException("Preview payload must be a JSON object");
         else root = ((ObjectNode) payload).deepCopy();
 
-        ObjectNode assetNode = root.with("asset");
+        root.remove("asset");
+        ObjectNode assetNode = root.putObject("asset");
         for (TemplateAsset asset : list(tenantId)) {
             FileMetadata metadata = validateFile(tenantId, asset.getFileId());
             try (var download = files.openContent(tenantId, asset.getFileId()).content()) {
