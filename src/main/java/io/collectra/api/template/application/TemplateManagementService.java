@@ -23,7 +23,6 @@ public class TemplateManagementService {
     private final DocumentTemplateRepository templates;
     private final TemplateVersionRepository versions;
     private final FieldDefinitionRepository fields;
-    private final HtmlTemplatePolicy policy;
     private final TemplateCompiler compiler;
     private final TemplateRenderer renderer;
 
@@ -31,13 +30,11 @@ public class TemplateManagementService {
             DocumentTemplateRepository templates,
             TemplateVersionRepository versions,
             FieldDefinitionRepository fields,
-            HtmlTemplatePolicy policy,
             TemplateCompiler compiler,
             TemplateRenderer renderer) {
         this.templates = templates;
         this.versions = versions;
         this.fields = fields;
-        this.policy = policy;
         this.compiler = compiler;
         this.renderer = renderer;
     }
@@ -96,30 +93,49 @@ public class TemplateManagementService {
             String subject,
             String contentHtml,
             String stylesheet) {
-        requireActiveTemplate(tenantId, templateId);
-        String normalizedLocale = locale.trim().toLowerCase(Locale.ROOT);
-        TemplateChannel normalizedChannel = channel == null ? TemplateChannel.PDF : channel;
-        var existing =
-                versions.findAllByTemplateIdAndLocaleAndChannelOrderByTemplateVersionDesc(
-                        templateId, normalizedLocale, normalizedChannel);
-        int number = existing.isEmpty() ? 1 : existing.get(0).getTemplateVersion() + 1;
-        if ((contentHtml == null || contentHtml.isBlank()) && !existing.isEmpty()) {
-            TemplateVersion latest = existing.get(0);
-            contentHtml = latest.getContentHtml();
-            stylesheet = latest.getStylesheet();
-            if (subject == null) subject = latest.getSubject();
+        VersionSeed seed = nextVersionSeed(tenantId, templateId, locale, channel);
+        String effectiveContent = contentHtml;
+        String effectiveStylesheet = stylesheet;
+        String effectiveSubject = subject;
+        if ((effectiveContent == null || effectiveContent.isBlank()) && seed.latest() != null) {
+            effectiveContent = seed.latest().getContentHtml();
+            effectiveStylesheet = seed.latest().getStylesheet();
+            if (effectiveSubject == null) effectiveSubject = seed.latest().getSubject();
         }
-        if (contentHtml == null || contentHtml.isBlank()) {
+        if (effectiveContent == null || effectiveContent.isBlank()) {
             throw new IllegalArgumentException("Template content is required");
         }
         return versions.save(
                 new TemplateVersion(
                         templateId,
-                        number,
-                        normalizedLocale,
-                        normalizedChannel,
+                        seed.number(),
+                        seed.locale(),
+                        seed.channel(),
+                        effectiveSubject,
+                        effectiveContent,
+                        effectiveStylesheet));
+    }
+
+    @Transactional
+    public TemplateVersion createBuilderVersion(
+            UUID tenantId,
+            UUID templateId,
+            String locale,
+            TemplateChannel channel,
+            String subject,
+            JsonNode builderJson,
+            String renderedHtml,
+            String stylesheet) {
+        VersionSeed seed = nextVersionSeed(tenantId, templateId, locale, channel);
+        return versions.save(
+                new TemplateVersion(
+                        templateId,
+                        seed.number(),
+                        seed.locale(),
+                        seed.channel(),
                         subject,
-                        contentHtml,
+                        builderJson,
+                        renderedHtml,
                         stylesheet));
     }
 
@@ -141,6 +157,19 @@ public class TemplateManagementService {
             UUID tenantId, UUID versionId, String subject, String content, String css) {
         var version = requireVersion(tenantId, versionId);
         version.update(subject, content, css);
+        return version;
+    }
+
+    @Transactional
+    public TemplateVersion updateBuilder(
+            UUID tenantId,
+            UUID versionId,
+            String subject,
+            JsonNode builderJson,
+            String renderedHtml,
+            String css) {
+        var version = requireVersion(tenantId, versionId);
+        version.updateBuilder(subject, builderJson, renderedHtml, css);
         return version;
     }
 
@@ -274,6 +303,22 @@ public class TemplateManagementService {
         return version;
     }
 
+    private VersionSeed nextVersionSeed(
+            UUID tenantId, UUID templateId, String locale, TemplateChannel channel) {
+        requireActiveTemplate(tenantId, templateId);
+        String normalizedLocale = locale.trim().toLowerCase(Locale.ROOT);
+        TemplateChannel normalizedChannel = channel == null ? TemplateChannel.PDF : channel;
+        var existing =
+                versions.findAllByTemplateIdAndLocaleAndChannelOrderByTemplateVersionDesc(
+                        templateId, normalizedLocale, normalizedChannel);
+        int number = existing.isEmpty() ? 1 : existing.get(0).getTemplateVersion() + 1;
+        return new VersionSeed(
+                normalizedLocale,
+                normalizedChannel,
+                number,
+                existing.isEmpty() ? null : existing.get(0));
+    }
+
     private DocumentTemplate requireTemplate(UUID tenantId, UUID id) {
         return templates.findByIdAndTenantId(id, tenantId)
                 .orElseThrow(() -> new NoSuchElementException("Template not found"));
@@ -304,4 +349,7 @@ public class TemplateManagementService {
             String code, String path, String message) {
         return new SourceSchemaManagementService.ValidationIssue(code, path, message);
     }
+
+    private record VersionSeed(
+            String locale, TemplateChannel channel, int number, TemplateVersion latest) {}
 }
