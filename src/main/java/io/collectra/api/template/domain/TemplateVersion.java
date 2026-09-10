@@ -18,7 +18,7 @@ public class TemplateVersion extends AuditableEntity {
     @Column(name = "template_version", nullable = false)
     private int templateVersion;
 
-    @Column(nullable = false, length = 10)
+    @Column(nullable = false, length = 35)
     private String locale;
 
     @Enumerated(EnumType.STRING)

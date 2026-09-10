@@ -1,0 +1,122 @@
+[
+  {
+    "code": "INVOICE_CREATED",
+    "category": "INVOICE",
+    "supportedChannels": ["EMAIL", "SMS", "WHATSAPP", "TELEGRAM", "PDF"],
+    "translations": {
+      "en": {"subject": "Invoice {{document.number}} created", "text": "Hello {{customer.name}}. Invoice {{document.number}} dated {{document.date}} has been created.", "html": "<p>Hello {{customer.name}}.</p><p>Invoice <strong>{{document.number}}</strong> dated {{document.date}} has been created.</p>"},
+      "ru": {"subject": "Счет {{document.number}} создан", "text": "Здравствуйте, {{customer.name}}. Счет {{document.number}} от {{document.date}} создан.", "html": "<p>Здравствуйте, {{customer.name}}.</p><p>Счет <strong>{{document.number}}</strong> от {{document.date}} создан.</p>"},
+      "kk": {"subject": "{{document.number}} шоты жасалды", "text": "Сәлеметсіз бе, {{customer.name}}. {{document.date}} күнгі {{document.number}} шоты жасалды.", "html": "<p>Сәлеметсіз бе, {{customer.name}}.</p><p>{{document.date}} күнгі <strong>{{document.number}}</strong> шоты жасалды.</p>"}
+    }
+  },
+  {
+    "code": "INVOICE_REMINDER",
+    "category": "INVOICE",
+    "supportedChannels": ["EMAIL", "SMS", "WHATSAPP", "TELEGRAM", "PDF"],
+    "translations": {
+      "en": {"subject": "Reminder for invoice {{document.number}}", "text": "Hello {{customer.name}}. This is a reminder regarding invoice {{document.number}} dated {{document.date}}.", "html": "<p>Hello {{customer.name}}.</p><p>This is a reminder regarding invoice <strong>{{document.number}}</strong> dated {{document.date}}.</p>"},
+      "ru": {"subject": "Напоминание по счету {{document.number}}", "text": "Здравствуйте, {{customer.name}}. Напоминаем о счете {{document.number}} от {{document.date}}.", "html": "<p>Здравствуйте, {{customer.name}}.</p><p>Напоминаем о счете <strong>{{document.number}}</strong> от {{document.date}}.</p>"},
+      "kk": {"subject": "{{document.number}} шоты бойынша еске салу", "text": "Сәлеметсіз бе, {{customer.name}}. {{document.date}} күнгі {{document.number}} шоты туралы еске саламыз.", "html": "<p>Сәлеметсіз бе, {{customer.name}}.</p><p>{{document.date}} күнгі <strong>{{document.number}}</strong> шоты туралы еске саламыз.</p>"}
+    }
+  },
+  {
+    "code": "PAYMENT_DUE_SOON",
+    "category": "PAYMENT",
+    "supportedChannels": ["EMAIL", "SMS", "WHATSAPP", "TELEGRAM"],
+    "translations": {
+      "en": {"subject": "Payment due soon for {{document.number}}", "text": "Hello {{customer.name}}. Payment for document {{document.number}} dated {{document.date}} is due soon.", "html": "<p>Hello {{customer.name}}.</p><p>Payment for document <strong>{{document.number}}</strong> dated {{document.date}} is due soon.</p>"},
+      "ru": {"subject": "Скоро срок оплаты {{document.number}}", "text": "Здравствуйте, {{customer.name}}. Скоро наступает срок оплаты документа {{document.number}} от {{document.date}}.", "html": "<p>Здравствуйте, {{customer.name}}.</p><p>Скоро наступает срок оплаты документа <strong>{{document.number}}</strong> от {{document.date}}.</p>"},
+      "kk": {"subject": "{{document.number}} құжатының төлем мерзімі жақындады", "text": "Сәлеметсіз бе, {{customer.name}}. {{document.date}} күнгі {{document.number}} құжаты бойынша төлем мерзімі жақындады.", "html": "<p>Сәлеметсіз бе, {{customer.name}}.</p><p>{{document.date}} күнгі <strong>{{document.number}}</strong> құжаты бойынша төлем мерзімі жақындады.</p>"}
+    }
+  },
+  {
+    "code": "PAYMENT_DUE_TODAY",
+    "category": "PAYMENT",
+    "supportedChannels": ["EMAIL", "SMS", "WHATSAPP", "TELEGRAM"],
+    "translations": {
+      "en": {"subject": "Payment due today for {{document.number}}", "text": "Hello {{customer.name}}. Payment for document {{document.number}} is due today.", "html": "<p>Hello {{customer.name}}.</p><p>Payment for document <strong>{{document.number}}</strong> is due today.</p>"},
+      "ru": {"subject": "Сегодня срок оплаты {{document.number}}", "text": "Здравствуйте, {{customer.name}}. Сегодня срок оплаты документа {{document.number}}.", "html": "<p>Здравствуйте, {{customer.name}}.</p><p>Сегодня срок оплаты документа <strong>{{document.number}}</strong>.</p>"},
+      "kk": {"subject": "Бүгін {{document.number}} құжатының төлем мерзімі", "text": "Сәлеметсіз бе, {{customer.name}}. Бүгін {{document.number}} құжаты бойынша төлем мерзімі.", "html": "<p>Сәлеметсіз бе, {{customer.name}}.</p><p>Бүгін <strong>{{document.number}}</strong> құжаты бойынша төлем мерзімі.</p>"}
+    }
+  },
+  {
+    "code": "PAYMENT_OVERDUE",
+    "category": "PAYMENT",
+    "supportedChannels": ["EMAIL", "SMS", "WHATSAPP", "TELEGRAM", "PDF"],
+    "translations": {
+      "en": {"subject": "Payment overdue for {{document.number}}", "text": "Hello {{customer.name}}. Payment for document {{document.number}} is overdue. Please review the payment status.", "html": "<p>Hello {{customer.name}}.</p><p>Payment for document <strong>{{document.number}}</strong> is overdue. Please review the payment status.</p>"},
+      "ru": {"subject": "Просрочена оплата {{document.number}}", "text": "Здравствуйте, {{customer.name}}. Оплата документа {{document.number}} просрочена. Просим проверить статус оплаты.", "html": "<p>Здравствуйте, {{customer.name}}.</p><p>Оплата документа <strong>{{document.number}}</strong> просрочена. Просим проверить статус оплаты.</p>"},
+      "kk": {"subject": "{{document.number}} құжаты бойынша төлем мерзімі өтті", "text": "Сәлеметсіз бе, {{customer.name}}. {{document.number}} құжаты бойынша төлем мерзімі өтті. Төлем мәртебесін тексеруіңізді сұраймыз.", "html": "<p>Сәлеметсіз бе, {{customer.name}}.</p><p><strong>{{document.number}}</strong> құжаты бойынша төлем мерзімі өтті. Төлем мәртебесін тексеруіңізді сұраймыз.</p>"}
+    }
+  },
+  {
+    "code": "PAYMENT_OVERDUE_ESCALATION",
+    "category": "PAYMENT",
+    "supportedChannels": ["EMAIL", "SMS", "WHATSAPP", "TELEGRAM", "PDF"],
+    "translations": {
+      "en": {"subject": "Escalation: overdue payment {{document.number}}", "text": "Hello {{customer.name}}. The overdue payment for document {{document.number}} requires attention.", "html": "<p>Hello {{customer.name}}.</p><p>The overdue payment for document <strong>{{document.number}}</strong> requires attention.</p>"},
+      "ru": {"subject": "Эскалация просрочки {{document.number}}", "text": "Здравствуйте, {{customer.name}}. Просроченная оплата документа {{document.number}} требует внимания.", "html": "<p>Здравствуйте, {{customer.name}}.</p><p>Просроченная оплата документа <strong>{{document.number}}</strong> требует внимания.</p>"},
+      "kk": {"subject": "{{document.number}} бойынша мерзімі өткен төлемді эскалациялау", "text": "Сәлеметсіз бе, {{customer.name}}. {{document.number}} құжаты бойынша мерзімі өткен төлем назар аударуды қажет етеді.", "html": "<p>Сәлеметсіз бе, {{customer.name}}.</p><p><strong>{{document.number}}</strong> құжаты бойынша мерзімі өткен төлем назар аударуды қажет етеді.</p>"}
+    }
+  },
+  {
+    "code": "PAYMENT_RECEIVED",
+    "category": "PAYMENT",
+    "supportedChannels": ["EMAIL", "SMS", "WHATSAPP", "TELEGRAM"],
+    "translations": {
+      "en": {"subject": "Payment received for {{document.number}}", "text": "Hello {{customer.name}}. Payment for document {{document.number}} has been received. Thank you.", "html": "<p>Hello {{customer.name}}.</p><p>Payment for document <strong>{{document.number}}</strong> has been received. Thank you.</p>"},
+      "ru": {"subject": "Оплата {{document.number}} получена", "text": "Здравствуйте, {{customer.name}}. Оплата документа {{document.number}} получена. Спасибо.", "html": "<p>Здравствуйте, {{customer.name}}.</p><p>Оплата документа <strong>{{document.number}}</strong> получена. Спасибо.</p>"},
+      "kk": {"subject": "{{document.number}} құжаты бойынша төлем алынды", "text": "Сәлеметсіз бе, {{customer.name}}. {{document.number}} құжаты бойынша төлем алынды. Рақмет.", "html": "<p>Сәлеметсіз бе, {{customer.name}}.</p><p><strong>{{document.number}}</strong> құжаты бойынша төлем алынды. Рақмет.</p>"}
+    }
+  },
+  {
+    "code": "PAYMENT_PARTIALLY_RECEIVED",
+    "category": "PAYMENT",
+    "supportedChannels": ["EMAIL", "SMS", "WHATSAPP", "TELEGRAM"],
+    "translations": {
+      "en": {"subject": "Partial payment received for {{document.number}}", "text": "Hello {{customer.name}}. A partial payment for document {{document.number}} has been received.", "html": "<p>Hello {{customer.name}}.</p><p>A partial payment for document <strong>{{document.number}}</strong> has been received.</p>"},
+      "ru": {"subject": "Получена частичная оплата {{document.number}}", "text": "Здравствуйте, {{customer.name}}. Получена частичная оплата документа {{document.number}}.", "html": "<p>Здравствуйте, {{customer.name}}.</p><p>Получена частичная оплата документа <strong>{{document.number}}</strong>.</p>"},
+      "kk": {"subject": "{{document.number}} құжаты бойынша ішінара төлем алынды", "text": "Сәлеметсіз бе, {{customer.name}}. {{document.number}} құжаты бойынша ішінара төлем алынды.", "html": "<p>Сәлеметсіз бе, {{customer.name}}.</p><p><strong>{{document.number}}</strong> құжаты бойынша ішінара төлем алынды.</p>"}
+    }
+  },
+  {
+    "code": "COLLECTION_NOTICE",
+    "category": "COLLECTION",
+    "supportedChannels": ["EMAIL", "SMS", "WHATSAPP", "TELEGRAM", "PDF"],
+    "translations": {
+      "en": {"subject": "Collection notice for {{document.number}}", "text": "Hello {{customer.name}}. This is a collection notice regarding document {{document.number}} dated {{document.date}}.", "html": "<p>Hello {{customer.name}}.</p><p>This is a collection notice regarding document <strong>{{document.number}}</strong> dated {{document.date}}.</p>"},
+      "ru": {"subject": "Уведомление о взыскании {{document.number}}", "text": "Здравствуйте, {{customer.name}}. Направляем уведомление о взыскании по документу {{document.number}} от {{document.date}}.", "html": "<p>Здравствуйте, {{customer.name}}.</p><p>Направляем уведомление о взыскании по документу <strong>{{document.number}}</strong> от {{document.date}}.</p>"},
+      "kk": {"subject": "{{document.number}} бойынша өндіріп алу туралы хабарлама", "text": "Сәлеметсіз бе, {{customer.name}}. {{document.date}} күнгі {{document.number}} құжаты бойынша өндіріп алу туралы хабарлама жіберілді.", "html": "<p>Сәлеметсіз бе, {{customer.name}}.</p><p>{{document.date}} күнгі <strong>{{document.number}}</strong> құжаты бойынша өндіріп алу туралы хабарлама жіберілді.</p>"}
+    }
+  },
+  {
+    "code": "COLLECTION_FINAL_NOTICE",
+    "category": "COLLECTION",
+    "supportedChannels": ["EMAIL", "SMS", "WHATSAPP", "TELEGRAM", "PDF"],
+    "translations": {
+      "en": {"subject": "Final collection notice for {{document.number}}", "text": "Hello {{customer.name}}. This is the final collection notice regarding document {{document.number}}.", "html": "<p>Hello {{customer.name}}.</p><p>This is the final collection notice regarding document <strong>{{document.number}}</strong>.</p>"},
+      "ru": {"subject": "Финальное уведомление о взыскании {{document.number}}", "text": "Здравствуйте, {{customer.name}}. Это финальное уведомление о взыскании по документу {{document.number}}.", "html": "<p>Здравствуйте, {{customer.name}}.</p><p>Это финальное уведомление о взыскании по документу <strong>{{document.number}}</strong>.</p>"},
+      "kk": {"subject": "{{document.number}} бойынша өндіріп алу туралы соңғы хабарлама", "text": "Сәлеметсіз бе, {{customer.name}}. Бұл {{document.number}} құжаты бойынша өндіріп алу туралы соңғы хабарлама.", "html": "<p>Сәлеметсіз бе, {{customer.name}}.</p><p>Бұл <strong>{{document.number}}</strong> құжаты бойынша өндіріп алу туралы соңғы хабарлама.</p>"}
+    }
+  },
+  {
+    "code": "CONTRACT_RENEWAL",
+    "category": "CONTRACT",
+    "supportedChannels": ["EMAIL", "SMS", "WHATSAPP", "TELEGRAM", "PDF"],
+    "translations": {
+      "en": {"subject": "Contract renewal reminder {{document.number}}", "text": "Hello {{customer.name}}. Please review renewal for document {{document.number}} dated {{document.date}}.", "html": "<p>Hello {{customer.name}}.</p><p>Please review renewal for document <strong>{{document.number}}</strong> dated {{document.date}}.</p>"},
+      "ru": {"subject": "Напоминание о продлении договора {{document.number}}", "text": "Здравствуйте, {{customer.name}}. Просим проверить продление договора {{document.number}} от {{document.date}}.", "html": "<p>Здравствуйте, {{customer.name}}.</p><p>Просим проверить продление договора <strong>{{document.number}}</strong> от {{document.date}}.</p>"},
+      "kk": {"subject": "{{document.number}} шартын ұзарту туралы еске салу", "text": "Сәлеметсіз бе, {{customer.name}}. {{document.date}} күнгі {{document.number}} шартын ұзартуды тексеруіңізді сұраймыз.", "html": "<p>Сәлеметсіз бе, {{customer.name}}.</p><p>{{document.date}} күнгі <strong>{{document.number}}</strong> шартын ұзартуды тексеруіңізді сұраймыз.</p>"}
+    }
+  },
+  {
+    "code": "VIP_CUSTOMER_NOTICE",
+    "category": "VIP",
+    "supportedChannels": ["EMAIL", "SMS", "WHATSAPP", "TELEGRAM"],
+    "translations": {
+      "en": {"subject": "Important notice regarding {{document.number}}", "text": "Hello {{customer.name}}. We have an important update regarding document {{document.number}}.", "html": "<p>Hello {{customer.name}}.</p><p>We have an important update regarding document <strong>{{document.number}}</strong>.</p>"},
+      "ru": {"subject": "Важное уведомление по {{document.number}}", "text": "Здравствуйте, {{customer.name}}. У нас есть важное обновление по документу {{document.number}}.", "html": "<p>Здравствуйте, {{customer.name}}.</p><p>У нас есть важное обновление по документу <strong>{{document.number}}</strong>.</p>"},
+      "kk": {"subject": "{{document.number}} бойынша маңызды хабарлама", "text": "Сәлеметсіз бе, {{customer.name}}. {{document.number}} құжаты бойынша маңызды жаңарту бар.", "html": "<p>Сәлеметсіз бе, {{customer.name}}.</p><p><strong>{{document.number}}</strong> құжаты бойынша маңызды жаңарту бар.</p>"}
+    }
+  }
+]

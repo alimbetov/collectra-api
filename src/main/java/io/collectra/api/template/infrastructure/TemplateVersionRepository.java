@@ -2,6 +2,7 @@ package io.collectra.api.template.infrastructure;
 
 import io.collectra.api.template.domain.TemplateChannel;
 import io.collectra.api.template.domain.TemplateVersion;
+import io.collectra.api.template.domain.TemplateVersionStatus;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -17,6 +18,18 @@ public interface TemplateVersionRepository extends JpaRepository<TemplateVersion
 
     List<TemplateVersion> findAllByTemplateIdAndLocaleAndChannelOrderByTemplateVersionDesc(
             UUID templateId, String locale, TemplateChannel channel);
+
+    boolean existsByTemplateIdAndLocaleAndChannelAndStatus(
+            UUID templateId,
+            String locale,
+            TemplateChannel channel,
+            TemplateVersionStatus status);
+
+    Optional<TemplateVersion> findFirstByTemplateIdAndLocaleAndChannelAndStatusOrderByTemplateVersionDesc(
+            UUID templateId,
+            String locale,
+            TemplateChannel channel,
+            TemplateVersionStatus status);
 
     @Query(
             "select v from TemplateVersion v, DocumentTemplate t where v.id = :id "

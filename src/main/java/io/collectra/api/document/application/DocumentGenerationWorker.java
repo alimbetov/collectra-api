@@ -42,7 +42,7 @@ public class DocumentGenerationWorker {
             outputs.storeHtml(job.tenantId(), job.jobId(), html);
         if (job.formats().contains(OutputFormat.PDF)) {
             states.step(jobId, "RENDER_PDF");
-            outputs.storePdf(job.tenantId(), job.jobId(), pdf.render(html));
+            outputs.storePdf(job.tenantId(), job.jobId(), pdf.render(html, version.getLocale()));
         }
         states.complete(jobId);
     }

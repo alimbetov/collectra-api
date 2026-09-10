@@ -2,6 +2,7 @@ package io.collectra.api.template.application;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import io.collectra.api.importing.application.SourceSchemaManagementService;
+import io.collectra.api.localization.application.LocaleTag;
 import io.collectra.api.template.domain.DocumentTemplate;
 import io.collectra.api.template.domain.TemplateChannel;
 import io.collectra.api.template.domain.TemplateVersion;
@@ -321,7 +322,7 @@ public class TemplateManagementService {
     private VersionSeed nextVersionSeed(
             UUID tenantId, UUID templateId, String locale, TemplateChannel channel) {
         requireActiveTemplate(tenantId, templateId);
-        String normalizedLocale = locale.trim().toLowerCase(Locale.ROOT);
+        String normalizedLocale = LocaleTag.canonicalize(locale);
         TemplateChannel normalizedChannel = channel == null ? TemplateChannel.PDF : channel;
         var existing =
                 versions.findAllByTemplateIdAndLocaleAndChannelOrderByTemplateVersionDesc(

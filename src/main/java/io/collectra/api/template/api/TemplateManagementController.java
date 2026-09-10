@@ -121,13 +121,16 @@ public class TemplateManagementController {
     record RenameRequest(@NotBlank @Size(max = 200) String name) {}
 
     record VersionRequest(
-            @NotBlank @Size(max = 10) String locale,
+            @NotBlank @Size(max = 35) String locale,
             TemplateChannel channel,
             @Size(max = 300) String subject,
             String contentHtml,
             String stylesheet) {}
 
-    record VersionContent(@Size(max = 300) String subject, @NotBlank String contentHtml, String stylesheet) {}
+    record VersionContent(
+            @Size(max = 300) String subject,
+            @NotBlank String contentHtml,
+            String stylesheet) {}
 
     record TemplateResponse(UUID id, String code, String name, String documentType, String status) {
         static TemplateResponse from(DocumentTemplate v) {
