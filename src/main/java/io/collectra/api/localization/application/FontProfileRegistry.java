@@ -12,6 +12,8 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class FontProfileRegistry {
+    private static final FontProfileCode BASE_PROFILE = FontProfileCode.LATIN_CYRILLIC;
+
     private static final Map<FontProfileCode, FontProfile> PROFILES =
             Map.of(
                     FontProfileCode.LATIN_CYRILLIC,
@@ -49,8 +51,31 @@ public class FontProfileRegistry {
         return profile;
     }
 
-    public void register(PdfRendererBuilder builder, FontProfileCode code) {
-        FontProfile profile = require(code);
+    public FontProfile register(PdfRendererBuilder builder, FontProfileCode code) {
+        FontProfile base = require(BASE_PROFILE);
+        registerProfile(builder, base);
+        FontProfile selected = require(code);
+        if (code != BASE_PROFILE) {
+            registerProfile(builder, selected);
+        }
+        return selected;
+    }
+
+    public String cssStack(FontProfileCode code) {
+        FontProfile selected = require(code);
+        if (code == BASE_PROFILE) {
+            return quote(selected.family()) + ", sans-serif";
+        }
+        return quote(selected.family()) + ", " + quote(require(BASE_PROFILE).family()) + ", sans-serif";
+    }
+
+    public void verifyBundledResources() {
+        PROFILES.values().stream()
+                .flatMap(profile -> profile.faces().stream())
+                .forEach(face -> requireResource(face.resource()));
+    }
+
+    private void registerProfile(PdfRendererBuilder builder, FontProfile profile) {
         for (FontProfile.FontFace face : profile.faces()) {
             requireResource(face.resource());
             builder.useFont(
@@ -62,14 +87,12 @@ public class FontProfileRegistry {
         }
     }
 
-    public void verifyBundledResources() {
-        PROFILES.values().stream()
-                .flatMap(profile -> profile.faces().stream())
-                .forEach(face -> requireResource(face.resource()));
-    }
-
     private static FontProfile.FontFace face(String resource, int weight, FontStyle style) {
         return new FontProfile.FontFace(resource, weight, style);
+    }
+
+    private String quote(String family) {
+        return "\"" + family.replace("\"", "") + "\"";
     }
 
     private void requireResource(String resource) {
