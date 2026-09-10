@@ -1,37 +1,61 @@
 # Collectra API — техническое задание по результатам повторного аудита
 
-## 1. Цель
+## 1. Цель и границы
 
-Стабилизировать техническую основу Collectra API перед дальнейшим развитием business-функционала.
+Цель этапа — сделать техническую основу Collectra API предсказуемой и надежной перед дальнейшим развитием business-функционала.
 
-На этом этапе не требуется усложнять архитектуру или вводить новые сервисы. Основная задача — закрыть обнаруженные риски в сборке, конфигурации, FileService и эксплуатационной наблюдаемости.
+Принцип этапа: **не усложнять архитектуру, а укрепить уже существующие механизмы**.
+
+В рамках этого ТЗ:
+
+- не выделяем новые микросервисы;
+- не меняем базовую архитектуру Outbox;
+- не вводим Kafka, Redis, distributed lock или отдельный scheduler service;
+- не проектируем ручную admin-панель для recovery;
+- не переписываем FileService целиком;
+- закрепляем изменения unit- и integration-тестами.
+
+Приоритет реализации: `P0 → P1 → P2`.
 
 ---
 
-## 2. Приоритет P0 — стабильная сборка и конфигурация
+# 2. P0 — воспроизводимый build и test isolation
 
-### 2.1. Зафиксировать воспроизводимый build
+## 2.1. Зафиксировать commit, который реально тестируется
 
-Необходимо гарантировать, что локальная сборка и CI проверяют один и тот же код.
+### Изменяемые файлы
 
-Перед `mvn clean verify` должна быть возможность определить текущий commit:
+```text
+.github/workflows/ci.yml
+```
+
+### Требование
+
+Перед Maven build CI должен выводить текущий Git SHA.
+
+Добавить step:
+
+```yaml
+- name: Build metadata
+  run: |
+    echo "branch=${GITHUB_REF_NAME}"
+    echo "sha=$(git rev-parse HEAD)"
+    git log -1 --oneline
+```
+
+Не требуется отдельная build-система или shell script.
+
+### Локальная проверка
 
 ```bash
 git status
 git branch --show-current
 git rev-parse HEAD
 git log -1 --oneline
-```
-
-В GitHub Actions добавить вывод SHA текущего commit.
-
-### Критерий приемки
-
-```bash
 mvn clean verify
 ```
 
-стабильно завершается:
+### Acceptance criteria
 
 ```text
 Failures: 0
@@ -39,108 +63,389 @@ Errors: 0
 BUILD SUCCESS
 ```
 
-`OutboxClaimIntegrationTest` должен проходить независимо от порядка исполнения остальных тестов.
+SHA в CI должен соответствовать commit, для которого выполняется workflow.
 
 ---
 
-### 2.2. Изоляция integration tests
+## 2.2. Изоляция integration tests
 
-Integration tests не должны зависеть от данных, созданных другими тестами.
+Текущий `AbstractIntegrationTest` использует один PostgreSQL Testcontainer для Spring context. Это допустимо и не требуется менять.
 
-Требования:
+Проблему изоляции решаем на уровне тестовых данных.
 
-- использовать уникальные UUID для тестовых сущностей;
-- очищать собственные данные перед/после теста, где это необходимо;
-- в assertions проверять только созданные текущим тестом записи;
-- не использовать `findAll()` как источник истины, если таблица используется другими integration tests;
-- не полагаться на порядок запуска тестовых классов.
+### Правила
 
-Текущую архитектуру Outbox с `FOR UPDATE SKIP LOCKED` менять не требуется.
+Каждый integration test обязан:
+
+1. создавать собственные UUID/tenant/project identifiers;
+2. проверять только созданные им сущности;
+3. не считать таблицу пустой без явной подготовки;
+4. не использовать `findAll()` для assertions, если таблица разделяется с другими тестами;
+5. не зависеть от порядка выполнения классов;
+6. очищать данные в `@BeforeEach`/`@AfterEach` только там, где тест проверяет конкурентную работу общей таблицы.
+
+### OutboxClaimIntegrationTest
+
+Сохранить текущий подход:
+
+```java
+List<UUID> claimedIds = Stream.concat(a.stream(), b.stream()).toList();
+
+assertThat(events.findAllById(claimedIds))
+        .hasSize(4)
+        .allMatch(event -> event.getStatus() == OutboxEventStatus.PROCESSING);
+```
+
+Не возвращать assertion через:
+
+```java
+events.findAll()
+```
+
+### Обязательный regression test
+
+`OutboxClaimIntegrationTest.skipLockedGivesConcurrentTransactionsDisjointClaims`
+
+Проверяет:
+
+- worker A claim-ит 2 события;
+- worker B claim-ит 2 события;
+- пересечение UUID пустое;
+- все четыре созданных события находятся в `PROCESSING`;
+- test не зависит от других строк `outbox_events`.
+
+### Acceptance criteria
+
+Тест должен стабильно проходить при повторных запусках:
+
+```bash
+for i in {1..20}; do
+  mvn -Dtest=OutboxClaimIntegrationTest test || exit 1
+done
+```
 
 ---
 
-### 2.3. Разделить local и production configuration
+# 3. P0 — безопасная конфигурация
 
-Использовать минимум:
+## 3.1. Разделить shared/local/test/prod configuration
 
-```text
-application.yml
-application-local.yml
-application-test.yml
-application-prod.yml
-```
+Текущие файлы `application-local.yml`, `application-test.yml`, `application-prod.yml` уже существуют. Не создавать дополнительную систему конфигурации.
 
-Local credentials и local endpoints перенести в `application-local.yml`.
-
-В production обязательные параметры не должны иметь development fallback-значений:
+### Изменяемые файлы
 
 ```text
-DB_URL
-DB_USERNAME
-DB_PASSWORD
-COLLECTRA_JWT_SECRET
-COLLECTRA_OTP_PEPPER
-RUSTFS_ENDPOINT
-RUSTFS_ACCESS_KEY
-RUSTFS_SECRET_KEY
+src/main/resources/application.yml
+src/main/resources/application-local.yml
+src/main/resources/application-test.yml
+src/main/resources/application-prod.yml
 ```
 
-Production должен завершать startup ошибкой при отсутствии обязательной конфигурации.
+### application.yml
 
-### Критерий приемки
+Оставить только общие настройки:
 
-Запуск с `SPRING_PROFILES_ACTIVE=prod` без обязательных secrets завершается ошибкой конфигурации и не использует local defaults.
+```text
+spring.application
+JPA общие настройки
+Liquibase
+Rabbit publisher confirms
+multipart limits
+Actuator common exposure
+общие retry/batch/retention defaults
+```
+
+Из `application.yml` убрать development fallback credentials.
+
+Не должно оставаться:
+
+```yaml
+password: ${DB_PASSWORD:collectra}
+jwt-secret: ${COLLECTRA_JWT_SECRET:local-development-...}
+otp-pepper: ${COLLECTRA_OTP_PEPPER:local-development-...}
+```
+
+### application-local.yml
+
+Local credentials допустимы только здесь:
+
+```yaml
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/app_db
+    username: devuser
+    password: devpass
+```
+
+То же относится к RabbitMQ и локальному RustFS.
+
+### application-test.yml
+
+Тестовые secrets оставить изолированными в test profile.
+
+Test profile должен продолжать отключать:
+
+```text
+Rabbit listener auto-startup
+scheduler
+File cleanup scheduler
+Outbox scheduler
+```
+
+если конкретный integration test явно их не включает.
+
+### application-prod.yml
+
+Production profile обязан требовать реальные environment variables:
+
+```yaml
+spring:
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+
+collectra:
+  security:
+    jwt-secret: ${COLLECTRA_JWT_SECRET}
+    otp-pepper: ${COLLECTRA_OTP_PEPPER}
+  file:
+    storage:
+      endpoint: ${RUSTFS_ENDPOINT}
+      access-key: ${RUSTFS_ACCESS_KEY}
+      secret-key: ${RUSTFS_SECRET_KEY}
+```
+
+Production startup без этих параметров должен завершаться ошибкой Spring placeholder resolution/config binding.
+
+### Важное ограничение
+
+Не добавлять собственный `EnvironmentValidator`, если fail-fast уже обеспечивается обязательными `${ENV_NAME}` placeholders.
+
+### Tests
+
+Добавить небольшой configuration test, например:
+
+```text
+src/test/java/io/collectra/api/config/ProductionConfigurationTest.java
+```
+
+Проверить минимум:
+
+- prod profile без `COLLECTRA_JWT_SECRET` не поднимается;
+- prod profile без DB credentials не поднимается;
+- test profile продолжает подниматься;
+- local profile properties остаются доступными локально.
+
+Если полноценный Spring context test для отсутствующих ENV получается хрупким, допускается проверка через `ApplicationContextRunner`. Не поднимать отдельный Testcontainer для каждого negative-case.
 
 ---
 
-## 3. Приоритет P1 — FileService reliability
+# 4. P1 — FileService: терминальное состояние удаления
 
-### 3.1. Добавить терминальное состояние неудачного удаления
+## 4.1. Проблема
 
-Сейчас после достижения `max-delete-attempts` файл перестает выбираться cleanup-процессом, но остается в `DELETE_PENDING`.
+Сейчас cleanup выбирает только:
 
-Добавить состояние:
-
-```text
-DELETE_FAILED
+```sql
+status in ('READY', 'DELETE_PENDING')
+and delete_attempts < :maxAttempts
 ```
 
-Целевой lifecycle:
+После `maxDeleteAttempts` файл остается в `DELETE_PENDING`, но больше не claim-ится. С технической точки зрения запись зависает в промежуточном состоянии.
+
+## 4.2. Добавить FileStatus.DELETE_FAILED
+
+### Изменяемые файлы
 
 ```text
-READY
-  ↓ expiration
-DELETE_PENDING
-  ├─ success → DELETED
-  ├─ temporary error → DELETE_PENDING + retry
-  └─ max attempts reached → DELETE_FAILED
+src/main/java/io/collectra/api/file/domain/FileStatus.java
+src/main/java/io/collectra/api/file/domain/StoredFile.java
+src/main/java/io/collectra/api/file/application/FileCleanupService.java
+src/main/java/io/collectra/api/file/application/FileMetadata.java
 ```
 
-После последней неудачной попытки необходимо сохранить:
+`FileStatus`:
+
+```java
+public enum FileStatus {
+    UPLOADING,
+    READY,
+    DELETE_PENDING,
+    DELETE_FAILED,
+    DELETED,
+    FAILED,
+    QUARANTINED
+}
+```
+
+Отдельная колонка БД не нужна: `stored_file.status` уже `varchar(40)`.
+
+Отдельная миграция нужна только в том случае, если будет добавлен DB CHECK constraint по status. В текущей схеме такого ограничения нет, поэтому не создавать пустую миграцию исключительно ради enum.
+
+---
+
+## 4.3. Доменная логика StoredFile
+
+Добавить явный доменный метод:
+
+```java
+public void registerDeleteFailure(
+        Instant attemptedAt,
+        String error,
+        int maxAttempts) {
+
+    requireStatus(FileStatus.DELETE_PENDING, "register delete failure");
+
+    if (maxAttempts < 1) {
+        throw new IllegalArgumentException("maxAttempts must be positive");
+    }
+
+    this.deleteAttempts++;
+    this.lastDeleteAttemptAt = require(attemptedAt, "attemptedAt");
+    this.lastError = sanitizeError(error);
+
+    if (this.deleteAttempts >= maxAttempts) {
+        this.status = FileStatus.DELETE_FAILED;
+    }
+}
+```
+
+Старый overload без `maxAttempts` удалить либо оставить package-private только если он реально нужен. Желательно иметь одну семантику, чтобы лимит не вычислялся отдельно в service и domain.
+
+### Инварианты
+
+- `READY → DELETE_PENDING` разрешен;
+- `DELETE_PENDING → DELETED` разрешен;
+- `DELETE_PENDING → DELETE_PENDING` после временной ошибки разрешен;
+- `DELETE_PENDING → DELETE_FAILED` после последней попытки разрешен;
+- `DELETE_FAILED → DELETED` автоматически запрещен;
+- `DELETE_FAILED → DELETE_PENDING` в этом ТЗ не реализуем;
+- `DELETED` остается idempotent terminal state.
+
+---
+
+## 4.4. Unit tests StoredFile
+
+Расширить:
 
 ```text
+src/test/java/io/collectra/api/file/domain/StoredFileUnitTest.java
+```
+
+Обязательные unit tests:
+
+```java
+@Test
+void deleteFailureBelowLimitKeepsDeletePending()
+```
+
+Проверить:
+
+```text
+deleteAttempts = 1
+status = DELETE_PENDING
+lastError заполнен
+lastDeleteAttemptAt заполнен
+```
+
+```java
+@Test
+void deleteFailureAtLimitMovesToDeleteFailed()
+```
+
+Проверить:
+
+```text
+deleteAttempts = maxAttempts
 status = DELETE_FAILED
-delete_attempts = maxDeleteAttempts
-last_error
-last_delete_attempt_at
 ```
 
-### Критерий приемки
+```java
+@Test
+void cannotMarkDeleteFailedFileAsDeleted()
+```
 
-Файл после исчерпания попыток больше не остается в неопределенном `DELETE_PENDING`.
+Ожидать `IllegalFileStateException`.
+
+```java
+@Test
+void registerDeleteFailureRejectsInvalidMaxAttempts()
+```
+
+Ожидать `IllegalArgumentException` для `0` и отрицательных значений.
+
+Существующие тесты lifecycle сохранить.
 
 ---
 
-### 3.2. Улучшить cleanup logging
+# 5. P1 — FileCleanupService reliability
 
-Лог cleanup должен показывать реальный результат попытки:
+## 5.1. Передавать maxAttempts в domain
 
-```text
-retryable
-exhausted
+В `FileCleanupService.registerFailure(...)` использовать:
+
+```java
+current.registerDeleteFailure(
+        attemptedAt,
+        error,
+        properties.getCleanup().getMaxDeleteAttempts());
 ```
 
-Минимальные поля:
+Не вычислять новый счетчик попыток в service вручную.
+
+## 5.2. Возвращать результат failure transition
+
+Чтобы корректно логировать `retryable/exhausted`, `registerFailure(...)` должен возвращать итоговый status либо небольшой enum результата.
+
+Предпочтительный простой вариант:
+
+```java
+private FileStatus registerFailure(...)
+```
+
+После транзакции:
+
+```java
+FileStatus result = registerFailure(...);
+boolean exhausted = result == FileStatus.DELETE_FAILED;
+```
+
+Не создавать отдельный event bus или exception hierarchy.
+
+## 5.3. CleanupResult
+
+Расширить record:
+
+```java
+public record CleanupResult(
+        int processed,
+        int deleted,
+        int failed,
+        int exhausted,
+        int batches) {}
+```
+
+Семантика:
+
+- `failed` — количество storage delete failures в текущем запуске;
+- `exhausted` — subset `failed`, который достиг лимита и стал `DELETE_FAILED`.
+
+## 5.4. Logging
+
+Для временной ошибки:
+
+```text
+attemptResult=retryable
+```
+
+Для последней попытки:
+
+```text
+attemptResult=exhausted
+```
+
+Минимальный набор structured fields:
 
 ```text
 fileId
@@ -151,66 +456,200 @@ maxDeleteAttempts
 attemptResult
 ```
 
-Secrets, presigned URLs и содержимое файлов в лог не писать.
+Ошибка storage передается как exception в logger, но secrets/URL/content явно не логируются.
+
+## 5.5. Scheduler summary
+
+`FileCleanupScheduler` должен логировать:
+
+```text
+processed
+deleted
+failed
+exhausted
+batches
+```
+
+Пример:
+
+```java
+log.info(
+    "File cleanup completed processed={} deleted={} failed={} exhausted={} batches={}",
+    result.processed(),
+    result.deleted(),
+    result.failed(),
+    result.exhausted(),
+    result.batches());
+```
 
 ---
 
-### 3.3. Добавить минимальные FileService metrics
+# 6. P1 — FileCleanup integration tests
 
-Добавить Micrometer metrics:
-
-```text
-collectra_file_cleanup_processed_total
-collectra_file_cleanup_deleted_total
-collectra_file_cleanup_failed_total
-collectra_file_cleanup_exhausted_total
-```
-
-Также желательно иметь gauge количества файлов в:
+Расширить существующий:
 
 ```text
-DELETE_PENDING
-DELETE_FAILED
+FileCleanupServiceIntegrationTest
 ```
 
-Не требуется строить отдельную monitoring-систему в рамках этой задачи.
+Не создавать второй почти идентичный integration test class.
+
+## Обязательные сценарии
+
+### 6.1. Concurrent claim
+
+Сохранить текущий тест:
+
+```java
+concurrentRunsDoNotDeleteSameClaimedFileTwice()
+```
+
+Assertions:
+
+```text
+storage.delete -> exactly once
+second cleanup processed = 0
+final status = DELETED
+```
+
+### 6.2. Retry delay
+
+Сохранить:
+
+```java
+failedDeleteIsRetriedOnlyAfterRetryDelay()
+```
+
+Assertions:
+
+```text
+1-я попытка -> DELETE_PENDING, attempts=1
+early retry -> processed=0
+after delay -> DELETED
+storage.delete -> exactly twice
+```
+
+### 6.3. Exhaustion
+
+Изменить текущий тест:
+
+```java
+maxDeleteAttemptsMovesPoisonFileToDeleteFailed()
+```
+
+После десяти попыток:
+
+```java
+assertThat(exhausted.getDeleteAttempts()).isEqualTo(10);
+assertThat(exhausted.getStatus()).isEqualTo(FileStatus.DELETE_FAILED);
+```
+
+Следующий cleanup:
+
+```text
+processed = 0
+storage.delete count = 10
+```
+
+Дополнительно:
+
+```text
+CleanupResult.exhausted() = 1
+```
+
+только на последнем запуске.
 
 ---
 
-### 3.4. Убрать дублирование object storage configuration
+# 7. P1 — FileService.delete consistency
 
-Сейчас существуют две конфигурационные модели:
+`FileService.delete(...)` выполняет ручное delete и использует ту же `StoredFile.registerDeleteFailure`.
 
-```text
-collectra.storage
-collectra.file.storage
+Это значит, что после изменения domain method ручное удаление тоже обязано соблюдать `maxDeleteAttempts`.
+
+### Изменяемый код
+
+В catch-блоке:
+
+```java
+current.registerDeleteFailure(
+        Instant.now(),
+        ex.getMessage(),
+        properties.getCleanup().getMaxDeleteAttempts());
 ```
 
-Необходимо постепенно перевести генерацию документов на единый FileService/ObjectStorage abstraction.
+### Поведение
 
-Целевой поток:
+- первая временная ошибка → `DELETE_PENDING`;
+- последняя разрешенная ошибка → `DELETE_FAILED`;
+- повторный вызов `delete()` для `DELETE_FAILED` должен завершаться `FileNotReadyException`;
+- автоматического reset attempts не делать.
+
+### Unit/integration coverage
+
+Добавить тест сервиса на:
 
 ```text
-DocumentGeneration
-    ↓
-GeneratedOutputService
-    ↓
-FileService
-    ↓
-ObjectStorage
-    ↓
-RustFS
+manual delete failure increments attempts
+manual delete at max attempts becomes DELETE_FAILED
+manual delete of DELETE_FAILED does not call ObjectStorage.delete again
 ```
 
-После миграции удалить legacy `collectra.storage.*`.
-
-На этом этапе не требуется выделять FileService в отдельный микросервис.
+Если `FileService` уже покрывается API integration test, использовать существующий класс, а не создавать дублирующий Spring context.
 
 ---
 
-## 4. Приоритет P1 — Outbox reliability
+# 8. P1 — FileService metrics
 
-Текущую модель Outbox сохранить:
+Micrometer уже подключен. Новую monitoring библиотеку не добавлять.
+
+## Реализация
+
+Добавить небольшой компонент:
+
+```text
+io.collectra.api.file.infrastructure.metrics.FileMetrics
+```
+
+или метрики непосредственно в `FileCleanupService`, если это позволяет сохранить код проще.
+
+Рекомендуемые counters:
+
+```text
+collectra.file.cleanup.processed
+collectra.file.cleanup.deleted
+collectra.file.cleanup.failed
+collectra.file.cleanup.exhausted
+```
+
+Не использовать tenantId/fileId как metric tags — это создаст high cardinality.
+
+Допустимые low-cardinality tags:
+
+```text
+category
+result
+```
+
+### Test
+
+Использовать `SimpleMeterRegistry` в unit test.
+
+Проверить:
+
+```text
+successful deletion increments processed + deleted
+retryable error increments processed + failed
+exhausted error increments processed + failed + exhausted
+```
+
+Не тестировать Prometheus HTTP exposition в отдельном integration test.
+
+---
+
+# 9. P1 — Outbox: не переделывать, только закрепить reliability
+
+Текущая модель остается:
 
 ```text
 PENDING
@@ -220,156 +659,334 @@ PUBLISHED
 DEAD
 ```
 
-Сохранить также:
+Текущие компоненты сохраняются:
 
 ```text
-FOR UPDATE SKIP LOCKED
-attempt_count
-locked_at
-locked_by
-retry
-stale processing recovery
+OutboxEvent
+OutboxClaimService
+OutboxStateService
+OutboxPublisher
+OutboxRetryPolicy
+OutboxRepository
 ```
 
-Архитектурную переработку Outbox в рамках этой задачи не выполнять.
+`FOR UPDATE SKIP LOCKED` сохраняется.
 
-Дополнительно добавить минимальные метрики:
+## 9.1. Unit tests OutboxEvent
+
+Расширить `OutboxEventUnitTest` следующими сценариями:
+
+```java
+markDeadClearsOwnership()
+```
+
+Проверить:
 
 ```text
-collectra_outbox_pending
-collectra_outbox_retry_wait
-collectra_outbox_dead
+status=DEAD
+lockedAt=null
+lockedBy=null
+lastErrorCode заполнен
 ```
 
-Критично иметь возможность обнаружить `DEAD > 0`.
+```java
+publishedEventCannotBeRetried()
+```
+
+Ожидать `IllegalStateException`.
+
+```java
+retryWaitCannotBeClaimedBeforeNextAttemptAt()
+```
+
+Этот сценарий уже фактически есть — сохранить.
+
+```java
+recoverKeepsAttemptCount()
+```
+
+Текущий тест сохранить.
+
+## 9.2. Unit tests OutboxRetryPolicy
+
+Расширить существующий тест:
+
+```text
+constructor rejects maxAttempts < 1
+delayForAttempt rejects attempt < 1
+attempt >= 5 returns 1 hour
+```
+
+Не усложнять retry schedule configurable DSL.
+
+## 9.3. OutboxPublisher behavior
+
+Закрепить unit-тестами минимум:
+
+```text
+unknown event type -> DEAD
+invalid JSON -> DEAD
+Rabbit ACK -> PUBLISHED
+Rabbit NACK before max attempts -> RETRY_WAIT
+Rabbit failure at max attempts -> DEAD
+InterruptedException restores interrupted flag
+```
+
+Для этих тестов мокировать `RabbitTemplate`, `OutboxStateService`, router и retry policy. RabbitMQ container здесь не нужен.
+
+## 9.4. Idempotency contract
+
+Событие уже публикует:
+
+```text
+messageId = event.id
+x-event-id = event.id
+```
+
+Это считать системным контрактом.
+
+Новые consumers должны использовать `eventId` для идемпотентной обработки, но реализация общей таблицы processed_events в рамках этого ТЗ **не требуется**, пока нет concrete consumer, где это необходимо.
 
 ---
 
-## 5. Приоритет P2 — инженерное качество
+# 10. P1 — Outbox metrics
 
-### 5.1. Добавить Spotless в CI gate
+Добавить минимальные counters:
 
-В CI выполнять:
+```text
+collectra.outbox.published
+collectra.outbox.retry
+collectra.outbox.dead
+collectra.outbox.recovered
+```
+
+Gauge по всей таблице в каждом publish loop не выполнять.
+
+Если нужен статус количества `DEAD`, реализовать repository count:
+
+```java
+long countByStatus(OutboxEventStatus status);
+```
+
+и Micrometer gauge с low-frequency polling/actuator access.
+
+Не добавлять отдельный monitoring scheduler только ради gauge.
+
+Unit tests counters — через `SimpleMeterRegistry`.
+
+---
+
+# 11. P1 — единый ObjectStorage
+
+Сейчас существуют:
+
+```text
+collectra.storage
+collectra.file.storage
+```
+
+и `application-test.yml`/`application-local.yml` содержат обе конфигурации.
+
+Это технический долг, но миграция должна быть линейной, без нового abstraction layer поверх уже существующего `ObjectStorage`.
+
+## Целевой поток
+
+```text
+GeneratedOutputService
+    ↓
+FileService
+    ↓
+ObjectStorage
+    ↓
+RustFS/S3-compatible storage
+```
+
+## Требования
+
+1. Найти прямое использование legacy `collectra.storage` в document generation.
+2. Перевести generated PDF/HTML output на FileService с категорией `REPORT` либо `EXPORT` по назначению.
+3. В БД хранить `stored_file.id` как reference на сгенерированный объект, если модель generation job уже поддерживает такую связь.
+4. После отсутствия usages удалить legacy properties/configuration.
+5. Удалить legacy значения из local/test config.
+
+## Ограничение
+
+Не выделять FileService в отдельный сервис и не создавать второй storage gateway.
+
+## Tests
+
+Добавить/обновить unit test GeneratedOutputService:
+
+```text
+calls FileService once
+uses expected FileCategory
+passes tenant/project ownership
+propagates returned fileId
+```
+
+Сохранить один integration happy-path генерации документа.
+
+---
+
+# 12. P2 — Maven/CI hygiene
+
+## 12.1. Spotless
+
+В CI добавить отдельный step перед build:
+
+```yaml
+- name: Check formatting
+  run: mvn --batch-mode --no-transfer-progress spotless:check
+```
+
+Затем:
+
+```yaml
+- name: Verify with PostgreSQL Testcontainers
+  run: mvn --batch-mode --no-transfer-progress clean verify
+```
+
+Не привязывать auto-format (`spotless:apply`) к build.
+
+## 12.2. MapStruct warning
+
+Проверить, почему javac выводит:
+
+```text
+options were not recognized by any processor
+```
+
+Не убирать compiler args только ради скрытия warning.
+
+Проверить фактическое участие `mapstruct-processor` в annotationProcessorPaths.
+
+После исправления:
+
+```text
+-Amapstruct.defaultComponentModel=spring
+-Amapstruct.unmappedTargetPolicy=ERROR
+```
+
+должны применяться без warning.
+
+## 12.3. Deprecated MockBean
+
+Новые тесты писать через актуальный Spring Test механизм (`@MockitoBean`), если версия Spring Boot 3.5.16 его поддерживает в используемом test stack.
+
+Старые `@MockBean` можно заменить в затрагиваемых классах, но не делать массовый рефакторинг всего test tree в рамках этой задачи.
+
+## 12.4. commons-logging
+
+Через:
 
 ```bash
-mvn spotless:check
-mvn clean verify
+mvn dependency:tree -Dincludes=commons-logging:commons-logging
 ```
 
-или привязать `spotless:check` к Maven lifecycle.
+определить транзитивный источник.
+
+Если dependency не требуется напрямую — добавить точечный `<exclusion>` в родительскую зависимость.
+
+Не исключать произвольные logging зависимости без dependency tree evidence.
 
 ---
 
-### 5.2. Устранить текущие build warnings
+# 13. P2 — build metadata
 
-Отдельно проверить:
+Добавить build information стандартными средствами Spring Boot/Maven.
 
-- MapStruct compiler options;
-- deprecated `@MockBean`;
-- конфликт `commons-logging` / `spring-jcl`;
-- deprecated API в `TemplateAssetService`.
+Предпочтительно использовать `spring-boot-maven-plugin` build-info вместо собственного REST controller.
 
-Не требуется включать глобальный `-Werror`.
+Пример:
 
-Цель — не накапливать новые предупреждения и постепенно убрать текущие.
+```xml
+<executions>
+    <execution>
+        <goals>
+            <goal>build-info</goal>
+        </goals>
+    </execution>
+</executions>
+```
 
----
+Git SHA можно добавить через существующий Maven git commit id plugin, только если он действительно нужен для `/actuator/info`.
 
-### 5.3. Добавить build metadata
+Не создавать отдельную таблицу/endpoint.
 
-Через `/actuator/info` или аналогичный internal endpoint вывести:
+Acceptance:
 
 ```text
-application version
-git commit
-build timestamp
-Java version
+/actuator/info
 ```
 
-Это позволит быстро определить, какой commit фактически развернут.
+позволяет определить как минимум application version и build time; Git SHA должен быть доступен в CI logs в любом случае.
 
 ---
 
-## 6. Обязательные regression tests
+# 14. Матрица обязательных тестов
 
-Минимальный набор:
-
-### Outbox
-
-- два worker не claim-ят одну запись;
-- retry выполняется после delay;
-- превышение числа попыток переводит event в `DEAD`;
-- stale `PROCESSING` восстанавливается.
-
-### FileService
-
-- два cleanup worker не удаляют один файл дважды;
-- временная ошибка storage приводит к retry;
-- retry до истечения delay невозможен;
-- успешный retry переводит файл в `DELETED`;
-- достижение max attempts переводит файл в `DELETE_FAILED`;
-- `DELETE_FAILED` автоматически повторно не выбирается.
-
-### Configuration
-
-- prod без JWT secret не стартует;
-- prod без DB credentials не стартует;
-- prod без storage credentials не стартует;
-- local profile продолжает запускаться с локальной инфраструктурой.
+| Область | Тип | Сценарий |
+|---|---|---|
+| StoredFile | Unit | READY → DELETE_PENDING → DELETED |
+| StoredFile | Unit | delete failure ниже лимита оставляет DELETE_PENDING |
+| StoredFile | Unit | delete failure на лимите переводит DELETE_FAILED |
+| StoredFile | Unit | DELETE_FAILED нельзя markDeleted |
+| FileCleanup | Integration | два cleanup worker не удаляют один объект дважды |
+| FileCleanup | Integration | retry раньше delay не выполняется |
+| FileCleanup | Integration | retry после delay выполняется |
+| FileCleanup | Integration | max attempts → DELETE_FAILED |
+| FileService | Unit/Integration | manual delete failure учитывает max attempts |
+| OutboxEvent | Unit | claim → publish |
+| OutboxEvent | Unit | retry → повторный claim после nextAttemptAt |
+| OutboxEvent | Unit | DEAD очищает lock |
+| OutboxRetryPolicy | Unit | retry schedule и validation |
+| OutboxPublisher | Unit | ACK/NACK/timeout/invalid payload/unknown type |
+| OutboxClaim | Integration | concurrent claims disjoint через SKIP LOCKED |
+| Config | Context test | prod без secrets fail-fast |
+| Metrics | Unit | counters увеличиваются корректно |
 
 ---
 
-## 7. Definition of Done
+# 15. Definition of Done
 
-Работа считается завершенной, когда:
+Работа считается завершенной только при одновременном выполнении условий:
 
 ```text
-mvn clean verify -> BUILD SUCCESS
-spotless:check -> SUCCESS
-Failures -> 0
-Errors -> 0
+mvn spotless:check -> SUCCESS
+mvn clean verify   -> BUILD SUCCESS
+Failures           -> 0
+Errors             -> 0
 ```
 
-Также выполнено:
+Дополнительно:
 
-- production не использует development secrets;
-- FileService имеет `DELETE_FAILED`;
-- legacy storage configuration больше не используется после миграции;
-- Outbox и File Cleanup имеют минимальные эксплуатационные метрики;
-- текущий git commit доступен через build metadata.
+- `DELETE_FAILED` реализован как terminal automatic-cleanup state;
+- unit tests фиксируют доменные state transitions;
+- integration tests фиксируют PostgreSQL `SKIP LOCKED` и retry semantics;
+- prod profile не имеет development secret fallback;
+- cleanup различает `retryable` и `exhausted`;
+- FileService и Outbox имеют минимальные low-cardinality metrics;
+- legacy object storage config удаляется после миграции generated output;
+- CI выводит точный Git SHA;
+- новые изменения не вводят отдельные микросервисы, distributed locks или лишние инфраструктурные зависимости.
 
 ---
 
-## 8. Порядок реализации
+# 16. Порядок реализации
 
-Рекомендуемый порядок без параллельного усложнения системы:
-
-```text
-1. Build + test isolation
-2. Production configuration
-3. FileService DELETE_FAILED
-4. FileService metrics/logging
-5. Legacy storage migration
-6. Outbox metrics
-7. Build warnings + build metadata
-```
-
-После этого можно продолжать развитие основного pipeline Collectra:
+Выполнять последовательно небольшими изменениями:
 
 ```text
-Campaign
-   ↓
-Recipients
-   ↓
-Template rendering
-   ↓
-Document generation
-   ↓
-Outbox
-   ↓
-RabbitMQ
-   ↓
-Workers
-   ↓
-Email / SMS / WhatsApp / Telegram / In-App
+1. CI SHA + test isolation
+2. prod/local/test configuration cleanup
+3. FileStatus.DELETE_FAILED + StoredFile unit tests
+4. FileCleanupService + integration tests
+5. FileService.delete consistency tests
+6. File cleanup metrics/logging
+7. Outbox unit-test hardening + metrics
+8. legacy storage migration
+9. Spotless/warnings/build metadata
+10. final mvn spotless:check && mvn clean verify
 ```
+
+Каждый шаг должен оставлять ветку в состоянии `BUILD SUCCESS`. Не накапливать несколько незавершенных инфраструктурных изменений перед запуском полного test suite.
