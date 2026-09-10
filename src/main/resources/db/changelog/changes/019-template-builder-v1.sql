@@ -3,7 +3,8 @@
 --changeset collectra:019-template-channel-variants
 ALTER TABLE template_versions
     ADD COLUMN channel VARCHAR(20) NOT NULL DEFAULT 'PDF',
-    ADD COLUMN subject VARCHAR(300);
+    ADD COLUMN subject VARCHAR(300),
+    ADD COLUMN builder_json JSONB;
 
 ALTER TABLE template_versions DROP CONSTRAINT uk_template_version;
 ALTER TABLE template_versions
