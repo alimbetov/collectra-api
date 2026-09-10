@@ -45,7 +45,7 @@ class TemplateAssetServiceUnitTest {
                         metadata(
                                 tenantId,
                                 fileId,
-                                FileCategory.UPLOAD,
+                                FileCategory.IMPORT_SOURCE,
                                 FileStatus.READY,
                                 "image/png",
                                 10L));
