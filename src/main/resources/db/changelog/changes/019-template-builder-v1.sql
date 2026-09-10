@@ -42,7 +42,7 @@ VALUES
     ('20000000-0000-0000-0000-000000000104', NULL, 'recipient.whatsapp', 'Recipient WhatsApp',
      'STRING', 'RECIPIENT', FALSE, FALSE, 'WhatsApp destination', '+77010000001', '{}', 'ACTIVE', now(), now(), 0),
     ('20000000-0000-0000-0000-000000000105', NULL, 'recipient.telegram', 'Recipient Telegram',
-     'STRING', 'RECIPIENT', FALSE, FALSE, 'Telegram destination', '@example_fin', '{}', 'ACTIVE', now(), now(), 0),
+     'STRING', 'RECIPIENT', FALSE, FALSE, 'Telegram username or chat identifier', '@example_fin', '{}', 'ACTIVE', now(), now(), 0),
     ('20000000-0000-0000-0000-000000000106', NULL, 'recipient.locale', 'Recipient locale',
      'STRING', 'RECIPIENT', FALSE, FALSE, 'Preferred message locale', 'ru', '{}', 'ACTIVE', now(), now(), 0),
     ('20000000-0000-0000-0000-000000000107', NULL, 'recipient.timezone', 'Recipient timezone',
