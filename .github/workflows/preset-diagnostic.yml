@@ -20,7 +20,20 @@ jobs:
       - name: Compile test sources
         run: mvn --batch-mode --no-transfer-progress -DskipTests test-compile
       - name: Run locale seed application scenario
-        run: mvn --batch-mode --no-transfer-progress -Dtest=TemplatePresetApplicationServiceUnitTest#createsUzbekDraftFromRussianFallbackWithoutChangingTargetLocale test
+        shell: bash
+        run: |
+          if ! mvn --batch-mode --no-transfer-progress -Dtest=TemplatePresetApplicationServiceUnitTest#createsUzbekDraftFromRussianFallbackWithoutChangingTargetLocale test; then
+            report=$(find target/surefire-reports -name '*.txt' -type f -maxdepth 1 -print -quit)
+            if [ -n "$report" ]; then
+              while IFS= read -r line; do
+                safe=${line//'%'/'%25'}
+                safe=${safe//$'\r'/'%0D'}
+                safe=${safe//$'\n'/'%0A'}
+                echo "::error::$safe"
+              done < "$report"
+            fi
+            exit 1
+          fi
       - name: Run automatic template bootstrap scenario
         run: mvn --batch-mode --no-transfer-progress -Dtest=TemplatePresetApplicationServiceUnitTest#createsTenantTemplateAutomaticallyWhenTemplateIdIsOmitted test
       - name: Run preset catalog unit test
