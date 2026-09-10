@@ -59,12 +59,13 @@ public class TemplatePresetCatalogController {
     ApplyResponse apply(
             @PathVariable TemplatePresetCode presetCode,
             @Valid @RequestBody ApplyRequest request) {
-        AppliedTemplatePreset applied = application.apply(
-                tenant(),
-                request.templateId(),
-                presetCode,
-                request.channel(),
-                request.locale());
+        AppliedTemplatePreset applied =
+                application.apply(
+                        tenant(),
+                        request.templateId(),
+                        presetCode,
+                        request.channel(),
+                        request.locale());
         return ApplyResponse.from(applied);
     }
 
@@ -73,8 +74,7 @@ public class TemplatePresetCatalogController {
     }
 
     record PreviewRequest(
-            @NotBlank @Size(max = 35) String locale,
-            @NotNull TemplateChannel channel) {}
+            @NotBlank @Size(max = 35) String locale, @NotNull TemplateChannel channel) {}
 
     record ApplyRequest(
             @NotNull UUID templateId,
@@ -89,20 +89,17 @@ public class TemplatePresetCatalogController {
             String contentType,
             boolean fallbackUsed,
             String subject,
-            String contentHtml,
-            String textContent) {
+            String content) {
         static PreviewResponse from(TemplatePresetContent content) {
-            boolean html = content.channel() == TemplateChannel.EMAIL || content.channel() == TemplateChannel.PDF;
             return new PreviewResponse(
                     content.code(),
                     content.requestedLocale(),
                     content.resolvedLocale(),
                     content.channel(),
-                    html ? "HTML" : "TEXT",
+                    TemplatePresetCatalogService.contentType(content.channel()),
                     !content.requestedLocale().equals(content.resolvedLocale()),
                     content.subject(),
-                    html ? content.content() : null,
-                    html ? null : content.content());
+                    content.content());
         }
     }
 
@@ -110,13 +107,15 @@ public class TemplatePresetCatalogController {
             TemplatePresetCode presetCode,
             String requestedLocale,
             String seedLocale,
+            boolean fallbackUsed,
             UUID templateId,
             UUID versionId,
             int version,
             TemplateChannel channel,
+            String contentType,
             TemplateVersionStatus status,
             String subject,
-            String contentHtml,
+            String content,
             NextActions nextActions) {
         static ApplyResponse from(AppliedTemplatePreset applied) {
             TemplateVersion version = applied.version();
@@ -124,10 +123,12 @@ public class TemplatePresetCatalogController {
                     applied.presetCode(),
                     applied.requestedLocale(),
                     applied.seedLocale(),
+                    !applied.requestedLocale().equals(applied.seedLocale()),
                     version.getTemplateId(),
                     version.getId(),
                     version.getTemplateVersion(),
                     version.getChannel(),
+                    TemplatePresetCatalogService.contentType(version.getChannel()),
                     version.getStatus(),
                     version.getSubject(),
                     version.getContentHtml(),
