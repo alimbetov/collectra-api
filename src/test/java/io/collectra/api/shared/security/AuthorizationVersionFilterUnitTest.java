@@ -68,8 +68,12 @@ class AuthorizationVersionFilterUnitTest {
 
         filter.doFilter(mock(HttpServletRequest.class), response, chain);
 
-        verify(chain).doFilter(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
-        verify(response, never()).sendError(org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyString());
+        verify(chain)
+                .doFilter(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+        verify(response, never())
+                .sendError(
+                        org.mockito.ArgumentMatchers.anyInt(),
+                        org.mockito.ArgumentMatchers.anyString());
     }
 
     @Test
@@ -124,12 +128,14 @@ class AuthorizationVersionFilterUnitTest {
 
     @Test
     void malformedUserClaimsAreRejectedInsteadOfEscapingFilter() throws Exception {
-        authenticate(jwt(Map.of(
-                "sub", "not-a-uuid",
-                "token_type", "user",
-                "tenant_id", "also-bad",
-                "membership_id", "bad",
-                "authorization_version", 1L)));
+        authenticate(
+                jwt(
+                        Map.of(
+                                "sub", "not-a-uuid",
+                                "token_type", "user",
+                                "tenant_id", "also-bad",
+                                "membership_id", "bad",
+                                "authorization_version", 1L)));
 
         assertRejected();
     }
@@ -149,8 +155,12 @@ class AuthorizationVersionFilterUnitTest {
 
         filter.doFilter(mock(HttpServletRequest.class), response, chain);
 
-        verify(chain).doFilter(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
-        verify(response, never()).sendError(org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyString());
+        verify(chain)
+                .doFilter(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+        verify(response, never())
+                .sendError(
+                        org.mockito.ArgumentMatchers.anyInt(),
+                        org.mockito.ArgumentMatchers.anyString());
     }
 
     @Test
@@ -196,7 +206,8 @@ class AuthorizationVersionFilterUnitTest {
 
         filter.doFilter(mock(HttpServletRequest.class), response, chain);
 
-        verify(chain).doFilter(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+        verify(chain)
+                .doFilter(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
     }
 
     @Test
@@ -229,10 +240,15 @@ class AuthorizationVersionFilterUnitTest {
 
     @Test
     void unknownTokenTypeIsRejected() throws Exception {
-        authenticate(jwt(Map.of(
-                "sub", UUID.randomUUID().toString(),
-                "token_type", "mystery",
-                "authorization_version", 1L)));
+        authenticate(
+                jwt(
+                        Map.of(
+                                "sub",
+                                UUID.randomUUID().toString(),
+                                "token_type",
+                                "mystery",
+                                "authorization_version",
+                                1L)));
 
         assertRejected();
     }
@@ -244,7 +260,8 @@ class AuthorizationVersionFilterUnitTest {
         filter.doFilter(mock(HttpServletRequest.class), response, chain);
 
         verify(response).sendError(401, "Token is no longer valid");
-        verify(chain, never()).doFilter(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+        verify(chain, never())
+                .doFilter(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
         assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
     }
 
@@ -253,27 +270,37 @@ class AuthorizationVersionFilterUnitTest {
     }
 
     private Jwt userJwt(UUID userId, UUID tenantId, UUID membershipId, long version) {
-        return jwt(Map.of(
-                "sub", userId.toString(),
-                "token_type", "user",
-                "tenant_id", tenantId.toString(),
-                "membership_id", membershipId.toString(),
-                "authorization_version", version));
+        return jwt(
+                Map.of(
+                        "sub", userId.toString(),
+                        "token_type", "user",
+                        "tenant_id", tenantId.toString(),
+                        "membership_id", membershipId.toString(),
+                        "authorization_version", version));
     }
 
     private Jwt serviceJwt(UUID clientId, UUID tenantId, long version) {
-        return jwt(Map.of(
-                "sub", clientId.toString(),
-                "token_type", "service",
-                "tenant_id", tenantId.toString(),
-                "authorization_version", version));
+        return jwt(
+                Map.of(
+                        "sub",
+                        clientId.toString(),
+                        "token_type",
+                        "service",
+                        "tenant_id",
+                        tenantId.toString(),
+                        "authorization_version",
+                        version));
     }
 
     private Jwt platformJwt(UUID userId, long version) {
-        return jwt(Map.of(
-                "sub", userId.toString(),
-                "token_type", "platform_user",
-                "authorization_version", version));
+        return jwt(
+                Map.of(
+                        "sub",
+                        userId.toString(),
+                        "token_type",
+                        "platform_user",
+                        "authorization_version",
+                        version));
     }
 
     private Jwt jwt(Map<String, Object> claims) {

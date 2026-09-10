@@ -113,7 +113,8 @@ class TenantContextFilterUnitTest {
         UUID headerTenant = UUID.randomUUID();
         authenticate(jwtWithTenant(tokenTenant.toString()));
         HttpServletRequest request = mock(HttpServletRequest.class);
-        org.mockito.Mockito.when(request.getHeader("X-Tenant-Id")).thenReturn(headerTenant.toString());
+        org.mockito.Mockito.when(request.getHeader("X-Tenant-Id"))
+                .thenReturn(headerTenant.toString());
         AtomicReference<UUID> observedTenant = new AtomicReference<>();
 
         filter.doFilter(
@@ -145,6 +146,7 @@ class TenantContextFilterUnitTest {
     }
 
     private void assertTenantContextIsEmpty() {
-        assertThatThrownBy(TenantContext::requireTenantId).isInstanceOf(MissingTenantException.class);
+        assertThatThrownBy(TenantContext::requireTenantId)
+                .isInstanceOf(MissingTenantException.class);
     }
 }
