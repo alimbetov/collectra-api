@@ -25,18 +25,21 @@ public class TemplateManagementService {
     private final FieldDefinitionRepository fields;
     private final TemplateCompiler compiler;
     private final TemplateRenderer renderer;
+    private final TemplateAssetService assets;
 
     public TemplateManagementService(
             DocumentTemplateRepository templates,
             TemplateVersionRepository versions,
             FieldDefinitionRepository fields,
             TemplateCompiler compiler,
-            TemplateRenderer renderer) {
+            TemplateRenderer renderer,
+            TemplateAssetService assets) {
         this.templates = templates;
         this.versions = versions;
         this.fields = fields;
         this.compiler = compiler;
         this.renderer = renderer;
+        this.assets = assets;
     }
 
     @Transactional
@@ -195,8 +198,8 @@ public class TemplateManagementService {
                 fields.findAvailable(tenantId).stream()
                         .map(f -> f.getKey().toLowerCase(Locale.ROOT))
                         .collect(java.util.stream.Collectors.toSet());
-        validateCompiled("contentHtml", body, available, errors);
-        if (subject != null) validateCompiled("subject", subject, available, errors);
+        validateCompiled(tenantId, "contentHtml", body, available, errors);
+        if (subject != null) validateCompiled(tenantId, "subject", subject, available, errors);
 
         if (errors.isEmpty()) version.validated();
         return new SourceSchemaManagementService.ValidationResult(
@@ -227,6 +230,7 @@ public class TemplateManagementService {
     }
 
     private void validateCompiled(
+            UUID tenantId,
             String sourcePath,
             CompiledTemplate compiled,
             Set<String> available,
@@ -265,7 +269,14 @@ public class TemplateManagementService {
                 continue;
             }
 
-            if (!catalogKey.startsWith("asset.") && !available.contains(catalogKey)) {
+            if (catalogKey.startsWith("asset.")) {
+                String assetKey = catalogKey.substring("asset.".length());
+                if (!assets.exists(tenantId, assetKey)) {
+                    errors.add(issue("UNKNOWN_ASSET", sourcePath, "Unknown template asset: " + assetKey));
+                }
+                continue;
+            }
+            if (!available.contains(catalogKey)) {
                 errors.add(
                         issue(
                                 "UNKNOWN_PLACEHOLDER",
@@ -277,7 +288,8 @@ public class TemplateManagementService {
 
     @Transactional(readOnly = true)
     public TemplateRenderer.RenderResult preview(UUID tenantId, UUID versionId, JsonNode payload) {
-        return renderer.render(requireVersion(tenantId, versionId), payload);
+        TemplateVersion version = requireVersion(tenantId, versionId);
+        return renderer.render(version, assets.enrichPayload(tenantId, payload));
     }
 
     @Transactional(readOnly = true)
