@@ -113,7 +113,7 @@ class TemplateAssetServiceUnitTest {
     }
 
     @Test
-    void enrichesPayloadWithServerManagedDataUriAndOverwritesSameManagedKey() {
+    void enrichesPayloadWithTenantManagedDataUriAndOverwritesSamePayloadKey() {
         UUID tenantId = UUID.randomUUID();
         UUID fileId = UUID.randomUUID();
         byte[] content = "image-content".getBytes(StandardCharsets.UTF_8);
@@ -144,12 +144,17 @@ class TemplateAssetServiceUnitTest {
     }
 
     @Test
-    void rejectsScalarReservedAssetNamespace() {
+    void replacesScalarPayloadAssetNamespaceWithTenantManagedNamespace() {
         UUID tenantId = UUID.randomUUID();
+        when(assets.findAllByTenantIdAndStatusOrderByAssetKeyAsc(tenantId, "ACTIVE"))
+                .thenReturn(List.of());
         ObjectNode payload = json.createObjectNode().put("asset", "caller-controlled-value");
 
-        assertThatThrownBy(() -> service.enrichPayload(tenantId, payload))
-                .isInstanceOf(IllegalArgumentException.class);
+        var enriched = service.enrichPayload(tenantId, payload);
+
+        assertThat(enriched.path("asset").isObject()).isTrue();
+        assertThat(enriched.path("asset").isEmpty()).isTrue();
+        assertThat(payload.path("asset").asText()).isEqualTo("caller-controlled-value");
     }
 
     private FileMetadata metadata(
