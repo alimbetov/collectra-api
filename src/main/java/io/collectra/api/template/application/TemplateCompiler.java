@@ -1,7 +1,7 @@
 package io.collectra.api.template.application;
 
 import io.collectra.api.template.domain.TemplateVersion;
-
+import java.util.UUID;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -19,5 +19,12 @@ public class TemplateCompiler {
         String sanitized = policy.sanitize(version.getContentHtml());
         return new CompiledTemplate(
                 version.getId(), scanner.scan(sanitized), version.getStylesheet());
+    }
+
+    public CompiledTemplate compileText(UUID templateVersionId, String text) {
+        if (text == null || text.isBlank()) {
+            throw new IllegalArgumentException("Template text is required");
+        }
+        return new CompiledTemplate(templateVersionId, scanner.scan(text), null);
     }
 }
