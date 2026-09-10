@@ -53,7 +53,7 @@ public class TemplateBuilderService {
                     List.of());
         }
 
-        TemplateChannel channel = draft.channel() == null ? TemplateChannel.PDF : draft.channel();
+        TemplateChannel channel = effectiveChannel(draft.channel());
         validateChannelRules(channel, draft.subject(), draft.content(), draft.stylesheet(), errors);
 
         Set<String> available = availableFields(tenantId);
@@ -79,7 +79,7 @@ public class TemplateBuilderService {
         }
         String content;
         try {
-            content = documentCompiler.compile(draft.builderJson());
+            content = documentCompiler.compile(draft.builderJson(), effectiveChannel(draft.channel()));
         } catch (IllegalArgumentException ex) {
             return new ValidationResult(
                     false,
@@ -112,10 +112,11 @@ public class TemplateBuilderService {
         if (!validation.valid()) {
             throw new IllegalArgumentException("Builder document is invalid: " + validation.errors());
         }
-        String content = documentCompiler.compile(draft.builderJson());
+        TemplateChannel channel = effectiveChannel(draft.channel());
+        String content = documentCompiler.compile(draft.builderJson(), channel);
         return renderPreview(
                 tenantId,
-                draft.channel(),
+                channel,
                 draft.subject(),
                 content,
                 draft.stylesheet(),
@@ -127,8 +128,9 @@ public class TemplateBuilderService {
         if (!validation.valid()) {
             throw new IllegalArgumentException("Builder document is invalid: " + validation.errors());
         }
+        TemplateChannel channel = effectiveChannel(draft.channel());
         return new CompiledBuilderDocument(
-                draft.builderJson().deepCopy(), documentCompiler.compile(draft.builderJson()));
+                draft.builderJson().deepCopy(), documentCompiler.compile(draft.builderJson(), channel));
     }
 
     private PreviewResult renderPreview(
@@ -138,7 +140,7 @@ public class TemplateBuilderService {
             String contentTemplate,
             String stylesheet,
             JsonNode payload) {
-        TemplateChannel channel = requestedChannel == null ? TemplateChannel.PDF : requestedChannel;
+        TemplateChannel channel = effectiveChannel(requestedChannel);
         JsonNode effectivePayload = assets.enrichPayload(tenantId, payload);
         UUID previewId = UUID.randomUUID();
         CompiledTemplate body =
@@ -284,6 +286,10 @@ public class TemplateBuilderService {
                         new ValidationIssue("UNKNOWN_PLACEHOLDER", path, "Unknown placeholder: " + key));
             }
         }
+    }
+
+    private TemplateChannel effectiveChannel(TemplateChannel channel) {
+        return channel == null ? TemplateChannel.PDF : channel;
     }
 
     private boolean isDynamicToken(TemplateToken token) {
