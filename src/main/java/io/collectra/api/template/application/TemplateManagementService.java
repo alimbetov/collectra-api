@@ -3,6 +3,7 @@ package io.collectra.api.template.application;
 import com.fasterxml.jackson.databind.JsonNode;
 import io.collectra.api.importing.application.SourceSchemaManagementService;
 import io.collectra.api.template.domain.DocumentTemplate;
+import io.collectra.api.template.domain.TemplateChannel;
 import io.collectra.api.template.domain.TemplateVersion;
 import io.collectra.api.template.domain.TemplateVersionStatus;
 import io.collectra.api.template.infrastructure.DocumentTemplateRepository;
@@ -49,8 +50,7 @@ public class TemplateManagementService {
             throw new IllegalArgumentException("Template code already exists");
         }
         return templates.save(
-                new DocumentTemplate(
-                        tenantId, normalized, name.trim(), normalizeCode(documentType)));
+                new DocumentTemplate(tenantId, normalized, name.trim(), normalizeCode(documentType)));
     }
 
     @Transactional(readOnly = true)
@@ -77,22 +77,50 @@ public class TemplateManagementService {
             String locale,
             String contentHtml,
             String stylesheet) {
+        return createVersion(
+                tenantId,
+                templateId,
+                locale,
+                TemplateChannel.PDF,
+                null,
+                contentHtml,
+                stylesheet);
+    }
+
+    @Transactional
+    public TemplateVersion createVersion(
+            UUID tenantId,
+            UUID templateId,
+            String locale,
+            TemplateChannel channel,
+            String subject,
+            String contentHtml,
+            String stylesheet) {
         requireActiveTemplate(tenantId, templateId);
         String normalizedLocale = locale.trim().toLowerCase(Locale.ROOT);
+        TemplateChannel normalizedChannel = channel == null ? TemplateChannel.PDF : channel;
         var existing =
-                versions.findAllByTemplateIdAndLocaleOrderByTemplateVersionDesc(
-                        templateId, normalizedLocale);
+                versions.findAllByTemplateIdAndLocaleAndChannelOrderByTemplateVersionDesc(
+                        templateId, normalizedLocale, normalizedChannel);
         int number = existing.isEmpty() ? 1 : existing.get(0).getTemplateVersion() + 1;
         if ((contentHtml == null || contentHtml.isBlank()) && !existing.isEmpty()) {
-            contentHtml = existing.get(0).getContentHtml();
-            stylesheet = existing.get(0).getStylesheet();
+            TemplateVersion latest = existing.get(0);
+            contentHtml = latest.getContentHtml();
+            stylesheet = latest.getStylesheet();
+            if (subject == null) subject = latest.getSubject();
         }
         if (contentHtml == null || contentHtml.isBlank()) {
-            throw new IllegalArgumentException("Template HTML is required");
+            throw new IllegalArgumentException("Template content is required");
         }
         return versions.save(
                 new TemplateVersion(
-                        templateId, number, normalizedLocale, contentHtml, stylesheet));
+                        templateId,
+                        number,
+                        normalizedLocale,
+                        normalizedChannel,
+                        subject,
+                        contentHtml,
+                        stylesheet));
     }
 
     @Transactional(readOnly = true)
@@ -109,6 +137,14 @@ public class TemplateManagementService {
     }
 
     @Transactional
+    public TemplateVersion update(
+            UUID tenantId, UUID versionId, String subject, String content, String css) {
+        var version = requireVersion(tenantId, versionId);
+        version.update(subject, content, css);
+        return version;
+    }
+
+    @Transactional
     public SourceSchemaManagementService.ValidationResult validate(UUID tenantId, UUID versionId) {
         var version = requireVersion(tenantId, versionId);
         if (version.getStatus() != TemplateVersionStatus.DRAFT) {
@@ -116,43 +152,105 @@ public class TemplateManagementService {
         }
 
         List<SourceSchemaManagementService.ValidationIssue> errors = new ArrayList<>();
-        CompiledTemplate compiled = null;
-        try {
-            compiled = compiler.compile(version);
-        } catch (IllegalArgumentException ex) {
-            errors.add(issue("INVALID_TEMPLATE", "contentHtml", ex.getMessage()));
+        Set<String> available =
+                fields.findAvailable(tenantId).stream()
+                        .map(f -> f.getKey().toLowerCase(Locale.ROOT))
+                        .collect(java.util.stream.Collectors.toSet());
+
+        validateCompiled("contentHtml", compileBody(version, errors), available, errors);
+        if (version.getChannel() == TemplateChannel.EMAIL) {
+            validateCompiled(
+                    "subject",
+                    compileText(version.getId(), version.getSubject(), "subject", errors),
+                    available,
+                    errors);
         }
 
-        if (compiled != null) {
-            Set<String> available =
-                    fields.findAvailable(tenantId).stream()
-                            .map(f -> f.getKey().toLowerCase(Locale.ROOT))
-                            .collect(java.util.stream.Collectors.toSet());
-
-            for (TemplateToken token : compiled.tokens()) {
-                if (token instanceof TemplateToken.Placeholder placeholder) {
-                    String key = placeholder.path().canonical();
-                    if (!available.contains(key)) {
-                        errors.add(
-                                issue(
-                                        "UNKNOWN_PLACEHOLDER",
-                                        "contentHtml",
-                                        "Unknown placeholder: " + key));
-                    }
-                }
-            }
-        }
-
-        if (errors.isEmpty()) {
-            version.validated();
-        }
+        if (errors.isEmpty()) version.validated();
         return new SourceSchemaManagementService.ValidationResult(
                 errors.isEmpty(), errors, List.of());
+    }
+
+    private CompiledTemplate compileBody(
+            TemplateVersion version, List<SourceSchemaManagementService.ValidationIssue> errors) {
+        try {
+            return compiler.compile(version);
+        } catch (IllegalArgumentException ex) {
+            errors.add(issue("INVALID_TEMPLATE", "contentHtml", ex.getMessage()));
+            return null;
+        }
+    }
+
+    private CompiledTemplate compileText(
+            UUID versionId,
+            String text,
+            String path,
+            List<SourceSchemaManagementService.ValidationIssue> errors) {
+        try {
+            return compiler.compileText(versionId, text);
+        } catch (IllegalArgumentException ex) {
+            errors.add(issue("INVALID_TEMPLATE", path, ex.getMessage()));
+            return null;
+        }
+    }
+
+    private void validateCompiled(
+            String sourcePath,
+            CompiledTemplate compiled,
+            Set<String> available,
+            List<SourceSchemaManagementService.ValidationIssue> errors) {
+        if (compiled == null) return;
+        boolean insideItems = false;
+        for (TemplateToken token : compiled.tokens()) {
+            if (token instanceof TemplateToken.EachStart start) {
+                insideItems = "items".equals(start.collectionKey());
+                continue;
+            }
+            if (token instanceof TemplateToken.EachEnd) {
+                insideItems = false;
+                continue;
+            }
+            if (!(token instanceof TemplateToken.Placeholder placeholder)) continue;
+
+            String key = placeholder.path().canonical();
+            String catalogKey = key;
+            if (key.startsWith("item.")) {
+                if (!insideItems) {
+                    errors.add(
+                            issue(
+                                    "ITEM_PLACEHOLDER_OUTSIDE_BLOCK",
+                                    sourcePath,
+                                    "Item placeholder must be inside {{#each items}}: " + key));
+                    continue;
+                }
+                catalogKey = "items." + key.substring("item.".length());
+            } else if (key.startsWith("items.")) {
+                errors.add(
+                        issue(
+                                "COLLECTION_PLACEHOLDER_REQUIRES_BLOCK",
+                                sourcePath,
+                                "Use {{item.*}} inside {{#each items}} instead of: " + key));
+                continue;
+            }
+
+            if (!catalogKey.startsWith("asset.") && !available.contains(catalogKey)) {
+                errors.add(
+                        issue(
+                                "UNKNOWN_PLACEHOLDER",
+                                sourcePath,
+                                "Unknown placeholder: " + key));
+            }
+        }
     }
 
     @Transactional(readOnly = true)
     public TemplateRenderer.RenderResult preview(UUID tenantId, UUID versionId, JsonNode payload) {
         return renderer.render(requireVersion(tenantId, versionId), payload);
+    }
+
+    @Transactional(readOnly = true)
+    public TemplateVersion getVersion(UUID tenantId, UUID versionId) {
+        return requireVersion(tenantId, versionId);
     }
 
     @Transactional
