@@ -7,4 +7,5 @@ public record AppliedTemplatePreset(
         TemplatePresetCode presetCode,
         String requestedLocale,
         String seedLocale,
+        boolean templateCreated,
         TemplateVersion version) {}
