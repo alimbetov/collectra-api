@@ -3,7 +3,6 @@ package io.collectra.api.identity.api;
 import io.collectra.api.identity.application.RbacService;
 import io.collectra.api.identity.application.SessionAdministrationService;
 import io.collectra.api.identity.domain.RefreshSession;
-import io.collectra.api.identity.infrastructure.TenantMembershipRepository;
 import io.collectra.api.shared.tenant.TenantContext;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
@@ -12,8 +11,8 @@ import java.util.Set;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -26,13 +25,11 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/identity")
 @PreAuthorize("hasAuthority('ROLE_HUMAN')")
 public class TenantMembershipController {
-    private final TenantMembershipRepository memberships;
     private final RbacService rbac;
     private final SessionAdministrationService sessionAdministration;
 
-    public TenantMembershipController(TenantMembershipRepository memberships, RbacService rbac,
-            SessionAdministrationService sessionAdministration) {
-        this.memberships = memberships;
+    public TenantMembershipController(
+            RbacService rbac, SessionAdministrationService sessionAdministration) {
         this.rbac = rbac;
         this.sessionAdministration = sessionAdministration;
     }
@@ -40,10 +37,13 @@ public class TenantMembershipController {
     @GetMapping("/users")
     @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('USER_READ')")
     List<MembershipResponse> users() {
-        return memberships.findAllByTenantId(TenantContext.requireTenantId()).stream()
-                .map(membership ->
-                        new MembershipResponse(
-                                membership.getId(), membership.getUserId(), membership.getStatus()))
+        return rbac.memberships(TenantContext.requireTenantId()).stream()
+                .map(
+                        membership ->
+                                new MembershipResponse(
+                                        membership.getId(),
+                                        membership.getUserId(),
+                                        membership.getStatus()))
                 .toList();
     }
 
@@ -65,7 +65,8 @@ public class TenantMembershipController {
     @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('USER_READ')")
     List<SessionResponse> sessions(@PathVariable UUID id) {
         return sessionAdministration.sessions(TenantContext.requireTenantId(), id).stream()
-                .map(SessionResponse::from).toList();
+                .map(SessionResponse::from)
+                .toList();
     }
 
     @DeleteMapping("/memberships/{id}/sessions/{sessionId}")
@@ -88,12 +89,22 @@ public class TenantMembershipController {
 
     record StatusRequest(boolean active) {}
 
-    record SessionResponse(UUID id, java.time.Instant createdAt, java.time.Instant expiresAt,
-            java.time.Instant lastUsedAt, java.time.Instant revokedAt, String userAgent,
+    record SessionResponse(
+            UUID id,
+            java.time.Instant createdAt,
+            java.time.Instant expiresAt,
+            java.time.Instant lastUsedAt,
+            java.time.Instant revokedAt,
+            String userAgent,
             String sourceIp) {
         static SessionResponse from(RefreshSession session) {
-            return new SessionResponse(session.getId(), session.getCreatedAt(), session.getExpiresAt(),
-                    session.getLastUsedAt(), session.getRevokedAt(), session.getUserAgent(),
+            return new SessionResponse(
+                    session.getId(),
+                    session.getCreatedAt(),
+                    session.getExpiresAt(),
+                    session.getLastUsedAt(),
+                    session.getRevokedAt(),
+                    session.getUserAgent(),
                     session.getSourceIp());
         }
     }
