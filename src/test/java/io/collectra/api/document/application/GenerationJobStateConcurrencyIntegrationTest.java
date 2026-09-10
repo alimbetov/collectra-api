@@ -49,17 +49,18 @@ class GenerationJobStateConcurrencyIntegrationTest extends AbstractIntegrationTe
         ExecutorService executor = Executors.newFixedThreadPool(2);
         CountDownLatch ready = new CountDownLatch(2);
         CountDownLatch start = new CountDownLatch(1);
-        Callable<Object> claim = () -> {
-            ready.countDown();
-            if (!start.await(5, TimeUnit.SECONDS)) {
-                throw new IllegalStateException("generation race did not start");
-            }
-            try {
-                return states.begin(job.getId());
-            } catch (IllegalStateException alreadyProcessing) {
-                return alreadyProcessing;
-            }
-        };
+        Callable<Object> claim =
+                () -> {
+                    ready.countDown();
+                    if (!start.await(5, TimeUnit.SECONDS)) {
+                        throw new IllegalStateException("generation race did not start");
+                    }
+                    try {
+                        return states.begin(job.getId());
+                    } catch (IllegalStateException alreadyProcessing) {
+                        return alreadyProcessing;
+                    }
+                };
 
         try {
             Future<Object> first = executor.submit(claim);
@@ -70,9 +71,10 @@ class GenerationJobStateConcurrencyIntegrationTest extends AbstractIntegrationTe
             results.add(first.get(10, TimeUnit.SECONDS));
             results.add(second.get(10, TimeUnit.SECONDS));
 
-            assertThat(results.stream()
-                            .filter(GenerationJobStateService.Snapshot.class::isInstance)
-                            .count())
+            assertThat(
+                            results.stream()
+                                    .filter(GenerationJobStateService.Snapshot.class::isInstance)
+                                    .count())
                     .isEqualTo(1);
             assertThat(results.stream().filter(IllegalStateException.class::isInstance).count())
                     .isEqualTo(1);
@@ -84,29 +86,42 @@ class GenerationJobStateConcurrencyIntegrationTest extends AbstractIntegrationTe
     }
 
     private GenerationJob createPendingJob() {
-        Tenant tenant = tenants.saveAndFlush(
-                new Tenant("generation-race-" + UUID.randomUUID(), "Generation Race"));
+        Tenant tenant =
+                tenants.saveAndFlush(
+                        new Tenant("generation-race-" + UUID.randomUUID(), "Generation Race"));
         String suffix = UUID.randomUUID().toString().substring(0, 8);
-        SourceSchema schema = schemas.saveAndFlush(new SourceSchema(
-                tenant.getId(), "GEN_" + suffix, "Generation Schema", SourceFormat.JSON, 1));
-        MappingProfile profile = profiles.saveAndFlush(new MappingProfile(
-                tenant.getId(),
-                schema.getId(),
-                "GEN_" + suffix,
-                "Generation Profile",
-                "INVOICE",
-                1));
-        DocumentTemplate template = templates.saveAndFlush(new DocumentTemplate(
-                tenant.getId(), "GEN_" + suffix, "Generation Template", "INVOICE"));
-        TemplateVersion version = versions.saveAndFlush(
-                new TemplateVersion(template.getId(), 1, "en", "<p>generation</p>", null));
-        return jobs.saveAndFlush(new GenerationJob(
-                tenant.getId(),
-                "INVOICE",
-                profile.getId(),
-                version.getId(),
-                null,
-                json.createObjectNode(),
-                Set.of(OutputFormat.HTML)));
+        SourceSchema schema =
+                schemas.saveAndFlush(
+                        new SourceSchema(
+                                tenant.getId(),
+                                "GEN_" + suffix,
+                                "Generation Schema",
+                                SourceFormat.JSON,
+                                1));
+        MappingProfile profile =
+                profiles.saveAndFlush(
+                        new MappingProfile(
+                                tenant.getId(),
+                                schema.getId(),
+                                "GEN_" + suffix,
+                                "Generation Profile",
+                                "INVOICE",
+                                1));
+        DocumentTemplate template =
+                templates.saveAndFlush(
+                        new DocumentTemplate(
+                                tenant.getId(), "GEN_" + suffix, "Generation Template", "INVOICE"));
+        TemplateVersion version =
+                versions.saveAndFlush(
+                        new TemplateVersion(template.getId(), 1, "en", "<p>generation</p>", null));
+        return jobs.saveAndFlush(
+                new GenerationJob(
+                        tenant.getId(),
+                        "INVOICE",
+                        profile.getId(),
+                        version.getId(),
+                        null,
+                        json.createObjectNode(),
+                        Set.of(OutputFormat.HTML)));
     }
 }
