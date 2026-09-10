@@ -19,16 +19,7 @@ jobs:
         run: mvn --batch-mode --no-transfer-progress -DskipTests compile
       - name: Compile test sources
         run: mvn --batch-mode --no-transfer-progress -DskipTests test-compile
-      - name: Run locale seed application scenario
-        id: locale-seed
-        continue-on-error: true
-        run: mvn --batch-mode --no-transfer-progress -Dtest=TemplatePresetApplicationServiceUnitTest#createsUzbekDraftFromRussianFallbackWithoutChangingTargetLocale test
-      - name: Upload surefire report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: preset-surefire-report
-          path: target/surefire-reports/
-      - name: Fail when locale seed scenario failed
-        if: steps.locale-seed.outcome == 'failure'
-        run: exit 1
+      - name: Run preset application unit tests
+        run: mvn --batch-mode --no-transfer-progress -Dtest=TemplatePresetApplicationServiceUnitTest test
+      - name: Run preset catalog unit test
+        run: mvn --batch-mode --no-transfer-progress -Dtest=TemplatePresetCatalogServiceUnitTest test
