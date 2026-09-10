@@ -63,6 +63,16 @@ class OutboxPublisherUnitTest {
     }
 
     @Test
+    void recoverStaleRecordsCommittedRecoveryCount() {
+        when(claims.recoverStale(NOW, Duration.ofMinutes(2))).thenReturn(4);
+
+        publisher.recoverStale();
+
+        verify(claims).recoverStale(NOW, Duration.ofMinutes(2));
+        verify(metrics).recovered(4);
+    }
+
+    @Test
     void ackMarksPublishedAndRecordsMetric() {
         var event = event(1, "{\"jobId\":\"123\"}");
         when(states.loadForPublish(eq(event.id()), anyString())).thenReturn(Optional.of(event));
