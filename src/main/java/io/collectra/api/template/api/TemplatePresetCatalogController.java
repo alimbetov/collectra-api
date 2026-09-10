@@ -77,7 +77,7 @@ public class TemplatePresetCatalogController {
             @NotBlank @Size(max = 35) String locale, @NotNull TemplateChannel channel) {}
 
     record ApplyRequest(
-            @NotNull UUID templateId,
+            UUID templateId,
             @NotBlank @Size(max = 35) String locale,
             @NotNull TemplateChannel channel) {}
 
@@ -108,6 +108,7 @@ public class TemplatePresetCatalogController {
             String requestedLocale,
             String seedLocale,
             boolean fallbackUsed,
+            boolean templateCreated,
             UUID templateId,
             UUID versionId,
             int version,
@@ -124,6 +125,7 @@ public class TemplatePresetCatalogController {
                     applied.requestedLocale(),
                     applied.seedLocale(),
                     !applied.requestedLocale().equals(applied.seedLocale()),
+                    applied.templateCreated(),
                     version.getTemplateId(),
                     version.getId(),
                     version.getTemplateVersion(),
