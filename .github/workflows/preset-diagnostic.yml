@@ -19,5 +19,7 @@ jobs:
         run: mvn --batch-mode --no-transfer-progress -DskipTests compile
       - name: Compile test sources
         run: mvn --batch-mode --no-transfer-progress -DskipTests test-compile
-      - name: Run preset unit tests
-        run: mvn --batch-mode --no-transfer-progress -Dtest=TemplatePresetApplicationServiceUnitTest,TemplatePresetCatalogServiceUnitTest test
+      - name: Run preset application unit test
+        run: mvn --batch-mode --no-transfer-progress -Dtest=TemplatePresetApplicationServiceUnitTest test
+      - name: Run preset catalog unit test
+        run: mvn --batch-mode --no-transfer-progress -Dtest=TemplatePresetCatalogServiceUnitTest test
