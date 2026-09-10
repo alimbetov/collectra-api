@@ -1,8 +1,11 @@
 package io.collectra.api.template.domain;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import io.collectra.api.shared.persistence.AuditableEntity;
 import jakarta.persistence.*;
 import java.util.UUID;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "template_versions")
@@ -25,6 +28,10 @@ public class TemplateVersion extends AuditableEntity {
     @Column(length = 300)
     private String subject;
 
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "builder_json", columnDefinition = "jsonb")
+    private JsonNode builderJson;
+
     @Column(name = "content_html", nullable = false, columnDefinition = "text")
     private String contentHtml;
 
@@ -43,7 +50,7 @@ public class TemplateVersion extends AuditableEntity {
             String locale,
             String contentHtml,
             String stylesheet) {
-        this(templateId, templateVersion, locale, TemplateChannel.PDF, null, contentHtml, stylesheet);
+        this(templateId, templateVersion, locale, TemplateChannel.PDF, null, null, contentHtml, stylesheet);
     }
 
     public TemplateVersion(
@@ -54,12 +61,25 @@ public class TemplateVersion extends AuditableEntity {
             String subject,
             String contentHtml,
             String stylesheet) {
+        this(templateId, templateVersion, locale, channel, subject, null, contentHtml, stylesheet);
+    }
+
+    public TemplateVersion(
+            UUID templateId,
+            int templateVersion,
+            String locale,
+            TemplateChannel channel,
+            String subject,
+            JsonNode builderJson,
+            String contentHtml,
+            String stylesheet) {
         this.id = UUID.randomUUID();
         this.templateId = templateId;
         this.templateVersion = templateVersion;
         this.locale = locale;
         this.channel = channel == null ? TemplateChannel.PDF : channel;
         this.subject = normalizeSubject(this.channel, subject);
+        this.builderJson = builderJson == null ? null : builderJson.deepCopy();
         this.contentHtml = requireContent(contentHtml);
         this.stylesheet = stylesheet;
         this.status = TemplateVersionStatus.DRAFT;
@@ -71,6 +91,7 @@ public class TemplateVersion extends AuditableEntity {
     public String getLocale() { return locale; }
     public TemplateChannel getChannel() { return channel; }
     public String getSubject() { return subject; }
+    public JsonNode getBuilderJson() { return builderJson == null ? null : builderJson.deepCopy(); }
     public TemplateVersionStatus getStatus() { return status; }
     public String getContentHtml() { return contentHtml; }
     public String getStylesheet() { return stylesheet; }
@@ -86,11 +107,27 @@ public class TemplateVersion extends AuditableEntity {
     }
 
     public void update(String subject, String contentHtml, String stylesheet) {
-        if (status != TemplateVersionStatus.DRAFT)
-            throw new IllegalStateException("Only draft template can be changed");
+        ensureDraft();
         this.subject = normalizeSubject(channel, subject);
+        this.builderJson = null;
         this.contentHtml = requireContent(contentHtml);
         this.stylesheet = stylesheet;
+    }
+
+    public void updateBuilder(
+            String subject, JsonNode builderJson, String renderedHtml, String stylesheet) {
+        ensureDraft();
+        if (builderJson == null || !builderJson.isObject()) {
+            throw new IllegalArgumentException("builderJson is required");
+        }
+        this.subject = normalizeSubject(channel, subject);
+        this.builderJson = builderJson.deepCopy();
+        this.contentHtml = requireContent(renderedHtml);
+        this.stylesheet = stylesheet;
+    }
+
+    public boolean isBuilderManaged() {
+        return builderJson != null;
     }
 
     public void validated() {
@@ -111,14 +148,21 @@ public class TemplateVersion extends AuditableEntity {
         status = TemplateVersionStatus.ARCHIVED;
     }
 
+    private void ensureDraft() {
+        if (status != TemplateVersionStatus.DRAFT)
+            throw new IllegalStateException("Only draft template can be changed");
+    }
+
     private static String requireContent(String content) {
-        if (content == null || content.isBlank()) throw new IllegalArgumentException("Template content is required");
+        if (content == null || content.isBlank())
+            throw new IllegalArgumentException("Template content is required");
         return content;
     }
 
     private static String normalizeSubject(TemplateChannel channel, String subject) {
         if (channel == TemplateChannel.EMAIL) {
-            if (subject == null || subject.isBlank()) throw new IllegalArgumentException("Email template subject is required");
+            if (subject == null || subject.isBlank())
+                throw new IllegalArgumentException("Email template subject is required");
             return subject.trim();
         }
         return subject == null || subject.isBlank() ? null : subject.trim();
