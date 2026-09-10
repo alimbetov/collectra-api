@@ -22,26 +22,29 @@ class RefreshSessionConcurrencyIntegrationTest extends AbstractIntegrationTest {
 
     @Test
     void sameRefreshTokenCanBeConsumedOnlyOnceConcurrently() throws Exception {
-        AuthService.AuthTokens initial = authService.register(
-                "refresh-race-" + UUID.randomUUID(),
-                "Refresh Race",
-                "refresh-race-" + UUID.randomUUID() + "@example.test",
-                "StrongPassword123!");
+        AuthService.AuthTokens initial =
+                authService.register(
+                        "refresh-race-" + UUID.randomUUID(),
+                        "Refresh Race",
+                        "refresh-race-" + UUID.randomUUID() + "@example.test",
+                        "StrongPassword123!");
 
         ExecutorService executor = Executors.newFixedThreadPool(2);
         CountDownLatch ready = new CountDownLatch(2);
         CountDownLatch start = new CountDownLatch(1);
-        Callable<RefreshAttempt> refresh = () -> {
-            ready.countDown();
-            if (!start.await(5, TimeUnit.SECONDS)) {
-                throw new IllegalStateException("Concurrent refresh did not start in time");
-            }
-            try {
-                return RefreshAttempt.succeeded(authService.refresh(initial.refreshToken()).refreshToken());
-            } catch (InvalidRefreshTokenException expected) {
-                return RefreshAttempt.rejected();
-            }
-        };
+        Callable<RefreshAttempt> refresh =
+                () -> {
+                    ready.countDown();
+                    if (!start.await(5, TimeUnit.SECONDS)) {
+                        throw new IllegalStateException("Concurrent refresh did not start in time");
+                    }
+                    try {
+                        return RefreshAttempt.succeeded(
+                                authService.refresh(initial.refreshToken()).refreshToken());
+                    } catch (InvalidRefreshTokenException expected) {
+                        return RefreshAttempt.rejected();
+                    }
+                };
 
         try {
             Future<RefreshAttempt> first = executor.submit(refresh);
@@ -49,18 +52,18 @@ class RefreshSessionConcurrencyIntegrationTest extends AbstractIntegrationTest {
             assertThat(ready.await(5, TimeUnit.SECONDS)).isTrue();
             start.countDown();
 
-            List<RefreshAttempt> results = List.of(
-                    first.get(10, TimeUnit.SECONDS),
-                    second.get(10, TimeUnit.SECONDS));
+            List<RefreshAttempt> results =
+                    List.of(first.get(10, TimeUnit.SECONDS), second.get(10, TimeUnit.SECONDS));
 
             assertThat(results).filteredOn(RefreshAttempt::success).hasSize(1);
             assertThat(results).filteredOn(result -> !result.success()).hasSize(1);
 
-            String rotatedToken = results.stream()
-                    .filter(RefreshAttempt::success)
-                    .map(RefreshAttempt::refreshToken)
-                    .findFirst()
-                    .orElseThrow();
+            String rotatedToken =
+                    results.stream()
+                            .filter(RefreshAttempt::success)
+                            .map(RefreshAttempt::refreshToken)
+                            .findFirst()
+                            .orElseThrow();
 
             assertThatThrownBy(() -> authService.refresh(rotatedToken))
                     .isInstanceOf(InvalidRefreshTokenException.class);
