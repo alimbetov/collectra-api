@@ -19,4 +19,22 @@ class ArchitectureTest {
                     .dependOnClassesThat()
                     .resideInAnyPackage(
                             "io.collectra.api.*.api..", "io.collectra.api.*.infrastructure..");
+
+    @ArchTest
+    static final ArchRule DOMAIN_DOES_NOT_DEPEND_ON_SPRING_WEB =
+            noClasses()
+                    .that()
+                    .resideInAPackage("io.collectra.api.*.domain..")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAPackage("org.springframework.web..");
+
+    @ArchTest
+    static final ArchRule API_DOES_NOT_DEPEND_DIRECTLY_ON_INFRASTRUCTURE =
+            noClasses()
+                    .that()
+                    .resideInAPackage("io.collectra.api.*.api..")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAPackage("io.collectra.api.*.infrastructure..");
 }
