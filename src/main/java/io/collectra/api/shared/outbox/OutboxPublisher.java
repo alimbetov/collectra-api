@@ -3,14 +3,6 @@ package io.collectra.api.shared.outbox;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-
-import org.springframework.amqp.rabbit.connection.CorrelationData;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.stereotype.Component;
-
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -18,6 +10,12 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import org.springframework.amqp.rabbit.connection.CorrelationData;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Component;
 
 @Component
 @ConditionalOnProperty(name = "collectra.messaging.outbox-enabled", matchIfMissing = true)
@@ -26,6 +24,7 @@ public class OutboxPublisher {
     private final OutboxStateService states;
     private final OutboxEventRouter router;
     private final OutboxRetryPolicy retryPolicy;
+    private final OutboxMetrics metrics;
     private final RabbitTemplate rabbit;
     private final ObjectMapper json;
     private final Clock clock;
@@ -39,6 +38,7 @@ public class OutboxPublisher {
             OutboxStateService states,
             OutboxEventRouter router,
             OutboxRetryPolicy retryPolicy,
+            OutboxMetrics metrics,
             RabbitTemplate rabbit,
             ObjectMapper json,
             Clock clock,
@@ -49,6 +49,7 @@ public class OutboxPublisher {
         this.states = states;
         this.router = router;
         this.retryPolicy = retryPolicy;
+        this.metrics = metrics;
         this.rabbit = rabbit;
         this.json = json;
         this.clock = clock;
@@ -82,10 +83,10 @@ public class OutboxPublisher {
             payload = json.readTree(event.payload());
             if (payload == null) throw new JsonProcessingException("Empty JSON payload") {};
         } catch (UnknownOutboxEventTypeException ex) {
-            states.markDead(event.id(), workerId, "UNKNOWN_EVENT_TYPE", rootMessage(ex));
+            markDead(event, "UNKNOWN_EVENT_TYPE", rootMessage(ex));
             return;
         } catch (JsonProcessingException ex) {
-            states.markDead(event.id(), workerId, "INVALID_EVENT_PAYLOAD", rootMessage(ex));
+            markDead(event, "INVALID_EVENT_PAYLOAD", rootMessage(ex));
             return;
         }
 
@@ -117,12 +118,16 @@ public class OutboxPublisher {
             if (correlation.getReturned() != null) {
                 transientFailure(event, "BROKER_RETURNED", "RabbitMQ returned the message as unroutable");
             } else if (confirm.isAck()) {
-                states.markPublished(event.id(), workerId, Instant.now(clock));
+                if (states.markPublished(event.id(), workerId, Instant.now(clock))) {
+                    metrics.published();
+                }
             } else {
                 transientFailure(
                         event,
                         "BROKER_NACK",
-                        confirm.getReason() == null ? "RabbitMQ negatively acknowledged publish" : confirm.getReason());
+                        confirm.getReason() == null
+                                ? "RabbitMQ negatively acknowledged publish"
+                                : confirm.getReason());
             }
         } catch (TimeoutException ex) {
             transientFailure(event, "BROKER_CONFIRM_TIMEOUT", rootMessage(ex));
@@ -137,12 +142,21 @@ public class OutboxPublisher {
     private void transientFailure(
             OutboxStateService.PublishableEvent event, String code, String message) {
         if (event.attemptCount() >= retryPolicy.maxAttempts()) {
-            states.markDead(event.id(), workerId, "BROKER_MAX_ATTEMPTS", code + ": " + message);
+            markDead(event, "BROKER_MAX_ATTEMPTS", code + ": " + message);
             return;
         }
         Instant nextAttemptAt =
                 Instant.now(clock).plus(retryPolicy.delayForAttempt(event.attemptCount()));
-        states.scheduleRetry(event.id(), workerId, nextAttemptAt, code, message);
+        if (states.scheduleRetry(event.id(), workerId, nextAttemptAt, code, message)) {
+            metrics.retry();
+        }
+    }
+
+    private void markDead(
+            OutboxStateService.PublishableEvent event, String code, String message) {
+        if (states.markDead(event.id(), workerId, code, message)) {
+            metrics.dead();
+        }
     }
 
     private String rootMessage(Throwable error) {
