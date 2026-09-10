@@ -1,7 +1,6 @@
 package io.collectra.api.template.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -87,7 +86,7 @@ class TemplatePresetApplicationServiceUnitTest {
                         TemplateChannel.EMAIL,
                         resolved.subject(),
                         resolved.content(),
-                        isNull());
+                        null);
     }
 
     @Test
@@ -160,7 +159,7 @@ class TemplatePresetApplicationServiceUnitTest {
                         TemplateChannel.EMAIL,
                         resolved.subject(),
                         resolved.content(),
-                        isNull());
+                        null);
     }
 
     private TemplatePreset preset(TemplatePresetCode code) {
