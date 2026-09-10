@@ -181,19 +181,22 @@ public class TemplateManagementService {
         }
 
         List<SourceSchemaManagementService.ValidationIssue> errors = new ArrayList<>();
+        CompiledTemplate body = compileBody(version, errors);
+        CompiledTemplate subject = null;
+        if (version.getChannel() == TemplateChannel.EMAIL) {
+            subject = compileText(version.getId(), version.getSubject(), "subject", errors);
+        }
+
+        if (!errors.isEmpty()) {
+            return new SourceSchemaManagementService.ValidationResult(false, errors, List.of());
+        }
+
         Set<String> available =
                 fields.findAvailable(tenantId).stream()
                         .map(f -> f.getKey().toLowerCase(Locale.ROOT))
                         .collect(java.util.stream.Collectors.toSet());
-
-        validateCompiled("contentHtml", compileBody(version, errors), available, errors);
-        if (version.getChannel() == TemplateChannel.EMAIL) {
-            validateCompiled(
-                    "subject",
-                    compileText(version.getId(), version.getSubject(), "subject", errors),
-                    available,
-                    errors);
-        }
+        validateCompiled("contentHtml", body, available, errors);
+        if (subject != null) validateCompiled("subject", subject, available, errors);
 
         if (errors.isEmpty()) version.validated();
         return new SourceSchemaManagementService.ValidationResult(
