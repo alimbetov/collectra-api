@@ -12,6 +12,9 @@ import org.springframework.stereotype.Component;
 public class HtmlTemplatePolicy {
     private static final Pattern ASSET_PLACEHOLDER =
             Pattern.compile("\\{\\{\\s*asset\\.[a-z][a-z0-9_]*\\s*}}", Pattern.CASE_INSENSITIVE);
+    private static final String MANAGED_ASSET_ATTRIBUTE = "data-collectra-managed-asset";
+    private static final String MANAGED_ASSET_SENTINEL =
+            "data:image/gif;base64,R0lGODlhAQABAAAAACw=";
 
     private final Cleaner cleaner;
 
@@ -31,6 +34,7 @@ public class HtmlTemplatePolicy {
                         .addAttributes("meta", "charset")
                         .addAttributes("td", "colspan", "rowspan")
                         .addAttributes("th", "colspan", "rowspan")
+                        .addAttributes("img", MANAGED_ASSET_ATTRIBUTE)
                         .addProtocols("img", "src", "data");
         this.cleaner = new Cleaner(allowed);
     }
@@ -51,8 +55,18 @@ public class HtmlTemplatePolicy {
                                 throw new IllegalArgumentException(
                                         "External image URLs are forbidden; use {{asset.<key>}} with a managed template asset");
                             }
+                            if (managedAsset) {
+                                image.attr(MANAGED_ASSET_ATTRIBUTE, raw);
+                                image.attr("src", MANAGED_ASSET_SENTINEL);
+                            }
                         });
         Document clean = cleaner.clean(dirty);
+        clean.select("img[" + MANAGED_ASSET_ATTRIBUTE + "]")
+                .forEach(
+                        image -> {
+                            image.attr("src", image.attr(MANAGED_ASSET_ATTRIBUTE));
+                            image.removeAttr(MANAGED_ASSET_ATTRIBUTE);
+                        });
         return clean.body().html();
     }
 

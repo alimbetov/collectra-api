@@ -5,6 +5,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.collectra.api.template.domain.FieldDataType;
 import io.collectra.api.template.domain.FieldDefinition;
 import io.collectra.api.template.domain.TemplateChannel;
 import java.util.List;
@@ -209,8 +210,14 @@ class TemplateBuilderServiceUnitTest {
     }
 
     private FieldDefinition field(String key) {
-        FieldDefinition field = mock(FieldDefinition.class);
-        when(field.getKey()).thenReturn(key);
-        return field;
+        return new FieldDefinition(
+                null,
+                key,
+                key,
+                FieldDataType.STRING,
+                "TEST",
+                false,
+                false,
+                json.createObjectNode());
     }
 }

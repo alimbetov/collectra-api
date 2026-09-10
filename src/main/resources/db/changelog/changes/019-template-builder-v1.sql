@@ -17,7 +17,7 @@ CREATE TABLE template_assets (
     id UUID PRIMARY KEY,
     tenant_id UUID NOT NULL REFERENCES tenants(id),
     asset_key VARCHAR(80) NOT NULL,
-    file_id UUID NOT NULL REFERENCES stored_files(id),
+    file_id UUID NOT NULL REFERENCES stored_file(id),
     alt_text VARCHAR(300),
     status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
     created_at TIMESTAMPTZ NOT NULL,
