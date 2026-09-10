@@ -110,7 +110,13 @@ class ServiceClientSecurityIntegrationTest extends AbstractIntegrationTest {
     }
 
     private String issueToken(String clientId, String secret, String scope) throws Exception {
-        return read(token(clientId, secret, scope)).get("accessToken").asText();
+        String body =
+                token(clientId, secret, scope)
+                        .andExpect(status().isOk())
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString();
+        return json.readTree(body).get("accessToken").asText();
     }
 
     private org.springframework.test.web.servlet.ResultActions token(
