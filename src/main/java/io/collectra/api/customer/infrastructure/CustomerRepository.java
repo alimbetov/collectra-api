@@ -1,6 +1,7 @@
 package io.collectra.api.customer.infrastructure;
 
 import io.collectra.api.customer.domain.Customer;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -12,4 +13,6 @@ public interface CustomerRepository extends JpaRepository<Customer, UUID> {
     Optional<Customer> findByTenantIdAndExternalId(UUID tenantId, String externalId);
 
     List<Customer> findAllByTenantIdOrderByCreatedAtDesc(UUID tenantId);
+
+    List<Customer> findAllByTenantIdAndIdIn(UUID tenantId, Collection<UUID> ids);
 }
