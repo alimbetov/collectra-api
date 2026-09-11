@@ -11,12 +11,14 @@ import java.math.BigDecimal;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 class BusinessRecordPersistenceIntegrationTest extends AbstractIntegrationTest {
     @Autowired private BusinessRecordPersistenceService persistence;
     @Autowired private CustomerService customers;
     @Autowired private ReceivableService receivables;
     @Autowired private ObjectMapper json;
+    @Autowired private JdbcTemplate jdbcTemplate;
 
     @Test
     void persistsInvoiceAndReusesItOnRetry() {
@@ -72,6 +74,7 @@ class BusinessRecordPersistenceIntegrationTest extends AbstractIntegrationTest {
     }
 
     private UUID tenantId() {
-        return jdbcTemplate.queryForObject("select id from tenants order by created_at limit 1", UUID.class);
+        return jdbcTemplate.queryForObject(
+                "select id from tenants order by created_at limit 1", UUID.class);
     }
 }
