@@ -1,15 +1,13 @@
 package io.collectra.api.communication.application;
 
 import io.collectra.api.communication.infrastructure.MessageRepository;
-
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.time.Clock;
-import java.time.Duration;
-import java.time.Instant;
 
 @Service
 public class MessageRecoveryService {

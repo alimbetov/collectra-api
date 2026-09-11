@@ -1,12 +1,10 @@
 package io.collectra.api.communication.application;
 
 import io.collectra.api.communication.infrastructure.MessageRepository;
-
+import java.time.Clock;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.time.Clock;
 
 @Service
 public class MessageRetryDispatcher {

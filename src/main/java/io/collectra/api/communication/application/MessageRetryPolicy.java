@@ -1,10 +1,9 @@
 package io.collectra.api.communication.application;
 
-import org.springframework.stereotype.Component;
-
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Objects;
+import org.springframework.stereotype.Component;
 
 @Component
 public class MessageRetryPolicy {
