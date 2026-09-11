@@ -1,5 +1,10 @@
 # Review: Communication / Delivery Core
 
+> **Статус:** исторический архитектурный review. Финальные code-level решения,
+> включая отказ от mutable queued/processing counters, stale recovery и реальную
+> idempotency boundary, находятся в
+> `docs/roadmap/communication-delivery-core-code-audit.md` и имеют приоритет.
+
 ## Итог
 
 ТЗ можно реализовывать без отдельной инфраструктуры на каждый канал. Для v1 оптимальная схема — один общий delivery pipeline, один worker и простые channel adapters.
@@ -65,8 +70,11 @@ Worker получает `messageId`, читает `Message`, определяе�
 `ChannelProvider` должен быть максимально тупым адаптером:
 
 ```java
-ProviderSendResult send(Message message);
+ProviderSendResult send(ProviderSendCommand command);
 ```
+
+После code audit provider получает immutable command, а не JPA entity; стабильный
+`idempotencyKey` равен `Message.id`.
 
 Он только сообщает результат:
 
@@ -219,7 +227,8 @@ RETRY_WAIT
 activeCount == 0
 ```
 
-и все recipients находятся в terminal state (`SENT`, `FAILED`, `SKIPPED`, `CANCELLED` через соответствующие Message/Recipient состояния).
+и все recipients находятся в terminal state (`SENT`, `FAILED`, `SKIPPED` через
+соответствующие Message/Recipient состояния).
 
 Для v1 completion можно проверять после terminal transition сообщения или периодическим lightweight reconciliation job.
 
