@@ -37,3 +37,5 @@ databaseChangeLog:
       file: db/changelog/changes/021-tenant-locales.sql
   - include:
       file: db/changelog/changes/022-outbox-reliability.sql
+  - include:
+      file: db/changelog/changes/023-customer-receivable-core.sql
