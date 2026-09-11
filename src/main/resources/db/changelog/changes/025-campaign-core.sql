@@ -42,7 +42,7 @@ CREATE TABLE campaign_recipients (
     customer_id UUID NOT NULL REFERENCES customers(id),
     invoice_id UUID REFERENCES invoices(id),
     channel VARCHAR(30) NOT NULL,
-    destination VARCHAR(500) NOT NULL,
+    destination VARCHAR(500),
     locale VARCHAR(16),
     status VARCHAR(20) NOT NULL,
     skip_reason VARCHAR(40),
