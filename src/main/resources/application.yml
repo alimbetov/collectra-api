@@ -26,6 +26,11 @@ management:
 springdoc:
   swagger-ui.path: /swagger-ui.html
 collectra:
+  communication:
+    processing-timeout: 5m
+    recovery-batch-size: 100
+    recovery-delay: 1m
+    retry-dispatch-batch-size: 100
   messaging:
     outbox-publish-delay-ms: 1000
     outbox-recovery-delay-ms: 60000

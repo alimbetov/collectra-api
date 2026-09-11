@@ -49,4 +49,22 @@ class ArchitectureTest {
                             "io.collectra.api.campaign.application..",
                             "org.springframework.amqp..",
                             "org.springframework.web..");
+
+    @ArchTest
+    static final ArchRule COMMUNICATION_DOMAIN_DOES_NOT_DEPEND_ON_APPLICATION =
+            noClasses()
+                    .that()
+                    .resideInAPackage("io.collectra.api.communication.domain..")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAPackage("io.collectra.api.communication.application..");
+
+    @ArchTest
+    static final ArchRule COMMUNICATION_APPLICATION_DOES_NOT_DEPEND_ON_KUMOMTA =
+            noClasses()
+                    .that()
+                    .resideInAPackage("io.collectra.api.communication.application..")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAPackage("io.collectra.api.communication.infrastructure.kumomta..");
 }
