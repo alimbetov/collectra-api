@@ -57,8 +57,8 @@ CREATE INDEX idx_campaign_recipients_run_status
 
 INSERT INTO permissions(id, code, module, description)
 VALUES
-    ('10000000-0000-0000-0000-000000000030', 'CAMPAIGN_READ', 'campaign', 'Read campaigns and runs'),
-    ('10000000-0000-0000-0000-000000000031', 'CAMPAIGN_MANAGE', 'campaign', 'Create and run campaigns');
+    ('10000000-0000-0000-0000-000000000050', 'CAMPAIGN_READ', 'campaign', 'Read campaigns and runs'),
+    ('10000000-0000-0000-0000-000000000051', 'CAMPAIGN_MANAGE', 'campaign', 'Create and run campaigns');
 
 INSERT INTO role_permissions(role_id, permission_id)
 SELECT '00000000-0000-0000-0000-000000000002', id
