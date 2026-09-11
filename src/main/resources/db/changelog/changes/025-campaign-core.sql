@@ -54,3 +54,12 @@ CREATE TABLE campaign_recipients (
 );
 CREATE INDEX idx_campaign_recipients_run_status
     ON campaign_recipients(tenant_id, run_id, status, created_at);
+
+INSERT INTO permissions(id, code, module, description)
+VALUES
+    ('10000000-0000-0000-0000-000000000030', 'CAMPAIGN_READ', 'campaign', 'Read campaigns and runs'),
+    ('10000000-0000-0000-0000-000000000031', 'CAMPAIGN_MANAGE', 'campaign', 'Create and run campaigns');
+
+INSERT INTO role_permissions(role_id, permission_id)
+SELECT '00000000-0000-0000-0000-000000000002', id
+FROM permissions WHERE code IN ('CAMPAIGN_READ', 'CAMPAIGN_MANAGE');
