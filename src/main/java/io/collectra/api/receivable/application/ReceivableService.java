@@ -113,13 +113,7 @@ public class ReceivableService {
                     tenantId, amountFrom, amountTo, dueDateFrom, dueDateTo, pageable);
         }
         return invoices.findCampaignCandidatesForCustomers(
-                tenantId,
-                customerIds,
-                amountFrom,
-                amountTo,
-                dueDateFrom,
-                dueDateTo,
-                pageable);
+                tenantId, customerIds, amountFrom, amountTo, dueDateFrom, dueDateTo, pageable);
     }
 
     @Transactional
