@@ -12,15 +12,23 @@ class RbacSeedIntegrationTest extends AbstractIntegrationTest {
 
     @Test
     void systemRolesHaveExpectedScopeAndPermissionBundles() {
-        assertThat(jdbc.queryForObject("select count(*) from roles where system_role", Integer.class))
+        assertThat(
+                        jdbc.queryForObject(
+                                "select count(*) from roles where system_role", Integer.class))
                 .isEqualTo(3);
         assertThat(scopeOf("PLATFORM_SUPER_ADMIN")).isEqualTo("PLATFORM");
         assertThat(scopeOf("TENANT_ADMIN")).isEqualTo("TENANT");
         assertThat(scopeOf("TENANT_USER")).isEqualTo("TENANT");
 
         assertThat(permissionCodes("TENANT_ADMIN"))
-                .hasSize(31)
-                .contains("FILE_READ", "FILE_UPLOAD", "FILE_DELETE", "FILE_ADMIN");
+                .hasSize(33)
+                .contains(
+                        "FILE_READ",
+                        "FILE_UPLOAD",
+                        "FILE_DELETE",
+                        "FILE_ADMIN",
+                        "CAMPAIGN_READ",
+                        "CAMPAIGN_MANAGE");
 
         assertThat(permissionCodes("TENANT_USER"))
                 .hasSize(7)
@@ -29,7 +37,8 @@ class RbacSeedIntegrationTest extends AbstractIntegrationTest {
     }
 
     private String scopeOf(String role) {
-        return jdbc.queryForObject("select scope_type from roles where code = ?", String.class, role);
+        return jdbc.queryForObject(
+                "select scope_type from roles where code = ?", String.class, role);
     }
 
     private List<String> permissionCodes(String role) {
