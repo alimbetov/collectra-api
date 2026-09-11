@@ -16,8 +16,10 @@ Slice 7 не строит новый PDF engine и не переносит stora
 
 - document generation request/worker/state machine;
 - PDF/HTML generation pipeline;
-- FileService metadata lifecycle;
-- RustFS object storage;
+- FileService metadata lifecycle для обычных файлов;
+- `GeneratedDocument` + `GeneratedOutputService` + `DocumentStorage` для текущих
+  generated outputs (этот path пока не использует `StoredFile`);
+- RustFS/MinIO-compatible object storage;
 - Outbox/RabbitMQ document messaging;
 - Message materialization;
 - KumoMTA adapter без attachments из Slice 4.
@@ -51,19 +53,24 @@ message_attachments
 - id UUID PK
 - tenant_id UUID NOT NULL
 - message_id UUID NOT NULL
-- file_id UUID NULL
-- generated_output_id UUID NULL
+- generation_job_id UUID NOT NULL
+- generated_document_id UUID NULL
 - filename varchar(...) NOT NULL
 - content_type varchar(...) NOT NULL
 - required boolean NOT NULL DEFAULT true
+- status varchar(...) NOT NULL  # PENDING, READY, FAILED
 - created_at timestamptz NOT NULL
 ```
 
 Не хранить одновременно произвольные storage URL и raw binary.
 
-Один из durable references (`file_id` или `generated_output_id`) должен однозначно указывать на существующий file/document output согласно текущей модели.
+`generation_job_id` является durable correlation для ещё не готового requirement.
+При `READY` поле `generated_document_id` обязательно и ссылается на
+`generated_documents(id)`. Это устраняет недолговечную JSON-only correlation и
+позволяет отличить «attachment не требуется» от «обязательный attachment ещё
+генерируется».
 
-Точный FK выбрать после сверки с actual FileService/document entities. Не дублировать file metadata, если она уже authoritative elsewhere.
+Не дублировать `GeneratedDocument` metadata/storage key в attachment row.
 
 ## 5. Constraints
 
@@ -71,10 +78,10 @@ message_attachments
 
 ```text
 FK message_id -> messages.id
-unique(message_id, file_id)          # если file_id используется
+unique(message_id, generation_job_id)
+unique(message_id, generated_document_id) WHERE generated_document_id IS NOT NULL
+CHECK ((status = 'READY') = (generated_document_id IS NOT NULL))
 ```
-
-или соответствующий unique по generated output reference.
 
 Tenant consistency должна быть проверена application layer и, где возможно, FK/model constraints.
 
@@ -82,13 +89,15 @@ Tenant consistency должна быть проверена application layer и
 
 ## 6. Attachment state model
 
-Не создавать сложный отдельный status machine, если existing document generation job уже хранит status.
+Не дублировать полный lifecycle document job. Локальные `PENDING/READY/FAILED`
+фиксируют только readiness relation Message -> generated output и меняются через
+intent methods.
 
 Для Message достаточно понимать:
 
 ```text
-required attachment reference absent -> NOT READY
-all required attachment refs present  -> READY FOR DELIVERY
+required relation PENDING/FAILED -> NOT READY
+all required relations READY     -> READY FOR DELIVERY
 ```
 
 Если нужен failed generation state, source of truth остаётся document generation job.
@@ -122,7 +131,8 @@ Message created
 
 Нужно использовать existing document request contract и связать generated output с `messageId`/attachment intent.
 
-Если existing document job не умеет correlation to Message, добавить минимальный durable correlation field/reference в appropriate model, а не JSON-only convention без DB relation.
+Correlation хранится в `message_attachments.generation_job_id`; менять payload
+существующего `DOCUMENT_GENERATION_REQUESTED` не требуется.
 
 ## 9. Completion callback/orchestration
 
@@ -146,6 +156,18 @@ Message delivery OutboxEvent
 
 должны быть atomic в одной DB transaction после того, как все required attachments готовы.
 
+Текущий `DocumentGenerationWorker` не публикует completion event. В этом Slice
+добавить `DOCUMENT_GENERATION_COMPLETED {tenantId, jobId}` через существующий
+Outbox после durable `GenerationJob COMPLETED`; отдельный completion listener
+разрешает attachment relation и создаёт delivery event. Document module не должен
+импортировать communication application classes напрямую.
+
+При затрагивании `GenerationJob`/`GeneratedDocument` убрать внутренний
+`Instant.now()` из новых/изменяемых transition paths: timestamp передаётся из
+application `Clock`, как и в communication flow. Completion lookup/event всегда
+tenant-scoped; существующий `begin(jobId)` без tenant scope нельзя переиспользовать
+в новом attachment callback path.
+
 ## 10. Idempotency
 
 Повторный document completion event / worker redelivery:
@@ -155,6 +177,11 @@ Message delivery OutboxEvent
 - не генерирует второй PDF без business reason.
 
 Нужен unique constraint + application check.
+
+Для exactly-one delivery signal добавить DB idempotency key для Outbox creation
+(предпочтительно unique logical key `MESSAGE_DELIVERY_REQUESTED + messageId`) либо
+durable `delivery_requested_at`/equivalent marker у Message. Обычного
+`exists()` перед insert недостаточно при concurrent completion events.
 
 Если one Message has multiple attachments, delivery event создаётся только после последнего required attachment.
 
@@ -209,7 +236,9 @@ Oversized attachment -> permanent delivery/materialization failure с понят
 
 ## 13. File access
 
-Communication layer получает bytes через существующий FileService/storage abstraction.
+Для generated attachment communication layer получает bytes через существующий
+`GeneratedOutputService`/`DocumentStorage` abstraction. Для обычного uploaded
+file — через `FileService`; эти два durable source type нельзя угадывать по URL.
 
 Не обращаться напрямую к RustFS SDK из `KumoMtaEmailDeliveryGateway`, если FileService уже является storage boundary.
 
@@ -220,8 +249,8 @@ Kumo adapter
   <- receives already resolved attachment content/descriptor
 
 Message attachment application service
-  -> FileService
-  -> RustFS implementation
+  -> GeneratedOutputService or FileService
+  -> existing storage implementation
 ```
 
 ## 14. KumoMTA attachment mapping
@@ -242,7 +271,11 @@ content/base64 according to actual Kumo HTTP schema
 
 ## 15. File retention interaction
 
-File cleanup scheduler не должен удалить required attachment, пока Message ещё ожидает delivery/retry.
+Соответствующий cleanup path не должен удалить required attachment, пока Message
+ещё ожидает delivery/retry. Сейчас generated outputs не управляются
+`FileCleanupService`, поэтому retention guard добавляется в фактический
+`GeneratedDocument` cleanup либо generated output сначала осознанно мигрируется в
+`StoredFile`; смешанный полу-переход запрещён.
 
 Нужно определить retention guard:
 

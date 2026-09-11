@@ -23,6 +23,16 @@ Content-Type: application/json
 https://docs.kumomta.com/reference/http/kumod/api_inject_v1_post/
 ```
 
+Минимальная поддерживаемая версия deployment для этого contract:
+
+```text
+2025.12.02-67ee9e96
+```
+
+Именно с неё `template_dialect = Static` является частью официального API.
+Deployment version проверяется в Definition of Ready; молча fallback-ить на
+Jinja запрещено, иначе уже rendered `{{...}}` content может измениться повторно.
+
 ## 2. Архитектурная граница
 
 ```text
@@ -101,7 +111,6 @@ Credentials:
   "content": {
     "headers": {
       "From": "Collectra <noreply@example.com>",
-      "To": "client@example.com",
       "Subject": "Invoice reminder"
     },
     "html_body": "<html>...</html>"
@@ -115,7 +124,9 @@ Credentials:
       }
     }
   ],
-  "template_dialect": "Static"
+  "template_dialect": "Static",
+  "deferred_generation": false,
+  "deferred_spool": false
 }
 ```
 
@@ -126,6 +137,10 @@ Credentials:
 - one Collectra Message -> one Kumo injection recipient;
 - business content не рендерить в adapter;
 - metadata использовать только для correlation, не для business logic.
+- `To` header не передавать: KumoMTA строит его из `recipients`; это избегает
+  duplicate `To` на версиях до `2026.03.04-bb93ecb1`;
+- `deferred_generation=false`, чтобы `success_count` отражал фактический inject;
+- `deferred_spool=false`, чтобы не ослаблять durable accountability.
 
 Если actual Kumo deployment предпочитает RFC822 string `content`, adapter может собирать MIME/RFC822 representation, но выбор должен быть единообразным и покрытым test. Для MVP предпочтителен structured `content`.
 

@@ -208,6 +208,18 @@ Worker не должен:
 - обращаться к CampaignRecipient/Customer;
 - держать transaction вокруг provider call.
 
+### Runtime wiring до Slice 4
+
+После Slice 2 production-реализации `DeliveryGateway` ещё нет. При этом обычный
+Spring context обязан продолжать стартовать. Поэтому `MessageDeliveryWorker`
+регистрируется только при наличии bean `DeliveryGateway` (например,
+`@ConditionalOnBean(DeliveryGateway.class)`). Unit/integration tests предоставляют
+test gateway. В Slice 3 listener использует то же условие, а в Slice 4 условие
+удовлетворяет KumoMTA adapter.
+
+Не добавлять production `NoOpDeliveryGateway`: он может ошибочно превратить
+реальные delivery events в terminal failures.
+
 ## 9. Retry policy
 
 Первая версия фиксированная:
@@ -250,6 +262,7 @@ collectra:
   communication:
     processing-timeout: 5m
     recovery-batch-size: 100
+    recovery-delay: 1m
 ```
 
 Repository должен уметь выбирать bounded set:
@@ -275,6 +288,14 @@ Error code для interrupted processing:
 PROCESSING_TIMEOUT
 ```
 
+Для перехода в `RETRY_WAIT` значение `nextRetryAt` рассчитывается тем же
+`MessageRetryPolicy` от текущего `attemptCount` и `clock.instant()`. Recovery не
+вводит отдельную retry шкалу.
+
+Выбор и transition выполняются одной короткой transaction через bounded native
+query с `FOR UPDATE SKIP LOCKED`; возвращать unlocked entities из одной
+transaction и менять их по очереди в другой не нужно.
+
 Если нужен новый domain method, он должен выражать intent, например `recoverInterruptedAttempt(...)`, а не позволять arbitrary setStatus.
 
 ## 11. Retry dispatcher
@@ -295,6 +316,11 @@ commit
 ```
 
 Публикация нового `MESSAGE_DELIVERY_REQUESTED` будет полноценно подключена в Slice 3. Slice 2 должен подготовить dispatcher API так, чтобы broker-specific код туда не попал.
+
+В Slice 2 dispatcher **не запускается по `@Scheduled` автоматически**. Иначе он
+переведёт due message в `QUEUED`, но без Outbox event сообщение останется без
+work signal. Scheduler включается в Slice 3 одновременно с атомарным
+`requeue + OutboxEvent`.
 
 ## 12. CampaignRun counters
 

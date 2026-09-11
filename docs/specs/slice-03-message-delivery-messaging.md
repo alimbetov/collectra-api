@@ -57,7 +57,13 @@ communication.application.MessageDeliveryEventPublisher.java
 ```text
 shared.outbox.OutboxEventRouter
 communication.application.MessageRetryDispatcher
+shared.outbox.OutboxService
 ```
+
+`OutboxService` должен получать `Clock` и вызывать explicit-time constructor
+`OutboxEvent(..., clock.instant())`. Конструктор entity с внутренним
+`Instant.now()` удалить: общее правило времени распространяется и на новый
+communication event path.
 
 ## 4. Event contract
 
@@ -121,6 +127,11 @@ DLX/queue:    использовать существующий project pattern,
 
 `CommunicationMessagingConfig` должен быть единственным местом с именами exchange/queue/routing key.
 
+Существующий `DocumentMessagingConfig` уже предоставляет общий
+`Jackson2JsonMessageConverter`. Не объявлять второй converter bean с тем же
+назначением; communication topology должна переиспользовать существующий Jackson
+setup.
+
 Не добавлять business retry TTL chain в RabbitMQ для `Message`. Retry scheduling контролируется `Message.nextRetryAt`.
 
 ## 7. Outbox routing
@@ -174,6 +185,10 @@ public class MessageDeliveryListener {
     }
 }
 ```
+
+До включения KumoMTA listener и worker регистрируются только при наличии
+`DeliveryGateway`. Это сохраняет успешный startup после Slice 3 и не потребляет
+delivery events, когда provider явно отключён.
 
 Listener должен оставаться thin.
 

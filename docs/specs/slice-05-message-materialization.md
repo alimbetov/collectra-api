@@ -45,6 +45,12 @@ CampaignMessageTemplateResolver
 
 Добавлять их только если materializer становится слишком большим. Не создавать generic workflow framework.
 
+Текущий `CampaignEligibilityService.recheck` загружает run целиком. В рамках
+этого Slice выделить page-scoped evaluation contract, который принимает уже
+загруженный batch и возвращает counts + eligible Customer/Invoice context. И
+обычный recheck, и materializer используют его; второй полный read того же batch
+не допускается.
+
 ## 4. Entry point
 
 Рекомендуемый контракт:
@@ -65,6 +71,24 @@ public MaterializationBatchResult materializeNextBatch(
 Для больших кампаний предпочтителен второй вариант.
 
 Materializer принимает только durable IDs, не UI DTO.
+
+### Single materialization claim
+
+Каждый batch начинается с tenant-scoped `PESSIMISTIC_WRITE` lock на
+`CampaignRun`. Это сериализует competing materializers одного run. После
+получения lock batch заново выбирает только recipients:
+
+```text
+status != SKIPPED
+AND NOT EXISTS Message(campaign_recipient_id)
+ORDER BY created_at, id
+LIMIT batchSize
+```
+
+Первый batch атомарно делает `READY -> RUNNING`; следующие принимают только
+`RUNNING`. Lock отпускается после commit одного bounded batch. DB unique остаётся
+последней защитой, но normal concurrent flow не должен завершаться unique
+violation.
 
 ## 5. Allowed CampaignRun state
 
@@ -118,6 +142,9 @@ save Message
         v
 OutboxService.append(MESSAGE_DELIVERY_REQUESTED)
 ```
+
+Outbox payload соответствует Slice 3 и содержит оба durable scope identifiers:
+`tenantId` и `messageId`.
 
 ## 7. Transaction boundary
 
@@ -196,16 +223,21 @@ unique(campaign_recipient_id, channel)
 
 ## 10. Destination resolution
 
-Для EMAIL MVP выбрать один однозначный contact resolution rule из текущей customer/contact модели.
+Для EMAIL MVP authoritative destination — immutable
+`CampaignRecipient.destination`, выбранный текущим campaign prepare rule.
 
 Требования:
 
-- destination выбирается tenant-scoped;
+- destination не выбирается повторно из другого email после prepare;
+- final eligibility tenant-scoped проверяет, что snapshot email всё ещё ACTIVE;
 - пустой/недоступный email не создаёт invalid Message;
-- recipient должен получить существующий skip/failure reason, например `NO_EMAIL_DESTINATION`;
+- recipient получает существующий `NO_CONTACT`, чтобы не вводить второй reason
+  для того же business outcome;
 - не читать contact повторно N раз, если его можно batch-load для page.
 
-Если customer имеет несколько email, правило выбора должно быть детерминировано существующей моделью (`primary`/priority). Если такого признака нет — использовать current business rule и зафиксировать его отдельным test.
+Если customer имеет несколько email, materializer не пересчитывает выбор: правило
+детерминированно применяется один раз в `CampaignService.prepare` и фиксируется
+отдельным test.
 
 ## 11. Locale resolution
 
@@ -222,6 +254,15 @@ recipient/customer preferred locale
 Результат обязательно сохранить в `Message.resolvedLocale`.
 
 Не определять locale повторно в delivery worker.
+
+Exact algorithm для текущего template subsystem:
+
+1. tenant-scoped загрузить anchor `Campaign.templateVersionId`;
+2. взять из anchor `templateId` и EMAIL channel;
+3. requested locale = recipient locale, а при blank — tenant default;
+4. вызвать `TemplateLocaleResolver.resolve(...)`;
+5. загрузить latest `PUBLISHED` version для resolved locale/template/channel;
+6. сохранить фактические version id и locale в Message.
 
 ## 12. Template resolution
 
@@ -260,6 +301,24 @@ custom.*
 items[]
 ```
 
+Минимальный normalized payload этого Slice фиксирован:
+
+```text
+document.number/date
+customer.externalId/type/displayName/name/firstName/lastName/middleName/
+         companyName/locale/timezone
+invoice.externalId/invoiceNumber/invoiceDate/dueDate/amount/originalAmount/
+        paidAmount/outstandingAmount/currency/paymentStatus/contractId/documentFileId
+custom.customer/custom.invoice
+```
+
+Aliases: `document.number = invoice.invoiceNumber`,
+`document.date = invoice.invoiceDate`, `customer.name = customer.displayName`,
+`invoice.amount = invoice.originalAmount`. Dates — ISO strings, decimals — JSON
+numbers, отсутствующие custom objects — `{}`. `items[]` добавляется только когда
+в actual canonical model появляется соответствующий source; пустой искусственный
+массив не создавать.
+
 Missing required placeholder обрабатывается как rendering/materialization error до создания delivery event.
 
 ## 14. Subject/body rendering
@@ -268,6 +327,9 @@ EMAIL:
 
 - `subject` рендерится через text rendering;
 - `body` — через existing HTML renderer;
+- `subject` компилируется `TemplateCompiler.compileText`, затем
+  `TemplateRenderer.renderText`;
+- `body` рендерится `TemplateRenderer.render`;
 - rendered values сохраняются в Message;
 - последующее изменение template не меняет уже созданный Message.
 

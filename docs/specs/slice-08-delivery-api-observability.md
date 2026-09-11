@@ -23,8 +23,8 @@ Suggested branch: `feat/delivery-api-observability`
 Добавить read-only API:
 
 ```text
-GET /api/campaigns/{campaignId}/runs/{runId}/messages
-GET /api/campaigns/{campaignId}/runs/{runId}/messages/{messageId}
+GET /api/v1/campaigns/{campaignId}/runs/{runId}/messages
+GET /api/v1/campaigns/{campaignId}/runs/{runId}/messages/{messageId}
 ```
 
 Опционально, если уже есть отдельный CampaignRun details endpoint, расширить его delivery counters вместо создания duplicate endpoint.
@@ -46,6 +46,9 @@ communication.observability.MessageDeliveryMetrics
 
 Использовать существующий auth/RBAC/tenant context.
 
+Для обоих endpoints использовать существующее permission `CAMPAIGN_READ` вместе
+с `ROLE_HUMAN`; новое delivery-specific permission в MVP не вводить.
+
 Каждый query должен содержать tenant id из authenticated context.
 
 Нельзя:
@@ -61,7 +64,7 @@ Raw UUID другого tenant должен вернуть обычный `404`,
 ## 4. List endpoint
 
 ```text
-GET /api/campaigns/{campaignId}/runs/{runId}/messages
+GET /api/v1/campaigns/{campaignId}/runs/{runId}/messages
 ```
 
 Query params:
@@ -94,7 +97,7 @@ MVP фильтры:
 ## 5. Detail endpoint
 
 ```text
-GET /api/campaigns/{campaignId}/runs/{runId}/messages/{messageId}
+GET /api/v1/campaigns/{campaignId}/runs/{runId}/messages/{messageId}
 ```
 
 Lookup должен одновременно проверять:
