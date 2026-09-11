@@ -32,8 +32,9 @@ public class BusinessRecordPersistenceService {
             case "CUSTOMER" -> persistCustomer(tenantId, payload);
             case "INVOICE" -> persistInvoice(tenantId, payload);
             case "PAYMENT" -> persistPayment(tenantId, payload);
-            default -> throw new IllegalArgumentException(
-                    "Unsupported business documentType: " + documentType);
+            default ->
+                    throw new IllegalArgumentException(
+                            "Unsupported business documentType: " + documentType);
         };
     }
 
@@ -114,7 +115,9 @@ public class BusinessRecordPersistenceService {
                                         tenantId,
                                         externalId,
                                         customerType(
-                                                payload.path("customer").path("type").asText(null)),
+                                                payload.path("customer")
+                                                        .path("type")
+                                                        .asText(null)),
                                         text(payload, "/customer/displayName", externalId),
                                         text(payload, "/customer/firstName", null),
                                         text(payload, "/customer/lastName", null),
