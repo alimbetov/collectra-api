@@ -1,41 +1,116 @@
 # Collectra backend specifications
 
-Этот каталог содержит рабочие технические задания для этапов backend roadmap.
+Этот каталог содержит implementation-ready технические задания для backend MVP.
 
-Главный принцип: **roadmap определяет порядок, spec определяет границы конкретного PR**.
+Главный roadmap: [`../roadmap/backend-mvp-roadmap.md`](../roadmap/backend-mvp-roadmap.md).
 
-| Slice | Спецификация | Статус | Зависит от |
+## Порядок реализации
+
+| Slice | Спецификация | Статус | Основной результат |
 |---|---|---|---|
-| 2 | [Message processing core](slice-02-message-processing.md) | NEXT | Slice 1 — merged |
-| 3 | [Message delivery messaging](slice-03-message-delivery-messaging.md) | Planned | Slice 2 |
-| 4 | [KumoMTA email adapter](slice-04-kumomta-email-adapter.md) | Planned | Slice 2–3 |
-| 5 | [CampaignRun → Message materialization](slice-05-message-materialization.md) | Planned | Slice 2–3 |
-| 6 | [Campaign delivery counters and completion](slice-06-campaign-delivery-counters.md) | Planned | Slice 2, 5 |
-| 7 | [Attachments and generated documents](slice-07-attachments-documents.md) | Planned | Slice 4–5 |
-| 8 | [Delivery API and observability](slice-08-delivery-api-observability.md) | Planned | Slice 2–7 |
+| 2 | [Message processing core](slice-02-message-processing.md) | NEXT | safe claim, retry, recovery, provider-neutral worker |
+| 3 | [Message delivery messaging](slice-03-message-delivery-messaging.md) | READY AFTER 2 | Outbox -> RabbitMQ -> MessageDeliveryWorker |
+| 4 | [KumoMTA email adapter](slice-04-kumomta-email-adapter.md) | READY AFTER 2/3 | real EMAIL injection through KumoMTA HTTP API |
+| 5 | [CampaignRun to Message materialization](slice-05-message-materialization.md) | READY AFTER 3 | Campaign recipients -> immutable Message + Outbox |
+| 6 | [Campaign delivery counters and completion](slice-06-campaign-delivery-counters.md) | READY AFTER 2/5 | atomic counters and durable CampaignRun completion |
+| 7 | [Attachments and generated documents](slice-07-attachments-documents.md) | READY AFTER 3/5 | document/FileService attachments before delivery |
+| 8 | [Delivery API and observability](slice-08-delivery-api-observability.md) | READY AFTER 2–7 | support API, metrics, logging and production visibility |
 
-Общий порядок и архитектурные решения находятся в [`../roadmap/backend-mvp-roadmap.md`](../roadmap/backend-mvp-roadmap.md).
+## Dependency chain
 
-## Как использовать specs
+```text
+Slice 1 Message persistence                 DONE
+        |
+        v
+Slice 2 Message processing core             NEXT
+        |
+        +-------------------+
+        |                   |
+        v                   v
+Slice 3 Messaging       Slice 6 counters*   (*final integration also needs Slice 5)
+        |
+        +--------+
+        |        |
+        v        v
+Slice 4 Kumo   Slice 5 materialization
+                 |
+                 +--------+
+                 |        |
+                 v        v
+             Slice 6   Slice 7 attachments
+                 \        /
+                  \      /
+                   v    v
+               Slice 8 API/observability
+```
 
-Перед началом каждого slice:
+## Что означает implementation-ready
 
-1. сверить spec с текущим `main`;
-2. удалить из scope то, что уже реализовано;
-3. не расширять PR соседними задачами без необходимости;
-4. после реализации обновить статус spec;
-5. следующий slice начинать только после проверки его зависимостей.
+Каждое ТЗ Slice 2–8 фиксирует:
 
-## Общие правила для всех slices
+- цель и зависимости;
+- текущий baseline, который нельзя строить повторно;
+- конкретный scope классов/пакетов;
+- domain/state invariants;
+- transaction boundaries;
+- tenant isolation;
+- idempotency/concurrency rules;
+- DB migration/index requirements;
+- event/API/provider contracts;
+- error/retry semantics;
+- unit/PostgreSQL/integration/architecture tests;
+- рекомендуемый порядок реализации;
+- explicit out-of-scope;
+- Definition of Done.
 
-- tenant scope должен быть явным в repository/application слоях;
-- время брать из `Clock`, а не через прямой `Instant.now()` / `LocalDate.now()` в domain;
-- внешние network calls не выполнять под PostgreSQL row lock;
-- durable business state хранить в PostgreSQL, а не только в RabbitMQ headers;
-- async events должны передавать durable identifiers, а не копию business state;
-- domain invariants не дублировать в listener/controller/provider adapter;
-- для больших выборок использовать bounded pages/batches;
-- каждый slice должен иметь unit/integration tests по своему риску;
-- завершение slice — зелёный `mvn verify` и узкий PR без auto-merge.
+ТЗ является стартовым техническим контрактом PR. Перед началом конкретного Slice разработчик всё равно обязан сверить его с актуальным `main`: если предыдущий PR уже реализовал часть scope или изменил имя класса/contract, ТЗ корректируется по фактическому коду, а не наоборот.
 
-Для новых спецификаций использовать [`_template.md`](_template.md).
+## Правила реализации
+
+1. Один Slice — один узкий PR, если diff не требует обоснованного разделения.
+2. Branch создаётся от актуального `main`, а не от documentation branch.
+3. Не вводить новый framework/abstraction, если существующая инфраструктура решает задачу.
+4. Domain state меняется через domain methods, не прямым `setStatus`.
+5. Tenant id остаётся явной частью async/query contracts.
+6. External network calls не выполняются под PostgreSQL row lock/long transaction.
+7. Async event содержит durable identifiers, а PostgreSQL остаётся source of truth.
+8. Время приходит через application `Clock`.
+9. Schema меняется Liquibase migration только когда реально требуется.
+10. Для persistence/concurrency использовать PostgreSQL integration tests, не только H2/mock tests.
+11. `mvn verify` обязан быть green перед PR completion.
+12. PR не мержится автоматически без явного решения.
+
+## Общие архитектурные ограничения
+
+```text
+communication.domain
+    не зависит от Spring HTTP/Rabbit/KumoMTA
+
+communication.application
+    знает DeliveryGateway, но не KumoMTA DTO
+
+communication.infrastructure
+    реализует Rabbit/KumoMTA/persistence adapters
+
+PostgreSQL
+    authoritative Message/CampaignRun state
+
+RabbitMQ
+    at-least-once work transport, не business source of truth
+
+Transactional Outbox
+    единственный DB -> broker publication mechanism
+```
+
+## Definition of Ready перед началом Slice
+
+Перед созданием code branch проверить:
+
+- предыдущие required slices merged в `main`;
+- migration numbering актуален;
+- package/class names в ТЗ всё ещё соответствуют проекту;
+- нет уже существующей реализации того же scope;
+- CI `main` не красный по независимой причине;
+- внешние contracts, если они есть, подтверждены (например KumoMTA endpoint/configuration).
+
+После этого реализация может идти прямо по разделу `Порядок реализации` соответствующего ТЗ.
