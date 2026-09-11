@@ -1,48 +1,31 @@
-# Slice 2 — Message processing
+# Slice 2 — Message processing core
 
 Status: NEXT
 
-Roadmap: `docs/roadmap/backend-mvp-roadmap.md`
+Depends on: Slice 1 — Message persistence and invariants (merged)
+
+Suggested branch: `feat/message-processing-core`
 
 ## Цель
 
-Добавить безопасную обработку уже сохранённых `Message` без привязки к KumoMTA.
+Добавить безопасную provider-independent обработку уже сохранённых `Message`: atomic claim, отправку через `DeliveryGateway`, retry/fail transitions и восстановление зависших `PROCESSING`.
 
-После этой задачи система должна уметь:
-
-- взять сообщение в обработку только один раз;
-- перевести его `QUEUED -> PROCESSING`;
-- зафиксировать `SENT`, `RETRY_WAIT` или `FAILED`;
-- планировать повторную попытку;
-- восстановить сообщение, зависшее в `PROCESSING` после падения worker;
-- работать одинаково при одном и нескольких экземплярах приложения.
-
-## Что уже есть
+## Уже есть
 
 Не реализуем повторно:
 
-- `Message`;
-- `MessageStatus`;
-- `CommunicationChannel`;
-- `attemptCount`;
-- `processingStartedAt`;
-- `nextRetryAt`;
-- `providerMessageId`;
-- `beginAttempt(...)`;
-- `markSent(...)`;
-- `scheduleRetry(...)`;
-- `markFailed(...)`;
-- `requeue()`;
-- `Clock`;
-- базовый `MessageRepository`.
+- `Message`, `MessageStatus`, `CommunicationChannel`;
+- `attemptCount`, `processingStartedAt`, `nextRetryAt`, `providerMessageId`;
+- `beginAttempt`, `markSent`, `scheduleRetry`, `markFailed`, `requeue`;
+- application `Clock`;
+- базовый tenant-scoped `MessageRepository`;
+- counters в `CampaignRun`.
 
-## Что нужно сделать
+## Scope
 
-### 1. Блокировка Message
+### 1. Atomic claim
 
-Расширить `MessageRepository` tenant-scoped методом с `PESSIMISTIC_WRITE`.
-
-Пример целевой сигнатуры:
+Расширить `MessageRepository` tenant-scoped pessimistic lock lookup:
 
 ```java
 @Lock(LockModeType.PESSIMISTIC_WRITE)
@@ -52,45 +35,23 @@ Roadmap: `docs/roadmap/backend-mvp-roadmap.md`
         where m.id = :id
           and m.tenantId = :tenantId
         """)
-Optional<Message> findLockedByIdAndTenantId(
-        UUID id,
-        UUID tenantId);
+Optional<Message> findLockedByIdAndTenantId(UUID id, UUID tenantId);
 ```
 
-Цель: два worker не должны одновременно начать обработку одного сообщения.
+Один `Message` не должен одновременно перейти в `PROCESSING` двумя worker-ами.
 
-### 2. MessageStateService
+### 2. Application port
 
-Добавить application service:
+Добавить:
 
 ```text
-io.collectra.api.communication.application.MessageStateService
+DeliveryGateway
+DeliveryCommand
+DeliveryResult
+DeliveryFailureKind
 ```
 
-Ответственность:
-
-```text
-begin()
-sent()
-retry()
-fail()
-```
-
-Каждая операция выполняется в короткой транзакции и загружает `Message` под lock.
-
-`begin()` должен:
-
-```text
-QUEUED
-  -> beginAttempt(clock.instant())
-  -> PROCESSING
-```
-
-и вернуть snapshot данных, необходимых для отправки.
-
-### 3. DeliveryGateway
-
-Добавить простой provider-independent интерфейс:
+Минимальный контракт:
 
 ```java
 public interface DeliveryGateway {
@@ -98,199 +59,145 @@ public interface DeliveryGateway {
 }
 ```
 
-Минимальный command:
+KumoMTA здесь не подключается.
 
-```java
-public record DeliveryCommand(
-        UUID messageId,
-        UUID tenantId,
-        CommunicationChannel channel,
-        String destination,
-        String subject,
-        String body) {}
-```
+### 3. MessageStateService
 
-Результат:
-
-```java
-public sealed interface DeliveryResult {
-    record Accepted(String providerMessageId) implements DeliveryResult {}
-
-    record Rejected(
-            DeliveryFailureKind kind,
-            String code,
-            String message) implements DeliveryResult {}
-}
-```
-
-```java
-public enum DeliveryFailureKind {
-    RETRYABLE,
-    PERMANENT
-}
-```
-
-KumoMTA в этом PR не подключаем.
-
-### 4. Retry policy
-
-Добавить `MessageRetryPolicy`.
-
-Для первой версии достаточно:
+Добавить короткие transactional операции:
 
 ```text
-1-я ошибка -> retry через 1 минуту
-2-я ошибка -> retry через 10 минут
-3-я ошибка -> retry через 1 час
-4-я ошибка -> FAILED
+begin(tenantId, messageId)
+sent(tenantId, messageId, providerMessageId)
+retry(tenantId, messageId, nextRetryAt, code, message)
+fail(tenantId, messageId, code, message)
 ```
 
-Все расчёты времени должны использовать `Clock`.
+`begin()` должен вернуть immutable snapshot данных, необходимых provider call.
+
+### 4. MessageRetryPolicy
+
+Начальная политика:
+
+```text
+attempt 1 -> +1 minute
+attempt 2 -> +10 minutes
+attempt 3 -> +1 hour
+attempt 4+ -> FAILED
+```
+
+Расчёт времени — через `Clock`.
 
 ### 5. MessageDeliveryWorker
 
-Добавить orchestration service:
+Основной поток:
 
 ```text
-MessageDeliveryWorker
+lock + QUEUED -> PROCESSING + commit
+        -> DeliveryGateway.deliver()
+        -> lock
+            -> SENT
+            -> RETRY_WAIT
+            -> FAILED
+        -> commit
 ```
 
-Логика:
+Внешний provider call всегда выполняется вне DB-транзакции.
+
+### 6. Recovery
+
+Добавить `MessageRecoveryService` для stale сообщений:
 
 ```text
-MessageStateService.begin()
-        |
-        v
-DeliveryGateway.deliver()
-        |
-        +--> Accepted
-        |      -> MessageStateService.sent()
-        |
-        +--> RETRYABLE
-        |      -> MessageStateService.retry()
-        |
-        +--> PERMANENT / attempts exhausted
-               -> MessageStateService.fail()
+PROCESSING + processingStartedAt < threshold
+  -> RETRY_WAIT
+  -> или FAILED при exhausted attempts
 ```
 
-## Важное правило транзакций
+Обработка bounded batch/page. Не нужен отдельный distributed scheduling framework.
 
-Не держать транзакцию PostgreSQL во время вызова внешнего provider.
+### 7. Retry dispatcher
 
-Правильно:
+Добавить bounded обработку:
 
 ```text
-TX 1
-lock Message
-QUEUED -> PROCESSING
-commit
-
-external provider call
-
-TX 2
-lock Message
-PROCESSING -> SENT / RETRY_WAIT / FAILED
-commit
+RETRY_WAIT + nextRetryAt <= now
+  -> lock
+  -> requeue()
+  -> QUEUED
 ```
 
-## Recovery
+Сам dispatcher provider не вызывает. Публикация RabbitMQ/Outbox события оформляется в Slice 3.
 
-Нужно обработать случай, когда приложение упало после перехода в `PROCESSING`.
+### 8. CampaignRun counters
 
-Добавить `MessageRecoveryService`.
-
-Минимальная логика:
+Подготовить безопасное обновление существующих counters при реальных transitions:
 
 ```text
-PROCESSING
-processingStartedAt < now - timeout
-        |
-        +--> попытки ещё есть -> RETRY_WAIT
-        |
-        +--> попытки закончились -> FAILED
+messageSent()
+messageFailed()
+messageRetryScheduled()
 ```
 
-Для первой версии достаточно bounded batch/page. Не нужен сложный distributed scheduler.
+Повторный вызов для уже terminal/неподходящего state не должен double-count counters.
 
-## Retry dispatcher
+## Инварианты и правила
 
-Добавить обработку сообщений:
+- tenant id обязателен в worker/state-service lookup;
+- entity `Message` остаётся единственным владельцем status transitions;
+- DB lock не держится во время provider call;
+- `attemptCount` увеличивается только при реальном `QUEUED -> PROCESSING`;
+- terminal message нельзя claim повторно;
+- retry schedule хранится в PostgreSQL;
+- recovery не должен напрямую SQL-обновлять status в обход domain methods.
 
-```text
-RETRY_WAIT
-nextRetryAt <= now
-        -> requeue()
-        -> QUEUED
-```
+## Не входит
 
-Отправку письма этот код не выполняет. Он только возвращает сообщение в очередь обработки.
-
-## CampaignRun counters
-
-При успешной отправке / terminal failure / retry должны корректно обновляться существующие counters `CampaignRun`.
-
-Минимально нужны domain methods вместо setters:
-
-```java
-messageSent();
-messageFailed();
-messageRetryScheduled();
-```
-
-Повторная доставка одного и того же broker event не должна повторно увеличивать counters.
-
-## Что не входит в Slice 2
-
-Не делать в этом PR:
-
-- KumoMTA client;
-- SMTP/HTTP интеграцию;
-- новую RabbitMQ архитектуру;
+- KumoMTA;
+- RabbitMQ listener/exchange;
 - template rendering;
-- PDF/QR;
-- attachments;
+- materialization;
+- PDF/QR/attachments;
 - SMS/WhatsApp/Telegram;
-- новый универсальный retry framework.
+- универсальный retry framework.
 
 ## Тесты
 
-Минимальный обязательный набор:
+Обязательные:
 
 ```text
 MessageStateServiceIntegrationTest
 - QUEUED -> PROCESSING
+- duplicate begin безопасен
 - tenant isolation
-- повторный begin не создаёт вторую попытку
 
 MessageDeliveryWorkerTest
 - Accepted -> SENT
 - RETRYABLE -> RETRY_WAIT
 - PERMANENT -> FAILED
-- max attempts -> FAILED
+- exhausted -> FAILED
 
 MessageRetryPolicyTest
 - 1m / 10m / 1h
 
 MessageRecoveryIntegrationTest
-- старый PROCESSING восстанавливается
-- свежий PROCESSING не трогаем
+- stale PROCESSING восстанавливается
+- fresh PROCESSING не меняется
 
 MessageConcurrencyIntegrationTest
-- два concurrent worker
-- сообщение забирает только один
+- два concurrent claim
+- только один beginAttempt
+
+ArchitectureTest
+- communication.domain не зависит от infrastructure/provider packages
 ```
 
 ## Definition of Done
 
-Slice считается готовым, когда:
-
-- одно сообщение нельзя одновременно обработать двумя worker;
-- сетевой вызов не выполняется внутри DB-транзакции;
-- retry deterministic и покрыт тестами;
-- stuck `PROCESSING` можно восстановить;
-- tenant isolation соблюдён;
-- terminal errors сохраняются;
-- `CampaignRun` counters не дублируются;
-- `mvn verify` проходит успешно.
-
-После этого следующий отдельный PR: **KumoMTA email adapter**.
+- claim одного сообщения атомарен;
+- concurrent/duplicate processing не создаёт вторую попытку;
+- network call не выполняется под row lock;
+- success/retry/failure корректно сохраняются;
+- stale `PROCESSING` имеет recovery path;
+- counters не double-count на повторной обработке;
+- KumoMTA dependency отсутствует;
+- `mvn verify` зелёный.
