@@ -41,6 +41,7 @@ public class CampaignController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('CAMPAIGN_MANAGE')")
     CampaignResponse create(@Valid @RequestBody CreateCampaignRequest request) {
         return CampaignResponse.from(
                 campaigns.create(
@@ -54,37 +55,44 @@ public class CampaignController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('CAMPAIGN_READ')")
     List<CampaignResponse> list() {
         return campaigns.campaigns(tenant()).stream().map(CampaignResponse::from).toList();
     }
 
     @GetMapping("/{campaignId}")
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('CAMPAIGN_READ')")
     CampaignResponse get(@PathVariable UUID campaignId) {
         return CampaignResponse.from(campaigns.campaign(tenant(), campaignId));
     }
 
     @PostMapping("/{campaignId}/activate")
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('CAMPAIGN_MANAGE')")
     CampaignResponse activate(@PathVariable UUID campaignId) {
         return CampaignResponse.from(campaigns.activate(tenant(), campaignId));
     }
 
     @PostMapping("/{campaignId}/runs")
     @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('CAMPAIGN_MANAGE')")
     CampaignService.PrepareResult prepare(@PathVariable UUID campaignId) {
         return campaigns.prepare(tenant(), campaignId);
     }
 
     @GetMapping("/{campaignId}/runs")
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('CAMPAIGN_READ')")
     List<RunResponse> runs(@PathVariable UUID campaignId) {
         return campaigns.runs(tenant(), campaignId).stream().map(RunResponse::from).toList();
     }
 
     @GetMapping("/runs/{runId}/recipients")
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('CAMPAIGN_READ')")
     List<RecipientResponse> recipients(@PathVariable UUID runId) {
         return campaigns.recipients(tenant(), runId).stream().map(RecipientResponse::from).toList();
     }
 
     @PostMapping("/runs/{runId}/eligibility-recheck")
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('CAMPAIGN_MANAGE')")
     CampaignEligibilityService.EligibilityResult recheck(@PathVariable UUID runId) {
         campaigns.run(tenant(), runId);
         return eligibility.recheck(tenant(), runId);
