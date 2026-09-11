@@ -24,7 +24,9 @@ class BusinessRecordPersistenceIntegrationTest extends AbstractIntegrationTest {
     void persistsInvoiceAndReusesItOnRetry() {
         UUID tenantId = tenantId();
         ObjectNode payload = json.createObjectNode();
-        payload.withObject("customer").put("externalId", "ERP-C-100").put("displayName", "Acme LLP");
+        payload.withObject("customer")
+                .put("externalId", "ERP-C-100")
+                .put("displayName", "Acme LLP");
         payload.withObject("invoice")
                 .put("externalId", "ERP-I-100")
                 .put("invoiceNumber", "INV-100")
