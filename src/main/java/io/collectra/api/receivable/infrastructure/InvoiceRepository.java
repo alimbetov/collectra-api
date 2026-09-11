@@ -22,7 +22,8 @@ public interface InvoiceRepository extends JpaRepository<Invoice, UUID> {
 
     List<Invoice> findAllByTenantIdAndIdIn(UUID tenantId, Collection<UUID> ids);
 
-    @Query("""
+    @Query(
+            """
             select i
               from Invoice i
              where i.tenantId = :tenantId
@@ -40,7 +41,8 @@ public interface InvoiceRepository extends JpaRepository<Invoice, UUID> {
             @Param("dueDateTo") LocalDate dueDateTo,
             Pageable pageable);
 
-    @Query("""
+    @Query(
+            """
             select i
               from Invoice i
              where i.tenantId = :tenantId
