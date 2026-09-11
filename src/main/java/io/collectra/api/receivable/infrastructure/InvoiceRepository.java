@@ -1,5 +1,15 @@
 package io.collectra.api.receivable.infrastructure;
+
 import io.collectra.api.receivable.domain.Invoice;
-import java.util.*;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
-public interface InvoiceRepository extends JpaRepository<Invoice,UUID>{Optional<Invoice> findByIdAndTenantId(UUID id,UUID tenantId);Optional<Invoice> findByTenantIdAndExternalId(UUID tenantId,String externalId);List<Invoice> findAllByTenantIdOrderByCreatedAtDesc(UUID tenantId);}
+
+public interface InvoiceRepository extends JpaRepository<Invoice, UUID> {
+    Optional<Invoice> findByIdAndTenantId(UUID id, UUID tenantId);
+
+    Optional<Invoice> findByTenantIdAndExternalId(UUID tenantId, String externalId);
+
+    List<Invoice> findAllByTenantIdOrderByCreatedAtDesc(UUID tenantId);
+}
