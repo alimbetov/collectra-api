@@ -2,6 +2,10 @@ spring:
   jpa.show-sql: false
   rabbitmq.listener.simple.auto-startup: false
   task.scheduling.enabled: false
+  datasource:
+    hikari:
+      maximum-pool-size: 3
+      minimum-idle: 0
 collectra.security.jwt-secret: test-secret-with-at-least-thirty-two-characters
 collectra.security.otp-pepper: test-otp-pepper-with-at-least-thirty-two-characters
 collectra.security.expose-otp: true
