@@ -39,6 +39,7 @@ class ProductionConfigurationTest {
         assertThat(shared.getProperty("collectra.security.otp-pepper")).isNull();
         assertThat(shared.getProperty("collectra.file.storage.access-key")).isNull();
         assertThat(shared.getProperty("collectra.file.storage.secret-key")).isNull();
+        assertThat(shared.getProperty("collectra.communication.delivery.enabled")).isEqualTo(false);
     }
 
     @Test

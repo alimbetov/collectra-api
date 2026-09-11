@@ -191,9 +191,11 @@ public class MessageDeliveryListener {
 }
 ```
 
-До включения KumoMTA listener и worker регистрируются только при наличии
-`DeliveryGateway`. Это сохраняет успешный startup после Slice 3 и не потребляет
-delivery events, когда provider явно отключён.
+До включения KumoMTA listener и worker регистрируются только при
+`collectra.communication.delivery.enabled=true`. Default — `false`. Это сохраняет
+успешный startup после Slice 3 и не потребляет delivery events, когда provider
+явно отключён. При включённом switch отсутствие `DeliveryGateway` должно ломать
+startup как configuration error, а не создавать no-op delivery.
 
 Listener должен оставаться thin.
 

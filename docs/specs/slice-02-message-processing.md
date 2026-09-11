@@ -216,11 +216,19 @@ Worker не должен:
 ### Runtime wiring до Slice 4
 
 После Slice 2 production-реализации `DeliveryGateway` ещё нет. При этом обычный
-Spring context обязан продолжать стартовать. Поэтому `MessageDeliveryWorker`
-регистрируется только при наличии bean `DeliveryGateway` (например,
-`@ConditionalOnBean(DeliveryGateway.class)`). Unit/integration tests предоставляют
-test gateway. В Slice 3 listener использует то же условие, а в Slice 4 условие
-удовлетворяет KumoMTA adapter.
+Spring context обязан продолжать стартовать. `MessageDeliveryWorker` и Slice 3
+listener регистрируются только при явном operational switch:
+
+```text
+collectra.communication.delivery.enabled=true
+```
+
+Default — `false`. При `true` отсутствие `DeliveryGateway` является fail-fast
+configuration error. Не использовать `@ConditionalOnBean` непосредственно на
+component-scanned worker/listener: результат зависит от порядка обработки bean
+definitions. Unit tests создают worker напрямую, integration tests включают
+property и предоставляют test gateway. В Slice 4 KumoMTA adapter удовлетворяет
+обязательную dependency.
 
 Не добавлять production `NoOpDeliveryGateway`: он может ошибочно превратить
 реальные delivery events в terminal failures.

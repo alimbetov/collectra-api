@@ -2,11 +2,11 @@ package io.collectra.api.communication.application;
 
 import java.time.Clock;
 import java.util.UUID;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
 @Service
-@ConditionalOnBean(DeliveryGateway.class)
+@ConditionalOnProperty(name = "collectra.communication.delivery.enabled", havingValue = "true")
 public class MessageDeliveryWorker {
     private final MessageStateService states;
     private final DeliveryGateway gateway;

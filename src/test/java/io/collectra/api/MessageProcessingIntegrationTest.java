@@ -45,6 +45,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
@@ -53,6 +54,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Import(MessageProcessingIntegrationTest.FixedClockConfiguration.class)
+@SpringBootTest(properties = "collectra.communication.delivery.enabled=true")
 class MessageProcessingIntegrationTest extends AbstractIntegrationTest {
     private static final Instant NOW = Instant.parse("2026-09-11T10:00:00Z");
 
