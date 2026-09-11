@@ -12,6 +12,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -75,6 +76,14 @@ public class ReceivableService {
     }
 
     @Transactional(readOnly = true)
+    public Optional<Invoice> findInvoiceByExternalId(UUID tenantId, String externalId) {
+        if (externalId == null || externalId.isBlank()) {
+            return Optional.empty();
+        }
+        return invoices.findByTenantIdAndExternalId(tenantId, externalId.trim());
+    }
+
+    @Transactional(readOnly = true)
     public List<Invoice> invoices(UUID tenantId) {
         return invoices.findAllByTenantIdOrderByCreatedAtDesc(tenantId);
     }
@@ -113,6 +122,14 @@ public class ReceivableService {
     public Payment payment(UUID tenantId, UUID id) {
         return payments.findByIdAndTenantId(id, tenantId)
                 .orElseThrow(() -> new NoSuchElementException("Payment not found"));
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<Payment> findPaymentByExternalId(UUID tenantId, String externalId) {
+        if (externalId == null || externalId.isBlank()) {
+            return Optional.empty();
+        }
+        return payments.findByTenantIdAndExternalId(tenantId, externalId.trim());
     }
 
     @Transactional(readOnly = true)
