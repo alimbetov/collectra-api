@@ -13,6 +13,7 @@ import io.collectra.api.customer.infrastructure.CustomerPhoneRepository;
 import io.collectra.api.customer.infrastructure.CustomerRepository;
 import io.collectra.api.customer.infrastructure.CustomerSegmentMemberRepository;
 import io.collectra.api.customer.infrastructure.CustomerSegmentRepository;
+import java.util.Collection;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
@@ -98,6 +99,14 @@ public class CustomerService {
         return customers.findAllByTenantIdOrderByCreatedAtDesc(tenantId);
     }
 
+    @Transactional(readOnly = true)
+    public List<Customer> customersByIds(UUID tenantId, Collection<UUID> customerIds) {
+        if (customerIds == null || customerIds.isEmpty()) {
+            return List.of();
+        }
+        return customers.findAllByTenantIdAndIdIn(tenantId, customerIds);
+    }
+
     @Transactional
     public Customer update(
             UUID tenantId,
@@ -159,6 +168,15 @@ public class CustomerService {
     }
 
     @Transactional(readOnly = true)
+    public List<CustomerEmail> emailsByCustomerIds(
+            UUID tenantId, Collection<UUID> customerIds) {
+        if (customerIds == null || customerIds.isEmpty()) {
+            return List.of();
+        }
+        return emails.findAllByTenantIdAndCustomerIdIn(tenantId, customerIds);
+    }
+
+    @Transactional(readOnly = true)
     public List<CustomerPhone> phones(UUID tenantId, UUID customerId) {
         get(tenantId, customerId);
         return phones.findAllByTenantIdAndCustomerId(tenantId, customerId);
@@ -197,5 +215,14 @@ public class CustomerService {
         return members.findAllByTenantIdAndCustomerId(tenantId, customerId).stream()
                 .map(CustomerSegmentMember::getSegmentId)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<CustomerSegmentMember> segmentMembershipsByCustomerIds(
+            UUID tenantId, Collection<UUID> customerIds) {
+        if (customerIds == null || customerIds.isEmpty()) {
+            return List.of();
+        }
+        return members.findAllByTenantIdAndCustomerIdIn(tenantId, customerIds);
     }
 }
