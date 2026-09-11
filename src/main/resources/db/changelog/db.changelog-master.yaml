@@ -41,3 +41,5 @@ databaseChangeLog:
       file: db/changelog/changes/023-customer-receivable-core.sql
   - include:
       file: db/changelog/changes/024-business-import-field-catalog.sql
+  - include:
+      file: db/changelog/changes/025-campaign-core.sql
