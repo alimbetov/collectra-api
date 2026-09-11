@@ -1176,3 +1176,42 @@ CampaignRun READY
 campaign/eligibility/template, всё после него — технической доставкой. Эта граница
 позволяет позднее вынести worker в отдельный process, не меняя Campaign Core и не
 создавая сейчас лишнюю микросервисную инфраструктуру.
+
+---
+
+## 19. Binding decision для KumoMTA
+
+Production EMAIL adapter планируется на **KumoMTA**. Официальная точка HTTP
+инъекции — `POST /api/inject/v1`; она принимает envelope, готовый content и список
+recipients. Успешная инъекция означает принятие сообщения MTA в очередь, а не
+подтверждение доставки в mailbox.
+
+Связанные официальные контракты:
+
+- injection API: <https://docs.kumomta.com/reference/http/kumod/api_inject_v1_post/>;
+- log webhooks: <https://docs.kumomta.com/userguide/operation/webhooks/>.
+
+Binding для будущего adapter:
+
+```text
+Collectra Message.id -> KumoMTA recipient metadata.collectra_message_id
+Collectra rendered subject/body -> template_dialect=Static
+success_count=1, fail_count=0 -> MessageStatus.SENT
+injection error before acceptance -> retryable/permanent ProviderResult
+Delivery/Bounce/Expiration/Feedback -> отдельный webhook/projection slice
+```
+
+В v1 `SENT` означает «принято configured provider/MTA». Он не означает
+«доставлено в ящик» и тем более «прочитано». `providerMessageId` остаётся nullable:
+контракт ответа injection API возвращает aggregate counts/errors и не гарантирует
+отдельный provider id для каждого принятого recipient. Корреляция строится через
+stable `Message.id` в metadata.
+
+KumoMTA имеет собственную SMTP retry queue. Её `TransientFailure` не должен
+автоматически создавать новую Collectra provider attempt: иначе два retry loops
+могут породить дубли. Collectra retry относится к невозможности передать message в
+KumoMTA; SMTP delivery outcomes поступают позднее через log webhook.
+
+KumoMTA client, webhook endpoint и production provider configuration не входят в
+PR slice 1. В этом slice имя провайдера присутствует только в архитектурной
+документации и не попадает в domain/persistence package.
