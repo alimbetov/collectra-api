@@ -1,7 +1,8 @@
 # Communication / Delivery Core — implementation tasks
 
-> **Статус:** backlog до code audit. При выполнении задач использовать обязательные
-> corrections из `docs/roadmap/communication-delivery-core-code-audit.md`. Audit
+> **Статус:** code audit завершён; реализация начинается с PR slice 1. При выполнении
+> задач использовать обязательные corrections из
+> `docs/roadmap/communication-delivery-core-code-audit.md`. Audit
 > уточняет schema, payload/locale contracts, provider command, stale recovery,
 > paging, API/security и расширяет обязательный test set.
 
@@ -11,6 +12,12 @@
 
 ```text
 docs/roadmap/communication-delivery-core-implementation.md
+```
+
+Пошаговый план первого PR:
+
+```text
+docs/roadmap/communication-delivery-core-pr1-plan.md
 ```
 
 Цель backlog: каждая задача должна быть достаточно маленькой, чтобы её можно было реализовать отдельным commit/PR slice и проверить тестами.
