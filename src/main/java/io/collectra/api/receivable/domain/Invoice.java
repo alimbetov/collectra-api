@@ -109,10 +109,7 @@ public class Invoice extends AuditableEntity {
         }
         paidAmount = paidAmount.add(allocation);
         outstandingAmount = originalAmount.subtract(paidAmount);
-        paymentStatus =
-                outstandingAmount.signum() == 0
-                        ? PaymentStatus.PAID
-                        : PaymentStatus.PARTIALLY_PAID;
+        paymentStatus = outstandingAmount.signum() == 0 ? PaymentStatus.PAID : PaymentStatus.PARTIALLY_PAID;
     }
 
     public boolean isOverdue(LocalDate today) {

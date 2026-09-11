@@ -204,12 +204,7 @@ public class CustomerController {
             List<UUID> segmentIds) {}
 
     public record EmailResponse(
-            UUID id,
-            String email,
-            String type,
-            boolean primary,
-            boolean verified,
-            String status) {
+            UUID id, String email, String type, boolean primary, boolean verified, String status) {
         static EmailResponse from(CustomerEmail value) {
             return new EmailResponse(
                     value.getId(),

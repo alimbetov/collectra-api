@@ -169,8 +169,7 @@ public class CustomerService {
         get(tenantId, customerId);
         segments.findByIdAndTenantId(segmentId, tenantId)
                 .orElseThrow(() -> new NoSuchElementException("Segment not found"));
-        if (!members.existsByTenantIdAndCustomerIdAndSegmentId(
-                tenantId, customerId, segmentId)) {
+        if (!members.existsByTenantIdAndCustomerIdAndSegmentId(tenantId, customerId, segmentId)) {
             members.save(new CustomerSegmentMember(tenantId, customerId, segmentId));
         }
     }

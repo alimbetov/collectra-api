@@ -12,6 +12,5 @@ public interface CustomerSegmentMemberRepository
 
     List<CustomerSegmentMember> findAllByTenantIdAndCustomerId(UUID tenantId, UUID customerId);
 
-    void deleteByTenantIdAndCustomerIdAndSegmentId(
-            UUID tenantId, UUID customerId, UUID segmentId);
+    void deleteByTenantIdAndCustomerIdAndSegmentId(UUID tenantId, UUID customerId, UUID segmentId);
 }

@@ -129,8 +129,7 @@ public class ReceivableController {
             JsonNode customFields) {}
 
     public record AllocationRequest(
-            @NotNull UUID invoiceId,
-            @NotNull @DecimalMin("0.0001") BigDecimal amount) {}
+            @NotNull UUID invoiceId, @NotNull @DecimalMin("0.0001") BigDecimal amount) {}
 
     public record InvoiceResponse(
             UUID id,
@@ -192,8 +191,7 @@ public class ReceivableController {
         }
     }
 
-    public record AllocationResponse(
-            UUID id, UUID paymentId, UUID invoiceId, BigDecimal amount) {
+    public record AllocationResponse(UUID id, UUID paymentId, UUID invoiceId, BigDecimal amount) {
         static AllocationResponse from(PaymentAllocation value) {
             return new AllocationResponse(
                     value.getId(), value.getPaymentId(), value.getInvoiceId(), value.getAmount());
