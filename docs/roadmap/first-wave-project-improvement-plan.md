@@ -1,600 +1,716 @@
-# Collectra — первая волна обзора плана доработки проекта
+# Collectra — первая волна доработки проекта
 
-**Статус:** Draft / Review  
-**Назначение:** системно-аналитическое ТЗ верхнего уровня для первой волны развития бизнес-функциональности Collectra.
+**Статус:** Architecture Baseline v2 / implementation-oriented review  
+**Назначение:** рабочее ТЗ первой волны, детализированное до уровня пакетов, сущностей, сервисов, API, миграций и тестов с учетом уже существующего кода Collectra.
 
-## 1. Цель
+> Основной принцип: **не переписывать то, что уже работает; расширять существующие модули минимально необходимыми изменениями.**
 
-Сформировать последовательный путь развития проекта от существующей инфраструктуры импорта, файлов, шаблонов и security к полноценному business flow:
+---
+
+# 1. Цель первой волны
+
+Довести существующую платформенную основу Collectra до рабочего business flow:
 
 ```text
 Import / API
     ↓
 Customer
     ↓
-Receivable
+Invoice / Payment
     ↓
 Campaign
     ↓
-Recipient
+Recipient snapshot
     ↓
-Template
+Eligibility recheck
     ↓
-Template Rendering
+Existing TemplateVersion + Builder
     ↓
-HTML / PDF / Message
+Logo / Image / QR / placeholders
     ↓
-Outbox
+CommunicationMessage snapshot
+    ↓
+Existing Outbox
     ↓
 RabbitMQ
     ↓
-Worker
+Communication Worker
     ↓
-Channel Provider
+EMAIL Provider
     ↓
-Delivery Result
+MessageDelivery
 ```
 
-Ключевой принцип первой волны: не строить все подсистемы одновременно. Развитие вести вертикальными business slices, каждый из которых доводится до рабочего API, БД, правил, тестов и интеграции с существующей инфраструктурой.
+Первая волна должна закончиться реальным сценарием:
+
+```text
+загрузить/создать Customer + Invoice
+→ выбрать получателя
+→ сформировать персонализированный HTML
+→ добавить logo/image/QR
+→ отправить EMAIL
+→ увидеть результат доставки
+```
 
 ---
 
-## 2. Границы первой волны
+# 2. Результат ревью текущего кода
 
-Первая волна охватывает следующие функциональные области:
+## 2.1. Уже существует — не создавать заново
 
-- Customer и контактные данные;
-- Customer Segment;
-- Receivable / Invoice;
-- Payment;
-- Import Mapping и persistence в business entities;
-- Campaign;
-- Campaign Recipient;
-- Template и Template Blocks;
-- Media Asset Gallery;
-- Logo / Image blocks;
-- QR Code block;
-- Communication Message;
-- Message Delivery;
-- Outbox;
-- RabbitMQ;
-- Worker;
-- EMAIL как первый delivery channel;
-- HTML preview;
-- PDF rendering и attachments как следующий шаг внутри первой большой волны.
+В проекте уже есть готовые части, которые должны быть переиспользованы.
 
-Не блокируют первую волну:
+### Template subsystem
 
-- SMS;
-- WhatsApp;
-- Telegram;
-- In-App;
-- CollectionCase;
-- PromiseToPay;
-- NextAction;
-- Dispute;
-- Contracts / Customer Care / VIP сценарии.
+Существуют:
+
+```text
+io.collectra.api.template.domain.DocumentTemplate
+io.collectra.api.template.domain.TemplateVersion
+io.collectra.api.template.domain.TemplateAsset
+io.collectra.api.template.domain.FieldDefinition
+io.collectra.api.template.application.FieldCatalogService
+io.collectra.api.template.application.PlaceholderScanner
+io.collectra.api.template.application.TemplateBuilderService
+io.collectra.api.template.application.TemplateBuilderDocumentCompiler
+io.collectra.api.template.application.TemplateAssetService
+```
+
+`TemplateVersion` уже поддерживает:
+
+```text
+DRAFT
+→ VALIDATED
+→ PUBLISHED
+→ ARCHIVED
+```
+
+и уже содержит:
+
+```text
+locale
+channel
+subject
+builderJson
+contentHtml
+stylesheet
+```
+
+**Решение:** новую сущность `Template`/`TemplateVersion` не создавать. Расширять существующий template module.
+
+### File subsystem
+
+Существуют:
+
+```text
+io.collectra.api.file.application.FileService
+FileRetentionPolicy
+FileCleanupService
+FileMetadata
+UploadFileCommand
+```
+
+**Решение:** отдельное физическое media storage не создавать. Галерея изображений работает поверх существующего `TemplateAsset + FileService`.
+
+### Import subsystem
+
+Уже существуют:
+
+```text
+ImportBatch
+MappingProfile
+MappingRule
+SourceSchema
+SourceField
+CsvInputParser
+ExcelInputParser
+JsonInputParser
+DocumentInputParser
+MappingExecutionService
+ImportBatchProcessingService
+```
+
+**Решение:** не писать новые CSV/Excel/JSON parsers. Добавить последний шаг persistence в business entities.
+
+### Shared Outbox
+
+Уже существуют:
+
+```text
+OutboxEvent
+OutboxService
+OutboxPublisher
+OutboxClaimService
+OutboxStateService
+OutboxRetryPolicy
+OutboxRepository
+OutboxEventRouter
+```
+
+**Решение:** отдельный outbox для communication не создавать. Использовать существующий `shared.outbox` с новым event type/route.
+
+### Tenant context
+
+Уже существуют:
+
+```text
+TenantContext
+TenantContextFilter
+MissingTenantException
+```
+
+**Решение:** новые business services должны получать tenant через существующий механизм, а не через пользовательский request parameter.
+
+### Document/PDF
+
+Уже существуют:
+
+```text
+GenerationJob
+GenerationJobService
+DocumentGenerationWorker
+PdfRenderer
+GeneratedDocument
+GeneratedOutputService
+```
+
+**Решение:** PDF generation не проектировать вторым независимым pipeline. Новая коммуникационная функциональность должна передавать подготовленный HTML в существующий document module.
 
 ---
 
-# 3. Общие требования
+# 3. Что реально требуется добавить
 
-Все tenant-owned сущности должны содержать:
-
-```text
-id
-tenantId
-createdAt
-updatedAt
-```
-
-Tenant isolation обязательна для repository/service/API слоя.
-
-Недопустим сценарий, при котором объект другого tenant можно получить по прямому UUID.
-
-Business keys должны быть tenant-scoped, например:
+Новые business packages:
 
 ```text
-Customer: tenantId + externalId
-Invoice:  tenantId + externalId
-Payment:  tenantId + externalId
-Segment:  tenantId + code
+io.collectra.api.customer
+io.collectra.api.receivable
+io.collectra.api.campaign
+io.collectra.api.communication
 ```
+
+`customer` и `communication` уже имеют package placeholders — использовать их.
+
+Стандартная структура модулей должна соответствовать существующему проекту:
+
+```text
+<module>/
+├── api
+├── application
+├── domain
+└── infrastructure
+```
+
+Не вводить отдельные hexagonal ports/adapters слои поверх уже принятой структуры.
 
 ---
 
 # 4. Customer
 
-Customer — центральная сущность получателя коммуникаций.
+## 4.1. Сущности
+
+Пакет:
+
+```text
+io.collectra.api.customer.domain
+```
+
+Добавить:
 
 ```text
 Customer
-├── id
-├── tenantId
-├── externalId
-├── customerType
-├── displayName
-├── firstName
-├── lastName
-├── middleName
-├── companyName
-├── status
-├── segmentId
-├── managerUserId
-├── preferredLocale
-├── timezone
-├── customFields JSONB
-├── createdAt
-└── updatedAt
-```
-
-Тип:
-
-```text
-INDIVIDUAL
-COMPANY
-```
-
-Статус:
-
-```text
-ACTIVE
-INACTIVE
-BLOCKED
-ARCHIVED
-```
-
-## 4.1. CustomerEmail
-
-```text
 CustomerEmail
-├── id
-├── tenantId
-├── customerId
-├── email
-├── type
-├── primary
-├── verified
-├── status
-├── createdAt
-└── updatedAt
-```
-
-Email не хранить как `email1 ... email5`. Количество адресов регулируется бизнес-ограничением, а не схемой БД.
-
-## 4.2. CustomerPhone
-
-```text
 CustomerPhone
-├── id
-├── tenantId
-├── customerId
-├── phone
-├── normalizedPhone
-├── type
-├── primary
-├── verified
-├── whatsappAllowed
-├── telegramAllowed
-├── status
-├── createdAt
-└── updatedAt
-```
-
-Телефон должен нормализоваться, например:
-
-```text
-+7 (777) 123-45-67 → +77771234567
-```
-
-## 4.3. CustomerSegment
-
-```text
 CustomerSegment
-├── id
-├── tenantId
-├── code
-├── name
-├── description
-├── active
-├── createdAt
-└── updatedAt
+CustomerSegmentMember
+CustomerStatus
+CustomerType
+ContactStatus
 ```
 
-Примеры: `VIP`, `RETAIL`, `SME`, `CORPORATE`, `OVERDUE_HIGH_RISK`.
+### Customer
 
----
+Минимальная модель:
 
-# 5. Receivable / Invoice
+```java
+@Entity
+@Table(
+    name = "customers",
+    uniqueConstraints = @UniqueConstraint(
+        name = "uk_customer_tenant_external",
+        columnNames = {"tenant_id", "external_id"}
+    )
+)
+public class Customer extends AuditableEntity {
+    @Id
+    private UUID id;
 
-Invoice отражает финансовое обязательство клиента.
+    @Column(name = "tenant_id", nullable = false)
+    private UUID tenantId;
 
-```text
-Invoice
-├── id
-├── tenantId
-├── customerId
-├── contractId nullable
-├── externalId
-├── invoiceNumber
-├── invoiceDate
-├── dueDate
-├── originalAmount
-├── paidAmount
-├── outstandingAmount
-├── currency
-├── paymentStatus
-├── documentFileId nullable
-├── customFields JSONB
-├── createdAt
-└── updatedAt
-```
+    @Column(name = "external_id", nullable = false, length = 120)
+    private String externalId;
 
-`OVERDUE` желательно не использовать как единственный permanent payment status. Просрочка может вычисляться из `dueDate` и `outstandingAmount`.
+    @Enumerated(EnumType.STRING)
+    private CustomerType customerType;
 
----
+    private String displayName;
+    private String firstName;
+    private String lastName;
+    private String middleName;
+    private String companyName;
 
-# 6. Payment
+    @Enumerated(EnumType.STRING)
+    private CustomerStatus status;
 
-```text
-Payment
-├── id
-├── tenantId
-├── invoiceId
-├── externalId
-├── paymentDate
-├── amount
-├── currency
-├── paymentReference
-├── source
-├── customFields JSONB
-├── createdAt
-└── updatedAt
-```
+    private UUID managerUserId;
+    private String preferredLocale;
+    private String timezone;
 
-Обязательна поддержка partial payment.
-
-```text
-paidAmount = SUM(applied payments)
-outstandingAmount = originalAmount - paidAmount
-```
-
----
-
-# 7. Import → Business Objects
-
-Существующий Import subsystem должен стать ingestion layer:
-
-```text
-Excel / CSV / JSON / XML / API
-        ↓
-Parser
-        ↓
-Raw Record
-        ↓
-Mapping
-        ↓
-Canonical Model
-        ↓
-Validation
-        ↓
-Business Persistence
-```
-
-Первый набор target entities:
-
-```text
-Customer
-CustomerEmail
-CustomerPhone
-Invoice
-Payment
-```
-
-Пример mapping:
-
-```text
-client_code → customer.externalId
-fio         → customer.displayName
-bill_no     → invoice.invoiceNumber
-bill_sum    → invoice.originalAmount
-deadline    → invoice.dueDate
-```
-
-Поля вне canonical model сохранять в `customFields`.
-
-Повторный импорт должен выполнять upsert по business keys.
-
-Ошибка одной строки не должна откатывать весь batch.
-
-Пример результата:
-
-```json
-{
-  "received": 1000,
-  "created": 800,
-  "updated": 185,
-  "failed": 15
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "custom_fields", columnDefinition = "jsonb")
+    private JsonNode customFields;
 }
 ```
 
----
+Не добавлять `segmentId` прямо в Customer. Один Customer может иметь несколько сегментов.
 
-# 8. Campaign
-
-```text
-Campaign
-├── id
-├── tenantId
-├── name
-├── type
-├── status
-├── templateId
-├── scheduledAt
-├── selectionCriteria JSONB
-├── createdBy
-├── createdAt
-├── launchedAt
-└── completedAt
-```
-
-Статусы:
+### CustomerEmail
 
 ```text
-DRAFT
-SCHEDULED
-PREPARING
-RUNNING
-COMPLETED
-CANCELLED
-FAILED
+id
+tenantId
+customerId
+email
+type
+primary
+verified
+status
 ```
 
-На первом этапе selection criteria реализовать обычным DTO, без универсального query language.
-
-Пример полей:
+### CustomerPhone
 
 ```text
-segmentIds
-daysOverdueFrom
-daysOverdueTo
-amountFrom
-amountTo
-customerIds
-invoiceIds
+id
+tenantId
+customerId
+phone
+normalizedPhone
+type
+primary
+verified
+status
 ```
 
----
+На первой волне **не добавлять отдельную сложную consent subsystem**. Для SMS/WhatsApp правила согласий будут отдельным ТЗ при подключении этих каналов.
 
-# 9. Campaign Recipient
-
-Перед отправкой необходимо фиксировать snapshot получателей.
+### CustomerSegment
 
 ```text
-CampaignRecipient
-├── id
-├── tenantId
-├── campaignId
-├── customerId
-├── invoiceId nullable
-├── channel
-├── destination
-├── locale
-├── status
-└── createdAt
+CustomerSegment
+id, tenantId, code, name, description, active
+
+CustomerSegmentMember
+id, tenantId, customerId, segmentId
 ```
 
-После формирования snapshot последующие изменения Customer/Invoice не должны молча менять уже подготовленный состав Campaign.
-
----
-
-# 10. Template и Placeholder Engine
+Уникальности:
 
 ```text
-Template
-├── id
-├── tenantId
-├── code
-├── name
-├── channel
-├── locale
-├── subjectTemplate
-├── bodyTemplate
-├── status
-├── version
-├── createdAt
-└── updatedAt
+(tenant_id, code)
+(customer_id, segment_id)
 ```
 
-Поддерживаемые placeholders:
+## 4.2. Application layer
+
+Добавить:
 
 ```text
-{{customer.displayName}}
-{{customer.externalId}}
-{{invoice.invoiceNumber}}
-{{invoice.outstandingAmount}}
-{{invoice.currency}}
-{{invoice.dueDate}}
-{{invoice.documentUrl}}
-{{manager.displayName}}
-{{custom.customer.region}}
-{{custom.invoice.project}}
+CustomerService
+CustomerQueryService
+CustomerContactService
+CustomerSegmentService
 ```
 
-Один и тот же placeholder engine должен использоваться для:
+Не создавать отдельный service на каждую CRUD-операцию.
 
-- subject;
-- HTML;
-- PDF;
-- QR;
-- dynamic image URLs;
-- button URLs.
+Репозитории:
 
-Не создавать отдельные несовместимые механизмы под каждый renderer.
+```text
+CustomerRepository
+CustomerEmailRepository
+CustomerPhoneRepository
+CustomerSegmentRepository
+CustomerSegmentMemberRepository
+```
+
+Все repository methods для tenant-owned данных должны включать `tenantId`.
+
+Пример:
+
+```java
+Optional<Customer> findByIdAndTenantId(UUID id, UUID tenantId);
+Optional<Customer> findByTenantIdAndExternalId(UUID tenantId, String externalId);
+```
+
+## 4.3. API
+
+```http
+POST   /api/v1/customers
+GET    /api/v1/customers/{id}
+GET    /api/v1/customers
+PUT    /api/v1/customers/{id}
+PATCH  /api/v1/customers/{id}/status
+
+POST   /api/v1/customers/{id}/emails
+DELETE /api/v1/customers/{id}/emails/{emailId}
+POST   /api/v1/customers/{id}/phones
+DELETE /api/v1/customers/{id}/phones/{phoneId}
+
+POST   /api/v1/customer-segments
+GET    /api/v1/customer-segments
+POST   /api/v1/customers/{id}/segments/{segmentId}
+DELETE /api/v1/customers/{id}/segments/{segmentId}
+```
+
+Поиск первой версии:
+
+```http
+GET /api/v1/customers?externalId=C001
+GET /api/v1/customers?segmentId=<uuid>
+GET /api/v1/customers?managerUserId=<uuid>
+```
+
+Не делать universal dynamic filtering engine.
 
 ---
 
-# 11. Template Blocks
+# 5. Receivable
 
-Для будущего visual template builder предусмотреть логические блоки:
+Пакет:
 
 ```text
-TEXT
+io.collectra.api.receivable
+```
+
+Добавить:
+
+```text
+domain/Invoice.java
+domain/Payment.java
+domain/PaymentAllocation.java
+domain/InvoicePaymentStatus.java
+application/InvoiceService.java
+application/PaymentService.java
+infrastructure/InvoiceRepository.java
+infrastructure/PaymentRepository.java
+infrastructure/PaymentAllocationRepository.java
+api/InvoiceController.java
+api/PaymentController.java
+```
+
+## 5.1. Invoice
+
+```text
+id
+tenantId
+customerId
+externalId
+invoiceNumber
+invoiceDate
+dueDate
+originalAmount
+paidAmount
+outstandingAmount
+currency
+paymentStatus
+documentFileId nullable
+customFields jsonb
+```
+
+Уникальность:
+
+```text
+(tenant_id, external_id)
+```
+
+`OVERDUE` не хранить как payment status.
+
+Определение просрочки:
+
+```text
+dueDate < today && outstandingAmount > 0
+```
+
+## 5.2. Payment и PaymentAllocation
+
+Не привязывать Payment напрямую к одному Invoice.
+
+```text
+Payment
+id
+tenantId
+customerId
+externalId
+paymentDate
+amount
+currency
+paymentReference
+source
+customFields jsonb
+```
+
+```text
+PaymentAllocation
+id
+tenantId
+paymentId
+invoiceId
+amount
+```
+
+Это позволяет без дальнейшей переделки поддержать:
+
+```text
+1 payment → N invoices
+N payments → 1 invoice
+```
+
+`Invoice.paidAmount` и `outstandingAmount` обновляются внутри `PaymentService` после изменения allocations.
+
+На первой волне не создавать отдельный reconciliation engine.
+
+## 5.3. API
+
+```http
+POST /api/v1/invoices
+GET  /api/v1/invoices/{id}
+GET  /api/v1/invoices
+
+POST /api/v1/payments
+GET  /api/v1/payments/{id}
+POST /api/v1/payments/{paymentId}/allocations
+```
+
+Для удобства допускается shortcut:
+
+```http
+POST /api/v1/invoices/{invoiceId}/payments
+```
+
+Он внутри создает `Payment + PaymentAllocation`.
+
+---
+
+# 6. Import persistence
+
+Существующий pipeline parser/mapping сохраняется.
+
+Необходимо добавить компонент:
+
+```text
+io.collectra.api.importing.application.BusinessRecordPersistenceService
+```
+
+Его ответственность:
+
+```text
+Mapped record
+→ определить target object
+→ validation
+→ Customer/Invoice/Payment service
+→ CREATED / UPDATED / ERROR
+```
+
+Не обращаться к repositories business modules напрямую из parser classes.
+
+Целевые поля mapping первой версии:
+
+```text
+customer.externalId
+customer.displayName
+customer.firstName
+customer.lastName
+customer.companyName
+customer.email
+customer.phone
+customer.preferredLocale
+
+invoice.externalId
+invoice.invoiceNumber
+invoice.invoiceDate
+invoice.dueDate
+invoice.originalAmount
+invoice.currency
+
+payment.externalId
+payment.paymentDate
+payment.amount
+payment.currency
+payment.invoiceExternalId
+```
+
+Все прочие разрешенные входные поля:
+
+```text
+custom.customer.*
+custom.invoice.*
+custom.payment.*
+```
+
+Upsert выполняется существующим ImportBatch flow по tenant-scoped business key.
+
+Ошибка одной строки не должна откатывать успешные строки batch.
+
+Не добавлять новый MappingProfile/MappingRule механизм — он уже существует.
+
+---
+
+# 7. Template / Media / QR — только расширение существующего модуля
+
+## 7.1. TemplateVersion
+
+Ничего нового вместо `TemplateVersion` не создавать.
+
+Текущая модель уже подходит:
+
+```text
+channel
+locale
+subject
+builderJson
+contentHtml
+stylesheet
+status
+```
+
+PUBLISHED/ARCHIVED версии не изменять. Изменения делаются новой draft version через существующий template service.
+
+## 7.2. Placeholder catalog
+
+Новый `PlaceholderRegistry` не создавать.
+
+Расширить существующие:
+
+```text
+FieldDefinition
+FieldCatalogService
+PlaceholderScanner
+```
+
+Добавить canonical fields:
+
+```text
+customer.externalId
+customer.displayName
+customer.preferredLocale
+invoice.externalId
+invoice.invoiceNumber
+invoice.dueDate
+invoice.originalAmount
+invoice.outstandingAmount
+invoice.currency
+invoice.documentUrl
+payment.externalId
+manager.displayName
+```
+
+и разрешить существующий custom namespace.
+
+Один механизм placeholder resolution должен использоваться для:
+
+```text
+subject
 HTML
+button URL
+image dynamic URL
+QR value
+PDF
+```
+
+## 7.3. Media Gallery
+
+Новую таблицу `media_assets` **не создавать**.
+
+Использовать существующий:
+
+```text
+TemplateAsset
+├── tenantId
+├── assetKey
+├── fileId
+├── altText
+└── status
+```
+
+Галерея — это API/UI представление списка `TemplateAsset`.
+
+Добавить при необходимости только поля, реально требуемые UI:
+
+```text
+displayName nullable
+assetType nullable (LOGO / IMAGE / BANNER / ICON)
+```
+
+`mimeType`, `size`, storage key брать из `FileService/FileMetadata`, не дублировать в `TemplateAsset`.
+
+Для загруженных картинок:
+
+```text
+UI
+→ FileService upload
+→ TemplateAsset(fileId)
+```
+
+Для внешнего URL отдельная постоянная запись в gallery не обязательна. URL хранится в builder block.
+
+## 7.4. Builder blocks
+
+В существующий `builderJson` добавить/поддержать блоки:
+
+```text
 IMAGE
-LOGO
 QR_CODE
-DIVIDER
 BUTTON
 ```
 
-Не требуется сразу строить сложный page builder.
+`LOGO` можно считать `IMAGE` с семантическим `assetType=LOGO`; отдельная Java hierarchy не нужна.
 
----
-
-# 12. Media Asset Gallery
-
-В системе должна существовать tenant-scoped галерея reusable assets:
-
-- логотипы;
-- изображения;
-- баннеры;
-- иконки;
-- фоновые изображения;
-- изображения для HTML/PDF.
-
-```text
-MediaAsset
-├── id
-├── tenantId
-├── name
-├── type
-├── sourceType
-├── fileId nullable
-├── externalUrl nullable
-├── mimeType
-├── sizeBytes nullable
-├── width nullable
-├── height nullable
-├── status
-├── createdBy
-├── createdAt
-└── updatedAt
-```
-
-`type`:
-
-```text
-LOGO
-IMAGE
-ICON
-BANNER
-BACKGROUND
-OTHER
-```
-
-`sourceType`:
-
-```text
-UPLOAD
-EXTERNAL_URL
-```
-
-Для UPLOAD:
-
-```text
-Collectra Web
-→ Media API
-→ FileService
-→ RustFS
-```
-
-Template должен хранить `assetId`, а не физический RustFS path.
-
-Для EXTERNAL_URL допускается, например:
-
-```text
-https://client.kz/assets/logo.png
-```
-
----
-
-# 13. Image / Logo blocks
-
-Пример IMAGE:
+Пример IMAGE из gallery:
 
 ```json
 {
   "type": "IMAGE",
-  "assetId": "uuid",
-  "alt": "Company logo",
-  "width": 180,
-  "alignment": "LEFT"
-}
-```
-
-LOGO рассматривается как специализированный IMAGE block, чтобы UI мог отдельно предлагать действие `Добавить логотип`.
-
-Для media source предусмотреть унифицированную модель:
-
-```text
-ASSET
-URL
-DYNAMIC_URL
-```
-
-Примеры:
-
-```json
-{
   "sourceType": "ASSET",
-  "assetId": "uuid"
+  "assetKey": "company-logo",
+  "width": 180,
+  "alt": "Company logo"
 }
 ```
 
+Пример external image:
+
 ```json
 {
+  "type": "IMAGE",
   "sourceType": "URL",
   "value": "https://client.kz/logo.png"
 }
 ```
 
+Пример dynamic URL:
+
 ```json
 {
+  "type": "IMAGE",
   "sourceType": "DYNAMIC_URL",
   "value": "https://cdn.client.kz/customer/{{customer.externalId}}/logo.png"
 }
 ```
 
----
+## 7.5. QR
 
-# 14. QR_CODE block
-
-QR должен генерироваться динамически во время rendering и не обязан храниться как отдельный постоянный файл.
-
-Поддержать три сценария.
-
-## 14.1. Static URL
-
-```json
-{
-  "type": "QR_CODE",
-  "value": "https://client.kz/payment",
-  "size": 200
-}
-```
-
-## 14.2. Placeholder как полное значение
-
-```json
-{
-  "type": "QR_CODE",
-  "value": "{{invoice.documentUrl}}",
-  "size": 200
-}
-```
-
-## 14.3. URL + placeholder
+QR хранится как block config, а не как FileEntity.
 
 ```json
 {
@@ -604,200 +720,258 @@ QR должен генерироваться динамически во вре�
 }
 ```
 
-Допускаются query params:
+Pipeline:
 
 ```text
-https://pay.client.kz/pay?invoice={{invoice.externalId}}&customer={{customer.externalId}}&amount={{invoice.outstandingAmount}}
+value
+→ existing placeholder resolver
+→ resolved String
+→ QrCodeGenerator
+→ data URI / temporary render resource
+→ compiled HTML
 ```
 
-QR rendering pipeline:
+Добавить один простой application component:
 
-```text
-QR Block
-   ↓
-valueTemplate
-   ↓
-Placeholder Resolver
-   ↓
-Resolved Value
-   ↓
-Validation
-   ↓
-QR Generator
-   ↓
-PNG / SVG / Data URI
-   ↓
-HTML / PDF
-```
-
-Placeholder resolution всегда выполняется до QR generation.
-
-Если после resolution остался unresolved required placeholder, rendering должен завершиться контролируемой ошибкой, например:
-
-```text
-TEMPLATE_REQUIRED_VALUE_MISSING
-```
-
-с указанием `blockId` и placeholder.
-
----
-
-# 15. Render Context
-
-Для каждого сообщения формируется единый context.
-
-Пример:
-
-```json
-{
-  "customer": {
-    "externalId": "C001",
-    "displayName": "ABC LLP"
-  },
-  "invoice": {
-    "externalId": "INV001",
-    "invoiceNumber": "100001",
-    "outstandingAmount": 150000,
-    "currency": "KZT",
-    "documentUrl": "https://client.kz/invoices/INV001"
-  },
-  "custom": {
-    "customer": {
-      "region": "Almaty"
-    }
-  }
+```java
+public interface QrCodeGenerator {
+    String toDataUri(String value, int size);
 }
 ```
 
----
+Первая реализация может использовать ZXing.
 
-# 16. Preview и HTML/PDF rendering
+Не создавать QR repository/table/cache на первом этапе.
 
-API preview:
+Если required placeholder не разрешился — template preview/render завершается validation error.
 
-```http
-POST /api/v1/templates/{templateId}/preview
-```
+## 7.6. External resources
 
-Preview должен возвращать или позволять получить:
-
-- rendered subject;
-- rendered HTML;
-- resolved media;
-- generated QR;
-- validation warnings/errors.
-
-HTML и PDF должны строиться из одного resolved render model.
+Добавить только если builder разрешает URL/DYNAMIC_URL:
 
 ```text
-Template
-   ↓
-Resolve placeholders
-   ↓
-Resolve assets
-   ↓
-Resolve external resources
-   ↓
-Generate QR
-   ↓
-Resolved HTML
-   ├── Email
-   └── PDF renderer
+ExternalImageResolver
 ```
+
+Обязан:
+
+```text
+HTTP(S) only
+connection/read timeout
+max size
+image MIME validation
+SSRF protection
+```
+
+На первом этапе достаточно in-memory/cache abstraction существующего Spring cache при необходимости; отдельный distributed cache не вводить.
 
 ---
 
-# 17. External Resource Resolver
+# 8. Campaign
 
-Для внешних картинок предусмотреть отдельный компонент:
-
-```text
-ExternalResourceResolver
-```
-
-Ответственность:
+Пакет:
 
 ```text
-URL
-→ download
-→ MIME validation
-→ size validation
-→ temporary/cache storage
-→ renderable resource
+io.collectra.api.campaign
 ```
 
-Обязательны timeout и SSRF protection.
+Для первой версии не вводить полноценный recurring campaign scheduler.
 
-Запретить/ограничить обращения к:
+Добавить:
 
 ```text
-localhost
-127.0.0.1
-private/internal networks
-cloud metadata endpoints
-file://
-ftp://
+Campaign
+CampaignRecipient
+CampaignStatus
+CampaignRecipientStatus
+CampaignSelection
+CampaignService
+CampaignRecipientService
+CampaignRepository
+CampaignRecipientRepository
+CampaignController
 ```
 
-Предпочтительная схема — HTTPS.
+## 8.1. Campaign
 
-Для одного и того же logo URL в большой Campaign должен использоваться render cache, чтобы ресурс не скачивался на каждого recipient заново.
+```text
+id
+tenantId
+name
+status
+templateVersionId
+channel
+scheduledAt nullable
+selectionCriteria jsonb
+createdBy
+createdAt
+preparedAt
+launchedAt
+completedAt
+```
+
+На первой волне одна Campaign использует один `channel + templateVersionId`.
+
+Мультиканальная Campaign — later. Это сознательное упрощение.
+
+Статусы:
+
+```text
+DRAFT
+PREPARING
+READY
+RUNNING
+COMPLETED
+CANCELLED
+FAILED
+```
+
+Переходы:
+
+```text
+DRAFT → PREPARING → READY → RUNNING → COMPLETED
+DRAFT/READY → CANCELLED
+RUNNING → COMPLETED/FAILED
+```
+
+## 8.2. Selection DTO
+
+Не создавать query DSL.
+
+```java
+public record CampaignSelection(
+    Set<UUID> customerIds,
+    Set<UUID> segmentIds,
+    Integer daysOverdueFrom,
+    Integer daysOverdueTo,
+    BigDecimal amountFrom,
+    BigDecimal amountTo
+) {}
+```
+
+## 8.3. Recipient snapshot
+
+```text
+CampaignRecipient
+id
+tenantId
+campaignId
+customerId
+invoiceId nullable
+destination
+locale
+status
+skipReason nullable
+createdAt
+```
+
+`prepare()` фиксирует получателей.
+
+Перед фактическим созданием Message выполнить легкий `EligibilityService`:
+
+```text
+customer active?
+contact exists?
+invoice still outstanding?
+```
+
+Если условие уже не выполняется:
+
+```text
+status = SKIPPED
+skipReason = PAID | NO_CONTACT | CUSTOMER_INACTIVE
+```
+
+Не пересобирать snapshot целиком.
 
 ---
 
-# 18. Communication Message
+# 9. Communication
+
+Пакет уже существует как placeholder:
 
 ```text
-CommunicationMessage
-├── id
-├── tenantId
-├── campaignId
-├── recipientId
-├── customerId
-├── channel
-├── destination
-├── subject
-├── body
-├── status
-├── renderedAt
-└── createdAt
+io.collectra.api.communication
 ```
 
-После rendering сохраняется snapshot фактически сформированного content.
-
-Изменение Template после этого не должно менять уже созданный Message.
-
-Для аудита желательно сохранять:
+Добавить:
 
 ```text
-templateVersion
-assetId/version
-resolved QR value
-resolved dynamic URLs
+domain/CommunicationMessage.java
+domain/MessageDelivery.java
+domain/MessageStatus.java
+domain/DeliveryStatus.java
+application/MessagePreparationService.java
+application/MessageDeliveryService.java
+application/ChannelSender.java
+application/EmailChannelSender.java
+infrastructure/CommunicationMessageRepository.java
+infrastructure/MessageDeliveryRepository.java
+infrastructure/CommunicationListener.java
+api/DeliveryCallbackController.java  // только если provider поддерживает callback
 ```
 
-Юридически значимый PDF хранить как generated file через FileService.
+## 9.1. CommunicationMessage
 
----
+```text
+id
+tenantId
+campaignId
+recipientId
+customerId
+invoiceId nullable
+channel
+destination
+templateVersionId
+renderedSubject
+renderedBody
+renderContextSnapshot jsonb
+status
+renderedAt
+createdAt
+```
 
-# 19. Message Delivery
+Ключевое правило:
+
+> Worker отправляет **уже подготовленный immutable message** и не выполняет повторный business rendering.
+
+Это гарантирует, что retry отправит тот же content.
+
+## 9.2. MessagePreparationService
+
+```text
+CampaignRecipient
+→ eligibility recheck
+→ load TemplateVersion(PUBLISHED)
+→ build RenderContext
+→ resolve placeholders
+→ resolve TemplateAsset
+→ generate QR
+→ compile final HTML
+→ save CommunicationMessage
+→ save MessageDelivery(PENDING)
+→ OutboxService.add(...)
+```
+
+Создание Message + Delivery + OutboxEvent выполняется в одной `@Transactional` операции.
+
+## 9.3. Delivery
 
 ```text
 MessageDelivery
-├── id
-├── tenantId
-├── messageId
-├── attempt
-├── provider
-├── providerMessageId
-├── status
-├── requestedAt
-├── sentAt
-├── deliveredAt
-├── failedAt
-├── errorCode
-├── errorMessage
-└── providerResponse
+id
+tenantId
+messageId
+attempt
+provider
+providerMessageId nullable
+status
+requestedAt
+sentAt
+deliveredAt
+failedAt
+errorCode
+errorMessage
 ```
 
 Статусы:
@@ -810,174 +984,298 @@ DELIVERED
 FAILED
 BOUNCED
 REJECTED
-EXPIRED
 ```
 
-Message один, Delivery attempts может быть несколько.
+`providerResponse` целиком не хранить без необходимости; для диагностики достаточно code/message/providerMessageId. Большие ответы provider не нужны.
 
 ---
 
-# 20. Outbox + RabbitMQ
+# 10. Outbox + RabbitMQ
 
-В одной DB-транзакции создаются:
+Использовать существующий `io.collectra.api.shared.outbox`.
+
+Добавить route/event type:
 
 ```text
-CommunicationMessage
-MessageDelivery(PENDING)
-OutboxEvent
-COMMIT
+COMMUNICATION_SEND_REQUESTED
 ```
 
-Пример события:
+Payload минимальный:
 
 ```json
 {
-  "eventId": "...",
-  "eventType": "COMMUNICATION_SEND_REQUESTED",
-  "tenantId": "...",
-  "messageId": "..."
+  "messageId": "uuid",
+  "tenantId": "uuid"
 }
 ```
 
-Не передавать в RabbitMQ большие HTML/PDF/images. Worker получает идентификатор сообщения и дочитывает данные из БД/FileService.
+Не передавать в RabbitMQ:
 
-Outbox retry и Delivery retry — разные механизмы.
+```text
+HTML
+PDF
+images
+attachments bytes
+```
+
+Communication listener:
+
+```text
+messageId
+→ load immutable CommunicationMessage
+→ claim/update Delivery
+→ EmailChannelSender
+→ provider
+→ update Delivery
+```
+
+Outbox retry остается существующим.
+
+Delivery retry реализовать отдельно только для retryable ошибок:
+
+```text
+timeout
+connection failure
+provider 5xx
+```
+
+Не retry:
+
+```text
+invalid destination
+render error
+missing recipient
+provider 4xx validation
+```
+
+Конкретные интервалы вынести в configuration; не зашивать в domain.
 
 ---
 
-# 21. Worker и EMAIL
+# 11. EMAIL channel
+
+Первый и единственный канал первой реализации.
+
+Контракт:
+
+```java
+public interface ChannelSender {
+    TemplateChannel channel();
+    SendResult send(CommunicationMessage message);
+}
+```
+
+```java
+@Component
+public class EmailChannelSender implements ChannelSender {
+    private final EmailProvider emailProvider;
+}
+```
+
+Provider abstraction:
+
+```java
+public interface EmailProvider {
+    EmailSendResult send(EmailRequest request);
+}
+```
+
+Первая реализация может использовать SMTP/Spring Mail согласно выбранной конфигурации проекта.
+
+Не проектировать SES/SendGrid/Mailgun implementations заранее.
+
+---
+
+# 12. PDF и attachments
+
+Не создавать новый PDF worker.
+
+Переиспользовать существующие:
+
+```text
+GenerationJobService
+DocumentGenerationWorker
+PdfRenderer
+GeneratedDocument
+```
+
+Связь:
+
+```text
+resolved HTML
+→ existing GenerationJob
+→ PDF
+→ existing FileService/DocumentStorage
+→ generated file id
+→ CommunicationMessage attachment reference
+```
+
+Если EMAIL без PDF работает — PDF не должен блокировать первый end-to-end slice.
+
+---
+
+# 13. Миграции БД
+
+Проект использует существующий Liquibase changelog в:
+
+```text
+src/main/resources/db/changelog
+```
+
+Добавлять migrations в принятом проектом формате.
+
+Новые таблицы первой волны:
+
+```text
+customers
+customer_emails
+customer_phones
+customer_segments
+customer_segment_members
+invoices
+payments
+payment_allocations
+campaigns
+campaign_recipients
+communication_messages
+message_deliveries
+```
+
+`template_assets` и `template_versions` повторно не создавать.
+
+Основные индексы:
+
+```text
+customers(tenant_id, external_id) UNIQUE
+customers(tenant_id, status)
+customer_emails(tenant_id, customer_id)
+customer_phones(tenant_id, customer_id)
+invoices(tenant_id, external_id) UNIQUE
+invoices(tenant_id, customer_id)
+invoices(tenant_id, due_date)
+payments(tenant_id, external_id) UNIQUE
+payment_allocations(payment_id)
+payment_allocations(invoice_id)
+campaign_recipients(tenant_id, campaign_id, status)
+communication_messages(tenant_id, campaign_id)
+message_deliveries(message_id, attempt)
+message_deliveries(provider_message_id)
+```
+
+Не добавлять индексы на каждый столбец.
+
+---
+
+# 14. Транзакционные границы
+
+Использовать короткие application transactions.
+
+Примеры:
+
+```text
+CustomerService.create/update      → одна transaction
+PaymentService.allocate            → payment allocation + recalc invoice
+CampaignService.prepare            → campaign + recipient snapshot
+MessagePreparationService.prepare  → message + delivery + outbox
+```
+
+HTTP provider call **не выполнять внутри транзакции подготовки Message**.
 
 Worker:
 
 ```text
-consume
-→ load Message
-→ idempotency check
-→ load Delivery
-→ load attachments/assets if needed
-→ ChannelSender
-→ provider
-→ save providerMessageId
-→ update Delivery
+transaction 1: claim Delivery
+HTTP send outside DB transaction
+transaction 2: save provider result
 ```
 
-Общий контракт:
+---
 
-```java
-public interface ChannelSender {
-    Channel channel();
-    SendResult send(OutboundMessage message);
-}
-```
+# 15. API errors
 
-Первый adapter:
+Использовать существующий shared error handling проекта.
+
+Не вводить новый error envelope.
+
+Новые error codes по необходимости:
 
 ```text
-EmailChannelSender
-```
-
-Email provider также должен быть абстрагирован отдельным интерфейсом, чтобы бизнес-код не зависел от SMTP/SES/SendGrid/Mailgun и т.п.
-
----
-
-# 22. API первого этапа
-
-Customer:
-
-```http
-POST   /api/v1/customers
-GET    /api/v1/customers
-GET    /api/v1/customers/{id}
-PUT    /api/v1/customers/{id}
-PATCH  /api/v1/customers/{id}/status
-POST   /api/v1/customers/{id}/emails
-DELETE /api/v1/customers/{id}/emails/{emailId}
-POST   /api/v1/customers/{id}/phones
-DELETE /api/v1/customers/{id}/phones/{phoneId}
-```
-
-Invoice/Payment:
-
-```http
-POST /api/v1/invoices
-GET  /api/v1/invoices
-GET  /api/v1/invoices/{id}
-POST /api/v1/invoices/{id}/payments
-GET  /api/v1/invoices/{id}/payments
-```
-
-Media:
-
-```http
-POST   /api/v1/media
-POST   /api/v1/media/upload
-GET    /api/v1/media
-GET    /api/v1/media/{id}
-PUT    /api/v1/media/{id}
-DELETE /api/v1/media/{id}
-```
-
-Templates:
-
-```http
-POST /api/v1/templates
-GET  /api/v1/templates
-GET  /api/v1/templates/{id}
-PUT  /api/v1/templates/{id}
-POST /api/v1/templates/{id}/preview
-```
-
-Campaign:
-
-```http
-POST /api/v1/campaigns
-GET  /api/v1/campaigns
-GET  /api/v1/campaigns/{id}
-POST /api/v1/campaigns/{id}/prepare
-POST /api/v1/campaigns/{id}/launch
-POST /api/v1/campaigns/{id}/cancel
+CUSTOMER_NOT_FOUND
+CUSTOMER_EXTERNAL_ID_EXISTS
+INVOICE_NOT_FOUND
+PAYMENT_NOT_FOUND
+PAYMENT_ALLOCATION_EXCEEDS_AMOUNT
+CAMPAIGN_NOT_FOUND
+CAMPAIGN_INVALID_STATE
+CAMPAIGN_RECIPIENT_NOT_ELIGIBLE
+TEMPLATE_REQUIRED_VALUE_MISSING
+TEMPLATE_ASSET_NOT_FOUND
+COMMUNICATION_MESSAGE_NOT_FOUND
+DELIVERY_NOT_RETRYABLE
 ```
 
 ---
 
-# 23. План PR первой волны
+# 16. Тестирование
+
+Для каждого PR обязательны не только unit tests, но и несколько integration tests на реальные границы.
+
+Минимальный набор:
+
+```text
+Customer
+- tenant A не видит customer tenant B
+- duplicate externalId внутри tenant запрещен
+- один externalId в разных tenant разрешен
+
+Receivable
+- partial payment уменьшает outstanding
+- несколько payments на invoice
+- один payment распределяется на несколько invoices
+
+Import
+- valid row creates/updates business entity
+- invalid row не откатывает соседние successful rows
+
+Template
+- existing placeholder engine resolves customer/invoice fields
+- IMAGE asset from TemplateAsset works
+- QR resolves URL + {{placeholder}}
+- unresolved required QR placeholder returns validation error
+
+Campaign
+- prepare creates snapshot
+- fully paid invoice before send → recipient SKIPPED
+
+Communication
+- prepare saves Message + Delivery + Outbox atomically
+- retry не перерендеривает body
+- duplicate Rabbit delivery не создает второй Message
+```
+
+---
+
+# 17. Порядок реализации без лишнего усложнения
 
 ## PR 1 — Customer + Receivable Core
-
-Ветка:
 
 ```text
 feature/customer-receivable-core
 ```
 
-Scope:
+Добавить:
 
 ```text
-Customer
-CustomerEmail
-CustomerPhone
-CustomerSegment
-Invoice
-Payment
-```
-
-Обязательно:
-
-```text
-Entity
-Repository
-Service
-REST Controller
-DTO
-Mapper
-Validation
+Customer / contacts / segments
+Invoice / Payment / PaymentAllocation
+repositories
+services
+REST API
 Liquibase
-Tenant isolation
-Unit tests
-Integration tests
+integration tests
 ```
 
-Не включать Campaign, RabbitMQ, Worker, Email, QR и Media Gallery.
+Не трогать Campaign/Email.
 
 ## PR 2 — Import Business Persistence
 
@@ -985,286 +1283,161 @@ Integration tests
 feature/import-business-persistence
 ```
 
-Цель:
+Только соединить существующие:
 
 ```text
-Existing Import
-→ Mapping
-→ Validation
-→ Upsert
-→ Customer / Invoice / Payment
+ImportBatch + MappingExecutionService
 ```
 
-Поддержать row-level errors и batch statistics.
+с:
 
-## PR 3 — Template Media Assets
+```text
+CustomerService / InvoiceService / PaymentService
+```
+
+Не переписывать parsers и mapping subsystem.
+
+## PR 3 — Template Media + QR
 
 ```text
 feature/template-media-assets
 ```
 
-Scope:
+Расширить существующий template module:
 
 ```text
-MediaAsset
-Media Gallery
-FileService integration
-IMAGE block
-LOGO block
-QR_CODE block
+TemplateAsset gallery API
+IMAGE/LOGO configuration
 DYNAMIC_URL
-Placeholder Resolver
-Preview
-ExternalResourceResolver
-Render cache
+QR_CODE
+canonical customer/invoice fields in FieldCatalogService
+preview tests
 ```
 
-Этот PR формирует единый фундамент для HTML, PDF, QR, Logos, Images, Buttons и будущих attachments.
+Не создавать новый template engine и новую media storage subsystem.
 
 ## PR 4 — Campaign Core
 
 ```text
-Campaign
-CampaignRecipient
-selection criteria
-recipient snapshot
+feature/campaign-core
 ```
 
-## PR 5 — Communication Core
+```text
+Campaign
+CampaignRecipient
+selection DTO
+snapshot
+eligibility recheck
+```
+
+## PR 5 — Communication Email Vertical Slice
+
+```text
+feature/communication-email
+```
 
 ```text
 CommunicationMessage
 MessageDelivery
-render snapshot
-delivery attempts
-```
-
-## PR 6 — EMAIL Delivery Pipeline
-
-```text
-Outbox
-RabbitMQ
-Worker
+MessagePreparationService
+existing Outbox integration
+Rabbit listener
 ChannelSender
-EmailChannelSender
 EmailProvider
-Retry
-Idempotency
+EmailChannelSender
+retry/idempotency
 ```
 
-## PR 7 — PDF / Attachments
+Результат PR 5 — реальная end-to-end EMAIL отправка.
+
+## PR 6 — PDF Attachments
 
 ```text
-Resolved HTML
-→ PDF Renderer
-→ FileService
-→ Attachment
-→ Email
+feature/communication-pdf-attachments
 ```
+
+Подключить существующий document generation pipeline к CommunicationMessage.
 
 ---
 
-# 24. Acceptance Criteria для Media / QR
+# 18. Что сознательно НЕ делать в первой волне
 
-Функциональность считается принятой, если можно:
-
-```text
-загрузить logo.png
-→ увидеть в Media Gallery
-→ выбрать в Template
-→ выполнить Preview
-→ увидеть логотип
-```
+Чтобы не усложнять проект, сейчас не вводить:
 
 ```text
-создать QR Block
-→ value = {{invoice.documentUrl}}
-→ выполнить Preview
-→ получить персональный QR
+microservices split
+Kafka
+новый Outbox
+новый FileService
+новый Template engine
+новый Import parser subsystem
+universal query DSL
+workflow/BPM engine
+recurring CampaignRun model
+multi-channel campaign orchestration
+separate consent service
+distributed render cache
+QR persistence
+payment reconciliation engine
+complex rule engine
 ```
 
-```text
-создать QR Block
-→ value = https://pay.kz/{{invoice.externalId}}
-→ выполнить Preview
-→ получить QR с resolved URL
-```
-
-```text
-создать IMAGE block
-→ указать внешний URL
-→ получить изображение в HTML Preview
-→ получить то же изображение в PDF
-```
-
-```text
-создать IMAGE block
-→ указать DYNAMIC_URL с placeholder
-→ получить корректный resolved resource
-```
+Эти элементы добавляются только после появления подтвержденного business requirement.
 
 ---
 
-# 25. Definition of Done первой большой волны
+# 19. Definition of Done первой волны
 
-Система должна выполнить end-to-end сценарий:
+Первая волна считается завершенной, когда тестовый tenant может выполнить:
 
 ```text
-ERP / Excel / JSON
-        ↓
-Import
-        ↓
-Customer
-        ↓
-Invoice
-        ↓
-Campaign
-        ↓
-CampaignRecipient
-        ↓
-Template
-        │
-        ├── Text
-        ├── Logo
-        ├── Image
-        ├── QR
-        └── PDF
-        ↓
-Render Context
-        ↓
-CommunicationMessage
-        ↓
-Outbox
-        ↓
-RabbitMQ
-        ↓
-Worker
-        ↓
-EMAIL Provider
-        ↓
-Delivery
+1. Создать или импортировать Customer.
+2. Создать/import Invoice.
+3. Провести partial/full Payment.
+4. Создать EMAIL TemplateVersion существующим template module.
+5. Добавить изображение из TemplateAsset gallery.
+6. Добавить QR:
+   https://pay.client.kz/{{invoice.externalId}}
+7. Создать Campaign и подготовить recipient snapshot.
+8. Перед отправкой повторно проверить актуальность задолженности.
+9. Сформировать immutable CommunicationMessage.
+10. В той же DB transaction создать Delivery + Outbox event.
+11. Существующий Outbox публикует messageId в RabbitMQ.
+12. Communication Worker отправляет EMAIL.
+13. MessageDelivery хранит результат.
+14. Retry отправляет тот же rendered content, а не пересобирает его.
 ```
 
-После отправки должна быть доступна информация:
+После отправки система должна позволять определить:
 
 ```text
 кому отправлено
-когда отправлено
-по какому обязательству
-какой template использовался
-какая версия template использовалась
-какой HTML был сформирован
-какие assets использовались
+по какому invoice
+какой TemplateVersion использован
+какой subject/body фактически отправлен
+какие assets использованы
 какое значение было закодировано в QR
-какой provider обработал сообщение
-каков результат доставки
+когда произошла отправка
+каков статус delivery
+какова последняя ошибка, если отправка неуспешна
 ```
 
 ---
 
-# 26. Архитектурное решение по ответственности компонентов
+# 20. Итоговое архитектурное решение
+
+Целевая первая волна остается **модульным монолитом** внутри существующего `collectra-api`:
 
 ```text
-Media Gallery
+customer ───────┐
+receivable ─────┼──→ campaign ─→ communication ─→ EMAIL
+importing ──────┘          │             │
+                           │             └→ existing shared.outbox
+existing template ─────────┤
+existing file ─────────────┤
+existing document ─────────┘
 ```
 
-отвечает за статические reusable assets.
+Главное правило реализации:
 
-```text
-Placeholder Resolver
-```
-
-отвечает за динамические значения.
-
-```text
-QR Generator
-```
-
-отвечает только за:
-
-```text
-String → QR image
-```
-
-```text
-ExternalResourceResolver
-```
-
-отвечает за:
-
-```text
-URL → renderable resource
-```
-
-```text
-Template Renderer
-```
-
-оркестрирует весь render pipeline.
-
-QR Generator не должен знать о Customer, Invoice или Campaign. Он получает уже resolved string.
-
----
-
-# 27. Целевая схема rendering
-
-```text
-                 Template
-                    │
-                    ▼
-             Template Blocks
-                    │
-      ┌─────────────┼──────────────┐
-      │             │              │
-     TEXT          IMAGE           QR
-      │             │              │
-      │             ▼              │
-      │      MediaAsset / URL      │
-      │             │              │
-      └───────┬─────┴──────────────┘
-              ▼
-       Placeholder Resolver
-              │
-              ▼
-        Resolved Model
-              │
-     ┌────────┼─────────┐
-     │        │         │
-     ▼        ▼         ▼
- Resource     QR       HTML
- Resolver   Generator  Renderer
-     │        │         │
-     └────────┴────┬────┘
-                   ▼
-            Final HTML
-              │       │
-              ▼       ▼
-            Email    PDF
-```
-
-Эта модель принимается как базовая архитектура формирования контента Collectra в рамках первой волны.
-
----
-
-# 28. Что требуется от следующего review
-
-Этот документ не является окончательным детальным design spec каждой подсистемы. Он фиксирует первую волну направления развития.
-
-На следующем review отдельно детализировать:
-
-1. таблицы и связи Customer / Receivable;
-2. API contracts;
-3. import mapping model;
-4. template storage model;
-5. template versioning;
-6. MediaAsset lifecycle;
-7. QR / DYNAMIC_URL security constraints;
-8. Campaign selection rules;
-9. message idempotency;
-10. Outbox / Rabbit retry strategy;
-11. PDF rendering lifecycle;
-12. file retention и cleanup;
-13. audit requirements;
-14. permissions/RBAC для новых модулей.
-
-После согласования этой волны каждую крупную подсистему следует переводить в отдельное implementation ТЗ перед разработкой.
+> **Новые business modules добавляются поверх уже готовой платформенной инфраструктуры Collectra. Дублирование Template, File, Import, Outbox и PDF подсистем не допускается.**
