@@ -115,9 +115,7 @@ public class BusinessRecordPersistenceService {
                                         tenantId,
                                         externalId,
                                         customerType(
-                                                payload.path("customer")
-                                                        .path("type")
-                                                        .asText(null)),
+                                                payload.path("customer").path("type").asText(null)),
                                         text(payload, "/customer/displayName", externalId),
                                         text(payload, "/customer/firstName", null),
                                         text(payload, "/customer/lastName", null),
