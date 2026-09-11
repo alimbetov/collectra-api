@@ -57,6 +57,8 @@ class ProductionConfigurationTest {
     void testProfileKeepsBackgroundWorkersDisabled() throws IOException {
         PropertySource<?> test = load("application-test.yml");
 
+        assertThat(test.getProperty("spring.datasource.hikari.maximum-pool-size")).isEqualTo(3);
+        assertThat(test.getProperty("spring.datasource.hikari.minimum-idle")).isEqualTo(0);
         assertThat(test.getProperty("spring.rabbitmq.listener.simple.auto-startup"))
                 .isEqualTo(false);
         assertThat(test.getProperty("spring.task.scheduling.enabled")).isEqualTo(false);
