@@ -109,7 +109,7 @@ class CampaignStabilizationIntegrationTest extends AbstractIntegrationTest {
                         version.getId(),
                         "EMAIL",
                         null,
-                        new CampaignSelection(Set.of(), Set.of(), null, null, 1, 30),
+                        new CampaignSelection(Set.of(), Set.of(), 1, 30, null, null),
                         null);
         campaigns.activate(tenant.getId(), campaign.getId());
 
