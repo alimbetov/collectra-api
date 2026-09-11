@@ -1,290 +1,940 @@
-# Collectra Backend MVP Roadmap
+# Collectra Backend MVP — Technical Implementation Roadmap
 
 Updated: 2026-09-11
 
-This document fixes the agreed implementation order for the Collectra backend after completion of the first Message persistence slice.
+This roadmap is re-baselined against the current `main` branch. It is intentionally implementation-oriented: existing subsystems are reused instead of being redesigned, package names match the repository, and code fragments describe the target shape of the next PRs.
 
-## Current baseline
+## 1. Current baseline verified in `main`
 
-Completed or already established:
+Already implemented and **must not be rebuilt**:
 
-- Campaign Core foundation.
-- Message persistence and invariants.
-- Liquibase migration for `messages` and CampaignRun delivery counters.
-- `MessageStatus` and `CommunicationChannel`.
-- `Message` entity constructor invariants.
-- State transitions `QUEUED -> PROCESSING -> SENT / RETRY_WAIT / FAILED`.
-- Tenant-scoped and paged `MessageRepository`.
-- Application `Clock` used instead of entity-level `Instant.now()`.
-- Unit, PostgreSQL integration and architecture coverage for the persistence slice.
+- Campaign Core and campaign preparation/eligibility flow.
+- `communication.domain.Message`, `MessageStatus`, `CommunicationChannel`.
+- Message state transitions:
+  - `QUEUED -> PROCESSING` via `beginAttempt(Instant)`;
+  - `PROCESSING -> SENT` via `markSent(...)`;
+  - `PROCESSING -> RETRY_WAIT` via `scheduleRetry(...)`;
+  - `PROCESSING -> FAILED` via `markFailed(...)`;
+  - `RETRY_WAIT -> QUEUED` via `requeue()`.
+- Message persistence fields already include `attemptCount`, `processingStartedAt`, `nextRetryAt`, provider id and last error.
+- Tenant-scoped/paged `MessageRepository`.
+- `CampaignRun` already contains `recipientCount`, `sentCount`, `failedCount`, `skippedCount`, `retryCount`.
+- Application `Clock` infrastructure.
+- Transactional Outbox infrastructure (`OutboxService`, publisher/retry/state machinery).
+- RabbitMQ-based asynchronous document worker.
+- Template compiler/renderer, HTML escaping, placeholder validation and `renderText`.
+- Async document/PDF generation pipeline.
+- RustFS/FileService lifecycle foundation.
+- CSV/Excel/XML/JSON import foundation.
+- Campaign stabilization integration coverage already exists in the test suite.
 
-The next implementation work must continue from this baseline rather than coupling the domain directly to a concrete delivery provider.
+### Consequence
+
+The immediate missing capability is **not another domain model**. It is the communication application/infrastructure layer that safely claims an already persisted `Message`, invokes a delivery port, records the outcome, updates campaign counters, and can recover from worker/process failures.
 
 ---
 
-## Slice 2 — Message processing, claiming and retry semantics
+# 2. Slice 2 — Communication processing core
 
 **Priority: NEXT**
 
-Implement the provider-independent processing layer.
-
-### Scope
-
-- Introduce `MessageProcessor` / application service responsible for processing queued messages.
-- Atomically claim a message before delivery so that multiple workers cannot process the same message simultaneously.
-- Enforce valid state transitions around `QUEUED`, `PROCESSING`, `SENT`, `RETRY_WAIT`, and `FAILED`.
-- Track delivery attempts.
-- Persist `nextAttemptAt` for retries.
-- Define retry/backoff policy.
-- Separate retryable and permanent failures.
-- Add recovery for messages stuck in `PROCESSING` after worker failure.
-- Keep all time calculations driven by application `Clock`.
-- Add concurrency, retry, PostgreSQL integration and architecture tests.
-
-### Definition of done
-
-- No two workers can successfully claim the same message.
-- A processing failure cannot silently lose a message.
-- Retry scheduling is deterministic and testable.
-- Terminal failures are persisted with a reason.
-- `mvn verify` is green.
-
----
-
-## Slice 3 — Email delivery adapter for KumoMTA
-
-Implement email delivery behind an internal provider abstraction.
-
-Target dependency direction:
+Suggested branch:
 
 ```text
-MessageProcessor
-    -> EmailDeliveryService
-        -> EmailProvider
-            -> KumoMtaEmailProvider
+feat/message-processing-core
 ```
 
-### Scope
+No KumoMTA network call in this slice. The slice creates a provider-independent processing core and an in-memory/test delivery implementation only.
 
-- Define an `EmailProvider` port independent of KumoMTA.
-- Implement the KumoMTA adapter.
-- Define provider request/response DTOs.
-- Configure connection/read timeouts.
-- Classify provider failures as retryable or permanent.
-- Persist provider message identifier when available.
-- Persist sanitized failure information suitable for operations.
-- Add contract/integration tests around the adapter boundary.
+## 2.1 Target package structure
 
-### Architectural constraint
+```text
+io.collectra.api.communication
+├── application
+│   ├── MessageDeliveryWorker.java
+│   ├── MessageStateService.java
+│   ├── MessageRetryPolicy.java
+│   ├── MessageRecoveryService.java
+│   ├── DeliveryGateway.java
+│   ├── DeliveryCommand.java
+│   ├── DeliveryResult.java
+│   └── DeliveryFailureKind.java
+├── domain
+│   ├── Message.java                     # existing
+│   ├── MessageStatus.java               # existing
+│   └── CommunicationChannel.java        # existing
+└── infrastructure
+    ├── MessageRepository.java            # extend existing
+    └── ...                               # broker/provider adapters come later
+```
 
-No KumoMTA-specific type should leak into the domain model or campaign orchestration code.
+Follow the existing document subsystem pattern:
+
+```text
+DocumentGenerationWorker        -> MessageDeliveryWorker
+GenerationJobStateService       -> MessageStateService
+GenerationJobRepository lock    -> MessageRepository lock
+```
+
+## 2.2 Add locked tenant-scoped lookup
+
+Do not use plain `findById()` inside a worker. Message mutations need an exclusive row lock, and tenant id remains part of the lookup contract.
+
+Target addition to `MessageRepository`:
+
+```java
+@Lock(LockModeType.PESSIMISTIC_WRITE)
+@Query("""
+        select m
+        from Message m
+        where m.id = :id
+          and m.tenantId = :tenantId
+        """)
+Optional<Message> findLockedByIdAndTenantId(
+        @Param("id") UUID id,
+        @Param("tenantId") UUID tenantId);
+```
+
+Why:
+
+- broker redelivery can produce duplicate execution attempts;
+- multiple application replicas may consume concurrently;
+- the row lock makes the state transition the serialization point;
+- tenant isolation is preserved even in an asynchronous path.
+
+Do **not** add a second status state machine in a service. `Message` remains responsible for legal transitions.
+
+## 2.3 Delivery port
+
+The application layer must not know SMTP, KumoMTA HTTP endpoints or provider DTOs.
+
+```java
+public interface DeliveryGateway {
+    DeliveryResult deliver(DeliveryCommand command);
+}
+```
+
+For the first version the gateway can support only `EMAIL`, while the interface remains provider-neutral.
+
+```java
+public record DeliveryCommand(
+        UUID messageId,
+        UUID tenantId,
+        CommunicationChannel channel,
+        String destination,
+        String subject,
+        String body) {
+}
+```
+
+```java
+public sealed interface DeliveryResult {
+
+    record Accepted(String providerMessageId) implements DeliveryResult {}
+
+    record Rejected(
+            DeliveryFailureKind kind,
+            String code,
+            String message) implements DeliveryResult {}
+}
+```
+
+```java
+public enum DeliveryFailureKind {
+    RETRYABLE,
+    PERMANENT
+}
+```
+
+Provider exceptions should be translated at the adapter boundary. The worker should normally operate on `DeliveryResult`, not parse provider-specific exceptions.
+
+## 2.4 MessageStateService
+
+Use the same transaction boundary style already used by `GenerationJobStateService`: short transactions for state changes, with the external network call **outside** the database transaction.
+
+```java
+@Service
+public class MessageStateService {
+    private final MessageRepository messages;
+    private final Clock clock;
+
+    public MessageStateService(MessageRepository messages, Clock clock) {
+        this.messages = messages;
+        this.clock = clock;
+    }
+
+    @Transactional
+    public Snapshot begin(UUID tenantId, UUID messageId) {
+        Message message = messages.findLockedByIdAndTenantId(messageId, tenantId)
+                .orElseThrow();
+
+        if (message.getStatus() == MessageStatus.SENT
+                || message.getStatus() == MessageStatus.FAILED) {
+            return null;
+        }
+
+        if (message.getStatus() != MessageStatus.QUEUED) {
+            return null;
+        }
+
+        message.beginAttempt(clock.instant());
+
+        return new Snapshot(
+                message.getId(),
+                message.getTenantId(),
+                message.getCampaignRunId(),
+                message.getChannel(),
+                message.getDestination(),
+                message.getSubject(),
+                message.getBody(),
+                message.getAttemptCount());
+    }
+
+    @Transactional
+    public void sent(UUID tenantId, UUID messageId, String providerMessageId) {
+        Message message = locked(tenantId, messageId);
+        message.markSent(providerMessageId, clock.instant());
+    }
+
+    @Transactional
+    public void retry(
+            UUID tenantId,
+            UUID messageId,
+            Instant nextRetryAt,
+            String code,
+            String errorMessage) {
+        Message message = locked(tenantId, messageId);
+        message.scheduleRetry(nextRetryAt, code, errorMessage);
+    }
+
+    @Transactional
+    public void fail(
+            UUID tenantId,
+            UUID messageId,
+            String code,
+            String errorMessage) {
+        locked(tenantId, messageId).markFailed(code, errorMessage);
+    }
+
+    private Message locked(UUID tenantId, UUID messageId) {
+        return messages.findLockedByIdAndTenantId(messageId, tenantId)
+                .orElseThrow();
+    }
+
+    public record Snapshot(
+            UUID messageId,
+            UUID tenantId,
+            UUID campaignRunId,
+            CommunicationChannel channel,
+            String destination,
+            String subject,
+            String body,
+            int attemptCount) {}
+}
+```
+
+Important: the exact handling of `RETRY_WAIT` belongs in the retry dispatcher/recovery step. `begin()` must not silently bypass the entity invariant by directly mutating status.
+
+## 2.5 Retry policy
+
+Retry timing is application policy, not domain time calculation.
+
+Initial deterministic policy:
+
+```text
+attempt 1 -> +1 minute
+attempt 2 -> +10 minutes
+attempt 3 -> +1 hour
+attempt 4+ -> terminal FAILED
+```
+
+Target class:
+
+```java
+@Component
+public class MessageRetryPolicy {
+    private static final int MAX_ATTEMPTS = 4;
+
+    public boolean exhausted(int attemptCount) {
+        return attemptCount >= MAX_ATTEMPTS;
+    }
+
+    public Instant nextRetryAt(int attemptCount, Instant now) {
+        Duration delay = switch (attemptCount) {
+            case 1 -> Duration.ofMinutes(1);
+            case 2 -> Duration.ofMinutes(10);
+            default -> Duration.ofHours(1);
+        };
+        return now.plus(delay);
+    }
+}
+```
+
+Keep this policy independent of RabbitMQ TTL configuration so it can be tested against a fixed `Clock` and so the database remains authoritative.
+
+## 2.6 Worker orchestration
+
+```java
+@Service
+public class MessageDeliveryWorker {
+    private final MessageStateService states;
+    private final DeliveryGateway delivery;
+    private final MessageRetryPolicy retryPolicy;
+    private final Clock clock;
+
+    public void deliver(UUID tenantId, UUID messageId) {
+        var snapshot = states.begin(tenantId, messageId);
+        if (snapshot == null) {
+            return; // duplicate/redelivered/terminal message
+        }
+
+        DeliveryResult result = delivery.deliver(
+                new DeliveryCommand(
+                        snapshot.messageId(),
+                        snapshot.tenantId(),
+                        snapshot.channel(),
+                        snapshot.destination(),
+                        snapshot.subject(),
+                        snapshot.body()));
+
+        switch (result) {
+            case DeliveryResult.Accepted accepted ->
+                    states.sent(tenantId, messageId, accepted.providerMessageId());
+
+            case DeliveryResult.Rejected rejected -> {
+                if (rejected.kind() == DeliveryFailureKind.PERMANENT
+                        || retryPolicy.exhausted(snapshot.attemptCount())) {
+                    states.fail(
+                            tenantId,
+                            messageId,
+                            rejected.code(),
+                            rejected.message());
+                } else {
+                    states.retry(
+                            tenantId,
+                            messageId,
+                            retryPolicy.nextRetryAt(
+                                    snapshot.attemptCount(), clock.instant()),
+                            rejected.code(),
+                            rejected.message());
+                }
+            }
+        }
+    }
+}
+```
+
+### Critical transaction rule
+
+Never hold the pessimistic database row lock while calling KumoMTA:
+
+```text
+TX 1: lock -> QUEUED to PROCESSING -> commit
+                 |
+                 v
+        external provider call
+                 |
+                 v
+TX 2: lock -> SENT / RETRY_WAIT / FAILED -> commit
+```
+
+This avoids long transactions and database connection starvation during provider latency/outage.
+
+## 2.7 Recovery of stuck PROCESSING messages
+
+`Message.processingStartedAt` already exists, so a new database column is not required for the first recovery implementation.
+
+Add repository query for stale processing messages, tenant-aware and bounded:
+
+```java
+Slice<Message> findAllByStatusAndProcessingStartedAtBefore(
+        MessageStatus status,
+        Instant threshold,
+        Pageable pageable);
+```
+
+For stronger multi-node recovery, prefer a PostgreSQL native claim using `FOR UPDATE SKIP LOCKED` rather than loading an unbounded collection.
+
+Recovery policy:
+
+```text
+PROCESSING older than configured timeout
+    -> classify as interrupted attempt
+    -> RETRY_WAIT (or FAILED when max attempts exhausted)
+    -> later requeue through retry dispatcher
+```
+
+Do not simply write `status = QUEUED` in SQL; recovery should preserve the domain transition contract. If the current domain API cannot express recovery from stale `PROCESSING`, add an explicit domain method such as:
+
+```java
+public void recoverInterruptedAttempt(
+        Instant nextRetryAt,
+        String errorCode,
+        String errorMessage) {
+    scheduleRetry(nextRetryAt, errorCode, errorMessage);
+}
+```
+
+The method name documents intent and prevents infrastructure code from bypassing invariants.
+
+## 2.8 Requeue due retries
+
+A scheduler should only move due retry records back to `QUEUED`; it must not send mail itself.
+
+```text
+RETRY_WAIT where nextRetryAt <= now
+    -> lock bounded page
+    -> message.requeue()
+    -> append MESSAGE_DELIVERY_REQUESTED to Outbox
+```
+
+Suggested class:
+
+```text
+communication.application.MessageRetryDispatcher
+```
+
+This makes retry dispatch restart-safe and broker-independent.
+
+## 2.9 CampaignRun counters
+
+`CampaignRun` has delivery counters but currently needs behavior to mutate them.
+
+Add explicit methods instead of exposing setters:
+
+```java
+public void messageSent() {
+    sentCount++;
+}
+
+public void messageFailed() {
+    failedCount++;
+}
+
+public void messageRetryScheduled() {
+    retryCount++;
+}
+```
+
+Before committing this exact API, decide and test the semantic meaning:
+
+- `sentCount` and `failedCount` are terminal recipient/message outcomes;
+- `retryCount` is number of retry scheduling events, not number of recipients currently waiting;
+- counters must never be double-incremented on broker redelivery.
+
+Recommended implementation: update the relevant counter in the same transaction that moves the `Message` to its new status. Lock the `CampaignRun` row when mutating counters.
+
+If one campaign recipient can later produce multiple channel messages, rename/extend counters before enabling multi-channel fan-out. Current `recipientCount == sent + failed + skipped` completion invariant assumes one terminal delivery outcome per recipient.
+
+This is an important design constraint for Slice 4.
+
+## 2.10 Slice 2 tests
+
+Required:
+
+```text
+MessageStateServiceIntegrationTest
+- begin locks and changes QUEUED -> PROCESSING
+- duplicate begin does not start a second attempt
+- tenant A cannot claim tenant B message
+
+MessageDeliveryWorkerTest
+- Accepted -> SENT
+- retryable rejection -> RETRY_WAIT
+- permanent rejection -> FAILED
+- max attempts -> FAILED
+
+MessageRetryPolicyTest
+- deterministic 1m / 10m / 1h schedule using fixed Clock
+
+MessageRecoveryIntegrationTest
+- stale PROCESSING is recovered
+- recent PROCESSING is untouched
+
+MessageConcurrencyIntegrationTest
+- two concurrent claims for same message
+- exactly one transition/attempt succeeds
+
+ArchitectureTest
+- communication.domain does not depend on infrastructure/provider packages
+- KumoMTA types cannot leak into domain/application ports
+```
+
+Definition of done:
+
+```text
+mvn verify
+```
+
+must be green.
 
 ---
 
-## Slice 4 — CampaignRun to Message materialization
+# 3. Slice 3 — RabbitMQ + Outbox route for message delivery
 
-Convert an eligible CampaignRun snapshot into durable messages.
+Suggested branch:
 
-### Scope
+```text
+feat/message-delivery-messaging
+```
 
-- Materialize one or more messages from the CampaignRun recipient snapshot.
-- Respect enabled communication channels.
-- Guarantee idempotency: repeating materialization must not create duplicate messages.
-- Finalize `recipientCount`, `messageCount`, and queued/delivery counters.
-- Process large runs in bounded pages/batches.
-- Preserve tenant isolation.
-- Add integration tests for duplicate execution and partial failure.
+The Outbox subsystem already exists. Extend it; do not build another outbox.
+
+## 3.1 New event
+
+Use a stable event type:
+
+```text
+MESSAGE_DELIVERY_REQUESTED
+```
+
+Minimal payload:
+
+```json
+{
+  "tenantId": "...",
+  "messageId": "..."
+}
+```
+
+Do not copy subject/body into the broker event. The database `Message` is authoritative; RabbitMQ carries only the work reference.
+
+## 3.2 Outbox router extension
+
+Target:
+
+```java
+if ("MESSAGE_DELIVERY_REQUESTED".equals(eventType)) {
+    return new OutboxRoute(
+            CommunicationMessagingConfig.EXCHANGE,
+            CommunicationMessagingConfig.ROUTING_KEY);
+}
+```
+
+Prefer replacing the growing `if` chain with a small route map once a second/third event type makes that cleaner, but do not turn this PR into a generic event-bus redesign.
+
+## 3.3 CommunicationMessagingConfig
+
+Mirror the document messaging conventions where useful:
+
+```text
+collectra.communication
+collectra.communication.retry
+collectra.communication.queue
+collectra.communication.dead
+```
+
+The exact exchange/queue names should be constants in one config class.
+
+## 3.4 Listener
+
+```java
+@Component
+public class MessageDeliveryListener {
+    private final MessageDeliveryWorker worker;
+
+    @RabbitListener(queues = CommunicationMessagingConfig.QUEUE)
+    public void consume(MessageDeliveryRequested event) {
+        worker.deliver(event.tenantId(), event.messageId());
+    }
+}
+```
+
+The listener stays thin. Provider classification, state transitions and retry policy do not belong in the listener.
+
+### Difference from existing document listener
+
+The existing document listener keeps retry count in Rabbit headers. For communication delivery, prefer the persisted `Message.attemptCount` + `nextRetryAt` as the source of truth. Rabbit headers may be diagnostic, but must not determine business retry state.
 
 ---
 
-## Slice 5 — Template rendering
+# 4. Slice 4 — KumoMTA email adapter
 
-Build a stable rendering boundary between templates and delivery providers.
+Suggested branch:
 
-### Scope
+```text
+feat/kumomta-email-provider
+```
 
-- Resolve channel-specific template variants.
-- Resolve canonical and custom placeholders.
-- Validate required and unknown placeholders.
-- Support locale selection and fallback (`ru`, `kk`, with future locales extensible).
-- Escape HTML appropriately.
-- Store a rendering snapshot so editing a template later does not mutate historical messages.
-- Keep provider-specific formatting outside template domain logic.
+Dependency direction:
+
+```text
+MessageDeliveryWorker
+        |
+        v
+DeliveryGateway                         application port
+        ^
+        |
+KumoMtaEmailDeliveryGateway             infrastructure adapter
+        |
+        v
+KumoMTA
+```
+
+## 4.1 Adapter boundary
+
+Suggested package:
+
+```text
+io.collectra.api.communication.infrastructure.kumomta
+├── KumoMtaEmailDeliveryGateway.java
+├── KumoMtaClient.java
+├── KumoMtaProperties.java
+├── KumoMtaRequest.java
+├── KumoMtaResponse.java
+└── KumoMtaErrorClassifier.java
+```
+
+`DeliveryGateway` remains free of KumoMTA classes.
+
+## 4.2 Failure classification
+
+Initial policy:
+
+```text
+2xx / accepted                       -> Accepted
+408 / timeout / connection failure   -> RETRYABLE
+429                                  -> RETRYABLE
+5xx                                  -> RETRYABLE
+invalid destination / provider 4xx   -> PERMANENT
+authentication/configuration failure -> PERMANENT + alert
+```
+
+The final HTTP/API mapping must be adjusted to the actual KumoMTA endpoint/protocol used in deployment.
+
+Never persist credentials, full authorization headers or unsafe provider response bodies in `lastErrorMessage`.
+
+## 4.3 Configuration
+
+```yaml
+collectra:
+  communication:
+    kumomta:
+      base-url: ${KUMOMTA_BASE_URL}
+      connect-timeout: 2s
+      read-timeout: 10s
+```
+
+Credentials must come from environment/secret management, not repository YAML.
+
+## 4.4 Tests
+
+- adapter request mapping;
+- accepted provider response;
+- timeout -> retryable;
+- 429/5xx -> retryable;
+- invalid recipient/4xx -> permanent where applicable;
+- sanitized errors;
+- no KumoMTA classes visible outside infrastructure package.
 
 ---
 
-## Slice 6 — Attachments, PDF and QR pipeline
+# 5. Slice 5 — CampaignRun -> Message materialization
 
-### Scope
+Suggested branch:
 
-- Render invoice/receivable documents asynchronously.
-- Generate PDF details where required.
-- Generate QR codes from approved document URLs.
-- Store generated artifacts in RustFS through FileService.
-- Attach immutable file references to messages.
-- Ensure a provider receives only prepared attachments and does not own document generation.
+```text
+feat/campaign-message-materialization
+```
+
+This slice connects Campaign Core, existing templates and communication persistence.
+
+## 5.1 Existing components to reuse
+
+Do not rebuild template rendering. Reuse:
+
+```text
+TemplateVersionRepository
+TemplateCompiler
+TemplateRenderer
+TemplateLocaleResolver / localization services
+```
+
+`TemplateRenderer` already:
+
+- detects missing values;
+- HTML-escapes placeholder values;
+- supports text rendering;
+- returns rendered HTML.
+
+## 5.2 Materialization service
+
+Suggested target:
+
+```text
+campaign.application.CampaignMessageMaterializer
+```
+
+Flow:
+
+```text
+CampaignRun READY
+    -> page CampaignRecipient snapshot
+    -> re-check final eligibility where required
+    -> resolve destination
+    -> resolve locale/template version
+    -> build normalized payload
+    -> render subject/body
+    -> Message.queued(...)
+    -> save Message
+    -> OutboxService.append(MESSAGE_DELIVERY_REQUESTED)
+    -> continue page
+```
+
+Message + Outbox row must be written in the **same database transaction** for a batch/page.
+
+## 5.3 Idempotency
+
+The existing unique constraint on `messages.campaign_recipient_id` already gives a strong one-message-per-recipient invariant.
+
+For the current EMAIL-only MVP this is useful and should be preserved.
+
+Before enabling SMS/WhatsApp parallel fan-out, this constraint must evolve to something like:
+
+```text
+unique(campaign_recipient_id, channel)
+```
+
+Do not change it early unless multi-channel delivery is actually introduced, because the current invariant simplifies retry/counter semantics.
+
+## 5.4 Rendering snapshot
+
+`Message` already persists:
+
+```text
+templateVersionId
+resolvedLocale
+subject
+body
+```
+
+Therefore the rendered subject/body are the immutable delivery snapshot. Editing a template later must not mutate already materialized messages.
+
+Do not re-render the body inside `MessageDeliveryWorker`.
+
+## 5.5 Large campaign handling
+
+- use `Slice`/keyset-style bounded processing;
+- avoid loading all recipients into memory;
+- batch size should be configurable;
+- avoid N+1 resolution of customer email/segment/template data;
+- commit per bounded batch rather than one transaction for an entire large campaign.
+
+---
+
+# 6. Slice 6 — Campaign delivery counters and completion
+
+This may be combined with Slice 5 only if the diff remains narrow; otherwise keep it separate.
+
+Target responsibility:
+
+```text
+Message terminal transition
+    -> CampaignRun counters
+    -> if all recipient outcomes terminal
+       -> CampaignRun.complete(clock.instant())
+```
+
+Important invariant already present in `CampaignRun`:
+
+```text
+sentCount + failedCount + skippedCount == recipientCount
+```
+
+Do not mark a run completed based on queue emptiness or RabbitMQ acknowledgements. Completion is derived from durable database state.
+
+For counter correctness under redelivery:
+
+- transition and counter update occur in the same transaction;
+- only increment when a real state transition happened;
+- lock `Message` and `CampaignRun` consistently to avoid races/deadlocks;
+- define a deterministic lock order, for example Message first, CampaignRun second, and keep it everywhere.
+
+---
+
+# 7. Slice 7 — Attachments / generated documents integration
+
+The document/PDF and FileService foundations already exist. The remaining work is integration with communication, not rebuilding PDF/RustFS.
 
 Target flow:
 
 ```text
-Message preparation
-    -> document rendering
-    -> RustFS/FileService
-    -> attachment metadata
-    -> delivery
+Campaign materialization
+    -> request document generation when attachment is required
+    -> existing document worker renders/stores output
+    -> persist message attachment reference
+    -> only then enqueue MESSAGE_DELIVERY_REQUESTED
 ```
 
----
-
-## Slice 7 — RabbitMQ and Outbox hardening
-
-RabbitMQ is the preferred worker queue for the MVP. Database state remains authoritative.
-
-### Scope
-
-- Publish work through the transactional Outbox pattern.
-- Avoid direct broker publication inside business transactions.
-- Add publisher retry and observability.
-- Make consumers idempotent.
-- Define dead-letter handling where it adds operational value.
-- Verify broker outage does not lose accepted work.
-
----
-
-## Slice 8 — Campaign stabilization completion
-
-If not already merged into `main`, finish the outstanding stabilization work before broadening the delivery surface.
-
-### Scope
-
-- Integration flow: `prepare -> payment/allocation -> eligibility recheck -> SKIPPED/PAID`.
-- Replace remaining direct system-date usage with `Clock`.
-- Remove N+1 access for email and segment data.
-- Move invoice candidate selection into PostgreSQL.
-- Process large selections with paging rather than a universal query DSL.
-- Keep CI green before proceeding.
-
----
-
-## Slice 9 — Import pipeline completion
-
-Target flow:
+Likely new persistence:
 
 ```text
-upload
-  -> detect format
-  -> parse CSV / Excel / XML / JSON
-  -> map headers
-  -> canonical/custom fields
-  -> validate
-  -> persist valid data
-  -> produce row-level error report
+message_attachments
+- id
+- tenant_id
+- message_id
+- file_id / generated_output_id
+- filename
+- content_type
+- created_at
 ```
 
-### Scope
+KumoMTA adapter receives resolved immutable attachment descriptors. It must not generate PDFs or query campaign business rules.
 
-- Mapping metadata by project/source.
-- Header aliases and normalization.
-- Canonical/custom field conversion.
-- Row-level validation errors.
-- Partial/atomic import policy explicitly defined.
-- Idempotency for repeated uploads.
-- Large-file streaming/batching.
-- Import statistics and audit metadata.
+QR generation belongs to document/template preparation, not the email provider adapter.
 
 ---
 
-## Slice 10 — Delivery API and observability
+# 8. Delivery API and observability
 
-### API
+After the end-to-end EMAIL pipeline works:
 
-- List messages by CampaignRun.
-- Filter by tenant, status, channel and recipient where permitted.
-- Expose attempts, failure category and provider identifier to authorized operational users.
-- Keep paging mandatory for message history.
+## API
 
-### Metrics
+Add paged operational endpoints under the communication/campaign boundary, for example:
+
+```text
+GET /api/campaigns/{campaignId}/runs/{runId}/messages
+GET /api/campaigns/{campaignId}/runs/{runId}/messages/{messageId}
+```
+
+Filters:
+
+```text
+status
+channel
+customerId
+```
+
+Never expose another tenant's message by raw UUID lookup.
+
+Useful response fields:
+
+```text
+id
+campaignRunId
+customerId
+channel
+destination (masked where appropriate)
+status
+attemptCount
+nextRetryAt
+providerMessageId
+lastErrorCode
+lastErrorMessage
+sentAt
+createdAt
+```
+
+## Metrics
 
 At minimum:
 
-- queued messages;
-- processing messages;
-- sent messages;
-- failed messages;
-- retry-wait messages;
-- delivery latency;
-- throughput;
-- stuck processing count;
-- provider error rate.
-
-Add structured logging and correlation identifiers for CampaignRun -> Message -> provider delivery.
-
----
-
-## File lifecycle hardening
-
-Continue the existing FileService direction:
-
-- PostgreSQL stores file metadata.
-- RustFS stores object bytes.
-- Expiration is represented by `expires_at`.
-- Cleanup deletes the RustFS object and marks metadata `DELETED`.
-- Tenant ownership is validated on every access path.
-- Verify object size/hash where applicable.
-- Initial operational target for generated files: approximately 90 days unless a product policy overrides it.
-
----
-
-## Later channel expansion
-
-Only after the provider-independent message pipeline is stable:
-
-- SMS;
-- WhatsApp;
-- Telegram;
-- In-App / push;
-- OTP flows;
-- Customer Care reminders and important-date campaigns.
-
-Every new channel should implement the same delivery-port pattern rather than adding channel-specific branching throughout campaign orchestration.
-
----
-
-## Implementation order
-
 ```text
-DONE  Campaign Core
-  |
-DONE  Message persistence and invariants (Slice 1)
-  |
-NEXT  Message processing, claiming and retry semantics (Slice 2)
-  |
-      KumoMTA EmailProvider (Slice 3)
-  |
-      CampaignRun -> Message materialization (Slice 4)
-  |
-      Template rendering (Slice 5)
-  |
-      PDF / QR / attachments (Slice 6)
-  |
-      RabbitMQ / Outbox hardening (Slice 7)
-  |
-      Campaign stabilization completion (if still outstanding)
-  |
-      Import pipeline completion
-  |
-      Delivery API, observability and production hardening
+collectra_message_delivery_total{channel,result}
+collectra_message_delivery_latency_seconds{channel}
+collectra_message_retry_total{channel,code}
+collectra_message_stuck_processing
+collectra_message_queue_age_seconds
 ```
 
-## Working rule
+Add structured log correlation keys:
 
-Each slice should remain a narrow pull request with:
+```text
+tenantId
+campaignId
+campaignRunId
+messageId
+providerMessageId
+```
 
-- one explicit responsibility;
-- database migration where required;
-- unit and PostgreSQL integration tests;
-- architecture tests for important boundaries;
-- `mvn verify` green before merge;
+Do not use destination/email address as the primary correlation key.
+
+---
+
+# 9. Items removed from the old critical path
+
+These remain valid product areas but are **not current blockers for the communication MVP** because substantial implementations already exist:
+
+- generic Template Engine construction;
+- generic CSV/Excel/XML/JSON parser construction;
+- generic RustFS/FileService lifecycle construction;
+- campaign stabilization work already represented by current code/tests;
+- generic Outbox construction.
+
+Future changes in those modules should be driven by a concrete missing integration or failing requirement rather than rebuilt as roadmap milestones.
+
+---
+
+# 10. Revised implementation order
+
+```text
+DONE  Campaign Core / stabilization baseline
+  |
+DONE  Message persistence + invariants (Slice 1)
+  |
+NEXT  Message processing core
+      - MessageStateService
+      - locked tenant-scoped claim
+      - DeliveryGateway port
+      - retry policy
+      - stale PROCESSING recovery
+      - concurrency tests
+  |
+      RabbitMQ + existing Outbox integration
+      - MESSAGE_DELIVERY_REQUESTED
+      - communication exchange/queue/listener
+  |
+      KumoMTA adapter
+      - provider mapping
+      - timeout/error classification
+      - providerMessageId
+  |
+      CampaignRun -> Message materialization
+      - existing TemplateRenderer
+      - rendered snapshot
+      - idempotency
+      - paged batches
+  |
+      Campaign counters + durable completion
+  |
+      Attachments / generated-document integration
+  |
+      Delivery API + metrics + operational hardening
+  |
+      SMS / WhatsApp / Telegram / In-App expansion
+```
+
+---
+
+# 11. PR discipline
+
+Every slice should remain narrow:
+
+- one primary responsibility;
+- Liquibase migration only when the slice truly requires schema change;
+- domain invariants remain inside entities;
+- external network calls never run while holding database row locks;
+- async payloads contain durable identifiers rather than duplicated business state;
+- tenant id is explicit in asynchronous commands/events;
+- application time comes from `Clock`;
+- unit + PostgreSQL integration + architecture tests;
+- `mvn verify` green;
 - no automatic merge unless explicitly requested.
 
-The immediate next development PR is **Slice 2: Message processing, claiming and retry semantics**.
+## Immediate next PR acceptance criteria
+
+The next PR is complete when all of the following are true:
+
+1. `communication.application` exists.
+2. One `QUEUED` Message can be claimed atomically and becomes `PROCESSING`.
+3. Duplicate/concurrent claim cannot create a second attempt.
+4. Provider success records `SENT` and provider message id.
+5. Retryable failure records `RETRY_WAIT` and deterministic `nextRetryAt`.
+6. Permanent/exhausted failure records `FAILED`.
+7. Stale `PROCESSING` messages have a deterministic recovery path.
+8. Campaign counters cannot be double-counted by broker redelivery.
+9. No real KumoMTA dependency is required yet.
+10. `mvn verify` is green.
+
+Only after this PR is merged should the real KumoMTA adapter be connected.
