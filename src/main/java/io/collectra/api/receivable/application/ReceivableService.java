@@ -136,8 +136,7 @@ public class ReceivableService {
             throw new IllegalArgumentException("Allocation exceeds payment amount");
         }
         invoice.apply(amount);
-        return allocations.save(
-                new PaymentAllocation(tenantId, paymentId, invoiceId, amount));
+        return allocations.save(new PaymentAllocation(tenantId, paymentId, invoiceId, amount));
     }
 
     @Transactional(readOnly = true)

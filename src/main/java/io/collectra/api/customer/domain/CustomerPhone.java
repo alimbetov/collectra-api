@@ -53,10 +53,7 @@ public class CustomerPhone extends AuditableEntity {
         this.customerId = Objects.requireNonNull(customerId);
         this.phone = required(phone);
         this.normalizedPhone = normalize(phone);
-        this.type =
-                type == null || type.isBlank()
-                        ? "OTHER"
-                        : type.trim().toUpperCase(Locale.ROOT);
+        this.type = type == null || type.isBlank() ? "OTHER" : type.trim().toUpperCase(Locale.ROOT);
         this.primary = primary;
         this.verified = false;
         this.status = "ACTIVE";

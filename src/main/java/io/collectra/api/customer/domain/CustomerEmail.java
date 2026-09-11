@@ -49,10 +49,7 @@ public class CustomerEmail extends AuditableEntity {
         this.tenantId = Objects.requireNonNull(tenantId);
         this.customerId = Objects.requireNonNull(customerId);
         this.email = normalize(email);
-        this.type =
-                type == null || type.isBlank()
-                        ? "OTHER"
-                        : type.trim().toUpperCase(Locale.ROOT);
+        this.type = type == null || type.isBlank() ? "OTHER" : type.trim().toUpperCase(Locale.ROOT);
         this.primary = primary;
         this.verified = false;
         this.status = "ACTIVE";

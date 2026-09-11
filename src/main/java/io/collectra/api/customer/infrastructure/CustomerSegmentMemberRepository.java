@@ -5,7 +5,8 @@ import java.util.List;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface CustomerSegmentMemberRepository extends JpaRepository<CustomerSegmentMember, UUID> {
+public interface CustomerSegmentMemberRepository
+        extends JpaRepository<CustomerSegmentMember, UUID> {
     boolean existsByTenantIdAndCustomerIdAndSegmentId(
             UUID tenantId, UUID customerId, UUID segmentId);
 
