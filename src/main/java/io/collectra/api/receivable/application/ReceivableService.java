@@ -10,10 +10,13 @@ import io.collectra.api.receivable.infrastructure.PaymentAllocationRepository;
 import io.collectra.api.receivable.infrastructure.PaymentRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -86,6 +89,31 @@ public class ReceivableService {
     @Transactional(readOnly = true)
     public List<Invoice> invoices(UUID tenantId) {
         return invoices.findAllByTenantIdOrderByCreatedAtDesc(tenantId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Invoice> invoicesByIds(UUID tenantId, Collection<UUID> invoiceIds) {
+        if (invoiceIds == null || invoiceIds.isEmpty()) {
+            return List.of();
+        }
+        return invoices.findAllByTenantIdAndIdIn(tenantId, invoiceIds);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<Invoice> campaignCandidates(
+            UUID tenantId,
+            Collection<UUID> customerIds,
+            BigDecimal amountFrom,
+            BigDecimal amountTo,
+            LocalDate dueDateFrom,
+            LocalDate dueDateTo,
+            Pageable pageable) {
+        if (customerIds == null || customerIds.isEmpty()) {
+            return invoices.findCampaignCandidates(
+                    tenantId, amountFrom, amountTo, dueDateFrom, dueDateTo, pageable);
+        }
+        return invoices.findCampaignCandidatesForCustomers(
+                tenantId, customerIds, amountFrom, amountTo, dueDateFrom, dueDateTo, pageable);
     }
 
     @Transactional
