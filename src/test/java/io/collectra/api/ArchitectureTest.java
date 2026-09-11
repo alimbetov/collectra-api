@@ -37,4 +37,16 @@ class ArchitectureTest {
                     .should()
                     .dependOnClassesThat()
                     .resideInAPackage("io.collectra.api.*.infrastructure..");
+
+    @ArchTest
+    static final ArchRule COMMUNICATION_DOMAIN_DOES_NOT_DEPEND_ON_DELIVERY_INFRASTRUCTURE =
+            noClasses()
+                    .that()
+                    .resideInAPackage("io.collectra.api.communication.domain..")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAnyPackage(
+                            "io.collectra.api.campaign.application..",
+                            "org.springframework.amqp..",
+                            "org.springframework.web..");
 }

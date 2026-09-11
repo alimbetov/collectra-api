@@ -35,6 +35,21 @@ public class CampaignRun extends AuditableEntity {
     @Column(name = "completed_at")
     private Instant completedAt;
 
+    @Column(name = "recipient_count", nullable = false)
+    private int recipientCount;
+
+    @Column(name = "sent_count", nullable = false)
+    private int sentCount;
+
+    @Column(name = "failed_count", nullable = false)
+    private int failedCount;
+
+    @Column(name = "skipped_count", nullable = false)
+    private int skippedCount;
+
+    @Column(name = "retry_count", nullable = false)
+    private int retryCount;
+
     protected CampaignRun() {}
 
     public CampaignRun(UUID tenantId, UUID campaignId) {
@@ -44,38 +59,47 @@ public class CampaignRun extends AuditableEntity {
         this.status = CampaignRunStatus.PREPARING;
     }
 
-    public void ready() {
+    public void ready(int recipientCount, Instant now) {
         require(CampaignRunStatus.PREPARING);
+        if (recipientCount < 0) {
+            throw new IllegalArgumentException("recipientCount must not be negative");
+        }
         status = CampaignRunStatus.READY;
-        preparedAt = Instant.now();
+        this.recipientCount = recipientCount;
+        preparedAt = Objects.requireNonNull(now, "now is required");
     }
 
-    public void start() {
+    public void start(Instant now) {
         require(CampaignRunStatus.READY);
         status = CampaignRunStatus.RUNNING;
-        startedAt = Instant.now();
+        startedAt = Objects.requireNonNull(now, "now is required");
     }
 
-    public void complete() {
+    public void complete(Instant now) {
         require(CampaignRunStatus.RUNNING);
+        if (sentCount + failedCount + skippedCount != recipientCount) {
+            throw new IllegalStateException("Campaign run still has non-terminal recipients");
+        }
         status = CampaignRunStatus.COMPLETED;
-        completedAt = Instant.now();
+        completedAt = Objects.requireNonNull(now, "now is required");
     }
 
-    public void fail() {
+    public void fail(Instant now) {
         if (status != CampaignRunStatus.RUNNING && status != CampaignRunStatus.PREPARING) {
             throw new IllegalStateException("Campaign run cannot fail from " + status);
         }
         status = CampaignRunStatus.FAILED;
-        completedAt = Instant.now();
+        completedAt = Objects.requireNonNull(now, "now is required");
     }
 
-    public void cancel() {
-        if (status == CampaignRunStatus.COMPLETED || status == CampaignRunStatus.FAILED) {
+    public void cancel(Instant now) {
+        if (status == CampaignRunStatus.COMPLETED
+                || status == CampaignRunStatus.FAILED
+                || status == CampaignRunStatus.CANCELLED) {
             throw new IllegalStateException("Finished campaign run cannot be cancelled");
         }
         status = CampaignRunStatus.CANCELLED;
-        completedAt = Instant.now();
+        completedAt = Objects.requireNonNull(now, "now is required");
     }
 
     private void require(CampaignRunStatus expected) {
@@ -110,5 +134,25 @@ public class CampaignRun extends AuditableEntity {
 
     public Instant getCompletedAt() {
         return completedAt;
+    }
+
+    public int getRecipientCount() {
+        return recipientCount;
+    }
+
+    public int getSentCount() {
+        return sentCount;
+    }
+
+    public int getFailedCount() {
+        return failedCount;
+    }
+
+    public int getSkippedCount() {
+        return skippedCount;
+    }
+
+    public int getRetryCount() {
+        return retryCount;
     }
 }
