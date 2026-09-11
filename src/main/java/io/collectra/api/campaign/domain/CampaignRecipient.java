@@ -39,7 +39,7 @@ public class CampaignRecipient extends AuditableEntity {
     @Column(nullable = false, length = 30)
     private String channel;
 
-    @Column(nullable = false, length = 500)
+    @Column(length = 500)
     private String destination;
 
     @Column(length = 16)
@@ -70,8 +70,8 @@ public class CampaignRecipient extends AuditableEntity {
         this.customerId = Objects.requireNonNull(customerId);
         this.invoiceId = invoiceId;
         this.channel = required(channel);
-        this.destination = required(destination);
-        this.locale = locale == null || locale.isBlank() ? null : locale.trim();
+        this.destination = trim(destination);
+        this.locale = trim(locale);
         this.status = CampaignRecipientStatus.SNAPSHOT;
     }
 
@@ -134,5 +134,9 @@ public class CampaignRecipient extends AuditableEntity {
             throw new IllegalArgumentException("value is required");
         }
         return value.trim();
+    }
+
+    private static String trim(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 }
