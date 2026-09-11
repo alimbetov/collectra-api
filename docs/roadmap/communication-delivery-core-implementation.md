@@ -1,5 +1,10 @@
 # Communication / Delivery Core — implementation specification
 
+> **Статус:** detailed design. Перед реализацией обязательно применить binding
+> corrections из `docs/roadmap/communication-delivery-core-code-audit.md`, особенно
+> для payload/locale rendering, `PROCESSING` recovery, provider idempotency,
+> transaction boundaries и tenant-scoped counter updates.
+
 ## 0. Назначение документа
 
 Этот документ превращает high-level ТЗ в последовательность конкретных изменений для текущего `collectra-api`.
@@ -188,15 +193,18 @@ campaign_run_id UUID NOT NULL
 campaign_recipient_id UUID NOT NULL
 customer_id UUID NOT NULL
 invoice_id UUID NULL
+template_version_id UUID NOT NULL
 
 channel VARCHAR(30) NOT NULL
-destination VARCHAR(500) NULL
+destination VARCHAR(500) NOT NULL
+resolved_locale VARCHAR(35) NOT NULL
 subject VARCHAR(500) NULL
 body TEXT NOT NULL
 
 status VARCHAR(20) NOT NULL
 attempt_count INT NOT NULL DEFAULT 0
 next_retry_at TIMESTAMP NULL
+processing_started_at TIMESTAMP NULL
 
 provider_message_id VARCHAR(255) NULL
 last_error_code VARCHAR(80) NULL
@@ -210,7 +218,7 @@ updated_at TIMESTAMP NOT NULL
 Constraint:
 
 ```text
-UNIQUE (campaign_recipient_id, channel)
+UNIQUE (campaign_recipient_id)
 ```
 
 Indexes:
@@ -230,8 +238,8 @@ idx_message_tenant_created(tenant_id, created_at)
 @Table(
     name = "messages",
     uniqueConstraints = @UniqueConstraint(
-        name = "uk_message_recipient_channel",
-        columnNames = {"campaign_recipient_id", "channel"}
+        name = "uk_message_recipient",
+        columnNames = {"campaign_recipient_id"}
     )
 )
 public class Message extends AuditableEntity {
@@ -257,12 +265,18 @@ public class Message extends AuditableEntity {
     @Column(name = "invoice_id")
     private UUID invoiceId;
 
+    @Column(name = "template_version_id", nullable = false)
+    private UUID templateVersionId;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
     private CommunicationChannel channel;
 
-    @Column(length = 500)
+    @Column(nullable = false, length = 500)
     private String destination;
+
+    @Column(name = "resolved_locale", nullable = false, length = 35)
+    private String resolvedLocale;
 
     @Column(length = 500)
     private String subject;
@@ -279,6 +293,9 @@ public class Message extends AuditableEntity {
 
     @Column(name = "next_retry_at")
     private Instant nextRetryAt;
+
+    @Column(name = "processing_started_at")
+    private Instant processingStartedAt;
 
     @Column(name = "provider_message_id", length = 255)
     private String providerMessageId;
@@ -304,8 +321,7 @@ public enum MessageStatus {
     PROCESSING,
     RETRY_WAIT,
     SENT,
-    FAILED,
-    CANCELLED
+    FAILED
 }
 ```
 
@@ -317,8 +333,6 @@ PROCESSING -> SENT
 PROCESSING -> RETRY_WAIT
 PROCESSING -> FAILED
 RETRY_WAIT -> QUEUED
-QUEUED -> CANCELLED
-RETRY_WAIT -> CANCELLED
 ```
 
 Terminal:
@@ -326,7 +340,6 @@ Terminal:
 ```text
 SENT
 FAILED
-CANCELLED
 ```
 
 Не добавлять `CREATED`. Message создаётся сразу как готовая delivery command.
@@ -406,10 +419,7 @@ public interface MessageRepository extends JpaRepository<Message, UUID> {
 
     Optional<Message> findByIdAndTenantId(UUID id, UUID tenantId);
 
-    Optional<Message> findByCampaignRecipientIdAndChannel(
-        UUID campaignRecipientId,
-        CommunicationChannel channel
-    );
+    Optional<Message> findByCampaignRecipientId(UUID campaignRecipientId);
 
     List<Message> findAllByTenantIdAndCampaignRunIdOrderByCreatedAtAsc(
         UUID tenantId,
@@ -421,17 +431,8 @@ public interface MessageRepository extends JpaRepository<Message, UUID> {
         Collection<MessageStatus> statuses
     );
 
-    @Query("""
-        select m.id
-        from Message m
-        where m.status = io.collectra.api.communication.domain.MessageStatus.RETRY_WAIT
-          and m.nextRetryAt <= :now
-        order by m.nextRetryAt asc
-    """)
-    List<UUID> findRetryDueIds(
-        @Param("now") Instant now,
-        Pageable pageable
-    );
+    // Retry/recovery batch queries use native FOR UPDATE SKIP LOCKED;
+    // exact SQL is defined in the binding code audit.
 }
 ```
 
@@ -444,14 +445,18 @@ public interface MessageRepository extends JpaRepository<Message, UUID> {
 @Query("""
     update Message m
        set m.status = :processing,
-           m.attemptCount = m.attemptCount + 1
+           m.attemptCount = m.attemptCount + 1,
+           m.processingStartedAt = :now,
+           m.updatedAt = :now,
+           m.version = m.version + 1
      where m.id = :messageId
        and m.status = :queued
 """)
 int claim(
     @Param("messageId") UUID messageId,
     @Param("queued") MessageStatus queued,
-    @Param("processing") MessageStatus processing
+    @Param("processing") MessageStatus processing,
+    @Param("now") Instant now
 );
 ```
 
@@ -527,26 +532,26 @@ public class CampaignDeliveryStatsService {
     private final Clock clock;
 
     @Transactional
-    public void recordSent(UUID runId) {
-        runs.incrementSent(runId);
-        completeIfDone(runId);
+    public void recordSent(UUID tenantId, UUID runId) {
+        requireOne(runs.incrementSent(tenantId, runId, Instant.now(clock)));
+        completeIfDone(tenantId, runId);
     }
 
     @Transactional
-    public void recordFailed(UUID runId) {
-        runs.incrementFailed(runId);
-        completeIfDone(runId);
+    public void recordFailed(UUID tenantId, UUID runId) {
+        requireOne(runs.incrementFailed(tenantId, runId, Instant.now(clock)));
+        completeIfDone(tenantId, runId);
     }
 
     @Transactional
-    public void recordSkipped(UUID runId) {
-        runs.incrementSkipped(runId);
-        completeIfDone(runId);
+    public void recordSkipped(UUID tenantId, UUID runId, int delta) {
+        requireOne(runs.incrementSkipped(tenantId, runId, delta, Instant.now(clock)));
+        completeIfDone(tenantId, runId);
     }
 
     @Transactional
-    public void recordRetry(UUID runId) {
-        runs.incrementRetry(runId);
+    public void recordRetry(UUID tenantId, UUID runId) {
+        requireOne(runs.incrementRetry(tenantId, runId, Instant.now(clock)));
     }
 }
 ```
@@ -554,13 +559,17 @@ public class CampaignDeliveryStatsService {
 Counters в repository лучше обновлять atomically:
 
 ```java
-@Modifying
+@Modifying(clearAutomatically = true, flushAutomatically = true)
 @Query("""
     update CampaignRun r
-       set r.sentCount = r.sentCount + 1
+       set r.sentCount = r.sentCount + 1,
+           r.updatedAt = :now,
+           r.version = r.version + 1
      where r.id = :runId
+       and r.tenantId = :tenantId
+       and r.status = io.collectra.api.campaign.domain.CampaignRunStatus.RUNNING
 """)
-int incrementSent(UUID runId);
+int incrementSent(UUID tenantId, UUID runId, Instant now);
 ```
 
 Аналогично failed/skipped/retry.
@@ -601,6 +610,7 @@ RUNNING -> COMPLETED
 @Service
 public class CampaignDeliveryService {
 
+    private final CampaignRepository campaigns;
     private final CampaignRunRepository runs;
     private final CampaignRecipientRepository recipients;
     private final CampaignEligibilityService eligibility;
@@ -609,8 +619,11 @@ public class CampaignDeliveryService {
 
     @Transactional
     public DeliveryStartResult start(UUID tenantId, UUID runId) {
-        CampaignRun run = runs.findByIdAndTenantId(runId, tenantId)
+        CampaignRun run = runs.findForStart(tenantId, runId)
             .orElseThrow(() -> new NoSuchElementException("Campaign run not found"));
+
+        Campaign campaign = campaigns.findByIdAndTenantId(run.getCampaignId(), tenantId)
+            .orElseThrow(() -> new NoSuchElementException("Campaign not found"));
 
         if (run.getStatus() != CampaignRunStatus.READY) {
             throw new IllegalStateException("Campaign run must be READY");
@@ -621,8 +634,9 @@ public class CampaignDeliveryService {
         CampaignEligibilityService.EligibilityResult result =
             eligibility.recheck(tenantId, runId);
 
-        List<CampaignRecipient> values =
-            recipients.findAllByTenantIdAndRunIdOrderByCreatedAtAsc(tenantId, runId);
+        // Iterate stable Slice<CampaignRecipient> pages of 500 and batch-load
+        // Customer/Email/Invoice data for every page.
+        List<CampaignRecipient> values = nextRecipientPage(tenantId, runId);
 
         int created = 0;
         for (CampaignRecipient recipient : values) {
@@ -631,7 +645,7 @@ public class CampaignDeliveryService {
                 continue;
             }
             if (recipient.getStatus() == CampaignRecipientStatus.ELIGIBLE) {
-                if (messages.createFromRecipient(recipient).created()) {
+                if (messages.createFromRecipient(tenantId, campaign, recipient).created()) {
                     created++;
                 }
             }
@@ -687,13 +701,14 @@ public class MessageService {
     private final MessageContentFactory contentFactory;
 
     @Transactional
-    public CreateMessageResult createFromRecipient(CampaignRecipient recipient) {
+    public CreateMessageResult createFromRecipient(
+            UUID tenantId, Campaign campaign, CampaignRecipient recipient) {
 
         CommunicationChannel channel =
             CommunicationChannel.valueOf(recipient.getChannel());
 
         Optional<Message> existing =
-            messages.findByCampaignRecipientIdAndChannel(recipient.getId(), channel);
+            messages.findByCampaignRecipientId(recipient.getId());
 
         if (existing.isPresent()) {
             return new CreateMessageResult(existing.get().getId(), false);
@@ -952,9 +967,12 @@ public void deliver(...) {
 ```java
 public interface ChannelProvider {
     CommunicationChannel channel();
-    ProviderSendResult send(Message message);
+    ProviderSendResult send(ProviderSendCommand command);
 }
 ```
+
+`ProviderSendCommand` является immutable DTO и несёт
+`idempotencyKey=messageId.toString()`. Provider не получает JPA entity.
 
 ```java
 public enum ProviderResultStatus {
@@ -1069,7 +1087,7 @@ public class MockEmailProvider implements ChannelProvider {
     }
 
     @Override
-    public ProviderSendResult send(Message message) {
+    public ProviderSendResult send(ProviderSendCommand command) {
         return behavior.next(channel());
     }
 }
@@ -1167,23 +1185,20 @@ public class MessageRetryScheduler {
 }
 ```
 
-Application service:
+Application service выбирает due rows с `FOR UPDATE SKIP LOCKED`:
 
 ```java
 @Transactional
 public int requeueDue() {
     Instant now = Instant.now(clock);
 
-    List<UUID> ids = messages.findRetryDueIds(
-        now,
-        PageRequest.of(0, 100)
-    );
+    List<Message> due = messages.findRetryDueForUpdate(now, 100);
 
     int count = 0;
-    for (UUID id : ids) {
-        if (requeueOne(id, now)) {
-            count++;
-        }
+    for (Message message : due) {
+        message.requeue();
+        appendDeliveryEvent(message);
+        count++;
     }
     return count;
 }
@@ -1195,7 +1210,7 @@ public int requeueDue() {
 
 ---
 
-# 29. Atomic retry claim
+# 29. Atomic retry claim and processing recovery
 
 Чтобы два scheduler instance не переочередили один message дважды, `requeueOne` должен использовать conditional update либо pessimistic lock.
 
@@ -1211,6 +1226,15 @@ where id = :id
 ```
 
 Если affected rows = 1 -> append Outbox event.
+
+Binding вариант после code audit — выбирать batch через `FOR UPDATE SKIP LOCKED` и
+в той же transaction делать entity transition + Outbox append. Это сохраняет
+auditing/version и не даёт двум scheduler instances обработать одну строку.
+
+Также обязателен recovery зависших `PROCESSING`: выбирать rows, у которых
+`processing_started_at < now - processingTimeout`, через `FOR UPDATE SKIP LOCKED`.
+Если attempts остались — переводить в `RETRY_WAIT` с `nextRetryAt=now`; иначе в
+`FAILED`. Полный SQL и counter rules находятся в code audit.
 
 ---
 
@@ -1287,19 +1311,9 @@ sentCount + failedCount + skippedCount == recipientCount
 
 ## Start delivery
 
-Предлагаемый endpoint рядом с campaign API:
-
 ```http
-POST /api/campaign-runs/{runId}/deliver
+POST /api/v1/campaigns/runs/{runId}/deliver
 ```
-
-или в текущем style controller:
-
-```http
-POST /api/campaigns/runs/{runId}/deliver
-```
-
-Выбрать вариант, который соответствует уже существующим `CampaignController` routes.
 
 Response:
 
@@ -1324,8 +1338,8 @@ Endpoint должен быть idempotent enough: повторный вызов 
 Минимально:
 
 ```http
-GET /api/messages/{id}
-GET /api/messages?campaignRunId=...
+GET /api/v1/messages/{id}
+GET /api/v1/messages?campaignRunId=...
 ```
 
 Дополнительные filters только реально нужные:
