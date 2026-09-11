@@ -1,5 +1,10 @@
 # Communication / Delivery Core — implementation tasks
 
+> **Статус:** backlog до code audit. При выполнении задач использовать обязательные
+> corrections из `docs/roadmap/communication-delivery-core-code-audit.md`. Audit
+> уточняет schema, payload/locale contracts, provider command, stale recovery,
+> paging, API/security и расширяет обязательный test set.
+
 Этот документ является backlog для реализации ТЗ.
 
 Основной detailed design:
@@ -25,7 +30,7 @@ src/main/java/io/collectra/api/communication/domain/Message.java
 src/main/java/io/collectra/api/communication/domain/MessageStatus.java
 src/main/java/io/collectra/api/communication/domain/CommunicationChannel.java
 src/main/java/io/collectra/api/communication/infrastructure/MessageRepository.java
-src/main/resources/db/changelog/changes/<next>-communication-messages.yaml
+src/main/resources/db/changelog/changes/026-communication-delivery-core.sql
 ```
 
 Также обновить:
@@ -42,8 +47,7 @@ public enum MessageStatus {
     PROCESSING,
     RETRY_WAIT,
     SENT,
-    FAILED,
-    CANCELLED
+    FAILED
 }
 ```
 
@@ -69,12 +73,15 @@ UUID campaignRunId
 UUID campaignRecipientId
 UUID customerId
 UUID invoiceId nullable
+UUID templateVersionId
 CommunicationChannel channel
-String destination nullable
+String destination
+String resolvedLocale
 String subject nullable
 String body
 MessageStatus status
 int attemptCount
+Instant processingStartedAt nullable
 Instant nextRetryAt nullable
 String providerMessageId nullable
 String lastErrorCode nullable
@@ -87,7 +94,7 @@ Instant sentAt nullable
 Unique:
 
 ```text
-(campaign_recipient_id, channel)
+(campaign_recipient_id)
 ```
 
 Indexes:
@@ -108,7 +115,6 @@ markSent(...)
 scheduleRetry(...)
 markFailed(...)
 requeue()
-cancel()
 ```
 
 Каждый method проверяет допустимый previous status.
@@ -158,11 +164,14 @@ MessageRepository.java
 @Query("""
     update Message m
        set m.status = io.collectra.api.communication.domain.MessageStatus.PROCESSING,
-           m.attemptCount = m.attemptCount + 1
+           m.attemptCount = m.attemptCount + 1,
+           m.processingStartedAt = :now,
+           m.updatedAt = :now,
+           m.version = m.version + 1
      where m.id = :messageId
        and m.status = io.collectra.api.communication.domain.MessageStatus.QUEUED
 """)
-int claim(@Param("messageId") UUID messageId);
+int claim(@Param("messageId") UUID messageId, @Param("now") Instant now);
 ```
 
 Можно использовать enum parameters, если Hibernate/query style проекта это предпочитает.
@@ -243,13 +252,17 @@ retryWaitCount
 ## Atomic repository updates
 
 ```java
-@Modifying
+@Modifying(clearAutomatically = true, flushAutomatically = true)
 @Query("""
     update CampaignRun r
-       set r.sentCount = r.sentCount + :delta
+       set r.sentCount = r.sentCount + :delta,
+           r.updatedAt = :now,
+           r.version = r.version + 1
      where r.id = :runId
+       and r.tenantId = :tenantId
+       and r.status = io.collectra.api.campaign.domain.CampaignRunStatus.RUNNING
 """)
-int incrementSent(UUID runId, int delta);
+int incrementSent(UUID tenantId, UUID runId, int delta, Instant now);
 ```
 
 Аналогично:
@@ -449,6 +462,7 @@ Message должен хранить уже готовый текст, чтобы
 
 ```text
 communication/application/MessageContentFactory.java
+communication/application/CampaignMessagePayloadFactory.java
 ```
 
 или переиспользовать существующий template rendering service напрямую, если подходящий публичный service уже существует.
@@ -457,6 +471,8 @@ communication/application/MessageContentFactory.java
 
 ```java
 public record RenderedMessage(
+    UUID templateVersionId,
+    String resolvedLocale,
     String subject,
     String body
 ) {}
@@ -464,10 +480,16 @@ public record RenderedMessage(
 
 ```java
 RenderedMessage render(
+    UUID tenantId,
     CampaignRecipient recipient,
     Campaign campaign
 );
 ```
+
+Payload factory обязан сформировать существующие canonical paths
+`document.number`, `document.date`, `customer.name`, `customer.*`, `invoice.*` и
+перенести entity custom fields под `custom.customer`/`custom.invoice`. Exact mapping
+и locale fallback algorithm зафиксированы в code audit.
 
 ## Phase 1
 
@@ -594,6 +616,9 @@ run exists for tenant
 run.status == READY
 ```
 
+Run загружается через `PESSIMISTIC_WRITE`; неверный lifecycle возвращает domain
+exception, отображаемый в HTTP 409.
+
 ## Flow
 
 ```text
@@ -604,6 +629,9 @@ load recipients
 for ELIGIBLE:
     messageService.createFromRecipient(...)
 ```
+
+Recipients обрабатываются стабильными pages/slices по 500 с batch-load Customer,
+Email и Invoice. Unpaged run list и per-recipient repository calls запрещены.
 
 ## Important
 
@@ -702,6 +730,7 @@ Router returns correct route for communication event.
 ```text
 communication/domain/ProviderResultStatus.java
 communication/domain/ProviderSendResult.java
+communication/domain/ProviderSendCommand.java
 communication/infrastructure/provider/ChannelProvider.java
 communication/infrastructure/provider/ChannelProviderRegistry.java
 ```
@@ -719,9 +748,12 @@ PERMANENT_ERROR
 ```java
 public interface ChannelProvider {
     CommunicationChannel channel();
-    ProviderSendResult send(Message message);
+    ProviderSendResult send(ProviderSendCommand command);
 }
 ```
+
+`ProviderSendCommand` содержит immutable delivery snapshot и
+`idempotencyKey=messageId.toString()`; JPA entity provider не получает.
 
 ## Registry
 
@@ -979,7 +1011,9 @@ batch size default:
 RETRY_WAIT -> QUEUED
 ```
 
-conditional update.
+Выбирать batch через PostgreSQL `FOR UPDATE SKIP LOCKED`, затем выполнять entity
+transition. Это сохраняет auditing/version и исключает двойную обработку двумя
+scheduler instances.
 
 Only if transition success:
 
@@ -995,6 +1029,55 @@ same transaction.
 not due -> untouched
 one due -> QUEUED + one outbox
 concurrent schedulers -> one requeue + one outbox
+```
+
+---
+
+# TASK 15B — Stale PROCESSING recovery
+
+## Цель
+
+Не оставлять Message навсегда в `PROCESSING`, если process остановился после claim
+либо provider call, но до TX2.
+
+## Новые/изменяемые файлы
+
+```text
+communication/application/MessageRecoveryService.java
+communication/infrastructure/MessageRecoveryScheduler.java
+MessageRepository.java
+```
+
+## Query
+
+Выбирать rows:
+
+```text
+status=PROCESSING
+processingStartedAt < now-processingTimeout
+```
+
+через `FOR UPDATE SKIP LOCKED`, batch size default `100`.
+
+## Result
+
+```text
+attemptCount < maxAttempts -> RETRY_WAIT, nextRetryAt=now,
+                              PROCESSING_TIMEOUT_RECOVERED, retryCount++
+attemptCount >= maxAttempts -> FAILED,
+                               PROCESSING_TIMEOUT_MAX_ATTEMPTS, failedCount++
+```
+
+После terminal recovery проверить CampaignRun completion. Recovery в `RETRY_WAIT`
+не создаёт Outbox сам: обычный retry scheduler делает единственный requeue path.
+
+## Acceptance
+
+```text
+fresh PROCESSING -> untouched
+stale PROCESSING with attempts left -> RETRY_WAIT
+stale PROCESSING at limit -> FAILED
+two recovery schedulers -> one transition/counter update
 ```
 
 ---
@@ -1111,8 +1194,8 @@ Last terminal delivery completes run exactly once.
 ## Минимум
 
 ```http
-GET /api/messages/{id}
-GET /api/messages?campaignRunId={runId}
+GET /api/v1/messages/{id}
+GET /api/v1/messages?campaignRunId={runId}
 ```
 
 Optional filters:
