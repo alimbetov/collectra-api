@@ -1,5 +1,10 @@
 # Communication / Delivery Core
 
+> **Статус:** функциональная основа. Обязательные code-level уточнения и исправления
+> после аудита зафиксированы в
+> `docs/roadmap/communication-delivery-core-code-audit.md`. При противоречии
+> приоритет имеет audit document.
+
 ## Цель
 
 Реализовать минимальный и расширяемый контур доставки сообщений из `CampaignRecipient` без подключения реальных внешних провайдеров на первом этапе.
@@ -16,7 +21,8 @@ CampaignRecipient
     -> ChannelProvider
 ```
 
-На первом этапе все каналы работают через mock provider.
+На первом этапе полностью реализуется EMAIL через mock provider. Остальные каналы
+подключаются теми же тонкими adapters после стабилизации общего pipeline.
 
 Поддерживаемые каналы:
 
@@ -53,15 +59,19 @@ campaignId UUID
 campaignRunId UUID
 campaignRecipientId UUID
 customerId UUID
+invoiceId UUID nullable
 
 channel ENUM
 destination VARCHAR
+templateVersionId UUID
+resolvedLocale VARCHAR
 subject VARCHAR nullable
 body TEXT
 
 status ENUM
 attemptCount INT
 nextRetryAt TIMESTAMP nullable
+processingStartedAt TIMESTAMP nullable
 
 providerMessageId VARCHAR nullable
 lastErrorCode VARCHAR nullable
@@ -88,7 +98,6 @@ PROCESSING
 RETRY_WAIT
 SENT
 FAILED
-CANCELLED
 ```
 
 Отдельный `CREATED` не нужен: Message создаётся сразу готовым к постановке в доставку.
@@ -105,15 +114,12 @@ QUEUED
 RETRY_WAIT
    -> QUEUED
 
-QUEUED / RETRY_WAIT
-   -> CANCELLED
 ```
 
 Terminal statuses:
 
 - SENT
 - FAILED
-- CANCELLED
 
 Повторно отправлять `SENT` нельзя.
 
@@ -146,7 +152,7 @@ CampaignRecipient.skipReason = PAID
 Минимальное решение:
 
 ```text
-UNIQUE (campaign_recipient_id, channel)
+UNIQUE (campaign_recipient_id)
 ```
 
 Не вводить отдельный idempotency framework на этом этапе.
@@ -234,9 +240,13 @@ InAppWorker
 ```java
 public interface ChannelProvider {
     CommunicationChannel channel();
-    ProviderSendResult send(Message message);
+    ProviderSendResult send(ProviderSendCommand command);
 }
 ```
+
+`ProviderSendCommand` — immutable DTO, содержащий `messageId`, channel,
+destination, subject, body и `idempotencyKey=messageId`. JPA entity за границу
+provider adapter не передаётся.
 
 Результат:
 
@@ -403,7 +413,7 @@ collectra:
 ```text
 PROCESSING
    -> provider RETRYABLE_ERROR
-   -> attemptCount++
+   -> attemptCount уже увеличен при atomic claim
    -> RETRY_WAIT
    -> nextRetryAt = calculated backoff
 ```
@@ -500,7 +510,6 @@ Worker должен быть идемпотентным на уровне `Messa
 ```text
 SENT
 FAILED
-CANCELLED
 ```
 
 worker ничего не отправляет.
@@ -523,8 +532,8 @@ worker ничего не отправляет.
 Минимальный API для наблюдаемости:
 
 ```http
-GET /api/messages/{id}
-GET /api/messages
+GET /api/v1/messages/{id}
+GET /api/v1/messages?campaignRunId={runId}&page=0&size=50
 ```
 
 Минимальные фильтры списка:
@@ -668,7 +677,8 @@ PERMANENT_ERROR
 5. Существующий Outbox публикует `MESSAGE_DELIVERY_REQUESTED` в RabbitMQ.
 6. Один `MessageDeliveryWorker` обрабатывает все каналы.
 7. Worker выбирает provider через `ChannelProviderRegistry`.
-8. Все пять каналов имеют mock provider.
+8. EMAIL имеет mock provider; остальные thin mock adapters добавляются после
+   зелёного EMAIL pipeline.
 9. `fail-every: 10` моделирует retryable failure в dev mode.
 10. Integration tests могут задавать deterministic mock sequence.
 11. `RETRYABLE_ERROR` переводит Message в `RETRY_WAIT`.
