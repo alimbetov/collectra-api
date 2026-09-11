@@ -1,154 +1,358 @@
 # Slice 4 — KumoMTA email adapter
 
-Status: Planned
-
-Depends on: `slice-02-message-processing.md`, `slice-03-message-delivery-messaging.md`
-
+Status: PLANNED  
+Depends on: Slice 2, Slice 3  
 Suggested branch: `feat/kumomta-email-provider`
 
-## Цель
+## 1. Цель
 
-Подключить реальную EMAIL-доставку через KumoMTA как infrastructure adapter за существующим `DeliveryGateway`.
+Реализовать production `DeliveryGateway` для EMAIL через KumoMTA HTTP Injection API.
 
-## Уже есть
+Выбранный transport для MVP:
 
-Переиспользуем:
+```text
+POST /api/inject/v1
+Content-Type: application/json
+```
 
-- `DeliveryGateway`, `DeliveryCommand`, `DeliveryResult`;
-- `MessageDeliveryWorker`;
-- retry/failure semantics из Slice 2;
-- RabbitMQ/Outbox flow из Slice 3;
-- persisted `providerMessageId`, `lastErrorCode`, `lastErrorMessage`.
+Не реализовывать параллельно SMTP transport. Если deployment позже потребует SMTP, это отдельный adapter.
 
-## Scope
+Официальный reference:
 
-### 1. Adapter package
+```text
+https://docs.kumomta.com/reference/http/kumod/api_inject_v1_post/
+```
 
-Добавить пакет:
+## 2. Архитектурная граница
+
+```text
+MessageDeliveryWorker
+        |
+        v
+DeliveryGateway                 application port
+        ^
+        |
+KumoMtaEmailDeliveryGateway     infrastructure adapter
+        |
+        v
+KumoMtaClient
+        |
+        v
+POST /api/inject/v1
+```
+
+Application/domain packages не импортируют KumoMTA request/response classes.
+
+## 3. Scope
+
+Добавить:
 
 ```text
 io.collectra.api.communication.infrastructure.kumomta
+├── KumoMtaEmailDeliveryGateway.java
+├── KumoMtaClient.java
+├── KumoMtaProperties.java
+├── KumoMtaInjectRequest.java
+├── KumoMtaInjectResponse.java
+├── KumoMtaRecipient.java
+└── KumoMtaErrorClassifier.java
 ```
 
-Минимально:
+HTTP client использовать стандартный для проекта (`RestClient`/`WebClient`), не добавлять новую HTTP library без необходимости.
 
-```text
-KumoMtaEmailDeliveryGateway
-KumoMtaClient
-KumoMtaProperties
-KumoMtaRequest
-KumoMtaResponse
-KumoMtaErrorClassifier
-```
+Для синхронного worker path предпочтителен Spring `RestClient`, если проект уже использует blocking execution.
 
-### 2. Configuration
-
-Конфигурация только через properties/env:
+## 4. Configuration
 
 ```yaml
 collectra:
   communication:
     kumomta:
+      enabled: true
       base-url: ${KUMOMTA_BASE_URL}
+      envelope-sender: ${KUMOMTA_ENVELOPE_SENDER}
       connect-timeout: 2s
       read-timeout: 10s
 ```
 
-Credentials не коммитить в repository config.
+Если deployment защищает injection endpoint Basic/API auth:
 
-### 3. Request mapping
+```yaml
+      username: ${KUMOMTA_USERNAME:}
+      password: ${KUMOMTA_PASSWORD:}
+```
 
-Из `DeliveryCommand` сформировать provider request для EMAIL:
+Credentials:
+
+- только env/secret management;
+- не логировать;
+- не хранить в DB;
+- не commit в `application*.yml` реальное значение.
+
+## 5. HTTP request contract
+
+Для одного `Message` отправлять одного recipient.
+
+Минимальный request:
+
+```json
+{
+  "envelope_sender": "noreply@example.com",
+  "content": {
+    "headers": {
+      "From": "Collectra <noreply@example.com>",
+      "To": "client@example.com",
+      "Subject": "Invoice reminder"
+    },
+    "html_body": "<html>...</html>"
+  },
+  "recipients": [
+    {
+      "email": "client@example.com",
+      "metadata": {
+        "collectra_message_id": "uuid",
+        "collectra_tenant_id": "uuid"
+      }
+    }
+  ],
+  "template_dialect": "Static"
+}
+```
+
+### Важные правила
+
+- Collectra template уже rendered до delivery; KumoMTA templating не использовать;
+- `template_dialect = Static`, если это поддерживается deployment version;
+- one Collectra Message -> one Kumo injection recipient;
+- business content не рендерить в adapter;
+- metadata использовать только для correlation, не для business logic.
+
+Если actual Kumo deployment предпочитает RFC822 string `content`, adapter может собирать MIME/RFC822 representation, но выбор должен быть единообразным и покрытым test. Для MVP предпочтителен structured `content`.
+
+## 6. Response contract
+
+KumoMTA `POST /api/inject/v1` возвращает как минимум:
+
+```json
+{
+  "success_count": 1,
+  "fail_count": 0,
+  "failed_recipients": [],
+  "errors": []
+}
+```
+
+Success condition для single-recipient request:
 
 ```text
-destination
-subject
+HTTP 2xx
+AND success_count == 1
+AND fail_count == 0
+```
+
+Если HTTP 2xx, но `fail_count > 0` или recipient присутствует в `failed_recipients`, это rejection, а не Accepted.
+
+## 7. providerMessageId semantics
+
+Текущий Kumo inject response не гарантирует external message id в базовом response contract.
+
+Поэтому для MVP:
+
+```text
+DeliveryResult.Accepted(providerMessageId = null)
+```
+
+разрешён и соответствует текущему `Message.markSent`, где provider id optional.
+
+Не генерировать fake providerMessageId.
+
+Для correlation использовать собственный `messageId` в Kumo metadata/header.
+
+Если deployment позже добавит hook/API, возвращающий Kumo spool id, его можно сохранять отдельным follow-up изменением.
+
+## 8. Error classification
+
+`KumoMtaErrorClassifier` должен выдавать только application semantics:
+
+```text
+RETRYABLE
+PERMANENT
+```
+
+Initial mapping:
+
+```text
+connect timeout                 -> RETRYABLE / KUMO_CONNECT_TIMEOUT
+read timeout                    -> RETRYABLE / KUMO_READ_TIMEOUT
+connection reset/unavailable    -> RETRYABLE / KUMO_CONNECTION_ERROR
+HTTP 429                        -> RETRYABLE / KUMO_RATE_LIMITED
+HTTP 5xx                        -> RETRYABLE / KUMO_SERVER_ERROR
+HTTP 408                        -> RETRYABLE / KUMO_TIMEOUT
+HTTP 400/422 invalid content    -> PERMANENT / KUMO_INVALID_REQUEST
+HTTP 401/403                    -> PERMANENT / KUMO_AUTH_ERROR
+2xx with failed recipient       -> PERMANENT unless error text is explicitly transient
+invalid local destination       -> PERMANENT / INVALID_DESTINATION
+```
+
+Не классифицировать все `4xx` одинаково без причины.
+
+## 9. Local validation
+
+До HTTP call adapter обязан проверить минимум:
+
+```text
+channel == EMAIL
+destination non-blank
+subject non-blank
+body non-blank
+```
+
+Полную RFC email validation не усложнять. Domain уже хранит destination snapshot; provider остаётся финальным валидатором deliverability.
+
+Если `channel != EMAIL`, adapter должен явно reject/throw unsupported-channel error, а не пытаться отправить.
+
+## 10. Timeouts
+
+HTTP call обязательно имеет bounded:
+
+```text
+connect timeout
+read/response timeout
+```
+
+No infinite defaults.
+
+Timeout превращается в `DeliveryResult.Rejected(RETRYABLE, ...)`, а не в raw provider exception для worker.
+
+## 11. Logging and sanitization
+
+Логировать:
+
+```text
+messageId
+tenantId
+HTTP status
+provider error code/classification
+latency
+```
+
+Не логировать целиком:
+
+```text
 body
-messageId / correlation id where supported
+recipient email
+Authorization header
+password
+full provider response if it can contain recipient/content
 ```
 
-Provider-specific DTO не должны выходить за infrastructure package.
+`lastErrorMessage` должен получить короткий sanitized message.
 
-### 4. Response/error mapping
+## 12. Spring bean selection
 
-Начальная классификация:
+`KumoMtaEmailDeliveryGateway` должен стать runtime implementation `DeliveryGateway` для EMAIL.
 
-```text
-accepted / 2xx          -> Accepted(providerMessageId)
-timeout / connection    -> RETRYABLE
-429                     -> RETRYABLE
-5xx                     -> RETRYABLE
-invalid recipient / 4xx -> PERMANENT
-bad auth/config         -> PERMANENT + operational log/alert signal
-```
+Не оставлять ambiguity с fake/test bean в production profile.
 
-Финальные codes/fields сверить с фактическим KumoMTA endpoint до merge.
+Если позже channels станут multiple, provider selection переносится в registry/router. В Slice 4 generic registry не нужен.
 
-### 5. Safe errors
+## 13. Attachments
 
-В `lastErrorMessage` не должны попадать:
+Attachments не входят в Slice 4. Они подключаются Slice 7.
 
-- credentials;
-- Authorization header;
-- полный raw provider response без необходимости;
-- лишние персональные данные.
+Но client DTO не должен препятствовать расширению `content.attachments` позже.
 
-## Основной поток
+Не читать RustFS/FileService внутри Kumo adapter в этом slice.
 
-```text
-MessageDeliveryWorker
-  -> DeliveryGateway
-  -> KumoMtaEmailDeliveryGateway
-  -> KumoMTA
-  -> Accepted / Rejected
-  -> MessageDeliveryWorker
-  -> MessageStateService
-```
+## 14. Health/configuration failure
 
-## Инварианты и правила
+Startup должен fail fast только для явно включённого Kumo adapter с некорректной mandatory configuration, например пустой `base-url` или `envelope-sender`.
 
-- application/domain не импортируют KumoMTA classes;
-- provider call выполняется вне DB transaction;
-- timeout обязателен;
-- provider failure всегда переводится в общий `DeliveryResult`;
-- неизвестная ошибка не должна молча считаться success;
-- `providerMessageId` сохраняется только при accepted response.
+Удалённая недоступность KumoMTA не должна блокировать startup приложения; это runtime retryable delivery failure.
 
-## Не входит
+## 15. Database changes
 
+Migration не нужна.
+
+`providerMessageId` может оставаться null при accepted injection.
+
+## 16. Tests
+
+### Unit
+
+`KumoMtaErrorClassifierTest`
+
+- timeout -> retryable;
+- 429 -> retryable;
+- 5xx -> retryable;
+- 401/403 -> permanent;
+- 400/422 -> permanent.
+
+`KumoMtaEmailDeliveryGatewayTest`
+
+- EMAIL request maps correctly;
+- static rendered subject/body passed unchanged;
+- non-email channel rejected;
+- `success_count=1` -> Accepted;
+- HTTP 2xx + failed recipient -> Rejected;
+- provider id not fabricated.
+
+### HTTP integration
+
+Использовать local mock HTTP server/WireMock equivalent уже допустимый в project tests.
+
+Проверить:
+
+- exact path `/api/inject/v1`;
+- `Content-Type: application/json`;
+- envelope sender;
+- recipient;
+- subject/body;
+- metadata messageId;
+- timeout behavior;
+- 429/5xx;
+- 422 invalid request.
+
+### Architecture
+
+- `communication.application` не зависит от `infrastructure.kumomta`;
+- domain не зависит от HTTP/Spring client DTO;
+- Kumo classes confined to infrastructure.
+
+## 17. Порядок реализации
+
+1. properties + validation;
+2. request/response DTO;
+3. HTTP client;
+4. error classifier;
+5. `KumoMtaEmailDeliveryGateway`;
+6. bean wiring;
+7. unit tests;
+8. HTTP integration tests;
+9. architecture test;
+10. `mvn verify`.
+
+## 18. Out of scope
+
+- SMTP adapter;
+- delivery/bounce webhook processing;
+- Kumo log ingestion;
 - attachments;
-- PDF/QR generation;
-- multi-provider routing;
-- SMS/WhatsApp/Telegram;
-- generic provider SDK abstraction сверх `DeliveryGateway`.
+- template rendering;
+- campaign materialization;
+- bulk multi-recipient injection in one request.
 
-## Тесты
+## 19. Definition of Done
 
-Обязательные:
+Slice 4 готов, если:
 
-```text
-KumoMtaEmailDeliveryGatewayTest
-- request mapping
-- accepted -> providerMessageId
-- timeout -> RETRYABLE
-- 429 -> RETRYABLE
-- 5xx -> RETRYABLE
-- permanent 4xx -> PERMANENT
-- auth/config failure -> PERMANENT
-- error text sanitized
-
-ArchitectureTest
-- kumomta package не протекает в domain/application API
-```
-
-При наличии простого mock HTTP server добавить integration test реального serialization/deserialization contract.
-
-## Definition of Done
-
-- EMAIL отправляется через KumoMTA за `DeliveryGateway`;
-- success возвращает `providerMessageId`;
-- temporary/permanent failures классифицируются детерминированно;
-- credentials и unsafe response data не логируются/не persist-ятся;
-- provider call ограничен timeout;
-- domain/application не знают о KumoMTA;
-- `mvn verify` зелёный.
+- EMAIL delivery использует `POST /api/inject/v1`;
+- request contract стабилен и протестирован;
+- rendered body не изменяется повторным templating;
+- success/rejection корректно интерпретируются;
+- timeout/429/5xx retryable;
+- invalid/auth failures permanent;
+- provider-specific exceptions не выходят в application layer;
+- sensitive data не логируется;
+- network call остаётся вне DB transaction;
+- `mvn verify` green.
