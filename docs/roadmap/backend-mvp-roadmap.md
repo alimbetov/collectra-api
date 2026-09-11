@@ -4,6 +4,9 @@ Updated: 2026-09-11
 
 This roadmap is re-baselined against the current `main` branch. It is intentionally implementation-oriented: existing subsystems are reused instead of being redesigned, package names match the repository, and code fragments describe the target shape of the next PRs.
 
+Detailed Slice contracts in [`../specs/README.md`](../specs/README.md) are
+authoritative when this overview omits a field, test or transaction detail.
+
 ## 1. Current baseline verified in `main`
 
 Already implemented and **must not be rebuilt**:
@@ -27,16 +30,21 @@ Already implemented and **must not be rebuilt**:
 - RustFS/FileService lifecycle foundation.
 - CSV/Excel/XML/JSON import foundation.
 - Campaign stabilization integration coverage already exists in the test suite.
+- Slice 2 communication processing core is merged in PR #39 / commit
+  `2dcefe7dc39300a338304560ff0490ce29dc0f8f`.
 
 ### Consequence
 
-The immediate missing capability is **not another domain model**. It is the communication application/infrastructure layer that safely claims an already persisted `Message`, invokes a delivery port, records the outcome, updates campaign counters, and can recover from worker/process failures.
+The immediate blocker is the shared integration-test connection budget documented
+in [`../specs/integration-test-runtime.md`](../specs/integration-test-runtime.md).
+After that repair, the next missing capability is Slice 3 messaging between the
+existing Outbox and the merged processing core.
 
 ---
 
 # 2. Slice 2 — Communication processing core
 
-**Priority: NEXT**
+**Status: MERGED / FULL-SUITE VERIFY REPAIR REQUIRED**
 
 Suggested branch:
 
@@ -396,6 +404,10 @@ communication.application.MessageRetryDispatcher
 
 This makes retry dispatch restart-safe and broker-independent.
 
+The merged Slice 2 intentionally provides `dispatchDue()` without scheduling or
+Outbox publication. Slice 3 must enable scheduling only when it can commit
+`message.requeue()` and `MESSAGE_DELIVERY_REQUESTED` in the same transaction.
+
 ## 2.9 CampaignRun counters
 
 `CampaignRun` has delivery counters but currently needs behavior to mutate them.
@@ -519,10 +531,11 @@ Mirror the document messaging conventions where useful:
 
 ```text
 collectra.communication
-collectra.communication.retry
-collectra.communication.queue
-collectra.communication.dead
+collectra.communication.message-delivery
 ```
+
+Use routing key `message.delivery.requested`. Do not add a Rabbit business-retry
+topology: `Message.nextRetryAt` remains the retry source of truth.
 
 The exact exchange/queue names should be constants in one config class.
 
@@ -754,6 +767,10 @@ For counter correctness under redelivery:
 
 # 7. Slice 7 — Attachments / generated documents integration
 
+Depends on Slice 3 messaging, Slice 4 KumoMTA adapter and Slice 5
+materialization. Before implementation, close the CJK font readiness gate from
+the detailed Slice 7 contract.
+
 The document/PDF and FileService foundations already exist. The remaining work is integration with communication, not rebuilding PDF/RustFS.
 
 Target flow:
@@ -773,9 +790,12 @@ message_attachments
 - id
 - tenant_id
 - message_id
-- file_id / generated_output_id
+- generation_job_id
+- generated_document_id (required when READY)
 - filename
 - content_type
+- required
+- status (PENDING / READY / FAILED)
 - created_at
 ```
 
@@ -794,8 +814,8 @@ After the end-to-end EMAIL pipeline works:
 Add paged operational endpoints under the communication/campaign boundary, for example:
 
 ```text
-GET /api/campaigns/{campaignId}/runs/{runId}/messages
-GET /api/campaigns/{campaignId}/runs/{runId}/messages/{messageId}
+GET /api/v1/campaigns/{campaignId}/runs/{runId}/messages
+GET /api/v1/campaigns/{campaignId}/runs/{runId}/messages/{messageId}
 ```
 
 Filters:
@@ -873,13 +893,12 @@ DONE  Campaign Core / stabilization baseline
   |
 DONE  Message persistence + invariants (Slice 1)
   |
-NEXT  Message processing core
-      - MessageStateService
-      - locked tenant-scoped claim
-      - DeliveryGateway port
-      - retry policy
-      - stale PROCESSING recovery
-      - concurrency tests
+DONE  Message processing core (PR #39)
+  |
+NEXT  Integration-test runtime repair
+      - central test Hikari connection budget
+      - reuse shared PostgreSQL Testcontainer and Spring contexts
+      - full-suite verification in one Maven JVM
   |
       RabbitMQ + existing Outbox integration
       - MESSAGE_DELIVERY_REQUESTED
@@ -926,15 +945,11 @@ Every slice should remain narrow:
 
 The next PR is complete when all of the following are true:
 
-1. `communication.application` exists.
-2. One `QUEUED` Message can be claimed atomically and becomes `PROCESSING`.
-3. Duplicate/concurrent claim cannot create a second attempt.
-4. Provider success records `SENT` and provider message id.
-5. Retryable failure records `RETRY_WAIT` and deterministic `nextRetryAt`.
-6. Permanent/exhausted failure records `FAILED`.
-7. Stale `PROCESSING` messages have a deterministic recovery path.
-8. Campaign counters cannot be double-counted by broker redelivery.
-9. No real KumoMTA dependency is required yet.
-10. `mvn verify` is green.
+1. test profile centrally limits Hikari to `maximum-pool-size: 3` and
+   `minimum-idle: 0`;
+2. production datasource settings are unchanged;
+3. concurrent persistence tests still pass;
+4. full `mvn verify` runs in one Maven JVM without `too many clients already`;
+5. the repair remains a narrow test-infrastructure PR.
 
-Only after this PR is merged should the real KumoMTA adapter be connected.
+Only after this repair is merged and `main` is green should Slice 3 begin.

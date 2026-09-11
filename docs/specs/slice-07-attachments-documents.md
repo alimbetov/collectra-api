@@ -1,8 +1,15 @@
 # Slice 7 — Attachments and generated documents
 
 Status: PLANNED  
-Depends on: Slice 3, Slice 5, existing Document/FileService pipeline  
+Depends on: Slice 3, Slice 4, Slice 5, existing Document/FileService pipeline
 Suggested branch: `feat/message-attachments`
+
+Entry gate: supported-locale PDF rendering must be operational, not merely return
+bytes with a `%PDF` header. The full-suite log currently contains
+`Couldn't load font (Noto Sans CJK SC)` for bundled CJK `.otf` resources. Before
+Slice 7, fix or explicitly de-scope that locale and add a glyph-level smoke test;
+otherwise an attachment may be marked `READY` while containing missing Chinese
+glyphs.
 
 ## 1. Цель
 
@@ -358,6 +365,14 @@ unique durable relation key
 - size limit;
 - total size/count limit.
 
+### Generated document readiness
+
+- every enabled attachment locale renders without font-load warnings;
+- CJK smoke test verifies the expected glyphs/text in the generated PDF, not only
+  the `%PDF` signature and file size;
+- a renderer/font failure leaves the required attachment non-`READY` and prevents
+  delivery event creation.
+
 ### Kumo adapter
 
 - attachment mapped to inject request;
@@ -405,4 +420,5 @@ Slice 7 готов, если:
 - missing/oversized attachment has deterministic failure semantics;
 - FileService/RustFS remains storage boundary;
 - retention does not delete active required files;
+- enabled locales pass glyph-level PDF readiness tests without silent fallback;
 - `mvn verify` green.

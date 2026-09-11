@@ -4,16 +4,19 @@
 
 Главный roadmap: [`../roadmap/backend-mvp-roadmap.md`](../roadmap/backend-mvp-roadmap.md).
 
+Последнее cross-review документации, актуального `main` и полного build log:
+[`review-2026-09-11.md`](review-2026-09-11.md).
+
 ## Порядок реализации
 
 | Slice | Спецификация | Статус | Основной результат |
 |---|---|---|---|
-| 2 | [Message processing core](slice-02-message-processing.md) | NEXT | safe claim, retry, recovery, provider-neutral worker |
-| 3 | [Message delivery messaging](slice-03-message-delivery-messaging.md) | READY AFTER 2 | Outbox -> RabbitMQ -> MessageDeliveryWorker |
+| 2 | [Message processing core](slice-02-message-processing.md) | MERGED / VERIFY REPAIR REQUIRED | safe claim, retry, recovery, provider-neutral worker |
+| 3 | [Message delivery messaging](slice-03-message-delivery-messaging.md) | BLOCKED BY VERIFY REPAIR | Outbox -> RabbitMQ -> MessageDeliveryWorker |
 | 4 | [KumoMTA email adapter](slice-04-kumomta-email-adapter.md) | READY AFTER 2/3 | real EMAIL injection through KumoMTA HTTP API |
 | 5 | [CampaignRun to Message materialization](slice-05-message-materialization.md) | READY AFTER 3 | Campaign recipients -> immutable Message + Outbox |
 | 6 | [Campaign delivery counters and completion](slice-06-campaign-delivery-counters.md) | READY AFTER 2/5 | atomic counters and durable CampaignRun completion |
-| 7 | [Attachments and generated documents](slice-07-attachments-documents.md) | READY AFTER 3/5 | document/FileService attachments before delivery |
+| 7 | [Attachments and generated documents](slice-07-attachments-documents.md) | READY AFTER 3/4/5 + FONT GATE | document/FileService attachments before delivery |
 | 8 | [Delivery API and observability](slice-08-delivery-api-observability.md) | READY AFTER 2–7 | support API, metrics, logging and production visibility |
 
 ## Dependency chain
@@ -22,7 +25,10 @@
 Slice 1 Message persistence                 DONE
         |
         v
-Slice 2 Message processing core             NEXT
+Slice 2 Message processing core             MERGED
+        |
+        v
+Integration-test runtime repair             REQUIRED
         |
         +-------------------+
         |                   |
@@ -37,7 +43,7 @@ Slice 4 Kumo   Slice 5 materialization
                  +--------+
                  |        |
                  v        v
-             Slice 6   Slice 7 attachments
+             Slice 6   Slice 7 attachments (after 4/5)
                  \        /
                   \      /
                    v    v
@@ -77,8 +83,9 @@ Slice 4 Kumo   Slice 5 materialization
 8. Время приходит через application `Clock`.
 9. Schema меняется Liquibase migration только когда реально требуется.
 10. Для persistence/concurrency использовать PostgreSQL integration tests, не только H2/mock tests.
-11. `mvn verify` обязан быть green перед PR completion.
-12. PR не мержится автоматически без явного решения.
+11. Все integration tests соблюдают общий [test-runtime contract](integration-test-runtime.md).
+12. `mvn verify` обязан быть green перед PR completion.
+13. PR не мержится автоматически без явного решения.
 
 ## Общие архитектурные ограничения
 
@@ -111,6 +118,8 @@ Transactional Outbox
 - package/class names в ТЗ всё ещё соответствуют проекту;
 - нет уже существующей реализации того же scope;
 - CI `main` не красный по независимой причине;
+- полный integration suite укладывается в connection budget из
+  [test-runtime contract](integration-test-runtime.md);
 - внешние contracts, если они есть, подтверждены (например KumoMTA endpoint/configuration).
 
 После этого реализация может идти прямо по разделу `Порядок реализации` соответствующего ТЗ.

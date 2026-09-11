@@ -37,6 +37,9 @@ step A
 ## Тесты
 
 Минимальный обязательный набор unit/integration/architecture tests.
+PostgreSQL tests обязаны соблюдать общий
+[`integration-test-runtime.md`](integration-test-runtime.md), включая connection
+budget и reuse Spring contexts.
 
 ## Definition of Done
 

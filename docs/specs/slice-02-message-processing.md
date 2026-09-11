@@ -1,8 +1,13 @@
 # Slice 2 — Message processing core
 
-Status: NEXT  
+Status: MERGED / VERIFY REPAIR REQUIRED
 Depends on: Slice 1 — Message persistence and invariants  
 Suggested branch: `feat/message-processing-core`
+
+Implementation: PR #39, squash commit `2dcefe7dc39300a338304560ff0490ce29dc0f8f`.
+Full-suite acceptance is temporarily blocked by the shared
+[integration-test runtime defect](integration-test-runtime.md), not by a failed
+Message assertion.
 
 ## 1. Цель
 
@@ -449,4 +454,6 @@ Slice 2 готов, если:
 - due retry можно вернуть в `QUEUED`;
 - tenant isolation соблюдён;
 - concurrency test доказал single claim;
+- общий PostgreSQL connection budget соответствует
+  [integration-test runtime contract](integration-test-runtime.md);
 - `mvn verify` green.

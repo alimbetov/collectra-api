@@ -1,8 +1,13 @@
 # Slice 3 — Message delivery messaging
 
-Status: PLANNED  
+Status: BLOCKED BY INTEGRATION-TEST RUNTIME REPAIR
 Depends on: Slice 2 — Message processing core  
 Suggested branch: `feat/message-delivery-messaging`
+
+Entry gate: shared [integration-test runtime contract](integration-test-runtime.md)
+implemented and full `main` verification green. Не начинать Slice 3 поверх
+красного baseline: Rabbit/outbox integration tests добавят ещё один context и
+усилят существующее исчерпание PostgreSQL connections.
 
 ## 1. Цель
 
@@ -339,4 +344,7 @@ Slice 3 готов, если:
 - duplicate delivery безопасна;
 - business retry state остаётся в PostgreSQL;
 - existing document messaging не сломан;
+- integration path соблюдает общий
+  [test-runtime contract](integration-test-runtime.md) и не создаёт отдельный
+  PostgreSQL container/context без необходимости;
 - `mvn verify` green.
