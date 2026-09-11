@@ -3,9 +3,8 @@ package io.collectra.api.communication.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import org.junit.jupiter.api.Test;
-
 import java.time.Instant;
+import org.junit.jupiter.api.Test;
 
 class MessageRetryPolicyTest {
     private static final Instant NOW = Instant.parse("2026-09-11T10:00:00Z");

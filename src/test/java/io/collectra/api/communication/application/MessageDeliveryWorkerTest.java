@@ -6,19 +6,17 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.collectra.api.communication.domain.CommunicationChannel;
-
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.time.Clock;
-import java.time.Instant;
-import java.time.ZoneOffset;
-import java.util.Optional;
-import java.util.UUID;
 
 @ExtendWith(MockitoExtension.class)
 class MessageDeliveryWorkerTest {
