@@ -15,6 +15,7 @@ import io.collectra.api.customer.infrastructure.CustomerSegmentMemberRepository;
 import io.collectra.api.customer.infrastructure.CustomerSegmentRepository;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -82,6 +83,14 @@ public class CustomerService {
         return customers
                 .findByIdAndTenantId(id, tenantId)
                 .orElseThrow(() -> new NoSuchElementException("Customer not found"));
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<Customer> findByExternalId(UUID tenantId, String externalId) {
+        if (externalId == null || externalId.isBlank()) {
+            return Optional.empty();
+        }
+        return customers.findByTenantIdAndExternalId(tenantId, externalId.trim());
     }
 
     @Transactional(readOnly = true)
