@@ -168,8 +168,7 @@ public class CustomerService {
     }
 
     @Transactional(readOnly = true)
-    public List<CustomerEmail> emailsByCustomerIds(
-            UUID tenantId, Collection<UUID> customerIds) {
+    public List<CustomerEmail> emailsByCustomerIds(UUID tenantId, Collection<UUID> customerIds) {
         if (customerIds == null || customerIds.isEmpty()) {
             return List.of();
         }
