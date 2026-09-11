@@ -132,9 +132,6 @@ public class CampaignService {
                 continue;
             }
             String destination = emailDestination(tenantId, customer.getId());
-            if (destination == null) {
-                continue;
-            }
             recipients.save(
                     new CampaignRecipient(
                             tenantId,
