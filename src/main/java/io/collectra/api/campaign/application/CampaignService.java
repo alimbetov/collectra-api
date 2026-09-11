@@ -176,7 +176,8 @@ public class CampaignService {
         Map<UUID, List<CustomerEmail>> emailsByCustomer =
                 customers.emailsByCustomerIds(tenantId, customerIds).stream()
                         .collect(Collectors.groupingBy(CustomerEmail::getCustomerId));
-        Map<UUID, Set<UUID>> segmentIdsByCustomer = segmentIdsByCustomer(tenantId, selection, customerIds);
+        Map<UUID, Set<UUID>> segmentIdsByCustomer =
+                segmentIdsByCustomer(tenantId, selection, customerIds);
 
         int created = 0;
         for (Invoice invoice : invoices) {
