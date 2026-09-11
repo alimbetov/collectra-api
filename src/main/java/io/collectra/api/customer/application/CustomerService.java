@@ -54,7 +54,8 @@ public class CustomerService {
             String locale,
             String timezone,
             JsonNode customFields) {
-        customers.findByTenantIdAndExternalId(tenantId, externalId.trim())
+        customers
+                .findByTenantIdAndExternalId(tenantId, externalId.trim())
                 .ifPresent(
                         value -> {
                             throw new IllegalArgumentException(
@@ -78,7 +79,8 @@ public class CustomerService {
 
     @Transactional(readOnly = true)
     public Customer get(UUID tenantId, UUID id) {
-        return customers.findByIdAndTenantId(id, tenantId)
+        return customers
+                .findByIdAndTenantId(id, tenantId)
                 .orElseThrow(() -> new NoSuchElementException("Customer not found"));
     }
 
