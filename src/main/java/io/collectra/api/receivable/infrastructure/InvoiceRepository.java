@@ -28,10 +28,10 @@ public interface InvoiceRepository extends JpaRepository<Invoice, UUID> {
               from Invoice i
              where i.tenantId = :tenantId
                and i.outstandingAmount > 0
-               and (:amountFrom is null or i.outstandingAmount >= :amountFrom)
-               and (:amountTo is null or i.outstandingAmount <= :amountTo)
-               and (:dueDateFrom is null or i.dueDate >= :dueDateFrom)
-               and (:dueDateTo is null or i.dueDate <= :dueDateTo)
+               and (cast(:amountFrom as bigdecimal) is null or i.outstandingAmount >= :amountFrom)
+               and (cast(:amountTo as bigdecimal) is null or i.outstandingAmount <= :amountTo)
+               and (cast(:dueDateFrom as localdate) is null or i.dueDate >= :dueDateFrom)
+               and (cast(:dueDateTo as localdate) is null or i.dueDate <= :dueDateTo)
             """)
     Page<Invoice> findCampaignCandidates(
             @Param("tenantId") UUID tenantId,
@@ -48,10 +48,10 @@ public interface InvoiceRepository extends JpaRepository<Invoice, UUID> {
              where i.tenantId = :tenantId
                and i.customerId in :customerIds
                and i.outstandingAmount > 0
-               and (:amountFrom is null or i.outstandingAmount >= :amountFrom)
-               and (:amountTo is null or i.outstandingAmount <= :amountTo)
-               and (:dueDateFrom is null or i.dueDate >= :dueDateFrom)
-               and (:dueDateTo is null or i.dueDate <= :dueDateTo)
+               and (cast(:amountFrom as bigdecimal) is null or i.outstandingAmount >= :amountFrom)
+               and (cast(:amountTo as bigdecimal) is null or i.outstandingAmount <= :amountTo)
+               and (cast(:dueDateFrom as localdate) is null or i.dueDate >= :dueDateFrom)
+               and (cast(:dueDateTo as localdate) is null or i.dueDate <= :dueDateTo)
             """)
     Page<Invoice> findCampaignCandidatesForCustomers(
             @Param("tenantId") UUID tenantId,

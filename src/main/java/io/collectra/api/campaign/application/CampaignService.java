@@ -154,7 +154,7 @@ public class CampaignService {
             pageNumber++;
         } while (page.hasNext());
 
-        run.ready();
+        run.ready(created, Instant.now(clock));
         return new PrepareResult(run.getId(), created);
     }
 
