@@ -11,15 +11,16 @@ import io.collectra.api.campaign.infrastructure.CampaignRepository;
 import io.collectra.api.campaign.infrastructure.CampaignRunRepository;
 import io.collectra.api.customer.application.CustomerService;
 import io.collectra.api.customer.domain.Customer;
+import io.collectra.api.customer.domain.CustomerEmail;
+import io.collectra.api.customer.domain.CustomerSegmentMember;
 import io.collectra.api.receivable.application.ReceivableService;
 import io.collectra.api.receivable.domain.Invoice;
 import io.collectra.api.template.domain.TemplateChannel;
 import io.collectra.api.template.domain.TemplateVersionStatus;
 import io.collectra.api.template.infrastructure.TemplateVersionRepository;
-import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -27,11 +28,17 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class CampaignService {
+    private static final int PREPARE_PAGE_SIZE = 500;
+
     private final CampaignRepository campaigns;
     private final CampaignRunRepository runs;
     private final CampaignRecipientRepository recipients;
@@ -39,6 +46,7 @@ public class CampaignService {
     private final ReceivableService receivables;
     private final TemplateVersionRepository templates;
     private final ObjectMapper json;
+    private final Clock clock;
 
     public CampaignService(
             CampaignRepository campaigns,
@@ -47,7 +55,8 @@ public class CampaignService {
             CustomerService customers,
             ReceivableService receivables,
             TemplateVersionRepository templates,
-            ObjectMapper json) {
+            ObjectMapper json,
+            Clock clock) {
         this.campaigns = campaigns;
         this.runs = runs;
         this.recipients = recipients;
@@ -55,6 +64,7 @@ public class CampaignService {
         this.receivables = receivables;
         this.templates = templates;
         this.json = json;
+        this.clock = clock;
     }
 
     @Transactional
@@ -117,21 +127,64 @@ public class CampaignService {
         if (campaign.getStatus() != CampaignStatus.ACTIVE) {
             throw new IllegalStateException("Only active campaign can be prepared");
         }
+
         CampaignRun run = runs.save(new CampaignRun(tenantId, campaignId));
         CampaignSelection selection = selection(campaign.getSelectionCriteria());
-        LocalDate today = LocalDate.now();
-        Map<UUID, Customer> customerById = new HashMap<>();
-        customers.list(tenantId).forEach(value -> customerById.put(value.getId(), value));
+        LocalDate today = LocalDate.now(clock);
+        LocalDate dueDateFrom = dueDateFrom(selection, today);
+        LocalDate dueDateTo = dueDateTo(selection, today);
+
         int created = 0;
-        for (Invoice invoice : receivables.invoices(tenantId)) {
+        int pageNumber = 0;
+        Page<Invoice> page;
+        do {
+            page =
+                    receivables.campaignCandidates(
+                            tenantId,
+                            selection.customerIds(),
+                            selection.amountFrom(),
+                            selection.amountTo(),
+                            dueDateFrom,
+                            dueDateTo,
+                            PageRequest.of(
+                                    pageNumber,
+                                    PREPARE_PAGE_SIZE,
+                                    Sort.by(Sort.Direction.ASC, "id")));
+            created += preparePage(tenantId, campaign, run, selection, page.getContent());
+            pageNumber++;
+        } while (page.hasNext());
+
+        run.ready();
+        return new PrepareResult(run.getId(), created);
+    }
+
+    private int preparePage(
+            UUID tenantId,
+            Campaign campaign,
+            CampaignRun run,
+            CampaignSelection selection,
+            List<Invoice> invoices) {
+        if (invoices.isEmpty()) {
+            return 0;
+        }
+
+        Set<UUID> customerIds =
+                invoices.stream().map(Invoice::getCustomerId).collect(Collectors.toSet());
+        Map<UUID, Customer> customerById =
+                customers.customersByIds(tenantId, customerIds).stream()
+                        .collect(Collectors.toMap(Customer::getId, value -> value));
+        Map<UUID, List<CustomerEmail>> emailsByCustomer =
+                customers.emailsByCustomerIds(tenantId, customerIds).stream()
+                        .collect(Collectors.groupingBy(CustomerEmail::getCustomerId));
+        Map<UUID, Set<UUID>> segmentIdsByCustomer = segmentIdsByCustomer(tenantId, selection, customerIds);
+
+        int created = 0;
+        for (Invoice invoice : invoices) {
             Customer customer = customerById.get(invoice.getCustomerId());
-            if (customer == null || !matchesCustomer(tenantId, customer, selection)) {
+            if (customer == null || !matchesCustomer(customer, selection, segmentIdsByCustomer)) {
                 continue;
             }
-            if (!matchesInvoice(invoice, selection, today)) {
-                continue;
-            }
-            String destination = emailDestination(tenantId, customer.getId());
+            String destination = emailDestination(emailsByCustomer.get(customer.getId()));
             recipients.save(
                     new CampaignRecipient(
                             tenantId,
@@ -144,8 +197,7 @@ public class CampaignService {
                             customer.getPreferredLocale()));
             created++;
         }
-        run.ready();
-        return new PrepareResult(run.getId(), created);
+        return created;
     }
 
     @Transactional(readOnly = true)
@@ -166,7 +218,24 @@ public class CampaignService {
         return recipients.findAllByTenantIdAndRunIdOrderByCreatedAtAsc(tenantId, runId);
     }
 
-    private boolean matchesCustomer(UUID tenantId, Customer customer, CampaignSelection selection) {
+    private Map<UUID, Set<UUID>> segmentIdsByCustomer(
+            UUID tenantId, CampaignSelection selection, Set<UUID> customerIds) {
+        if (selection.segmentIds().isEmpty()) {
+            return Map.of();
+        }
+        Map<UUID, Set<UUID>> result = new HashMap<>();
+        for (CustomerSegmentMember member :
+                customers.segmentMembershipsByCustomerIds(tenantId, customerIds)) {
+            result.computeIfAbsent(member.getCustomerId(), ignored -> new HashSet<>())
+                    .add(member.getSegmentId());
+        }
+        return result;
+    }
+
+    private boolean matchesCustomer(
+            Customer customer,
+            CampaignSelection selection,
+            Map<UUID, Set<UUID>> segmentIdsByCustomer) {
         if (!selection.customerIds().isEmpty()
                 && !selection.customerIds().contains(customer.getId())) {
             return false;
@@ -174,45 +243,40 @@ public class CampaignService {
         if (selection.segmentIds().isEmpty()) {
             return true;
         }
-        Set<UUID> assigned = new HashSet<>(customers.segmentIds(tenantId, customer.getId()));
+        Set<UUID> assigned = segmentIdsByCustomer.getOrDefault(customer.getId(), Set.of());
         return selection.segmentIds().stream().anyMatch(assigned::contains);
     }
 
-    private boolean matchesInvoice(Invoice invoice, CampaignSelection selection, LocalDate today) {
-        if (invoice.getOutstandingAmount().signum() <= 0) {
-            return false;
+    private String emailDestination(List<CustomerEmail> emails) {
+        if (emails == null || emails.isEmpty()) {
+            return null;
         }
-        BigDecimal amount = invoice.getOutstandingAmount();
-        if (selection.amountFrom() != null && amount.compareTo(selection.amountFrom()) < 0) {
-            return false;
-        }
-        if (selection.amountTo() != null && amount.compareTo(selection.amountTo()) > 0) {
-            return false;
-        }
-        if (selection.daysOverdueFrom() == null && selection.daysOverdueTo() == null) {
-            return true;
-        }
-        if (!invoice.isOverdue(today)) {
-            return false;
-        }
-        long days = ChronoUnit.DAYS.between(invoice.getDueDate(), today);
-        if (selection.daysOverdueFrom() != null && days < selection.daysOverdueFrom()) {
-            return false;
-        }
-        return selection.daysOverdueTo() == null || days <= selection.daysOverdueTo();
-    }
-
-    private String emailDestination(UUID tenantId, UUID customerId) {
-        var active =
-                customers.emails(tenantId, customerId).stream()
-                        .filter(value -> "ACTIVE".equals(value.getStatus()))
-                        .toList();
+        List<CustomerEmail> active =
+                emails.stream().filter(value -> "ACTIVE".equals(value.getStatus())).toList();
         return active.stream()
-                .filter(value -> value.isPrimary())
+                .filter(CustomerEmail::isPrimary)
                 .findFirst()
                 .or(() -> active.stream().findFirst())
-                .map(value -> value.getEmail())
+                .map(CustomerEmail::getEmail)
                 .orElse(null);
+    }
+
+    private LocalDate dueDateFrom(CampaignSelection selection, LocalDate today) {
+        if (selection.daysOverdueTo() == null) {
+            return null;
+        }
+        return today.minusDays(selection.daysOverdueTo());
+    }
+
+    private LocalDate dueDateTo(CampaignSelection selection, LocalDate today) {
+        if (selection.daysOverdueFrom() == null && selection.daysOverdueTo() == null) {
+            return null;
+        }
+        long minimumDaysOverdue =
+                selection.daysOverdueFrom() == null
+                        ? 1L
+                        : Math.max(1L, selection.daysOverdueFrom());
+        return today.minusDays(minimumDaysOverdue);
     }
 
     private CampaignSelection selection(JsonNode value) {
