@@ -69,7 +69,8 @@ public class CampaignService {
         var template =
                 templates
                         .findByIdAndTenantId(templateVersionId, tenantId)
-                        .orElseThrow(() -> new NoSuchElementException("Template version not found"));
+                        .orElseThrow(
+                                () -> new NoSuchElementException("Template version not found"));
         if (template.getStatus() != TemplateVersionStatus.PUBLISHED) {
             throw new IllegalArgumentException("Campaign requires a published template version");
         }
@@ -158,8 +159,7 @@ public class CampaignService {
 
     @Transactional(readOnly = true)
     public CampaignRun run(UUID tenantId, UUID runId) {
-        return runs
-                .findByIdAndTenantId(runId, tenantId)
+        return runs.findByIdAndTenantId(runId, tenantId)
                 .orElseThrow(() -> new NoSuchElementException("Campaign run not found"));
     }
 
@@ -170,7 +170,8 @@ public class CampaignService {
     }
 
     private boolean matchesCustomer(UUID tenantId, Customer customer, CampaignSelection selection) {
-        if (!selection.customerIds().isEmpty() && !selection.customerIds().contains(customer.getId())) {
+        if (!selection.customerIds().isEmpty()
+                && !selection.customerIds().contains(customer.getId())) {
             return false;
         }
         if (selection.segmentIds().isEmpty()) {
