@@ -9,6 +9,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface CampaignRecipientRepository extends JpaRepository<CampaignRecipient, UUID> {
     Optional<CampaignRecipient> findByIdAndTenantId(UUID id, UUID tenantId);
 
-    List<CampaignRecipient> findAllByTenantIdAndRunIdOrderByCreatedAtAsc(
-            UUID tenantId, UUID runId);
+    List<CampaignRecipient> findAllByTenantIdAndRunIdOrderByCreatedAtAsc(UUID tenantId, UUID runId);
 }
