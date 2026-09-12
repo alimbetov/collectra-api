@@ -5,6 +5,7 @@ import io.collectra.api.contract.domain.Contract;
 import io.collectra.api.contract.infrastructure.ContractRepository;
 import io.collectra.api.customer.application.CustomerService;
 import io.collectra.api.shared.error.BusinessConflictException;
+import io.collectra.api.shared.error.InvalidRequestException;
 import java.time.LocalDate;
 import java.util.NoSuchElementException;
 import java.util.UUID;
@@ -52,7 +53,7 @@ public class ContractService {
                             renewalDate,
                             customFields));
         } catch (IllegalArgumentException ex) {
-            throw new BusinessConflictException("INVALID_RANGE", ex.getMessage());
+            throw new InvalidRequestException("INVALID_RANGE", ex.getMessage());
         }
     }
 
@@ -79,7 +80,7 @@ public class ContractService {
             value.update(contractNumber, validFrom, validTo, renewalDate, customFields);
             return value;
         } catch (IllegalArgumentException ex) {
-            throw new BusinessConflictException("INVALID_RANGE", ex.getMessage());
+            throw new InvalidRequestException("INVALID_RANGE", ex.getMessage());
         }
     }
 
