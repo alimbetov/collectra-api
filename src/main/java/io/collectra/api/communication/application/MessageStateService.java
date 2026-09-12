@@ -7,11 +7,13 @@ import io.collectra.api.communication.domain.MessageAttachmentStatus;
 import io.collectra.api.communication.domain.MessageStatus;
 import io.collectra.api.communication.infrastructure.MessageAttachmentRepository;
 import io.collectra.api.communication.infrastructure.MessageRepository;
+import io.collectra.api.communication.observability.DeliveryOutcomeEvent;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,18 +24,21 @@ public class MessageStateService {
     private final CampaignRunRepository runs;
     private final MessageRetryPolicy retryPolicy;
     private final Clock clock;
+    private final ApplicationEventPublisher events;
 
     public MessageStateService(
             MessageRepository messages,
             MessageAttachmentRepository attachments,
             CampaignRunRepository runs,
             MessageRetryPolicy retryPolicy,
-            Clock clock) {
+            Clock clock,
+            ApplicationEventPublisher events) {
         this.messages = messages;
         this.attachments = attachments;
         this.runs = runs;
         this.retryPolicy = retryPolicy;
         this.clock = clock;
+        this.events = events;
     }
 
     @Transactional
@@ -57,9 +62,11 @@ public class MessageStateService {
             return false;
         }
         CampaignRun run = lockedRun(message);
-        message.markSent(providerMessageId, clock.instant());
+        Instant now = clock.instant();
+        message.markSent(providerMessageId, now);
         run.messageSent();
-        run.completeIfTerminal(clock.instant());
+        run.completeIfTerminal(now);
+        publish(message, DeliveryOutcomeEvent.Outcome.SENT, null, now);
         return true;
     }
 
@@ -77,6 +84,11 @@ public class MessageStateService {
         CampaignRun run = lockedRun(message);
         message.scheduleRetry(nextRetryAt, errorCode, errorMessage);
         run.messageRetryScheduled();
+        publish(
+                message,
+                DeliveryOutcomeEvent.Outcome.RETRY_SCHEDULED,
+                errorCode,
+                clock.instant());
         return true;
     }
 
@@ -88,9 +100,11 @@ public class MessageStateService {
             return false;
         }
         CampaignRun run = lockedRun(message);
+        Instant now = clock.instant();
         message.markFailed(errorCode, errorMessage);
         run.messageFailed();
-        run.completeIfTerminal(clock.instant());
+        run.completeIfTerminal(now);
+        publish(message, DeliveryOutcomeEvent.Outcome.FAILED, errorCode, now);
         return true;
     }
 
@@ -102,9 +116,11 @@ public class MessageStateService {
             return false;
         }
         CampaignRun run = lockedRun(message);
+        Instant now = clock.instant();
         message.markFailedBeforeDelivery(errorCode, errorMessage);
         run.messageFailed();
-        run.completeIfTerminal(clock.instant());
+        run.completeIfTerminal(now);
+        publish(message, DeliveryOutcomeEvent.Outcome.FAILED, errorCode, now);
         return true;
     }
 
@@ -125,14 +141,38 @@ public class MessageStateService {
                     MessageRecoveryService.PROCESSING_TIMEOUT_MESSAGE);
             run.messageFailed();
             run.completeIfTerminal(recoveryTime);
+            publish(
+                    message,
+                    DeliveryOutcomeEvent.Outcome.FAILED,
+                    MessageRecoveryService.PROCESSING_TIMEOUT,
+                    recoveryTime);
         } else {
             message.scheduleRetry(
                     retryPolicy.nextRetryAt(message.getAttemptCount(), recoveryTime),
                     MessageRecoveryService.PROCESSING_TIMEOUT,
                     MessageRecoveryService.PROCESSING_TIMEOUT_MESSAGE);
             run.messageRetryScheduled();
+            publish(
+                    message,
+                    DeliveryOutcomeEvent.Outcome.RETRY_SCHEDULED,
+                    MessageRecoveryService.PROCESSING_TIMEOUT,
+                    recoveryTime);
         }
         return true;
+    }
+
+    private void publish(
+            Message message,
+            DeliveryOutcomeEvent.Outcome outcome,
+            String errorCode,
+            Instant outcomeAt) {
+        events.publishEvent(
+                new DeliveryOutcomeEvent(
+                        message.getChannel(),
+                        outcome,
+                        errorCode,
+                        message.getCreatedAt(),
+                        outcomeAt));
     }
 
     private Message locked(UUID tenantId, UUID messageId) {
