@@ -1,6 +1,6 @@
 # Slice 4 — KumoMTA email adapter
 
-Status: PLANNED  
+Status: IN PROGRESS
 Depends on: Slice 2, Slice 3  
 Suggested branch: `feat/kumomta-email-provider`
 
@@ -68,11 +68,35 @@ io.collectra.api.communication.infrastructure.kumomta
 └── KumoMtaErrorClassifier.java
 ```
 
+До готовности provider infrastructure также добавить:
+
+```text
+io.collectra.api.communication.infrastructure.simulation
+└── SimulatedDeliveryGateway.java
+```
+
 HTTP client использовать стандартный для проекта (`RestClient`/`WebClient`), не добавлять новую HTTP library без необходимости.
 
 Для синхронного worker path предпочтителен Spring `RestClient`, если проект уже использует blocking execution.
 
 ## 4. Configuration
+
+Provider выбирается независимо от state machine:
+
+```yaml
+collectra:
+  communication:
+    delivery:
+      enabled: true
+      provider: simulated # simulated | kumomta
+```
+
+`disabled` является безопасным production default. Local profile использует
+`simulated`, но delivery остаётся выключенной до явного включения. При
+`provider=kumomta` отсутствие обязательных параметров приводит к startup failure.
+
+Не вводить отдельную property `ip`: `base-url` хранит protocol, IP/DNS, port и
+позволяет позже поставить TLS/reverse proxy без изменения application contract.
 
 ```yaml
 collectra:
@@ -91,6 +115,27 @@ collectra:
       username: ${KUMOMTA_USERNAME:}
       password: ${KUMOMTA_PASSWORD:}
 ```
+
+## 4.1 Deterministic simulation mode
+
+До готовности KumoMTA и остальных provider adapters используется один
+`SimulatedDeliveryGateway` для всех `CommunicationChannel`:
+
+```yaml
+collectra:
+  communication:
+    delivery:
+      provider: simulated
+      simulation:
+        success-rate-percent: 80
+        permanent-failure-rate-percent: 10
+```
+
+Оставшиеся 10% являются retryable failure. Outcome вычисляется детерминированно
+из `messageId`, поэтому повторная обработка того же сообщения воспроизводима и
+тесты не flaky. Simulator является отдельным adapter и не смешивается с KumoMTA
+классами. Production profile по умолчанию использует `disabled`, чтобы случайно
+не отметить реальные сообщения как `SENT` через fake provider.
 
 Credentials:
 
@@ -267,7 +312,14 @@ full provider response if it can contain recipient/content
 
 `KumoMtaEmailDeliveryGateway` должен стать runtime implementation `DeliveryGateway` для EMAIL.
 
-Не оставлять ambiguity с fake/test bean в production profile.
+Не оставлять ambiguity с fake/test bean в production profile. Ровно один bean
+выбирается через `collectra.communication.delivery.provider`:
+
+```text
+simulated -> SimulatedDeliveryGateway
+kumomta   -> KumoMtaEmailDeliveryGateway
+disabled  -> no DeliveryGateway
+```
 
 Если позже channels станут multiple, provider selection переносится в registry/router. В Slice 4 generic registry не нужен.
 
@@ -311,6 +363,12 @@ Migration не нужна.
 - `success_count=1` -> Accepted;
 - HTTP 2xx + failed recipient -> Rejected;
 - provider id not fabricated.
+
+`SimulatedDeliveryGatewayTest`
+
+- deterministic distribution `80 accepted / 10 permanent / 10 retryable`;
+- повторный `messageId` всегда даёт тот же outcome;
+- поддерживаются все текущие channels;
 
 ### HTTP integration
 

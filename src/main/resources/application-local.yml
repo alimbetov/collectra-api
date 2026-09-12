@@ -14,6 +14,9 @@ management:
   tracing.sampling.probability: 1.0
 
 collectra:
+  communication:
+    delivery:
+      provider: simulated
   storage:
     endpoint: http://localhost:9000
     access-key: rustfsadmin

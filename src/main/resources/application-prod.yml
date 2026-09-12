@@ -11,6 +11,18 @@ management:
   tracing.sampling.probability: ${TRACING_SAMPLING_PROBABILITY:0.1}
 
 collectra:
+  communication:
+    delivery:
+      enabled: ${COMMUNICATION_DELIVERY_ENABLED:false}
+      provider: ${COMMUNICATION_DELIVERY_PROVIDER:disabled}
+    kumomta:
+      base-url: ${KUMOMTA_BASE_URL:}
+      envelope-sender: ${KUMOMTA_ENVELOPE_SENDER:}
+      from-header: ${KUMOMTA_FROM_HEADER:}
+      username: ${KUMOMTA_USERNAME:}
+      password: ${KUMOMTA_PASSWORD:}
+      connect-timeout: ${KUMOMTA_CONNECT_TIMEOUT:2s}
+      read-timeout: ${KUMOMTA_READ_TIMEOUT:10s}
   storage:
     endpoint: ${COLLECTRA_STORAGE_ENDPOINT}
     access-key: ${COLLECTRA_STORAGE_ACCESS_KEY}

@@ -2,11 +2,12 @@ package io.collectra.api.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.io.IOException;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.env.YamlPropertySourceLoader;
 import org.springframework.core.env.PropertySource;
 import org.springframework.core.io.ClassPathResource;
+
+import java.io.IOException;
 
 class ProductionConfigurationTest {
     private final YamlPropertySourceLoader loader = new YamlPropertySourceLoader();
@@ -28,6 +29,10 @@ class ProductionConfigurationTest {
                 .isEqualTo("${RUSTFS_ACCESS_KEY}");
         assertThat(prod.getProperty("collectra.file.storage.secret-key"))
                 .isEqualTo("${RUSTFS_SECRET_KEY}");
+        assertThat(prod.getProperty("collectra.communication.delivery.provider"))
+                .isEqualTo("${COMMUNICATION_DELIVERY_PROVIDER:disabled}");
+        assertThat(prod.getProperty("collectra.communication.kumomta.base-url"))
+                .isEqualTo("${KUMOMTA_BASE_URL:}");
     }
 
     @Test
@@ -40,6 +45,8 @@ class ProductionConfigurationTest {
         assertThat(shared.getProperty("collectra.file.storage.access-key")).isNull();
         assertThat(shared.getProperty("collectra.file.storage.secret-key")).isNull();
         assertThat(shared.getProperty("collectra.communication.delivery.enabled")).isEqualTo(false);
+        assertThat(shared.getProperty("collectra.communication.delivery.provider"))
+                .isEqualTo("disabled");
     }
 
     @Test
@@ -52,6 +59,8 @@ class ProductionConfigurationTest {
         assertThat(local.getProperty("collectra.security.otp-pepper")).isNotNull();
         assertThat(local.getProperty("collectra.file.storage.endpoint"))
                 .isEqualTo("http://localhost:9000");
+        assertThat(local.getProperty("collectra.communication.delivery.provider"))
+                .isEqualTo("simulated");
     }
 
     @Test

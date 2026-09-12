@@ -29,11 +29,23 @@ collectra:
   communication:
     delivery:
       enabled: false
+      provider: disabled
+      simulation:
+        success-rate-percent: 80
+        permanent-failure-rate-percent: 10
     processing-timeout: 5m
     recovery-batch-size: 100
     recovery-delay: 1m
     retry-dispatch-batch-size: 100
     retry-dispatch-delay: 1m
+    kumomta:
+      base-url: ""
+      envelope-sender: ""
+      from-header: ""
+      username: ""
+      password: ""
+      connect-timeout: 2s
+      read-timeout: 10s
   messaging:
     outbox-publish-delay-ms: 1000
     outbox-recovery-delay-ms: 60000
