@@ -79,7 +79,14 @@ public class CustomerQueryService {
                         normalizePhone(phone),
                         createdFrom,
                         createdTo,
-                        PageRequest.of(page, size, parseSort(sort, CUSTOMER_SORTS, "createdAt", Sort.Direction.DESC)));
+                        PageRequest.of(
+                                page,
+                                size,
+                                parseSort(
+                                        sort,
+                                        CUSTOMER_SORTS,
+                                        "createdAt",
+                                        Sort.Direction.DESC)));
 
         List<UUID> customerIds = result.getContent().stream().map(Customer::getId).toList();
         Map<UUID, List<UUID>> segmentIdsByCustomer = new LinkedHashMap<>();
@@ -91,6 +98,7 @@ public class CustomerQueryService {
                         .add(membership.getSegmentId());
             }
         }
+        segmentIdsByCustomer.values().forEach(values -> values.sort(UUID::compareTo));
 
         List<CustomerListItem> items =
                 result.getContent().stream()
@@ -129,7 +137,10 @@ public class CustomerQueryService {
                         tenantId,
                         trimToNull(search),
                         active,
-                        PageRequest.of(page, size, parseSort(sort, SEGMENT_SORTS, "name", Sort.Direction.ASC)));
+                        PageRequest.of(
+                                page,
+                                size,
+                                parseSort(sort, SEGMENT_SORTS, "name", Sort.Direction.ASC)));
         List<SegmentItem> items = result.getContent().stream().map(SegmentItem::from).toList();
         return new SegmentPage(
                 items,
@@ -148,7 +159,8 @@ public class CustomerQueryService {
 
     private static void validateRange(Instant from, Instant to) {
         if (from != null && to != null && from.isAfter(to)) {
-            throw new InvalidRequestException("INVALID_RANGE", "createdFrom must not be after createdTo");
+            throw new InvalidRequestException(
+                    "INVALID_RANGE", "createdFrom must not be after createdTo");
         }
     }
 
