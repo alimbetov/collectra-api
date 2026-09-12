@@ -44,11 +44,9 @@ class KumoMtaErrorClassifierTest {
     @Test
     void onlyExplicitlyTransientRecipientErrorIsRetryable() {
         var temporary =
-                new KumoMtaInjectResponse(
-                        0, 1, List.of("a@b.kz"), List.of("temporary overload"));
+                new KumoMtaInjectResponse(0, 1, List.of("a@b.kz"), List.of("temporary overload"));
         var rejected =
-                new KumoMtaInjectResponse(
-                        0, 1, List.of("a@b.kz"), List.of("mailbox rejected"));
+                new KumoMtaInjectResponse(0, 1, List.of("a@b.kz"), List.of("mailbox rejected"));
 
         assertThat(classifier.classifyResponse(temporary).kind())
                 .isEqualTo(DeliveryFailureKind.RETRYABLE);
