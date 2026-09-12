@@ -11,6 +11,9 @@ import io.collectra.api.customer.infrastructure.CustomerRepository;
 import io.collectra.api.customer.infrastructure.CustomerSegmentMemberRepository;
 import io.collectra.api.customer.infrastructure.CustomerSegmentRepository;
 import io.collectra.api.shared.error.InvalidRequestException;
+import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
+import jakarta.persistence.criteria.Subquery;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -22,6 +25,7 @@ import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -67,20 +71,24 @@ public class CustomerQueryService {
         validateRange(createdFrom, createdTo);
 
         String normalizedSearch = normalizeSearch(search);
+        String normalizedExternalId = trimToNull(externalId);
+        String normalizedEmail = normalizeEmail(email);
+        String normalizedPhone = normalizePhone(phone);
+
         Page<Customer> result =
-                customers.search(
-                        tenantId,
-                        normalizedSearch != null,
-                        normalizedSearch == null ? "" : normalizedSearch,
-                        status,
-                        customerType,
-                        managerId,
-                        segmentId,
-                        trimToNull(externalId),
-                        normalizeEmail(email),
-                        normalizePhone(phone),
-                        createdFrom,
-                        createdTo,
+                customers.findAll(
+                        customerSpecification(
+                                tenantId,
+                                normalizedSearch,
+                                status,
+                                customerType,
+                                managerId,
+                                segmentId,
+                                normalizedExternalId,
+                                normalizedEmail,
+                                normalizedPhone,
+                                createdFrom,
+                                createdTo),
                         PageRequest.of(
                                 page,
                                 size,
@@ -132,11 +140,8 @@ public class CustomerQueryService {
         validatePage(page, size);
         String normalizedSearch = normalizeSearch(search);
         Page<CustomerSegment> result =
-                segments.search(
-                        tenantId,
-                        normalizedSearch != null,
-                        normalizedSearch == null ? "" : normalizedSearch,
-                        active,
+                segments.findAll(
+                        segmentSpecification(tenantId, normalizedSearch, active),
                         PageRequest.of(
                                 page,
                                 size,
@@ -149,6 +154,104 @@ public class CustomerQueryService {
                 result.getTotalElements(),
                 result.getTotalPages(),
                 result.hasNext());
+    }
+
+    private static Specification<Customer> customerSpecification(
+            UUID tenantId,
+            String search,
+            CustomerStatus status,
+            CustomerType customerType,
+            UUID managerId,
+            UUID segmentId,
+            String externalId,
+            String email,
+            String phone,
+            Instant createdFrom,
+            Instant createdTo) {
+        return (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            predicates.add(cb.equal(root.get("tenantId"), tenantId));
+
+            if (status != null) {
+                predicates.add(cb.equal(root.get("status"), status));
+            }
+            if (customerType != null) {
+                predicates.add(cb.equal(root.get("customerType"), customerType));
+            }
+            if (managerId != null) {
+                predicates.add(cb.equal(root.get("managerUserId"), managerId));
+            }
+            if (externalId != null) {
+                predicates.add(cb.equal(root.get("externalId"), externalId));
+            }
+            if (createdFrom != null) {
+                predicates.add(cb.greaterThanOrEqualTo(root.get("createdAt"), createdFrom));
+            }
+            if (createdTo != null) {
+                predicates.add(cb.lessThanOrEqualTo(root.get("createdAt"), createdTo));
+            }
+            if (search != null) {
+                predicates.add(
+                        cb.or(
+                                cb.like(
+                                        cb.lower(root.<String>get("displayName")),
+                                        "%" + search + "%"),
+                                cb.like(
+                                        cb.lower(root.<String>get("externalId")),
+                                        search + "%")));
+            }
+            if (segmentId != null) {
+                Subquery<UUID> segmentQuery = query.subquery(UUID.class);
+                Root<CustomerSegmentMember> member =
+                        segmentQuery.from(CustomerSegmentMember.class);
+                segmentQuery.select(member.get("id"));
+                segmentQuery.where(
+                        cb.equal(member.get("tenantId"), tenantId),
+                        cb.equal(member.get("customerId"), root.get("id")),
+                        cb.equal(member.get("segmentId"), segmentId));
+                predicates.add(cb.exists(segmentQuery));
+            }
+            if (email != null) {
+                Subquery<UUID> emailQuery = query.subquery(UUID.class);
+                Root<CustomerEmail> customerEmail = emailQuery.from(CustomerEmail.class);
+                emailQuery.select(customerEmail.get("id"));
+                emailQuery.where(
+                        cb.equal(customerEmail.get("tenantId"), tenantId),
+                        cb.equal(customerEmail.get("customerId"), root.get("id")),
+                        cb.equal(cb.lower(customerEmail.<String>get("email")), email));
+                predicates.add(cb.exists(emailQuery));
+            }
+            if (phone != null) {
+                Subquery<UUID> phoneQuery = query.subquery(UUID.class);
+                Root<CustomerPhone> customerPhone = phoneQuery.from(CustomerPhone.class);
+                phoneQuery.select(customerPhone.get("id"));
+                phoneQuery.where(
+                        cb.equal(customerPhone.get("tenantId"), tenantId),
+                        cb.equal(customerPhone.get("customerId"), root.get("id")),
+                        cb.equal(customerPhone.get("normalizedPhone"), phone));
+                predicates.add(cb.exists(phoneQuery));
+            }
+
+            return cb.and(predicates.toArray(Predicate[]::new));
+        };
+    }
+
+    private static Specification<CustomerSegment> segmentSpecification(
+            UUID tenantId, String search, Boolean active) {
+        return (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            predicates.add(cb.equal(root.get("tenantId"), tenantId));
+            if (active != null) {
+                predicates.add(cb.equal(root.get("active"), active));
+            }
+            if (search != null) {
+                predicates.add(
+                        cb.or(
+                                cb.like(cb.lower(root.<String>get("name")), "%" + search + "%"),
+                                cb.like(cb.lower(root.<String>get("code")), search + "%")));
+            }
+            return cb.and(predicates.toArray(Predicate[]::new));
+        };
     }
 
     private static void validatePage(int page, int size) {
