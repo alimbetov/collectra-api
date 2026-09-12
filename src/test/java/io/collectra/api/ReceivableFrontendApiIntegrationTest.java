@@ -144,10 +144,8 @@ class ReceivableFrontendApiIntegrationTest extends AbstractIntegrationTest {
         String invoiceId = invoice.get("id").asText();
         String commandId = UUID.randomUUID().toString();
 
-        JsonNode first =
-                allocate(token, paymentId, commandId, invoiceId, "400.0000", 201);
-        JsonNode replay =
-                allocate(token, paymentId, commandId, invoiceId, "400.0000", 201);
+        JsonNode first = allocate(token, paymentId, commandId, invoiceId, "400.0000", 201);
+        JsonNode replay = allocate(token, paymentId, commandId, invoiceId, "400.0000", 201);
         assertThat(replay.get("id").asText()).isEqualTo(first.get("id").asText());
 
         mockMvc.perform(
@@ -163,7 +161,9 @@ class ReceivableFrontendApiIntegrationTest extends AbstractIntegrationTest {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("IDEMPOTENCY_CONFLICT"));
 
-        mockMvc.perform(get("/api/v1/invoices/{id}", invoiceId).header("Authorization", bearer(token)))
+        mockMvc.perform(
+                        get("/api/v1/invoices/{id}", invoiceId)
+                                .header("Authorization", bearer(token)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.paidAmount").value(400.0))
                 .andExpect(jsonPath("$.outstandingAmount").value(600.0))
@@ -184,7 +184,9 @@ class ReceivableFrontendApiIntegrationTest extends AbstractIntegrationTest {
                         200);
         assertThat(reversed.get("status").asText()).isEqualTo("REVERSED");
 
-        mockMvc.perform(get("/api/v1/invoices/{id}", invoiceId).header("Authorization", bearer(token)))
+        mockMvc.perform(
+                        get("/api/v1/invoices/{id}", invoiceId)
+                                .header("Authorization", bearer(token)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.paidAmount").value(0.0))
                 .andExpect(jsonPath("$.outstandingAmount").value(1000.0))
