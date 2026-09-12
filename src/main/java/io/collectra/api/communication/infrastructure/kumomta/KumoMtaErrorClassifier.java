@@ -36,8 +36,7 @@ public class KumoMtaErrorClassifier {
         }
         if (isExplicitlyTransient(response.errors())) {
             return retryable(
-                    "KUMO_RECIPIENT_TEMPORARY_FAILURE",
-                    "KumoMTA temporarily rejected recipient");
+                    "KUMO_RECIPIENT_TEMPORARY_FAILURE", "KumoMTA temporarily rejected recipient");
         }
         return permanent("KUMO_RECIPIENT_REJECTED", "KumoMTA rejected recipient");
     }
