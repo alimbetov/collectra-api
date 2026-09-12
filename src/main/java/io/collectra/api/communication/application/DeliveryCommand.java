@@ -7,6 +7,8 @@ import java.util.UUID;
 public record DeliveryCommand(
         UUID messageId,
         UUID tenantId,
+        String deliveryKey,
+        int attemptNo,
         CommunicationChannel channel,
         String destination,
         String subject,
@@ -14,16 +16,12 @@ public record DeliveryCommand(
         List<DeliveryAttachment> attachments) {
 
     public DeliveryCommand {
+        if (deliveryKey == null || deliveryKey.isBlank()) {
+            throw new IllegalArgumentException("deliveryKey is required");
+        }
+        if (attemptNo < 1) {
+            throw new IllegalArgumentException("attemptNo must be positive");
+        }
         attachments = attachments == null ? List.of() : List.copyOf(attachments);
-    }
-
-    public DeliveryCommand(
-            UUID messageId,
-            UUID tenantId,
-            CommunicationChannel channel,
-            String destination,
-            String subject,
-            String body) {
-        this(messageId, tenantId, channel, destination, subject, body, List.of());
     }
 }
