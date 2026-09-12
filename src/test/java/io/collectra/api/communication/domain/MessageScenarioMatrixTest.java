@@ -316,6 +316,15 @@ class MessageScenarioMatrixTest {
                 Arguments.of(T0.minusSeconds(60)));
     }
 
+    private static String destination(CommunicationChannel channel) {
+        return switch (channel) {
+            case EMAIL -> "customer@example.test";
+            case SMS, WHATSAPP -> "+77010000000";
+            case TELEGRAM -> "telegram-user-42";
+            case IN_APP -> "device-token-42";
+        };
+    }
+
     private static Message queuedEmail() {
         return queued(
                 CommunicationChannel.EMAIL, "customer@example.test", "ru-KZ", "Reminder", "body");
