@@ -1,7 +1,6 @@
 package io.collectra.api.communication.infrastructure.kumomta;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-
 import java.util.List;
 
 record KumoMtaInjectResponse(
