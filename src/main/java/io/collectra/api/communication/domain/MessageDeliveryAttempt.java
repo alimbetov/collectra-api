@@ -86,6 +86,16 @@ public class MessageDeliveryAttempt {
         complete(DeliveryAttemptStatus.ACCEPTED, providerReference, null, completedAt);
     }
 
+    public void acceptedAfterUnknown(String providerReference, Instant completedAt) {
+        if (status != DeliveryAttemptStatus.UNKNOWN) {
+            throw new IllegalStateException("Only UNKNOWN delivery attempts can be reconciled");
+        }
+        status = DeliveryAttemptStatus.ACCEPTED;
+        this.providerReference = optional(providerReference, PROVIDER_REFERENCE_MAX_LENGTH);
+        errorCode = null;
+        this.completedAt = Objects.requireNonNull(completedAt, "completedAt is required");
+    }
+
     public void retryableFailure(String errorCode, Instant completedAt) {
         complete(DeliveryAttemptStatus.RETRYABLE_FAILURE, null, errorCode, completedAt);
     }
