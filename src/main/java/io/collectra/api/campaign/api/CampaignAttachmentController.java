@@ -23,8 +23,7 @@ public class CampaignAttachmentController {
     }
 
     @PutMapping
-    Response configure(
-            @PathVariable UUID campaignId, @Valid @RequestBody Request request) {
+    Response configure(@PathVariable UUID campaignId, @Valid @RequestBody Request request) {
         return Response.from(
                 attachments.configureGeneratedPdf(
                         TenantContext.requireTenantId(),
