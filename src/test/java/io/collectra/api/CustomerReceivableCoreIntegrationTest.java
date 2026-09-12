@@ -67,7 +67,11 @@ class CustomerReceivableCoreIntegrationTest extends AbstractIntegrationTest {
                         null);
 
         receivableService.allocate(
-                tenantId, payment.getId(), invoice.getId(), new BigDecimal("400.00"));
+                tenantId,
+                payment.getId(),
+                UUID.randomUUID(),
+                invoice.getId(),
+                new BigDecimal("400.00"));
 
         Invoice persisted = receivableService.invoice(tenantId, invoice.getId());
         assertThat(persisted.getPaidAmount()).isEqualByComparingTo("400.00");
