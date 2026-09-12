@@ -9,7 +9,6 @@ import io.collectra.api.document.domain.GeneratedDocument;
 import io.collectra.api.document.infrastructure.GeneratedDocumentRepository;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.NoSuchElementException;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
