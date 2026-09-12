@@ -5,10 +5,12 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.collectra.api.communication.application.DeliveryAttachment;
 import io.collectra.api.communication.application.DeliveryCommand;
 import io.collectra.api.communication.application.DeliveryFailureKind;
 import io.collectra.api.communication.application.DeliveryResult;
 import io.collectra.api.communication.domain.CommunicationChannel;
+import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -38,6 +40,7 @@ class KumoMtaEmailDeliveryGatewayTest {
                 .containsEntry("Subject", "Subject {{already-rendered}}")
                 .doesNotContainKey("To");
         assertThat(request.getValue().content().htmlBody()).isEqualTo("<p>Body {{fixed}}</p>");
+        assertThat(request.getValue().content().attachments()).isEmpty();
         assertThat(request.getValue().recipients()).hasSize(1);
         assertThat(request.getValue().recipients().get(0).email()).isEqualTo(command.destination());
         assertThat(request.getValue().recipients().get(0).metadata())
@@ -46,6 +49,37 @@ class KumoMtaEmailDeliveryGatewayTest {
         assertThat(request.getValue().templateDialect()).isEqualTo("Static");
         assertThat(request.getValue().deferredGeneration()).isFalse();
         assertThat(request.getValue().deferredSpool()).isFalse();
+    }
+
+    @Test
+    void mapsPdfAttachmentToBase64KumoContent() {
+        byte[] pdf = new byte[] {0x25, 0x50, 0x44, 0x46, 0x2d};
+        DeliveryAttachment attachment =
+                new DeliveryAttachment("invoice-123.pdf", "application/pdf", pdf);
+        DeliveryCommand command =
+                new DeliveryCommand(
+                        UUID.randomUUID(),
+                        UUID.randomUUID(),
+                        CommunicationChannel.EMAIL,
+                        "client@example.com",
+                        "Invoice",
+                        "<p>Please see attachment</p>",
+                        List.of(attachment));
+        when(client.inject(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(new KumoMtaInjectResponse(1, 0, List.of(), List.of()));
+        ArgumentCaptor<KumoMtaInjectRequest> request =
+                ArgumentCaptor.forClass(KumoMtaInjectRequest.class);
+
+        gateway.deliver(command);
+
+        verify(client).inject(request.capture());
+        assertThat(request.getValue().content().attachments()).hasSize(1);
+        KumoMtaInjectRequest.Attachment mapped = request.getValue().content().attachments().get(0);
+        assertThat(mapped.fileName()).isEqualTo("invoice-123.pdf");
+        assertThat(mapped.contentType()).isEqualTo("application/pdf");
+        assertThat(mapped.data()).isEqualTo(Base64.getEncoder().encodeToString(pdf));
+        assertThat(mapped.base64()).isTrue();
+        assertThat(mapped.contentId()).isNull();
     }
 
     @Test
