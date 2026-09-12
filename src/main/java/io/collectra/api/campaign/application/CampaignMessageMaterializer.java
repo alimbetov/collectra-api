@@ -19,7 +19,6 @@ import io.collectra.api.template.application.TemplateRenderer;
 import io.collectra.api.template.domain.TemplateVersion;
 import io.collectra.api.template.infrastructure.TemplateVersionRepository;
 import java.time.Clock;
-import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
