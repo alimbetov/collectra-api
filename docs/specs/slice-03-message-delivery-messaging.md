@@ -1,6 +1,6 @@
 # Slice 3 — Message delivery messaging
 
-Status: IN PROGRESS
+Status: DONE
 Depends on: Slice 2 — Message processing core  
 Suggested branch: `feat/message-delivery-messaging`
 

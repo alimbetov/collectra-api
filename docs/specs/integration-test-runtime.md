@@ -1,6 +1,6 @@
 # Integration-test runtime contract
 
-Status: REQUIRED BEFORE SLICE 3
+Status: IMPLEMENTED
 
 ## 1. Причина
 
@@ -64,7 +64,7 @@ spring:
 
 ## 4. Проверка исправления
 
-Repair PR выполняется отдельно от Slice 3 и должен доказать:
+Repair PR выполняется отдельно от Slice 3 и доказал:
 
 1. `MessageProcessingIntegrationTest` проходит отдельно;
 2. полный `mvn verify` проходит в одной Maven JVM;

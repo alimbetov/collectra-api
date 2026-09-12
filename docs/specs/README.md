@@ -11,10 +11,10 @@
 
 | Slice | Спецификация | Статус | Основной результат |
 |---|---|---|---|
-| 2 | [Message processing core](slice-02-message-processing.md) | MERGED / VERIFY REPAIR REQUIRED | safe claim, retry, recovery, provider-neutral worker |
-| 3 | [Message delivery messaging](slice-03-message-delivery-messaging.md) | BLOCKED BY VERIFY REPAIR | Outbox -> RabbitMQ -> MessageDeliveryWorker |
-| 4 | [KumoMTA email adapter](slice-04-kumomta-email-adapter.md) | READY AFTER 2/3 | real EMAIL injection through KumoMTA HTTP API |
-| 5 | [CampaignRun to Message materialization](slice-05-message-materialization.md) | READY AFTER 3 | Campaign recipients -> immutable Message + Outbox |
+| 2 | [Message processing core](slice-02-message-processing.md) | DONE | safe claim, retry, recovery, provider-neutral worker |
+| 3 | [Message delivery messaging](slice-03-message-delivery-messaging.md) | DONE | Outbox -> RabbitMQ -> MessageDeliveryWorker |
+| 4 | [KumoMTA email adapter](slice-04-kumomta-email-adapter.md) | READY | real EMAIL injection through KumoMTA HTTP API |
+| 5 | [CampaignRun to Message materialization](slice-05-message-materialization.md) | READY | Campaign recipients -> immutable Message + Outbox |
 | 6 | [Campaign delivery counters and completion](slice-06-campaign-delivery-counters.md) | READY AFTER 2/5 | atomic counters and durable CampaignRun completion |
 | 7 | [Attachments and generated documents](slice-07-attachments-documents.md) | READY AFTER 3/4/5 + FONT GATE | document/FileService attachments before delivery |
 | 8 | [Delivery API and observability](slice-08-delivery-api-observability.md) | READY AFTER 2–7 | support API, metrics, logging and production visibility |
@@ -25,15 +25,15 @@
 Slice 1 Message persistence                 DONE
         |
         v
-Slice 2 Message processing core             MERGED
+Slice 2 Message processing core             DONE
         |
         v
-Integration-test runtime repair             REQUIRED
+Integration-test runtime repair             DONE
         |
         +-------------------+
         |                   |
         v                   v
-Slice 3 Messaging       Slice 6 counters*   (*final integration also needs Slice 5)
+Slice 3 Messaging DONE  Slice 6 counters*   (*final integration also needs Slice 5)
         |
         +--------+
         |        |
