@@ -108,9 +108,27 @@ public class Invoice extends AuditableEntity {
             throw new IllegalArgumentException("Allocation exceeds invoice outstanding amount");
         }
         paidAmount = paidAmount.add(allocation);
+        recalculatePaymentState();
+    }
+
+    public void reverseAllocation(BigDecimal amount) {
+        BigDecimal reversal = positive(amount);
+        if (reversal.compareTo(paidAmount) > 0) {
+            throw new IllegalArgumentException("Reversal exceeds invoice paid amount");
+        }
+        paidAmount = paidAmount.subtract(reversal);
+        recalculatePaymentState();
+    }
+
+    private void recalculatePaymentState() {
         outstandingAmount = originalAmount.subtract(paidAmount);
-        paymentStatus =
-                outstandingAmount.signum() == 0 ? PaymentStatus.PAID : PaymentStatus.PARTIALLY_PAID;
+        if (paidAmount.signum() == 0) {
+            paymentStatus = PaymentStatus.OPEN;
+        } else if (outstandingAmount.signum() == 0) {
+            paymentStatus = PaymentStatus.PAID;
+        } else {
+            paymentStatus = PaymentStatus.PARTIALLY_PAID;
+        }
     }
 
     public boolean isOverdue(LocalDate today) {
