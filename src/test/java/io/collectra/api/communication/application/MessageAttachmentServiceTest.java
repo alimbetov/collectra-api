@@ -35,7 +35,8 @@ class MessageAttachmentServiceTest {
     private final MessageAttachmentRepository attachments = mock(MessageAttachmentRepository.class);
     private final GeneratedDocumentRepository documents = mock(GeneratedDocumentRepository.class);
     private final CampaignRunRepository runs = mock(CampaignRunRepository.class);
-    private final MessageDeliveryRequestService deliveryRequests = mock(MessageDeliveryRequestService.class);
+    private final MessageDeliveryRequestService deliveryRequests =
+            mock(MessageDeliveryRequestService.class);
     private final MessageAttachmentService service =
             new MessageAttachmentService(
                     messages,
@@ -51,7 +52,8 @@ class MessageAttachmentServiceTest {
         GenerationJob job = mock(GenerationJob.class);
         when(job.getId()).thenReturn(UUID.randomUUID());
         when(job.getTenantId()).thenReturn(message.getTenantId());
-        when(attachments.save(org.mockito.ArgumentMatchers.any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(attachments.save(org.mockito.ArgumentMatchers.any()))
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
         MessageAttachment result =
                 service.createPendingGeneratedPdf(message, job, "invoice.pdf", true);
@@ -111,8 +113,7 @@ class MessageAttachmentServiceTest {
         assertThatThrownBy(
                         () ->
                                 service.generationCompleted(
-                                        fixture.tenantId,
-                                        fixture.attachment.getGenerationJobId()))
+                                        fixture.tenantId, fixture.attachment.getGenerationJobId()))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("metadata is missing");
 
@@ -180,7 +181,9 @@ class MessageAttachmentServiceTest {
         assertThat(service.generationCompleted(tenantId, jobId)).isFalse();
         assertThat(service.generationFailed(tenantId, jobId, "FAIL", "failure")).isFalse();
 
-        verify(messages, never()).findLockedByIdAndTenantId(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+        verify(messages, never())
+                .findLockedByIdAndTenantId(
+                        org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
     }
 
     private Fixture fixture(boolean required) {
