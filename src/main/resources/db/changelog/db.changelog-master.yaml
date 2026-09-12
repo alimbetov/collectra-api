@@ -55,3 +55,5 @@ databaseChangeLog:
       file: db/changelog/changes/030-slice-09a1-customer-query-indexes.sql
   - include:
       file: db/changelog/changes/031-slice-09a2-contract-domain.sql
+  - include:
+      file: db/changelog/changes/032-slice-09b-receivable-payment-hardening.sql
