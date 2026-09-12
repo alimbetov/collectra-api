@@ -26,11 +26,20 @@ class MessageRecoveryServiceTest {
         MessageStateService states = mock(MessageStateService.class);
         Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
 
-        assertThatThrownBy(() -> new MessageRecoveryService(messages, states, clock, Duration.ZERO, 10))
+        assertThatThrownBy(
+                        () ->
+                                new MessageRecoveryService(
+                                        messages, states, clock, Duration.ZERO, 10))
                 .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> new MessageRecoveryService(messages, states, clock, Duration.ofMinutes(-1), 10))
+        assertThatThrownBy(
+                        () ->
+                                new MessageRecoveryService(
+                                        messages, states, clock, Duration.ofMinutes(-1), 10))
                 .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> new MessageRecoveryService(messages, states, clock, Duration.ofMinutes(5), 0))
+        assertThatThrownBy(
+                        () ->
+                                new MessageRecoveryService(
+                                        messages, states, clock, Duration.ofMinutes(5), 0))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
@@ -47,7 +56,8 @@ class MessageRecoveryServiceTest {
 
         when(messages.findStaleProcessingCandidates(cutoff, 2)).thenReturn(List.of(first, second));
         when(states.recoverStale(first.getTenantId(), first.getId(), cutoff, NOW)).thenReturn(true);
-        when(states.recoverStale(second.getTenantId(), second.getId(), cutoff, NOW)).thenReturn(false);
+        when(states.recoverStale(second.getTenantId(), second.getId(), cutoff, NOW))
+                .thenReturn(false);
 
         assertThat(service.recoverStale()).isOne();
         verify(messages).findStaleProcessingCandidates(cutoff, 2);

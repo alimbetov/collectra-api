@@ -25,7 +25,8 @@ class MessageScenarioMatrixTest {
         assertThat(message.getChannel()).isEqualTo(channel);
         assertThat(message.getDestination()).isEqualTo(destination(channel));
         assertThat(message.getResolvedLocale()).isEqualTo("ru-KZ");
-        assertThat(message.getSubject()).isEqualTo(channel == CommunicationChannel.EMAIL ? "Reminder" : null);
+        assertThat(message.getSubject())
+                .isEqualTo(channel == CommunicationChannel.EMAIL ? "Reminder" : null);
         assertThat(message.getBody()).isEqualTo("body");
         assertThat(message.getStatus()).isEqualTo(MessageStatus.QUEUED);
     }
@@ -112,7 +113,8 @@ class MessageScenarioMatrixTest {
 
     @ParameterizedTest(name = "error normalization {0}")
     @MethodSource("errorNormalizationCases")
-    void diagnosticFieldsAreNormalized(String code, String messageText, int codeLength, Integer messageLength) {
+    void diagnosticFieldsAreNormalized(
+            String code, String messageText, int codeLength, Integer messageLength) {
         Message message = queuedEmail();
         message.beginAttempt(T0);
         message.markFailed(code, messageText);
@@ -153,17 +155,123 @@ class MessageScenarioMatrixTest {
 
     private static Stream<Arguments> invalidRequiredFields() {
         return Stream.of(
-                Arguments.of("tenantId", (ThrowingFactory) () -> queuedWithIds(null, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID())),
-                Arguments.of("campaignId", (ThrowingFactory) () -> queuedWithIds(UUID.randomUUID(), null, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID())),
-                Arguments.of("campaignRunId", (ThrowingFactory) () -> queuedWithIds(UUID.randomUUID(), UUID.randomUUID(), null, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID())),
-                Arguments.of("campaignRecipientId", (ThrowingFactory) () -> queuedWithIds(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), null, UUID.randomUUID(), UUID.randomUUID())),
-                Arguments.of("customerId", (ThrowingFactory) () -> queuedWithIds(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), null, UUID.randomUUID())),
-                Arguments.of("templateVersionId", (ThrowingFactory) () -> queuedWithIds(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), null)),
-                Arguments.of("channel", (ThrowingFactory) () -> Message.queued(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), null, UUID.randomUUID(), null, "dest", "ru-KZ", null, "body")),
-                Arguments.of("destination", (ThrowingFactory) () -> queued(CommunicationChannel.SMS, " ", "ru-KZ", null, "body")),
-                Arguments.of("resolvedLocale", (ThrowingFactory) () -> queued(CommunicationChannel.SMS, "+77010000000", " ", null, "body")),
-                Arguments.of("body", (ThrowingFactory) () -> queued(CommunicationChannel.SMS, "+77010000000", "ru-KZ", null, " ")),
-                Arguments.of("subject", (ThrowingFactory) () -> queued(CommunicationChannel.EMAIL, "a@example.test", "ru-KZ", " ", "body")));
+                Arguments.of(
+                        "tenantId",
+                        (ThrowingFactory)
+                                () ->
+                                        queuedWithIds(
+                                                null,
+                                                UUID.randomUUID(),
+                                                UUID.randomUUID(),
+                                                UUID.randomUUID(),
+                                                UUID.randomUUID(),
+                                                UUID.randomUUID())),
+                Arguments.of(
+                        "campaignId",
+                        (ThrowingFactory)
+                                () ->
+                                        queuedWithIds(
+                                                UUID.randomUUID(),
+                                                null,
+                                                UUID.randomUUID(),
+                                                UUID.randomUUID(),
+                                                UUID.randomUUID(),
+                                                UUID.randomUUID())),
+                Arguments.of(
+                        "campaignRunId",
+                        (ThrowingFactory)
+                                () ->
+                                        queuedWithIds(
+                                                UUID.randomUUID(),
+                                                UUID.randomUUID(),
+                                                null,
+                                                UUID.randomUUID(),
+                                                UUID.randomUUID(),
+                                                UUID.randomUUID())),
+                Arguments.of(
+                        "campaignRecipientId",
+                        (ThrowingFactory)
+                                () ->
+                                        queuedWithIds(
+                                                UUID.randomUUID(),
+                                                UUID.randomUUID(),
+                                                UUID.randomUUID(),
+                                                null,
+                                                UUID.randomUUID(),
+                                                UUID.randomUUID())),
+                Arguments.of(
+                        "customerId",
+                        (ThrowingFactory)
+                                () ->
+                                        queuedWithIds(
+                                                UUID.randomUUID(),
+                                                UUID.randomUUID(),
+                                                UUID.randomUUID(),
+                                                UUID.randomUUID(),
+                                                null,
+                                                UUID.randomUUID())),
+                Arguments.of(
+                        "templateVersionId",
+                        (ThrowingFactory)
+                                () ->
+                                        queuedWithIds(
+                                                UUID.randomUUID(),
+                                                UUID.randomUUID(),
+                                                UUID.randomUUID(),
+                                                UUID.randomUUID(),
+                                                UUID.randomUUID(),
+                                                null)),
+                Arguments.of(
+                        "channel",
+                        (ThrowingFactory)
+                                () ->
+                                        Message.queued(
+                                                UUID.randomUUID(),
+                                                UUID.randomUUID(),
+                                                UUID.randomUUID(),
+                                                UUID.randomUUID(),
+                                                UUID.randomUUID(),
+                                                null,
+                                                UUID.randomUUID(),
+                                                null,
+                                                "dest",
+                                                "ru-KZ",
+                                                null,
+                                                "body")),
+                Arguments.of(
+                        "destination",
+                        (ThrowingFactory)
+                                () -> queued(CommunicationChannel.SMS, " ", "ru-KZ", null, "body")),
+                Arguments.of(
+                        "resolvedLocale",
+                        (ThrowingFactory)
+                                () ->
+                                        queued(
+                                                CommunicationChannel.SMS,
+                                                "+77010000000",
+                                                " ",
+                                                null,
+                                                "body")),
+                Arguments.of(
+                        "body",
+                        (ThrowingFactory)
+                                () ->
+                                        queued(
+                                                CommunicationChannel.SMS,
+                                                "+77010000000",
+                                                "ru-KZ",
+                                                null,
+                                                " ")),
+                Arguments.of(
+                        "subject",
+                        (ThrowingFactory)
+                                () ->
+                                        queued(
+                                                CommunicationChannel.EMAIL,
+                                                "a@example.test",
+                                                "ru-KZ",
+                                                " ",
+                                                "body")));
     }
 
     private static Stream<Arguments> lengthBoundaries() {
@@ -174,7 +282,12 @@ class MessageScenarioMatrixTest {
     }
 
     private static Stream<Arguments> attemptCounts() {
-        return Stream.of(Arguments.of(1), Arguments.of(2), Arguments.of(3), Arguments.of(4), Arguments.of(5));
+        return Stream.of(
+                Arguments.of(1),
+                Arguments.of(2),
+                Arguments.of(3),
+                Arguments.of(4),
+                Arguments.of(5));
     }
 
     private static Stream<Arguments> illegalTerminalStates() {
@@ -197,11 +310,15 @@ class MessageScenarioMatrixTest {
     }
 
     private static Stream<Arguments> badRetryTimes() {
-        return Stream.of(Arguments.of(T0), Arguments.of(T0.minusNanos(1)), Arguments.of(T0.minusSeconds(60)));
+        return Stream.of(
+                Arguments.of(T0),
+                Arguments.of(T0.minusNanos(1)),
+                Arguments.of(T0.minusSeconds(60)));
     }
 
     private static Message queuedEmail() {
-        return queued(CommunicationChannel.EMAIL, "customer@example.test", "ru-KZ", "Reminder", "body");
+        return queued(
+                CommunicationChannel.EMAIL, "customer@example.test", "ru-KZ", "Reminder", "body");
     }
 
     private static Message queued(
@@ -278,7 +395,12 @@ class MessageScenarioMatrixTest {
         SUBJECT {
             @Override
             Message create(String value) {
-                return queued(CommunicationChannel.EMAIL, "customer@example.test", "ru-KZ", value, "body");
+                return queued(
+                        CommunicationChannel.EMAIL,
+                        "customer@example.test",
+                        "ru-KZ",
+                        value,
+                        "body");
             }
 
             @Override

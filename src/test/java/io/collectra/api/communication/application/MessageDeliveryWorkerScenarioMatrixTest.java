@@ -130,12 +130,7 @@ class MessageDeliveryWorkerScenarioMatrixTest {
                             "provider unavailable");
             verify(states, never()).markFailed(any(), any(), any(), any());
         } else {
-            verify(states)
-                    .markFailed(
-                            tenantId,
-                            messageId,
-                            "TEMPORARY",
-                            "provider unavailable");
+            verify(states).markFailed(tenantId, messageId, "TEMPORARY", "provider unavailable");
             verify(states, never()).scheduleRetry(any(), any(), any(), any(), any());
         }
     }
@@ -215,9 +210,7 @@ class MessageDeliveryWorkerScenarioMatrixTest {
                 Arguments.of(
                         "rate-limit",
                         new DeliveryResult.Rejected(
-                                DeliveryFailureKind.RETRYABLE,
-                                "PROVIDER_429",
-                                "rate limited"),
+                                DeliveryFailureKind.RETRYABLE, "PROVIDER_429", "rate limited"),
                         ExpectedTransition.RETRY),
                 Arguments.of(
                         "permanent",

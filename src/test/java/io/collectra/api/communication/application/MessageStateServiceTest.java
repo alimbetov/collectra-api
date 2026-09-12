@@ -60,7 +60,8 @@ class MessageStateServiceTest {
         CampaignRun run = runningRun(1);
         Message message = queued(run);
         stubMessage(message);
-        when(attachments.existsRequiredNotReady(TENANT, message.getId(), MessageAttachmentStatus.READY))
+        when(attachments.existsRequiredNotReady(
+                        TENANT, message.getId(), MessageAttachmentStatus.READY))
                 .thenReturn(false);
 
         MessageDeliverySnapshot snapshot = service.begin(TENANT, message.getId()).orElseThrow();
@@ -83,7 +84,8 @@ class MessageStateServiceTest {
         CampaignRun run = runningRun(1);
         Message message = queued(run);
         stubMessage(message);
-        when(attachments.existsRequiredNotReady(TENANT, message.getId(), MessageAttachmentStatus.READY))
+        when(attachments.existsRequiredNotReady(
+                        TENANT, message.getId(), MessageAttachmentStatus.READY))
                 .thenReturn(true);
 
         assertThat(service.begin(TENANT, message.getId())).isEmpty();
@@ -177,11 +179,7 @@ class MessageStateServiceTest {
 
         assertThat(
                         service.scheduleRetry(
-                                TENANT,
-                                message.getId(),
-                                NOW.plusSeconds(60),
-                                "TEMP",
-                                "late"))
+                                TENANT, message.getId(), NOW.plusSeconds(60), "TEMP", "late"))
                 .isFalse();
 
         assertThat(run.getRetryCount()).isZero();
@@ -194,8 +192,7 @@ class MessageStateServiceTest {
         Message message = processing(run, NOW.minusSeconds(5));
         stubMessageAndRun(message, run);
 
-        assertThat(service.markFailed(TENANT, message.getId(), "PERMANENT", "rejected"))
-                .isTrue();
+        assertThat(service.markFailed(TENANT, message.getId(), "PERMANENT", "rejected")).isTrue();
 
         assertThat(message.getStatus()).isEqualTo(MessageStatus.FAILED);
         assertThat(run.getFailedCount()).isOne();
@@ -274,7 +271,8 @@ class MessageStateServiceTest {
         assertThat(run.getRetryCount()).isZero();
         assertThat(run.getFailedCount()).isOne();
         assertThat(run.getStatus()).isEqualTo(CampaignRunStatus.COMPLETED);
-        verifyOutcome(DeliveryOutcomeEvent.Outcome.FAILED, MessageRecoveryService.PROCESSING_TIMEOUT);
+        verifyOutcome(
+                DeliveryOutcomeEvent.Outcome.FAILED, MessageRecoveryService.PROCESSING_TIMEOUT);
     }
 
     @Test
@@ -333,11 +331,13 @@ class MessageStateServiceTest {
         return message;
     }
 
-    private Message processingAtAttempt(CampaignRun run, int targetAttempt, Instant finalStartedAt) {
+    private Message processingAtAttempt(
+            CampaignRun run, int targetAttempt, Instant finalStartedAt) {
         Message message = queued(run);
         Instant cursor = finalStartedAt.minusSeconds(targetAttempt * 10L);
         for (int attempt = 1; attempt <= targetAttempt; attempt++) {
-            Instant started = attempt == targetAttempt ? finalStartedAt : cursor.plusSeconds(attempt * 10L);
+            Instant started =
+                    attempt == targetAttempt ? finalStartedAt : cursor.plusSeconds(attempt * 10L);
             message.beginAttempt(started);
             if (attempt < targetAttempt) {
                 message.scheduleRetry(started.plusSeconds(1), "TEMP", "temporary");

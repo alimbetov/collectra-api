@@ -188,7 +188,12 @@ class CampaignRunScenarioMatrixTest {
     }
 
     private static Stream<Arguments> retryCounts() {
-        return Stream.of(Arguments.of(0), Arguments.of(1), Arguments.of(2), Arguments.of(3), Arguments.of(10));
+        return Stream.of(
+                Arguments.of(0),
+                Arguments.of(1),
+                Arguments.of(2),
+                Arguments.of(3),
+                Arguments.of(10));
     }
 
     private static Stream<Arguments> negativeCounts() {
@@ -209,10 +214,7 @@ class CampaignRunScenarioMatrixTest {
 
     private static Stream<Arguments> incompleteProgress() {
         return Stream.of(
-                Arguments.of(1, 0),
-                Arguments.of(2, 0),
-                Arguments.of(2, 1),
-                Arguments.of(10, 9));
+                Arguments.of(1, 0), Arguments.of(2, 0), Arguments.of(2, 1), Arguments.of(10, 9));
     }
 
     private static Stream<Arguments> cancellableRuns() {
