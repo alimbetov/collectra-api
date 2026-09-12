@@ -113,7 +113,8 @@ public class TemplateManagementController {
     @PostMapping("/{id}/versions")
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('TEMPLATE_MANAGE')")
-    VersionResponse createVersion(@PathVariable UUID id, @Valid @RequestBody VersionRequest request) {
+    VersionResponse createVersion(
+            @PathVariable UUID id, @Valid @RequestBody VersionRequest request) {
         return VersionResponse.from(
                 service.createVersion(
                         tenant(),
@@ -130,7 +131,11 @@ public class TemplateManagementController {
     VersionResponse update(@PathVariable UUID id, @Valid @RequestBody VersionContent request) {
         return VersionResponse.from(
                 service.update(
-                        tenant(), id, request.subject(), request.contentHtml(), request.stylesheet()));
+                        tenant(),
+                        id,
+                        request.subject(),
+                        request.contentHtml(),
+                        request.stylesheet()));
     }
 
     @PostMapping("/versions/{id}/validate")
@@ -177,9 +182,7 @@ public class TemplateManagementController {
             String stylesheet) {}
 
     record VersionContent(
-            @Size(max = 300) String subject,
-            @NotBlank String contentHtml,
-            String stylesheet) {}
+            @Size(max = 300) String subject, @NotBlank String contentHtml, String stylesheet) {}
 
     record TemplateResponse(UUID id, String code, String name, String documentType, String status) {
         static TemplateResponse from(DocumentTemplate v) {
