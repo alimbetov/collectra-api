@@ -69,8 +69,7 @@ class Slice10aP10ObservabilityContractTest {
                         });
 
         assertThat(
-                        registry
-                                .get("collectra_message_retry_total")
+                        registry.get("collectra_message_retry_total")
                                 .tag("channel", "email")
                                 .tag("error_code", "CONNECTION_TIMEOUT")
                                 .counter()
