@@ -74,11 +74,7 @@ class ContractFrontendApiIntegrationTest extends AbstractIntegrationTest {
         JsonNode customer = createCustomer(token, "CUST-LIFE", "Lifecycle Customer");
         JsonNode contract =
                 createContract(
-                        token,
-                        customer.get("id").asText(),
-                        "EXT-LIFE",
-                        "LIFE-001",
-                        "2026-01-01");
+                        token, customer.get("id").asText(), "EXT-LIFE", "LIFE-001", "2026-01-01");
         String id = contract.get("id").asText();
 
         JsonNode suspended =
@@ -195,7 +191,9 @@ class ContractFrontendApiIntegrationTest extends AbstractIntegrationTest {
                 post("/api/v1/contracts")
                         .header("Authorization", bearer(token))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(contractBody(customerId, externalId, contractNumber, validFrom, null)),
+                        .content(
+                                contractBody(
+                                        customerId, externalId, contractNumber, validFrom, null)),
                 201);
     }
 
