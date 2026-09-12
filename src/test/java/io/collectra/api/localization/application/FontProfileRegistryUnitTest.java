@@ -22,6 +22,6 @@ class FontProfileRegistryUnitTest {
         assertThat(registry.cssStack(FontProfileCode.GEORGIAN))
                 .contains("\"Noto Sans Georgian\"", "\"Noto Sans\"");
         assertThat(registry.cssStack(FontProfileCode.CJK_SC))
-                .contains("\"Noto Sans CJK SC\"", "\"Noto Sans\"");
+                .contains("\"Noto Sans SC\"", "\"Noto Sans\"");
     }
 }
