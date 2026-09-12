@@ -97,6 +97,14 @@ public class Campaign extends AuditableEntity {
         this.status = CampaignStatus.DRAFT;
     }
 
+    public void configureGeneratedPdfAttachment(boolean enabled, boolean required) {
+        if (status != CampaignStatus.DRAFT) {
+            throw new IllegalStateException("Generated PDF attachment can only be configured for draft campaign");
+        }
+        generatedPdfAttachment = enabled;
+        generatedPdfAttachmentRequired = enabled && required;
+    }
+
     public void activate() {
         if (status != CampaignStatus.DRAFT) {
             throw new IllegalStateException("Only draft campaign can be activated");
