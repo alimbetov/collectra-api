@@ -49,6 +49,11 @@ public class ApiExceptionHandler {
                 "INVALID_REQUEST");
     }
 
+    @ExceptionHandler(InvalidRequestException.class)
+    ProblemDetail invalidRequest(InvalidRequestException ex, HttpServletRequest request) {
+        return withCode(base(HttpStatus.BAD_REQUEST, ex.getMessage(), request), ex.getCode());
+    }
+
     @ExceptionHandler({BadCredentialsException.class, InvalidRefreshTokenException.class})
     ProblemDetail unauthorized(RuntimeException ex, HttpServletRequest request) {
         return withCode(base(HttpStatus.UNAUTHORIZED, ex.getMessage(), request), "UNAUTHORIZED");
@@ -85,6 +90,11 @@ public class ApiExceptionHandler {
         return withCode(
                 base(HttpStatus.SERVICE_UNAVAILABLE, "Object storage operation failed", request),
                 "FILE_STORAGE_UNAVAILABLE");
+    }
+
+    @ExceptionHandler(BusinessConflictException.class)
+    ProblemDetail businessConflict(BusinessConflictException ex, HttpServletRequest request) {
+        return withCode(base(HttpStatus.CONFLICT, ex.getMessage(), request), ex.getCode());
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

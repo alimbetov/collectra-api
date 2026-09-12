@@ -48,15 +48,46 @@ public class CustomerEmail extends AuditableEntity {
         this.id = UUID.randomUUID();
         this.tenantId = Objects.requireNonNull(tenantId);
         this.customerId = Objects.requireNonNull(customerId);
-        this.email = normalize(email);
-        this.type = type == null || type.isBlank() ? "OTHER" : type.trim().toUpperCase(Locale.ROOT);
+        this.email = normalizeForLookup(email);
+        this.type = normalizeType(type);
         this.primary = primary;
         this.verified = false;
         this.status = "ACTIVE";
     }
 
+    public void updateMetadata(String type, Boolean primary, String status) {
+        if (type != null) {
+            this.type = normalizeType(type);
+        }
+        if (status != null) {
+            String normalizedStatus = normalizeStatus(status);
+            this.status = normalizedStatus;
+            if ("INACTIVE".equals(normalizedStatus)) {
+                this.primary = false;
+            }
+        }
+        if (primary != null) {
+            if (primary && !isActive()) {
+                throw new IllegalArgumentException("Inactive email cannot be primary");
+            }
+            this.primary = primary;
+        }
+    }
+
+    public void demotePrimary() {
+        this.primary = false;
+    }
+
+    public boolean isActive() {
+        return "ACTIVE".equals(status);
+    }
+
     public UUID getId() {
         return id;
+    }
+
+    public UUID getTenantId() {
+        return tenantId;
     }
 
     public UUID getCustomerId() {
@@ -83,10 +114,22 @@ public class CustomerEmail extends AuditableEntity {
         return status;
     }
 
-    private static String normalize(String value) {
+    public static String normalizeForLookup(String value) {
         if (value == null || value.isBlank() || !value.contains("@")) {
             throw new IllegalArgumentException("Valid email is required");
         }
         return value.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private static String normalizeType(String value) {
+        return value == null || value.isBlank() ? "OTHER" : value.trim().toUpperCase(Locale.ROOT);
+    }
+
+    private static String normalizeStatus(String value) {
+        String normalized = value.trim().toUpperCase(Locale.ROOT);
+        if (!"ACTIVE".equals(normalized) && !"INACTIVE".equals(normalized)) {
+            throw new IllegalArgumentException("Unsupported email status");
+        }
+        return normalized;
     }
 }

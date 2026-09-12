@@ -13,8 +13,10 @@ import io.collectra.api.customer.infrastructure.CustomerPhoneRepository;
 import io.collectra.api.customer.infrastructure.CustomerRepository;
 import io.collectra.api.customer.infrastructure.CustomerSegmentMemberRepository;
 import io.collectra.api.customer.infrastructure.CustomerSegmentRepository;
+import io.collectra.api.shared.error.BusinessConflictException;
 import java.util.Collection;
 import java.util.List;
+import java.util.Locale;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.UUID;
@@ -60,8 +62,8 @@ public class CustomerService {
                 .findByTenantIdAndExternalId(tenantId, externalId.trim())
                 .ifPresent(
                         value -> {
-                            throw new IllegalArgumentException(
-                                    "Customer externalId already exists");
+                            throw new BusinessConflictException(
+                                    "DUPLICATE_EXTERNAL_ID", "Customer externalId already exists");
                         });
         return customers.save(
                 new Customer(
@@ -145,20 +147,79 @@ public class CustomerService {
     public CustomerEmail addEmail(
             UUID tenantId, UUID customerId, String email, String type, boolean primary) {
         get(tenantId, customerId);
-        if (emails.countByTenantIdAndCustomerIdAndStatus(tenantId, customerId, "ACTIVE") >= 5) {
-            throw new IllegalStateException("Customer email limit reached");
+        String normalized = CustomerEmail.normalizeForLookup(email);
+        if (emails.existsByTenantIdAndCustomerIdAndEmail(tenantId, customerId, normalized)) {
+            throw new BusinessConflictException(
+                    "DUPLICATE_CONTACT", "Customer email already exists");
         }
-        return emails.save(new CustomerEmail(tenantId, customerId, email, type, primary));
+        if (emails.countByTenantIdAndCustomerIdAndStatus(tenantId, customerId, "ACTIVE") >= 5) {
+            throw new BusinessConflictException(
+                    "CONTACT_LIMIT_REACHED", "Customer email limit reached");
+        }
+        if (primary) {
+            demoteEmailPrimaries(tenantId, customerId, null);
+        }
+        return emails.save(new CustomerEmail(tenantId, customerId, normalized, type, primary));
+    }
+
+    @Transactional
+    public CustomerEmail updateEmail(
+            UUID tenantId,
+            UUID customerId,
+            UUID emailId,
+            String type,
+            Boolean primary,
+            String status) {
+        get(tenantId, customerId);
+        CustomerEmail value =
+                emails.findByIdAndTenantIdAndCustomerId(emailId, tenantId, customerId)
+                        .orElseThrow(() -> new NoSuchElementException("Customer email not found"));
+        validatePrimaryState(primary, status, "email");
+        if (Boolean.TRUE.equals(primary)) {
+            demoteEmailPrimaries(tenantId, customerId, emailId);
+        }
+        value.updateMetadata(type, primary, status);
+        return value;
     }
 
     @Transactional
     public CustomerPhone addPhone(
             UUID tenantId, UUID customerId, String phone, String type, boolean primary) {
         get(tenantId, customerId);
+        String normalized = CustomerPhone.normalizeForLookup(phone);
+        if (phones.existsByTenantIdAndCustomerIdAndNormalizedPhone(
+                tenantId, customerId, normalized)) {
+            throw new BusinessConflictException(
+                    "DUPLICATE_CONTACT", "Customer phone already exists");
+        }
         if (phones.countByTenantIdAndCustomerIdAndStatus(tenantId, customerId, "ACTIVE") >= 2) {
-            throw new IllegalStateException("Customer phone limit reached");
+            throw new BusinessConflictException(
+                    "CONTACT_LIMIT_REACHED", "Customer phone limit reached");
+        }
+        if (primary) {
+            demotePhonePrimaries(tenantId, customerId, null);
         }
         return phones.save(new CustomerPhone(tenantId, customerId, phone, type, primary));
+    }
+
+    @Transactional
+    public CustomerPhone updatePhone(
+            UUID tenantId,
+            UUID customerId,
+            UUID phoneId,
+            String type,
+            Boolean primary,
+            String status) {
+        get(tenantId, customerId);
+        CustomerPhone value =
+                phones.findByIdAndTenantIdAndCustomerId(phoneId, tenantId, customerId)
+                        .orElseThrow(() -> new NoSuchElementException("Customer phone not found"));
+        validatePrimaryState(primary, status, "phone");
+        if (Boolean.TRUE.equals(primary)) {
+            demotePhonePrimaries(tenantId, customerId, phoneId);
+        }
+        value.updateMetadata(type, primary, status);
+        return value;
     }
 
     @Transactional(readOnly = true)
@@ -184,7 +245,37 @@ public class CustomerService {
     @Transactional
     public CustomerSegment createSegment(
             UUID tenantId, String code, String name, String description) {
-        return segments.save(new CustomerSegment(tenantId, code, name, description));
+        String normalizedCode = code.trim().toUpperCase(Locale.ROOT);
+        segments.findByTenantIdAndCode(tenantId, normalizedCode)
+                .ifPresent(
+                        value -> {
+                            throw new BusinessConflictException(
+                                    "DUPLICATE_SEGMENT_CODE",
+                                    "Customer segment code already exists");
+                        });
+        return segments.save(new CustomerSegment(tenantId, normalizedCode, name, description));
+    }
+
+    @Transactional(readOnly = true)
+    public CustomerSegment segment(UUID tenantId, UUID segmentId) {
+        return segments.findByIdAndTenantId(segmentId, tenantId)
+                .orElseThrow(() -> new NoSuchElementException("Segment not found"));
+    }
+
+    @Transactional
+    public CustomerSegment updateSegment(
+            UUID tenantId,
+            UUID segmentId,
+            String name,
+            String description,
+            Boolean active,
+            Long version) {
+        CustomerSegment value = segment(tenantId, segmentId);
+        if (version != null && value.getVersion() != version) {
+            throw new BusinessConflictException("VERSION_CONFLICT", "Segment version conflict");
+        }
+        value.update(name, description, active);
+        return value;
     }
 
     @Transactional(readOnly = true)
@@ -195,8 +286,7 @@ public class CustomerService {
     @Transactional
     public void addSegment(UUID tenantId, UUID customerId, UUID segmentId) {
         get(tenantId, customerId);
-        segments.findByIdAndTenantId(segmentId, tenantId)
-                .orElseThrow(() -> new NoSuchElementException("Segment not found"));
+        segment(tenantId, segmentId);
         if (!members.existsByTenantIdAndCustomerIdAndSegmentId(tenantId, customerId, segmentId)) {
             members.save(new CustomerSegmentMember(tenantId, customerId, segmentId));
         }
@@ -205,6 +295,7 @@ public class CustomerService {
     @Transactional
     public void removeSegment(UUID tenantId, UUID customerId, UUID segmentId) {
         get(tenantId, customerId);
+        segment(tenantId, segmentId);
         members.deleteByTenantIdAndCustomerIdAndSegmentId(tenantId, customerId, segmentId);
     }
 
@@ -213,6 +304,7 @@ public class CustomerService {
         get(tenantId, customerId);
         return members.findAllByTenantIdAndCustomerId(tenantId, customerId).stream()
                 .map(CustomerSegmentMember::getSegmentId)
+                .sorted()
                 .toList();
     }
 
@@ -223,5 +315,32 @@ public class CustomerService {
             return List.of();
         }
         return members.findAllByTenantIdAndCustomerIdIn(tenantId, customerIds);
+    }
+
+    private void demoteEmailPrimaries(UUID tenantId, UUID customerId, UUID exceptId) {
+        emails
+                .findAllByTenantIdAndCustomerIdAndPrimaryTrueAndStatus(
+                        tenantId, customerId, "ACTIVE")
+                .stream()
+                .filter(value -> exceptId == null || !value.getId().equals(exceptId))
+                .forEach(CustomerEmail::demotePrimary);
+    }
+
+    private void demotePhonePrimaries(UUID tenantId, UUID customerId, UUID exceptId) {
+        phones
+                .findAllByTenantIdAndCustomerIdAndPrimaryTrueAndStatus(
+                        tenantId, customerId, "ACTIVE")
+                .stream()
+                .filter(value -> exceptId == null || !value.getId().equals(exceptId))
+                .forEach(CustomerPhone::demotePrimary);
+    }
+
+    private static void validatePrimaryState(Boolean primary, String status, String resource) {
+        if (Boolean.TRUE.equals(primary)
+                && status != null
+                && "INACTIVE".equals(status.trim().toUpperCase(Locale.ROOT))) {
+            throw new BusinessConflictException(
+                    "INVALID_STATE_TRANSITION", "Inactive " + resource + " cannot be primary");
+        }
     }
 }
