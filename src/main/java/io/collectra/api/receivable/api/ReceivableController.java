@@ -1,7 +1,9 @@
 package io.collectra.api.receivable.api;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import io.collectra.api.receivable.application.ReceivableQueryService;
 import io.collectra.api.receivable.application.ReceivableService;
+import io.collectra.api.receivable.domain.AllocationStatus;
 import io.collectra.api.receivable.domain.Invoice;
 import io.collectra.api.receivable.domain.Payment;
 import io.collectra.api.receivable.domain.PaymentAllocation;
@@ -9,19 +11,27 @@ import io.collectra.api.receivable.domain.PaymentStatus;
 import io.collectra.api.shared.tenant.TenantContext;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -29,15 +39,25 @@ import org.springframework.web.bind.annotation.RestController;
 @PreAuthorize("hasAuthority('ROLE_HUMAN')")
 public class ReceivableController {
     private final ReceivableService service;
+    private final ReceivableQueryService queries;
+    private final Clock clock;
+    private final ZoneId businessZone;
 
-    public ReceivableController(ReceivableService service) {
+    public ReceivableController(
+            ReceivableService service,
+            ReceivableQueryService queries,
+            Clock clock,
+            ZoneId businessZone) {
         this.service = service;
+        this.queries = queries;
+        this.clock = clock;
+        this.businessZone = businessZone;
     }
 
     @PostMapping("/api/v1/invoices")
     @ResponseStatus(HttpStatus.CREATED)
     public InvoiceResponse createInvoice(@Valid @RequestBody InvoiceRequest request) {
-        return InvoiceResponse.from(
+        return invoiceResponse(
                 service.createInvoice(
                         tenant(),
                         request.customerId(),
@@ -53,13 +73,52 @@ public class ReceivableController {
     }
 
     @GetMapping("/api/v1/invoices")
-    public List<InvoiceResponse> invoices() {
-        return service.invoices(tenant()).stream().map(InvoiceResponse::from).toList();
+    public ReceivableQueryService.InvoicePage invoices(
+            @RequestParam(required = false) UUID customerId,
+            @RequestParam(required = false) UUID contractId,
+            @RequestParam(required = false) PaymentStatus paymentStatus,
+            @RequestParam(required = false) String currency,
+            @RequestParam(required = false) String invoiceNumber,
+            @RequestParam(required = false) String externalId,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) LocalDate issuedFrom,
+            @RequestParam(required = false) LocalDate issuedTo,
+            @RequestParam(required = false) LocalDate dueFrom,
+            @RequestParam(required = false) LocalDate dueTo,
+            @RequestParam(required = false) Boolean overdue,
+            @RequestParam(required = false) BigDecimal amountMin,
+            @RequestParam(required = false) BigDecimal amountMax,
+            @RequestParam(required = false) BigDecimal outstandingMin,
+            @RequestParam(required = false) BigDecimal outstandingMax,
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "50") @Min(1) @Max(ReceivableQueryService.MAX_SIZE) int size,
+            @RequestParam(defaultValue = "createdAt,desc") String sort) {
+        return queries.invoices(
+                tenant(),
+                customerId,
+                contractId,
+                paymentStatus,
+                currency,
+                invoiceNumber,
+                externalId,
+                search,
+                issuedFrom,
+                issuedTo,
+                dueFrom,
+                dueTo,
+                overdue,
+                amountMin,
+                amountMax,
+                outstandingMin,
+                outstandingMax,
+                page,
+                size,
+                sort);
     }
 
     @GetMapping("/api/v1/invoices/{id}")
     public InvoiceResponse invoice(@PathVariable UUID id) {
-        return InvoiceResponse.from(service.invoice(tenant(), id));
+        return invoiceResponse(service.invoice(tenant(), id));
     }
 
     @PostMapping("/api/v1/payments")
@@ -79,8 +138,37 @@ public class ReceivableController {
     }
 
     @GetMapping("/api/v1/payments")
-    public List<PaymentResponse> payments() {
-        return service.payments(tenant()).stream().map(PaymentResponse::from).toList();
+    public ReceivableQueryService.PaymentPage payments(
+            @RequestParam(required = false) UUID customerId,
+            @RequestParam(required = false) UUID invoiceId,
+            @RequestParam(required = false) String currency,
+            @RequestParam(required = false) String paymentReference,
+            @RequestParam(required = false) String externalId,
+            @RequestParam(required = false) LocalDate paymentFrom,
+            @RequestParam(required = false) LocalDate paymentTo,
+            @RequestParam(required = false) BigDecimal amountMin,
+            @RequestParam(required = false) BigDecimal amountMax,
+            @RequestParam(required = false) Boolean unallocatedOnly,
+            @RequestParam(required = false) String search,
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "50") @Min(1) @Max(ReceivableQueryService.MAX_SIZE) int size,
+            @RequestParam(defaultValue = "createdAt,desc") String sort) {
+        return queries.payments(
+                tenant(),
+                customerId,
+                invoiceId,
+                currency,
+                paymentReference,
+                externalId,
+                paymentFrom,
+                paymentTo,
+                amountMin,
+                amountMax,
+                unallocatedOnly,
+                search,
+                page,
+                size,
+                sort);
     }
 
     @GetMapping("/api/v1/payments/{id}")
@@ -93,7 +181,12 @@ public class ReceivableController {
     public AllocationResponse allocate(
             @PathVariable UUID id, @Valid @RequestBody AllocationRequest request) {
         PaymentAllocation value =
-                service.allocate(tenant(), id, request.invoiceId(), request.amount());
+                service.allocate(
+                        tenant(),
+                        id,
+                        request.commandId(),
+                        request.invoiceId(),
+                        request.amount());
         return AllocationResponse.from(value);
     }
 
@@ -102,8 +195,41 @@ public class ReceivableController {
         return service.allocations(tenant(), id).stream().map(AllocationResponse::from).toList();
     }
 
+    @GetMapping("/api/v1/invoices/{id}/allocations")
+    public List<AllocationResponse> invoiceAllocations(@PathVariable UUID id) {
+        return service.invoiceAllocations(tenant(), id).stream()
+                .map(AllocationResponse::from)
+                .toList();
+    }
+
+    @PostMapping("/api/v1/payments/{paymentId}/allocations/{allocationId}/reverse")
+    public AllocationResponse reverseAllocation(
+            @PathVariable UUID paymentId,
+            @PathVariable UUID allocationId,
+            @Valid @RequestBody AllocationReversalRequest request) {
+        return AllocationResponse.from(
+                service.reverseAllocation(
+                        tenant(),
+                        paymentId,
+                        allocationId,
+                        request.version(),
+                        request.reason(),
+                        actor()));
+    }
+
+    private InvoiceResponse invoiceResponse(Invoice value) {
+        LocalDate businessDate = LocalDate.now(clock.withZone(businessZone));
+        boolean overdue = value.isOverdue(businessDate);
+        long daysOverdue = overdue ? ChronoUnit.DAYS.between(value.getDueDate(), businessDate) : 0;
+        return InvoiceResponse.from(value, overdue, daysOverdue, businessDate);
+    }
+
     private UUID tenant() {
         return TenantContext.requireTenantId();
+    }
+
+    private String actor() {
+        return SecurityContextHolder.getContext().getAuthentication().getName();
     }
 
     public record InvoiceRequest(
@@ -129,7 +255,12 @@ public class ReceivableController {
             JsonNode customFields) {}
 
     public record AllocationRequest(
-            @NotNull UUID invoiceId, @NotNull @DecimalMin("0.0001") BigDecimal amount) {}
+            @NotNull UUID commandId,
+            @NotNull UUID invoiceId,
+            @NotNull @DecimalMin("0.0001") BigDecimal amount) {}
+
+    public record AllocationReversalRequest(
+            @Min(0) long version, @NotBlank @Size(max = 200) String reason) {}
 
     public record InvoiceResponse(
             UUID id,
@@ -145,9 +276,15 @@ public class ReceivableController {
             String currency,
             PaymentStatus paymentStatus,
             boolean overdue,
+            long daysOverdue,
+            LocalDate businessDate,
             UUID documentFileId,
-            JsonNode customFields) {
-        static InvoiceResponse from(Invoice value) {
+            JsonNode customFields,
+            Instant createdAt,
+            Instant updatedAt,
+            long version) {
+        static InvoiceResponse from(
+                Invoice value, boolean overdue, long daysOverdue, LocalDate businessDate) {
             return new InvoiceResponse(
                     value.getId(),
                     value.getCustomerId(),
@@ -161,9 +298,14 @@ public class ReceivableController {
                     value.getOutstandingAmount(),
                     value.getCurrency(),
                     value.getPaymentStatus(),
-                    value.isOverdue(LocalDate.now()),
+                    overdue,
+                    daysOverdue,
+                    businessDate,
                     value.getDocumentFileId(),
-                    value.getCustomFields());
+                    value.getCustomFields(),
+                    value.getCreatedAt(),
+                    value.getUpdatedAt(),
+                    value.getVersion());
         }
     }
 
@@ -176,7 +318,10 @@ public class ReceivableController {
             String currency,
             String paymentReference,
             String source,
-            JsonNode customFields) {
+            JsonNode customFields,
+            Instant createdAt,
+            Instant updatedAt,
+            long version) {
         static PaymentResponse from(Payment value) {
             return new PaymentResponse(
                     value.getId(),
@@ -187,14 +332,38 @@ public class ReceivableController {
                     value.getCurrency(),
                     value.getPaymentReference(),
                     value.getSource(),
-                    value.getCustomFields());
+                    value.getCustomFields(),
+                    value.getCreatedAt(),
+                    value.getUpdatedAt(),
+                    value.getVersion());
         }
     }
 
-    public record AllocationResponse(UUID id, UUID paymentId, UUID invoiceId, BigDecimal amount) {
+    public record AllocationResponse(
+            UUID id,
+            UUID paymentId,
+            UUID invoiceId,
+            UUID commandId,
+            BigDecimal amount,
+            AllocationStatus status,
+            Instant reversedAt,
+            String reversedBy,
+            String reversalReason,
+            Instant createdAt,
+            long version) {
         static AllocationResponse from(PaymentAllocation value) {
             return new AllocationResponse(
-                    value.getId(), value.getPaymentId(), value.getInvoiceId(), value.getAmount());
+                    value.getId(),
+                    value.getPaymentId(),
+                    value.getInvoiceId(),
+                    value.getCommandId(),
+                    value.getAmount(),
+                    value.getStatus(),
+                    value.getReversedAt(),
+                    value.getReversedBy(),
+                    value.getReversalReason(),
+                    value.getCreatedAt(),
+                    value.getVersion());
         }
     }
 }
