@@ -93,9 +93,7 @@ class KumoMtaClientHttpTest {
                     .isInstanceOf(RestClientResponseException.class)
                     .extracting(
                             failure ->
-                                    ((RestClientResponseException) failure)
-                                            .getStatusCode()
-                                            .value())
+                                    ((RestClientResponseException) failure).getStatusCode().value())
                     .isEqualTo(expectedStatus);
         }
     }
