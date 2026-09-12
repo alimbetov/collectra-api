@@ -4,6 +4,10 @@
 ALTER TABLE messages
     ADD COLUMN delivery_requested_at TIMESTAMPTZ;
 
+ALTER TABLE campaigns
+    ADD COLUMN generated_pdf_attachment BOOLEAN NOT NULL DEFAULT FALSE,
+    ADD COLUMN generated_pdf_attachment_required BOOLEAN NOT NULL DEFAULT FALSE;
+
 CREATE TABLE message_attachments (
     id UUID PRIMARY KEY,
     tenant_id UUID NOT NULL REFERENCES tenants(id),
@@ -21,15 +25,29 @@ CREATE TABLE message_attachments (
     ready_at TIMESTAMPTZ,
     failed_at TIMESTAMPTZ,
 
-    CONSTRAINT uk_message_attachment_job UNIQUE (message_id, generation_job_id),
+    CONSTRAINT uk_message_attachment_job_format UNIQUE (message_id, generation_job_id, output_format),
     CONSTRAINT ck_message_attachment_format CHECK (output_format IN ('PDF')),
     CONSTRAINT ck_message_attachment_status CHECK (status IN ('PENDING','READY','FAILED')),
     CONSTRAINT ck_message_attachment_state CHECK (
-        (status = 'PENDING' AND generated_document_id IS NULL AND ready_at IS NULL AND failed_at IS NULL)
+        (status = 'PENDING'
+            AND generated_document_id IS NULL
+            AND ready_at IS NULL
+            AND failed_at IS NULL
+            AND failure_code IS NULL
+            AND failure_message IS NULL)
         OR
-        (status = 'READY' AND generated_document_id IS NOT NULL AND ready_at IS NOT NULL AND failed_at IS NULL)
+        (status = 'READY'
+            AND generated_document_id IS NOT NULL
+            AND ready_at IS NOT NULL
+            AND failed_at IS NULL
+            AND failure_code IS NULL
+            AND failure_message IS NULL)
         OR
-        (status = 'FAILED' AND generated_document_id IS NULL AND ready_at IS NULL AND failed_at IS NOT NULL)
+        (status = 'FAILED'
+            AND generated_document_id IS NULL
+            AND ready_at IS NULL
+            AND failed_at IS NOT NULL
+            AND failure_code IS NOT NULL)
     )
 );
 
