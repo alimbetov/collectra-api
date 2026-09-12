@@ -156,7 +156,7 @@ class CampaignMessageMaterializationIntegrationTest extends AbstractIntegrationT
     @Test
     void finalEligibilitySkipsPaidRecipientWithoutCreatingMessageOrDeliveryEvent() {
         Fixture fixture = prepareCampaign(1);
-        var invoice = fixture.invoices().getFirst();
+        var invoice = fixture.invoices().get(0);
         LocalDate today = LocalDate.now(clock);
 
         var payment =
