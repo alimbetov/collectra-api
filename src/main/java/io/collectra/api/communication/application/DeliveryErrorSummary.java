@@ -19,11 +19,11 @@ public class DeliveryErrorSummary {
         if (code.contains("INVALID") || code.contains("RECIPIENT")) {
             return "INVALID_DESTINATION";
         }
-        if (code.contains("5XX") || code.startsWith("5")) {
-            return "PROVIDER_5XX";
-        }
         if (code.contains("PERMANENT") || code.contains("REJECT")) {
             return "PERMANENT_PROVIDER_REJECTION";
+        }
+        if (code.contains("5XX") || code.startsWith("5")) {
+            return "PROVIDER_5XX";
         }
         return "UNKNOWN";
     }
