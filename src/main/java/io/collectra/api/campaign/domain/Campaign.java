@@ -43,6 +43,12 @@ public class Campaign extends AuditableEntity {
     @Column(name = "selection_criteria", nullable = false, columnDefinition = "jsonb")
     private JsonNode selectionCriteria;
 
+    @Column(name = "generated_pdf_attachment", nullable = false)
+    private boolean generatedPdfAttachment;
+
+    @Column(name = "generated_pdf_attachment_required", nullable = false)
+    private boolean generatedPdfAttachmentRequired;
+
     @Column(name = "created_by")
     private UUID createdBy;
 
@@ -56,6 +62,28 @@ public class Campaign extends AuditableEntity {
             Instant scheduledAt,
             JsonNode selectionCriteria,
             UUID createdBy) {
+        this(
+                tenantId,
+                name,
+                templateVersionId,
+                channel,
+                scheduledAt,
+                selectionCriteria,
+                false,
+                true,
+                createdBy);
+    }
+
+    public Campaign(
+            UUID tenantId,
+            String name,
+            UUID templateVersionId,
+            String channel,
+            Instant scheduledAt,
+            JsonNode selectionCriteria,
+            boolean generatedPdfAttachment,
+            boolean generatedPdfAttachmentRequired,
+            UUID createdBy) {
         this.id = UUID.randomUUID();
         this.tenantId = Objects.requireNonNull(tenantId);
         this.name = required(name, "name");
@@ -63,6 +91,8 @@ public class Campaign extends AuditableEntity {
         this.channel = required(channel, "channel").toUpperCase(Locale.ROOT);
         this.scheduledAt = scheduledAt;
         this.selectionCriteria = Objects.requireNonNull(selectionCriteria).deepCopy();
+        this.generatedPdfAttachment = generatedPdfAttachment;
+        this.generatedPdfAttachmentRequired = generatedPdfAttachment && generatedPdfAttachmentRequired;
         this.createdBy = createdBy;
         this.status = CampaignStatus.DRAFT;
     }
@@ -108,6 +138,14 @@ public class Campaign extends AuditableEntity {
 
     public JsonNode getSelectionCriteria() {
         return selectionCriteria.deepCopy();
+    }
+
+    public boolean isGeneratedPdfAttachment() {
+        return generatedPdfAttachment;
+    }
+
+    public boolean isGeneratedPdfAttachmentRequired() {
+        return generatedPdfAttachmentRequired;
     }
 
     public UUID getCreatedBy() {
