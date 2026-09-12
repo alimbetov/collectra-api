@@ -33,6 +33,7 @@ collectra:
     recovery-batch-size: 100
     recovery-delay: 1m
     retry-dispatch-batch-size: 100
+    retry-dispatch-delay: 1m
   messaging:
     outbox-publish-delay-ms: 1000
     outbox-recovery-delay-ms: 60000

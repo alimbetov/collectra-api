@@ -11,6 +11,7 @@ import io.collectra.api.campaign.domain.CampaignRun;
 import io.collectra.api.communication.application.DeliveryCommand;
 import io.collectra.api.communication.application.DeliveryGateway;
 import io.collectra.api.communication.application.DeliveryResult;
+import io.collectra.api.communication.application.MessageDeliveryRequested;
 import io.collectra.api.communication.application.MessageDeliveryWorker;
 import io.collectra.api.communication.application.MessageRecoveryService;
 import io.collectra.api.communication.application.MessageRetryDispatcher;
@@ -19,6 +20,7 @@ import io.collectra.api.communication.domain.CommunicationChannel;
 import io.collectra.api.communication.domain.Message;
 import io.collectra.api.communication.domain.MessageStatus;
 import io.collectra.api.communication.infrastructure.MessageRepository;
+import io.collectra.api.communication.infrastructure.messaging.MessageDeliveryListener;
 import io.collectra.api.customer.application.CustomerService;
 import io.collectra.api.customer.domain.Customer;
 import io.collectra.api.customer.domain.CustomerType;
@@ -43,6 +45,7 @@ import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -69,6 +72,7 @@ class MessageProcessingIntegrationTest extends AbstractIntegrationTest {
     @Autowired MessageRecoveryService recovery;
     @Autowired MessageRetryDispatcher retryDispatcher;
     @Autowired MessageDeliveryWorker worker;
+    @Autowired MessageDeliveryListener listener;
     @Autowired RecordingDeliveryGateway gateway;
     @Autowired ObjectMapper json;
     @Autowired Clock clock;
@@ -173,7 +177,7 @@ class MessageProcessingIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void dispatcherRequeuesOnlyDueRetryWithoutPublishingAnything() {
+    void dispatcherAtomicallyRequeuesDueRetryAndAppendsOneDeliveryEvent() throws Exception {
         Fixture due = fixture();
         Fixture future = fixture();
         states.begin(due.tenantId(), due.messageId());
@@ -194,6 +198,71 @@ class MessageProcessingIntegrationTest extends AbstractIntegrationTest {
         assertThat(requeued.getNextRetryAt()).isNull();
         assertThat(messages.findById(future.messageId()).orElseThrow().getStatus())
                 .isEqualTo(MessageStatus.RETRY_WAIT);
+
+        assertThat(deliveryEventCount(due.messageId())).isOne();
+        String payload =
+                jdbc.queryForObject(
+                        "SELECT payload::text FROM outbox_events WHERE event_type = ? AND"
+                            + " aggregate_id = ?",
+                        String.class,
+                        "MESSAGE_DELIVERY_REQUESTED",
+                        due.messageId());
+        assertThat(json.readTree(payload).path("tenantId").asText())
+                .isEqualTo(due.tenantId().toString());
+        assertThat(json.readTree(payload).path("messageId").asText())
+                .isEqualTo(due.messageId().toString());
+
+        assertThat(retryDispatcher.dispatchDue()).isZero();
+        assertThat(deliveryEventCount(due.messageId())).isOne();
+    }
+
+    @Test
+    void concurrentDispatchersAppendExactlyOneDeliveryEvent() throws Exception {
+        Fixture due = fixture();
+        states.begin(due.tenantId(), due.messageId());
+        states.scheduleRetry(
+                due.tenantId(), due.messageId(), NOW.plusSeconds(60), "TEMP", "temporary");
+        jdbc.update(
+                "UPDATE messages SET next_retry_at = ? WHERE id = ?",
+                Timestamp.from(NOW.minusSeconds(1)),
+                due.messageId());
+        var ready = new CountDownLatch(2);
+        var start = new CountDownLatch(1);
+        var pool = Executors.newFixedThreadPool(2);
+        try {
+            var first =
+                    pool.submit(
+                            () -> {
+                                ready.countDown();
+                                start.await();
+                                return retryDispatcher.dispatchDue();
+                            });
+            var second =
+                    pool.submit(
+                            () -> {
+                                ready.countDown();
+                                start.await();
+                                return retryDispatcher.dispatchDue();
+                            });
+            assertThat(ready.await(5, TimeUnit.SECONDS)).isTrue();
+            start.countDown();
+
+            assertThat(first.get(10, TimeUnit.SECONDS) + second.get(10, TimeUnit.SECONDS)).isOne();
+        } finally {
+            pool.shutdownNow();
+        }
+
+        assertThat(messages.findById(due.messageId()).orElseThrow().getStatus())
+                .isEqualTo(MessageStatus.QUEUED);
+        assertThat(deliveryEventCount(due.messageId())).isOne();
+    }
+
+    private long deliveryEventCount(UUID messageId) {
+        return jdbc.queryForObject(
+                "SELECT count(*) FROM outbox_events WHERE event_type = ? AND aggregate_id = ?",
+                Long.class,
+                "MESSAGE_DELIVERY_REQUESTED",
+                messageId);
     }
 
     @Test
@@ -204,6 +273,21 @@ class MessageProcessingIntegrationTest extends AbstractIntegrationTest {
         worker.deliver(fixture.tenantId(), fixture.messageId());
 
         assertThat(gateway.transactionActive()).isFalse();
+        assertThat(messages.findById(fixture.messageId()).orElseThrow().getStatus())
+                .isEqualTo(MessageStatus.SENT);
+    }
+
+    @Test
+    void duplicateDeliveryEventCausesOneProviderAttempt() {
+        Fixture fixture = fixture();
+        gateway.reset();
+        MessageDeliveryRequested event =
+                new MessageDeliveryRequested(fixture.tenantId(), fixture.messageId());
+
+        listener.consume(event);
+        listener.consume(event);
+
+        assertThat(gateway.deliveryCount()).isOne();
         assertThat(messages.findById(fixture.messageId()).orElseThrow().getStatus())
                 .isEqualTo(MessageStatus.SENT);
     }
@@ -309,10 +393,12 @@ class MessageProcessingIntegrationTest extends AbstractIntegrationTest {
 
     static class RecordingDeliveryGateway implements DeliveryGateway {
         private volatile boolean transactionActive;
+        private final AtomicInteger deliveryCount = new AtomicInteger();
 
         @Override
         public DeliveryResult deliver(DeliveryCommand command) {
             transactionActive = TransactionSynchronizationManager.isActualTransactionActive();
+            deliveryCount.incrementAndGet();
             return new DeliveryResult.Accepted("test-provider-id");
         }
 
@@ -322,6 +408,11 @@ class MessageProcessingIntegrationTest extends AbstractIntegrationTest {
 
         void reset() {
             transactionActive = true;
+            deliveryCount.set(0);
+        }
+
+        int deliveryCount() {
+            return deliveryCount.get();
         }
     }
 }

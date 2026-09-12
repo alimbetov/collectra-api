@@ -1,6 +1,6 @@
 # Slice 3 — Message delivery messaging
 
-Status: BLOCKED BY INTEGRATION-TEST RUNTIME REPAIR
+Status: IN PROGRESS
 Depends on: Slice 2 — Message processing core  
 Suggested branch: `feat/message-delivery-messaging`
 
@@ -45,17 +45,20 @@ DB transaction
 ```text
 io.collectra.api.communication.infrastructure.messaging
 ├── CommunicationMessagingConfig.java
-├── MessageDeliveryRequested.java
 └── MessageDeliveryListener.java
 ```
 
-При необходимости:
+Application contract:
 
 ```text
+communication.application.MessageDeliveryRequested.java
 communication.application.MessageDeliveryEventPublisher.java
 ```
 
-но предпочтительно использовать существующий `OutboxService` напрямую из application transaction, если это соответствует уже принятому project style.
+Event record находится в application, чтобы application services не зависели от
+`communication.infrastructure.messaging`. `MessageDeliveryEventPublisher`
+инкапсулирует JSON serialization и `OutboxService.append(...)`; его переиспользуют
+Slice 5 и Slice 7 вместо копирования event type/aggregate/payload assembly.
 
 Изменить:
 
@@ -107,7 +110,7 @@ Payload intentionally не содержит:
 
 ## 5. MessageDeliveryRequested
 
-Рекомендуемый record:
+Record:
 
 ```java
 public record MessageDeliveryRequested(
@@ -115,7 +118,8 @@ public record MessageDeliveryRequested(
         UUID messageId) {}
 ```
 
-JSON contract должен быть стабильным и покрыт serialization test.
+Оба UUID обязательны; compact constructor делает fail-fast null validation. JSON
+contract должен быть стабильным и покрыт serialization/deserialization test.
 
 ## 6. RabbitMQ topology
 
@@ -127,7 +131,9 @@ JSON contract должен быть стабильным и покрыт seriali
 exchange:     collectra.communication
 routing key:  message.delivery.requested
 queue:        collectra.communication.message-delivery
-DLX/queue:    использовать существующий project pattern, если он уже стандартизирован
+dead exchange: collectra.communication.dead
+dead key:      message.delivery.dead
+dead queue:    collectra.communication.message-delivery.dead
 ```
 
 `CommunicationMessagingConfig` должен быть единственным местом с именами exchange/queue/routing key.
@@ -138,6 +144,11 @@ DLX/queue:    использовать существующий project pattern,
 setup.
 
 Не добавлять business retry TTL chain в RabbitMQ для `Message`. Retry scheduling контролируется `Message.nextRetryAt`.
+
+Основная queue обязана иметь DLX arguments. Fatal conversion/malformed payload
+reject отправляется в dead queue; это infrastructure quarantine, не business
+retry. Queue/exchange/binding beans должны использовать explicit qualifiers, так
+как document topology уже создаёт несколько beans тех же Rabbit типов.
 
 ## 7. Outbox routing
 
@@ -213,6 +224,12 @@ Listener не должен:
 Business processing outcome `SENT/RETRY_WAIT/FAILED` считается успешно обработанным message event и не должен бесконечно redeliver-иться RabbitMQ.
 
 Unexpected technical exception допускается обрабатывать согласно существующей project Rabbit listener policy.
+
+Не перехватывать `Exception` в thin listener. Стандартный Spring AMQP fatal
+conversion handler reject-ит malformed payload без requeue, после чего DLX
+карантинирует его. Нефатальная application/DB exception может быть redelivered;
+Slice 2 claim и stale recovery обеспечивают безопасность. Не настраивать
+бесконечный application-level retry loop внутри listener.
 
 Важно разделить:
 
@@ -321,9 +338,10 @@ OutboxEvent MESSAGE_DELIVERY_REQUESTED
 3. Outbox router route;
 4. listener;
 5. retry dispatcher Outbox append;
-6. serialization/router/listener tests;
-7. Rabbit/outbox integration test;
-8. `mvn verify`.
+6. remove entity-internal Outbox `Instant.now()`;
+7. serialization/router/listener/topology tests;
+8. PostgreSQL Outbox atomicity/idempotency test;
+9. `mvn verify`.
 
 ## 17. Out of scope
 
