@@ -11,7 +11,9 @@ public record DeliveryAttachment(String filename, String contentType, byte[] con
         if (contentType == null || contentType.isBlank()) {
             throw new IllegalArgumentException("contentType is required");
         }
-        content = Arrays.copyOf(Objects.requireNonNull(content, "content is required"), content.length);
+        content =
+                Arrays.copyOf(
+                        Objects.requireNonNull(content, "content is required"), content.length);
     }
 
     @Override
