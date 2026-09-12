@@ -56,11 +56,7 @@ public class MessageDeliveryAttempt {
     protected MessageDeliveryAttempt() {}
 
     private MessageDeliveryAttempt(
-            UUID tenantId,
-            UUID messageId,
-            int attemptNo,
-            String deliveryKey,
-            Instant startedAt) {
+            UUID tenantId, UUID messageId, int attemptNo, String deliveryKey, Instant startedAt) {
         if (attemptNo < 1) {
             throw new IllegalArgumentException("attemptNo must be positive");
         }
@@ -74,11 +70,7 @@ public class MessageDeliveryAttempt {
     }
 
     public static MessageDeliveryAttempt started(
-            UUID tenantId,
-            UUID messageId,
-            int attemptNo,
-            String deliveryKey,
-            Instant startedAt) {
+            UUID tenantId, UUID messageId, int attemptNo, String deliveryKey, Instant startedAt) {
         return new MessageDeliveryAttempt(tenantId, messageId, attemptNo, deliveryKey, startedAt);
     }
 
@@ -141,14 +133,43 @@ public class MessageDeliveryAttempt {
         return normalized.length() <= maxLength ? normalized : normalized.substring(0, maxLength);
     }
 
-    public UUID getId() { return id; }
-    public UUID getTenantId() { return tenantId; }
-    public UUID getMessageId() { return messageId; }
-    public int getAttemptNo() { return attemptNo; }
-    public String getDeliveryKey() { return deliveryKey; }
-    public DeliveryAttemptStatus getStatus() { return status; }
-    public String getProviderReference() { return providerReference; }
-    public String getErrorCode() { return errorCode; }
-    public Instant getStartedAt() { return startedAt; }
-    public Instant getCompletedAt() { return completedAt; }
+    public UUID getId() {
+        return id;
+    }
+
+    public UUID getTenantId() {
+        return tenantId;
+    }
+
+    public UUID getMessageId() {
+        return messageId;
+    }
+
+    public int getAttemptNo() {
+        return attemptNo;
+    }
+
+    public String getDeliveryKey() {
+        return deliveryKey;
+    }
+
+    public DeliveryAttemptStatus getStatus() {
+        return status;
+    }
+
+    public String getProviderReference() {
+        return providerReference;
+    }
+
+    public String getErrorCode() {
+        return errorCode;
+    }
+
+    public Instant getStartedAt() {
+        return startedAt;
+    }
+
+    public Instant getCompletedAt() {
+        return completedAt;
+    }
 }
