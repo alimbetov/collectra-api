@@ -9,6 +9,7 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
@@ -19,7 +20,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.web.client.ResourceAccessException;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
 class KumoMtaClientHttpTest {
@@ -106,7 +107,22 @@ class KumoMtaClientHttpTest {
                         () ->
                                 new KumoMtaClient(properties(Duration.ofMillis(50)))
                                         .inject(request()))
-                .isInstanceOf(ResourceAccessException.class);
+                .isInstanceOf(RestClientException.class)
+                .satisfies(
+                        failure ->
+                                assertThat(containsCause(failure, SocketTimeoutException.class))
+                                        .isTrue());
+    }
+
+    private boolean containsCause(Throwable failure, Class<? extends Throwable> type) {
+        Throwable current = failure;
+        while (current != null) {
+            if (type.isInstance(current)) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 
     private KumoMtaProperties properties(Duration readTimeout) {
