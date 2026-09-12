@@ -58,7 +58,8 @@ public class MessageAttachmentService {
                     "Required attachment cannot be added after delivery became eligible");
         }
         if (message.getStatus() != MessageStatus.QUEUED) {
-            throw new IllegalStateException("Attachment can only be materialized for QUEUED message");
+            throw new IllegalStateException(
+                    "Attachment can only be materialized for QUEUED message");
         }
         return attachments.save(
                 MessageAttachment.pendingPdf(
@@ -73,7 +74,9 @@ public class MessageAttachmentService {
     @Transactional
     public boolean generationCompleted(UUID tenantId, UUID generationJobId) {
         MessageAttachment correlation =
-                attachments.findByTenantIdAndGenerationJobId(tenantId, generationJobId).orElse(null);
+                attachments
+                        .findByTenantIdAndGenerationJobId(tenantId, generationJobId)
+                        .orElse(null);
         if (correlation == null) {
             return false;
         }
@@ -97,7 +100,8 @@ public class MessageAttachmentService {
                                         new IllegalStateException(
                                                 "Generated output metadata is missing for completed job"));
         if (!document.getFormat().equals(attachment.getOutputFormat())) {
-            throw new IllegalStateException("Generated output format differs from attachment requirement");
+            throw new IllegalStateException(
+                    "Generated output format differs from attachment requirement");
         }
 
         attachment.markReady(document.getId(), clock.instant());
@@ -109,7 +113,9 @@ public class MessageAttachmentService {
     public boolean generationFailed(
             UUID tenantId, UUID generationJobId, String errorCode, String errorMessage) {
         MessageAttachment correlation =
-                attachments.findByTenantIdAndGenerationJobId(tenantId, generationJobId).orElse(null);
+                attachments
+                        .findByTenantIdAndGenerationJobId(tenantId, generationJobId)
+                        .orElse(null);
         if (correlation == null) {
             return false;
         }
@@ -154,7 +160,8 @@ public class MessageAttachmentService {
     }
 
     private MessageAttachment lockedAttachment(UUID tenantId, UUID generationJobId) {
-        return attachments.findLockedByTenantIdAndGenerationJobId(tenantId, generationJobId)
+        return attachments
+                .findLockedByTenantIdAndGenerationJobId(tenantId, generationJobId)
                 .orElseThrow(() -> new NoSuchElementException("Message attachment not found"));
     }
 }
