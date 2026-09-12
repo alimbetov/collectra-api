@@ -56,7 +56,10 @@ public class ReceivableQueryService {
     private final ZoneId businessZone;
 
     public ReceivableQueryService(
-            InvoiceRepository invoices, PaymentRepository payments, Clock clock, ZoneId businessZone) {
+            InvoiceRepository invoices,
+            PaymentRepository payments,
+            Clock clock,
+            ZoneId businessZone) {
         this.invoices = invoices;
         this.payments = payments;
         this.clock = clock;
@@ -221,7 +224,10 @@ public class ReceivableQueryService {
                 predicates.add(cb.equal(root.get("currency"), currency));
             }
             if (invoiceNumber != null) {
-                predicates.add(cb.equal(cb.lower(root.<String>get("invoiceNumber")), invoiceNumber.toLowerCase(Locale.ROOT)));
+                predicates.add(
+                        cb.equal(
+                                cb.lower(root.<String>get("invoiceNumber")),
+                                invoiceNumber.toLowerCase(Locale.ROOT)));
             }
             if (externalId != null) {
                 predicates.add(cb.equal(root.get("externalId"), externalId));
@@ -245,13 +251,17 @@ public class ReceivableQueryService {
                 predicates.add(cb.lessThanOrEqualTo(root.get("dueDate"), dueTo));
             }
             if (Boolean.TRUE.equals(overdue)) {
-                predicates.add(cb.not(root.get("paymentStatus").in(PaymentStatus.PAID, PaymentStatus.CANCELLED)));
+                predicates.add(
+                        cb.not(
+                                root.get("paymentStatus")
+                                        .in(PaymentStatus.PAID, PaymentStatus.CANCELLED)));
                 predicates.add(cb.greaterThan(root.get("outstandingAmount"), BigDecimal.ZERO));
                 predicates.add(cb.lessThan(root.get("dueDate"), businessDate));
             } else if (Boolean.FALSE.equals(overdue)) {
                 predicates.add(
                         cb.or(
-                                root.get("paymentStatus").in(PaymentStatus.PAID, PaymentStatus.CANCELLED),
+                                root.get("paymentStatus")
+                                        .in(PaymentStatus.PAID, PaymentStatus.CANCELLED),
                                 cb.lessThanOrEqualTo(root.get("outstandingAmount"), BigDecimal.ZERO),
                                 cb.greaterThanOrEqualTo(root.get("dueDate"), businessDate)));
             }
@@ -262,7 +272,8 @@ public class ReceivableQueryService {
                 predicates.add(cb.lessThanOrEqualTo(root.get("originalAmount"), amountMax));
             }
             if (outstandingMin != null) {
-                predicates.add(cb.greaterThanOrEqualTo(root.get("outstandingAmount"), outstandingMin));
+                predicates.add(
+                        cb.greaterThanOrEqualTo(root.get("outstandingAmount"), outstandingMin));
             }
             if (outstandingMax != null) {
                 predicates.add(cb.lessThanOrEqualTo(root.get("outstandingAmount"), outstandingMax));
@@ -429,7 +440,11 @@ public class ReceivableQueryService {
             long daysOverdue) {
         static InvoiceItem from(Invoice value, LocalDate businessDate) {
             boolean overdue = value.isOverdue(businessDate);
-            long days = overdue ? java.time.temporal.ChronoUnit.DAYS.between(value.getDueDate(), businessDate) : 0;
+            long days =
+                    overdue
+                            ? java.time.temporal.ChronoUnit.DAYS.between(
+                                    value.getDueDate(), businessDate)
+                            : 0;
             return new InvoiceItem(
                     value.getId(),
                     value.getCustomerId(),
