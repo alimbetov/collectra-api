@@ -27,6 +27,8 @@ springdoc:
   swagger-ui.path: /swagger-ui.html
 collectra:
   communication:
+    delivery:
+      enabled: false
     processing-timeout: 5m
     recovery-batch-size: 100
     recovery-delay: 1m
