@@ -12,8 +12,7 @@ import org.springframework.context.annotation.Configuration;
 @Configuration(proxyBeanMethods = false)
 public class CommunicationMessagingConfig {
     public static final String EXCHANGE = "collectra.communication";
-    public static final String MESSAGE_DELIVERY_QUEUE =
-            "collectra.communication.message-delivery";
+    public static final String MESSAGE_DELIVERY_QUEUE = "collectra.communication.message-delivery";
     public static final String ROUTING_KEY = "message.delivery.requested";
     public static final String DEAD_EXCHANGE = "collectra.communication.dead";
     public static final String DEAD_QUEUE = "collectra.communication.message-delivery.dead";

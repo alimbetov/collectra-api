@@ -13,16 +13,13 @@ class CommunicationMessagingConfigTest {
 
         assertThat(queue.getName()).isEqualTo(CommunicationMessagingConfig.MESSAGE_DELIVERY_QUEUE);
         assertThat(queue.getArguments())
+                .containsEntry("x-dead-letter-exchange", CommunicationMessagingConfig.DEAD_EXCHANGE)
                 .containsEntry(
-                        "x-dead-letter-exchange", CommunicationMessagingConfig.DEAD_EXCHANGE)
-                .containsEntry(
-                        "x-dead-letter-routing-key",
-                        CommunicationMessagingConfig.DEAD_ROUTING_KEY)
+                        "x-dead-letter-routing-key", CommunicationMessagingConfig.DEAD_ROUTING_KEY)
                 .doesNotContainKeys("x-message-ttl");
 
         var binding =
-                config.communicationMessageDeliveryBinding(
-                        queue, config.communicationExchange());
+                config.communicationMessageDeliveryBinding(queue, config.communicationExchange());
         assertThat(binding.getExchange()).isEqualTo(CommunicationMessagingConfig.EXCHANGE);
         assertThat(binding.getRoutingKey()).isEqualTo(CommunicationMessagingConfig.ROUTING_KEY);
     }

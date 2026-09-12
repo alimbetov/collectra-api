@@ -203,7 +203,7 @@ class MessageProcessingIntegrationTest extends AbstractIntegrationTest {
         String payload =
                 jdbc.queryForObject(
                         "SELECT payload::text FROM outbox_events WHERE event_type = ? AND"
-                            + " aggregate_id = ?",
+                                + " aggregate_id = ?",
                         String.class,
                         "MESSAGE_DELIVERY_REQUESTED",
                         due.messageId());
