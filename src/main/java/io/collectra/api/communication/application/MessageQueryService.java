@@ -1,6 +1,5 @@
 package io.collectra.api.communication.application;
 
-import io.collectra.api.campaign.domain.CampaignRun;
 import io.collectra.api.campaign.infrastructure.CampaignRunRepository;
 import io.collectra.api.communication.domain.CommunicationChannel;
 import io.collectra.api.communication.domain.Message;
@@ -79,7 +78,8 @@ public class MessageQueryService {
                                 messageId, tenantId, campaignId, runId)
                         .orElseThrow(() -> new NoSuchElementException("Message not found"));
         List<AttachmentDetail> attachmentDetails =
-                attachments.findAllByTenantIdAndMessageIdOrderByCreatedAtAsc(tenantId, messageId)
+                attachments
+                        .findAllByTenantIdAndMessageIdOrderByCreatedAtAsc(tenantId, messageId)
                         .stream()
                         .map(this::attachment)
                         .toList();
@@ -107,13 +107,9 @@ public class MessageQueryService {
     }
 
     private void requireRun(UUID tenantId, UUID campaignId, UUID runId) {
-        CampaignRun run =
-                runs.findByIdAndTenantId(runId, tenantId)
-                        .filter(value -> value.getCampaignId().equals(campaignId))
-                        .orElseThrow(() -> new NoSuchElementException("Campaign run not found"));
-        if (!run.getCampaignId().equals(campaignId)) {
-            throw new NoSuchElementException("Campaign run not found");
-        }
+        runs.findByIdAndTenantId(runId, tenantId)
+                .filter(value -> value.getCampaignId().equals(campaignId))
+                .orElseThrow(() -> new NoSuchElementException("Campaign run not found"));
     }
 
     private MessageListItem listItem(Message message) {
