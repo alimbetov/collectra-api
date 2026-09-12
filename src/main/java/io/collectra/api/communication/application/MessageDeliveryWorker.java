@@ -111,7 +111,7 @@ public class MessageDeliveryWorker {
 
     private void handleResolutionFailure(
             MessageDeliverySnapshot message, AttachmentResolutionException failure) {
-        int retryOrdinal = Math.max(1, message.attemptCount());
+        int retryOrdinal = Math.max(1, message.processingAttemptCount());
         if (failure.kind() == DeliveryFailureKind.RETRYABLE
                 && !retryPolicy.exhausted(retryOrdinal)) {
             states.scheduleRetry(
