@@ -26,10 +26,14 @@ https://docs.kumomta.com/reference/http/kumod/api_inject_v1_post/
 Минимальная поддерживаемая версия deployment для этого contract:
 
 ```text
-2025.12.02-67ee9e96
+2026.05.12-a6845223
 ```
 
-Именно с неё `template_dialect = Static` является частью официального API.
+`template_dialect = Static` появился в официальном API начиная с
+`2025.12.02-67ee9e96`, а используемый этим Slice per-recipient `metadata`
+поддерживается начиная с `2026.05.12-a6845223`. Поэтому фактический minimum
+для полного request contract — `2026.05.12-a6845223`.
+
 Deployment version проверяется в Definition of Ready; молча fallback-ить на
 Jinja запрещено, иначе уже rendered `{{...}}` content может измениться повторно.
 
@@ -212,6 +216,11 @@ AND fail_count == 0
 
 Если HTTP 2xx, но `fail_count > 0` или recipient присутствует в `failed_recipients`, это rejection, а не Accepted.
 
+Неконсистентный `2xx` response, например `success_count=0, fail_count=0` или
+`success_count > 1` для single-recipient request, считается provider contract
+failure и классифицируется как `RETRYABLE / KUMO_INVALID_RESPONSE`. Он не должен
+безвозвратно переводить бизнес-сообщение в `FAILED`.
+
 ## 7. providerMessageId semantics
 
 Текущий Kumo inject response не гарантирует external message id в базовом response contract.
@@ -251,6 +260,7 @@ HTTP 408                        -> RETRYABLE / KUMO_TIMEOUT
 HTTP 400/422 invalid content    -> PERMANENT / KUMO_INVALID_REQUEST
 HTTP 401/403                    -> PERMANENT / KUMO_AUTH_ERROR
 2xx with failed recipient       -> PERMANENT unless error text is explicitly transient
+invalid/inconsistent 2xx body   -> RETRYABLE / KUMO_INVALID_RESPONSE
 invalid local destination       -> PERMANENT / INVALID_DESTINATION
 ```
 
@@ -306,7 +316,9 @@ password
 full provider response if it can contain recipient/content
 ```
 
-`lastErrorMessage` должен получить короткий sanitized message.
+`lastErrorMessage` должен получить короткий sanitized message. Raw `errors[]` от
+KumoMTA разрешено использовать для классификации, но запрещено сохранять в
+message state; application layer получает стабильное generic сообщение.
 
 ## 12. Spring bean selection
 
@@ -353,7 +365,9 @@ Migration не нужна.
 - 429 -> retryable;
 - 5xx -> retryable;
 - 401/403 -> permanent;
-- 400/422 -> permanent.
+- 400/422 -> permanent;
+- inconsistent single-recipient 2xx response -> retryable invalid response;
+- provider error text is not persisted into application message state.
 
 `KumoMtaEmailDeliveryGatewayTest`
 
@@ -425,7 +439,8 @@ Slice 4 готов, если:
 - success/rejection корректно интерпретируются;
 - timeout/429/5xx retryable;
 - invalid/auth failures permanent;
+- invalid/inconsistent provider success body does not cause permanent business failure;
 - provider-specific exceptions не выходят в application layer;
-- sensitive data не логируется;
+- sensitive/provider response data не сохраняется в message state;
 - network call остаётся вне DB transaction;
 - `mvn verify` green.
