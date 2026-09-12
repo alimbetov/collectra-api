@@ -24,13 +24,14 @@ public interface CustomerSegmentRepository extends JpaRepository<CustomerSegment
             where s.tenantId = :tenantId
               and (:active is null or s.active = :active)
               and (
-                    :search is null
+                    :searchEnabled = false
                     or lower(s.name) like concat(concat('%', :search), '%')
                     or lower(s.code) like concat(:search, '%')
               )
             """)
     Page<CustomerSegment> search(
             @Param("tenantId") UUID tenantId,
+            @Param("searchEnabled") boolean searchEnabled,
             @Param("search") String search,
             @Param("active") Boolean active,
             Pageable pageable);
