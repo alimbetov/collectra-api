@@ -23,6 +23,7 @@ public class Message extends AuditableEntity {
     private static final int DESTINATION_MAX_LENGTH = 500;
     private static final int LOCALE_MAX_LENGTH = 35;
     private static final int SUBJECT_MAX_LENGTH = 500;
+    private static final int DELIVERY_KEY_MAX_LENGTH = 100;
     private static final int PROVIDER_MESSAGE_ID_MAX_LENGTH = 255;
     private static final int ERROR_CODE_MAX_LENGTH = 80;
     private static final int ERROR_MESSAGE_MAX_LENGTH = 1000;
@@ -69,6 +70,9 @@ public class Message extends AuditableEntity {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private MessageStatus status;
+
+    @Column(name = "delivery_key", nullable = false, length = DELIVERY_KEY_MAX_LENGTH, unique = true)
+    private String deliveryKey;
 
     @Column(name = "delivery_requested_at")
     private Instant deliveryRequestedAt;
@@ -127,6 +131,7 @@ public class Message extends AuditableEntity {
             throw new IllegalArgumentException("subject is required for EMAIL");
         }
         this.body = required(body, "body");
+        this.deliveryKey = "msg-" + id;
         this.status = MessageStatus.QUEUED;
     }
 
@@ -170,10 +175,14 @@ public class Message extends AuditableEntity {
 
     public void beginAttempt(Instant now) {
         requireStatus(MessageStatus.QUEUED);
-        Instant startedAt = Objects.requireNonNull(now, "now is required");
         status = MessageStatus.PROCESSING;
+        processingStartedAt = Objects.requireNonNull(now, "now is required");
+    }
+
+    public int beginProviderAttempt() {
+        requireStatus(MessageStatus.PROCESSING);
         attemptCount++;
-        processingStartedAt = startedAt;
+        return attemptCount;
     }
 
     public void markSent(String providerMessageId, Instant now) {
@@ -188,6 +197,15 @@ public class Message extends AuditableEntity {
         nextRetryAt = null;
         lastErrorCode = null;
         lastErrorMessage = null;
+    }
+
+    public void markUnknown(String errorCode, String errorMessage) {
+        requireStatus(MessageStatus.PROCESSING);
+        status = MessageStatus.UNKNOWN;
+        processingStartedAt = null;
+        nextRetryAt = null;
+        lastErrorCode = normalizedErrorCode(errorCode);
+        lastErrorMessage = limit(trim(errorMessage), ERROR_MESSAGE_MAX_LENGTH);
     }
 
     public void scheduleRetry(Instant nextRetryAt, String errorCode, String errorMessage) {
@@ -272,91 +290,27 @@ public class Message extends AuditableEntity {
         return value == null || value.length() <= maxLength ? value : value.substring(0, maxLength);
     }
 
-    public UUID getId() {
-        return id;
-    }
-
-    public UUID getTenantId() {
-        return tenantId;
-    }
-
-    public UUID getCampaignId() {
-        return campaignId;
-    }
-
-    public UUID getCampaignRunId() {
-        return campaignRunId;
-    }
-
-    public UUID getCampaignRecipientId() {
-        return campaignRecipientId;
-    }
-
-    public UUID getCustomerId() {
-        return customerId;
-    }
-
-    public UUID getInvoiceId() {
-        return invoiceId;
-    }
-
-    public UUID getTemplateVersionId() {
-        return templateVersionId;
-    }
-
-    public CommunicationChannel getChannel() {
-        return channel;
-    }
-
-    public String getDestination() {
-        return destination;
-    }
-
-    public String getResolvedLocale() {
-        return resolvedLocale;
-    }
-
-    public String getSubject() {
-        return subject;
-    }
-
-    public String getBody() {
-        return body;
-    }
-
-    public MessageStatus getStatus() {
-        return status;
-    }
-
-    public Instant getDeliveryRequestedAt() {
-        return deliveryRequestedAt;
-    }
-
-    public int getAttemptCount() {
-        return attemptCount;
-    }
-
-    public Instant getProcessingStartedAt() {
-        return processingStartedAt;
-    }
-
-    public Instant getNextRetryAt() {
-        return nextRetryAt;
-    }
-
-    public String getProviderMessageId() {
-        return providerMessageId;
-    }
-
-    public String getLastErrorCode() {
-        return lastErrorCode;
-    }
-
-    public String getLastErrorMessage() {
-        return lastErrorMessage;
-    }
-
-    public Instant getSentAt() {
-        return sentAt;
-    }
+    public UUID getId() { return id; }
+    public UUID getTenantId() { return tenantId; }
+    public UUID getCampaignId() { return campaignId; }
+    public UUID getCampaignRunId() { return campaignRunId; }
+    public UUID getCampaignRecipientId() { return campaignRecipientId; }
+    public UUID getCustomerId() { return customerId; }
+    public UUID getInvoiceId() { return invoiceId; }
+    public UUID getTemplateVersionId() { return templateVersionId; }
+    public CommunicationChannel getChannel() { return channel; }
+    public String getDestination() { return destination; }
+    public String getResolvedLocale() { return resolvedLocale; }
+    public String getSubject() { return subject; }
+    public String getBody() { return body; }
+    public MessageStatus getStatus() { return status; }
+    public String getDeliveryKey() { return deliveryKey; }
+    public Instant getDeliveryRequestedAt() { return deliveryRequestedAt; }
+    public int getAttemptCount() { return attemptCount; }
+    public Instant getProcessingStartedAt() { return processingStartedAt; }
+    public Instant getNextRetryAt() { return nextRetryAt; }
+    public String getProviderMessageId() { return providerMessageId; }
+    public String getLastErrorCode() { return lastErrorCode; }
+    public String getLastErrorMessage() { return lastErrorMessage; }
+    public Instant getSentAt() { return sentAt; }
 }
