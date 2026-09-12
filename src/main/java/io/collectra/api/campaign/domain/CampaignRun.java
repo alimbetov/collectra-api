@@ -75,9 +75,52 @@ public class CampaignRun extends AuditableEntity {
         startedAt = Objects.requireNonNull(now, "now is required");
     }
 
+    public void messageSent() {
+        requireMutableRunning();
+        ensureTerminalCapacity(1);
+        sentCount++;
+    }
+
+    public void messageFailed() {
+        requireMutableRunning();
+        ensureTerminalCapacity(1);
+        failedCount++;
+    }
+
+    public void messageRetryScheduled() {
+        requireMutableRunning();
+        retryCount++;
+    }
+
+    public void recipientSkipped() {
+        recipientsSkipped(1);
+    }
+
+    public void recipientsSkipped(int count) {
+        requireMutableRunning();
+        if (count < 0) {
+            throw new IllegalArgumentException("Skipped count increment must not be negative");
+        }
+        ensureTerminalCapacity(count);
+        skippedCount += count;
+    }
+
+    public int terminalCount() {
+        return sentCount + failedCount + skippedCount;
+    }
+
+    public boolean completeIfTerminal(Instant now) {
+        requireMutableRunning();
+        if (terminalCount() < recipientCount) {
+            return false;
+        }
+        complete(now);
+        return true;
+    }
+
     public void complete(Instant now) {
         require(CampaignRunStatus.RUNNING);
-        if (sentCount + failedCount + skippedCount != recipientCount) {
+        if (terminalCount() != recipientCount) {
             throw new IllegalStateException("Campaign run still has non-terminal recipients");
         }
         status = CampaignRunStatus.COMPLETED;
@@ -100,6 +143,19 @@ public class CampaignRun extends AuditableEntity {
         }
         status = CampaignRunStatus.CANCELLED;
         completedAt = Objects.requireNonNull(now, "now is required");
+    }
+
+    private void ensureTerminalCapacity(int increment) {
+        if (terminalCount() + increment > recipientCount) {
+            throw new IllegalStateException("Campaign run terminal counters exceed recipientCount");
+        }
+    }
+
+    private void requireMutableRunning() {
+        require(CampaignRunStatus.RUNNING);
+        if (sentCount < 0 || failedCount < 0 || skippedCount < 0 || retryCount < 0) {
+            throw new IllegalStateException("Campaign run counters must not be negative");
+        }
     }
 
     private void require(CampaignRunStatus expected) {

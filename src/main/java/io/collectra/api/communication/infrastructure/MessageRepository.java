@@ -38,11 +38,10 @@ public interface MessageRepository extends JpaRepository<Message, UUID> {
                     WHERE status = 'PROCESSING'
                       AND processing_started_at < :cutoff
                     ORDER BY processing_started_at ASC, id ASC
-                    FOR UPDATE SKIP LOCKED
                     LIMIT :batchSize
                     """,
             nativeQuery = true)
-    List<Message> findStaleProcessingForUpdate(
+    List<Message> findStaleProcessingCandidates(
             @Param("cutoff") Instant cutoff, @Param("batchSize") int batchSize);
 
     @Query(

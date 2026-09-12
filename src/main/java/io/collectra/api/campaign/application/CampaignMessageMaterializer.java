@@ -19,7 +19,6 @@ import io.collectra.api.template.application.TemplateRenderer;
 import io.collectra.api.template.domain.TemplateVersion;
 import io.collectra.api.template.infrastructure.TemplateVersionRepository;
 import java.time.Clock;
-import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -91,17 +90,20 @@ public class CampaignMessageMaterializer {
 
         if (run.getStatus() == CampaignRunStatus.READY) {
             bindingService.initialize(tenantId, campaign, run);
-            run.start(Instant.now(clock));
+            run.start(clock.instant());
         }
 
         List<CampaignRecipient> batch =
                 recipients.findMaterializationCandidates(tenantId, campaignRunId, batchSize);
         if (batch.isEmpty()) {
+            run.completeIfTerminal(clock.instant());
             return new MaterializationBatchResult(0, 0, 0, false);
         }
 
         CampaignEligibilityService.EligibilityBatch evaluated =
                 eligibility.evaluateBatch(tenantId, batch);
+        run.recipientsSkipped(evaluated.skipped());
+
         Map<String, CampaignRunTemplateBinding> bindingByLocale =
                 bindingService.bindingsByRequestedLocale(tenantId, campaignRunId);
 
@@ -175,6 +177,7 @@ public class CampaignMessageMaterializer {
         messages.flush();
         boolean hasNext =
                 !recipients.findMaterializationCandidates(tenantId, campaignRunId, 1).isEmpty();
+        run.completeIfTerminal(clock.instant());
         return new MaterializationBatchResult(batch.size(), queued, evaluated.skipped(), hasNext);
     }
 

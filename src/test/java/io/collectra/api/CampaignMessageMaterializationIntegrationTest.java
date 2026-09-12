@@ -190,6 +190,15 @@ class CampaignMessageMaterializationIntegrationTest extends AbstractIntegrationT
                             assertThat(recipient.getStatus().name()).isEqualTo("SKIPPED");
                             assertThat(recipient.getSkipReason()).isEqualTo("PAID");
                         });
+
+        var run = campaigns.run(fixture.tenant().getId(), fixture.runId());
+        assertThat(run.getRecipientCount()).isOne();
+        assertThat(run.getSkippedCount()).isOne();
+        assertThat(run.getSentCount()).isZero();
+        assertThat(run.getFailedCount()).isZero();
+        assertThat(run.getStatus()).isEqualTo(CampaignRunStatus.COMPLETED);
+        assertThat(run.getCompletedAt()).isEqualTo(FIXED_INSTANT);
+
         assertThat(
                         messages.findAllByTenantIdAndCampaignRunId(
                                         fixture.tenant().getId(),
@@ -197,18 +206,46 @@ class CampaignMessageMaterializationIntegrationTest extends AbstractIntegrationT
                                         PageRequest.of(0, 10))
                                 .getContent())
                 .isEmpty();
+        assertThat(deliveryEventsFor(fixture.tenant().getId())).isEmpty();
+    }
+
+    @Test
+    void zeroRecipientRunCompletesWithoutMessageOrDeliveryEvent() {
+        Fixture fixture = prepareCampaign(0);
+
+        var result =
+                materializer.materializeNextBatch(fixture.tenant().getId(), fixture.runId(), 100);
+
+        assertThat(result.selected()).isZero();
+        assertThat(result.queued()).isZero();
+        assertThat(result.skipped()).isZero();
+        assertThat(result.hasNext()).isFalse();
+
+        var run = campaigns.run(fixture.tenant().getId(), fixture.runId());
+        assertThat(run.getRecipientCount()).isZero();
+        assertThat(run.getSentCount()).isZero();
+        assertThat(run.getFailedCount()).isZero();
+        assertThat(run.getSkippedCount()).isZero();
+        assertThat(run.getRetryCount()).isZero();
+        assertThat(run.getStatus()).isEqualTo(CampaignRunStatus.COMPLETED);
+        assertThat(run.getStartedAt()).isEqualTo(FIXED_INSTANT);
+        assertThat(run.getCompletedAt()).isEqualTo(FIXED_INSTANT);
+
         assertThat(
-                        outbox.findAll().stream()
-                                .filter(
-                                        event ->
-                                                fixture.tenant()
-                                                        .getId()
-                                                        .equals(event.getTenantId()))
-                                .filter(
-                                        event ->
-                                                MessageDeliveryRequested.EVENT_TYPE.equals(
-                                                        event.getEventType())))
+                        messages.findAllByTenantIdAndCampaignRunId(
+                                        fixture.tenant().getId(),
+                                        fixture.runId(),
+                                        PageRequest.of(0, 10))
+                                .getContent())
                 .isEmpty();
+        assertThat(deliveryEventsFor(fixture.tenant().getId())).isEmpty();
+    }
+
+    private List<io.collectra.api.shared.outbox.OutboxEvent> deliveryEventsFor(UUID tenantId) {
+        return outbox.findAll().stream()
+                .filter(event -> tenantId.equals(event.getTenantId()))
+                .filter(event -> MessageDeliveryRequested.EVENT_TYPE.equals(event.getEventType()))
+                .toList();
     }
 
     private Fixture prepareCampaign(int invoiceCount) {
