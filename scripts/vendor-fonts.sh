@@ -3,15 +3,12 @@ set -euo pipefail
 
 ROOT="src/main/resources/fonts"
 NOTO_FONTS_COMMIT="ffebf8c1ee449e544955a7e813c54f9b73848eac"
-NOTO_CJK_COMMIT="f8d157532fbfaeda587e826d4cd5b21a49186f7c"
 NOTO_FONTS_BASE="https://raw.githubusercontent.com/notofonts/noto-fonts/${NOTO_FONTS_COMMIT}/hinted/ttf"
-NOTO_CJK_BASE="https://raw.githubusercontent.com/notofonts/noto-cjk/${NOTO_CJK_COMMIT}/Sans/OTF/SimplifiedChinese"
 
 mkdir -p \
   "${ROOT}/latin-cyrillic" \
   "${ROOT}/armenian" \
-  "${ROOT}/georgian" \
-  "${ROOT}/cjk-sc"
+  "${ROOT}/georgian"
 
 download() {
   local url="$1"
@@ -44,15 +41,10 @@ download "${NOTO_FONTS_BASE}/NotoSansGeorgian/NotoSansGeorgian-Regular.ttf" \
 download "${NOTO_FONTS_BASE}/NotoSansGeorgian/NotoSansGeorgian-Bold.ttf" \
   "${ROOT}/georgian/NotoSansGeorgian-Bold.ttf"
 
-download "${NOTO_CJK_BASE}/NotoSansCJKsc-Regular.otf" \
-  "${ROOT}/cjk-sc/NotoSansCJKsc-Regular.otf"
-download "${NOTO_CJK_BASE}/NotoSansCJKsc-Bold.otf" \
-  "${ROOT}/cjk-sc/NotoSansCJKsc-Bold.otf"
-
 (
   cd "${ROOT}"
-  find latin-cyrillic armenian georgian cjk-sc \
-       -type f \( -name '*.ttf' -o -name '*.otf' \) \
+  find latin-cyrillic armenian georgian \
+       -type f -name '*.ttf' \
        -print0 \
     | sort -z \
     | xargs -0 sha256sum > SHA256SUMS
@@ -60,3 +52,5 @@ download "${NOTO_CJK_BASE}/NotoSansCJKsc-Bold.otf" \
 
 echo "Bundled font checksums:"
 cat "${ROOT}/SHA256SUMS"
+
+echo "CJK Simplified Chinese TrueType resources are supplied by the pinned Maven dependency ph-fonts-noto-sans-sc."
