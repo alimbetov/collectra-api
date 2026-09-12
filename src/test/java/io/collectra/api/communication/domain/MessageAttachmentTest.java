@@ -68,7 +68,8 @@ class MessageAttachmentTest {
         MessageAttachment attachment = pending(true);
         attachment.markReady(UUID.randomUUID(), READY_AT);
 
-        assertThat(attachment.markFailed("FAIL", "late callback", READY_AT.plusSeconds(1))).isFalse();
+        assertThat(attachment.markFailed("FAIL", "late callback", READY_AT.plusSeconds(1)))
+                .isFalse();
         assertThat(attachment.getStatus()).isEqualTo(MessageAttachmentStatus.READY);
     }
 
@@ -96,10 +97,7 @@ class MessageAttachmentTest {
                 .hasMessageContaining("filename");
 
         MessageAttachment attachment = pending(true);
-        assertThatThrownBy(
-                        () ->
-                                attachment.markFailed(
-                                        "X".repeat(81), "failure", READY_AT))
+        assertThatThrownBy(() -> attachment.markFailed("X".repeat(81), "failure", READY_AT))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("failureCode");
     }
