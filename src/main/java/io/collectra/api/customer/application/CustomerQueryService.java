@@ -196,14 +196,11 @@ public class CustomerQueryService {
                                 cb.like(
                                         cb.lower(root.<String>get("displayName")),
                                         "%" + search + "%"),
-                                cb.like(
-                                        cb.lower(root.<String>get("externalId")),
-                                        search + "%")));
+                                cb.like(cb.lower(root.<String>get("externalId")), search + "%")));
             }
             if (segmentId != null) {
                 Subquery<UUID> segmentQuery = query.subquery(UUID.class);
-                Root<CustomerSegmentMember> member =
-                        segmentQuery.from(CustomerSegmentMember.class);
+                Root<CustomerSegmentMember> member = segmentQuery.from(CustomerSegmentMember.class);
                 segmentQuery.select(member.get("id"));
                 segmentQuery.where(
                         cb.equal(member.get("tenantId"), tenantId),
