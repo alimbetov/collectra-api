@@ -69,18 +69,18 @@ class KumoMtaErrorClassifierTest {
     }
 
     @Test
-    void recipientEmailIsRedactedFromPersistedProviderMessage() {
+    void providerErrorTextIsNotPersistedInApplicationMessage() {
         var rejected =
                 new KumoMtaInjectResponse(
                         0,
                         1,
                         List.of("client@example.com"),
-                        List.of("mailbox client@example.com rejected"));
+                        List.of("mailbox client@example.com rejected for private content"));
 
         var result = classifier.classifyResponse(rejected);
 
         assertThat(result.message())
-                .contains("[redacted-email]")
-                .doesNotContain("client@example.com");
+                .isEqualTo("KumoMTA rejected recipient")
+                .doesNotContain("client@example.com", "private content");
     }
 }
