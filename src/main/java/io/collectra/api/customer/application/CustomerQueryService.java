@@ -131,7 +131,7 @@ public class CustomerQueryService {
         Page<CustomerSegment> result =
                 segments.search(
                         tenantId,
-                        trimToNull(search),
+                        normalizeSearch(search),
                         active,
                         PageRequest.of(
                                 page,
