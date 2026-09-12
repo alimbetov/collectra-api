@@ -103,9 +103,11 @@ public class GenerationJob extends AuditableEntity {
         this.tenantId = Objects.requireNonNull(tenantId, "tenantId is required");
         this.documentType = Objects.requireNonNull(documentType, "documentType is required");
         this.mappingProfileId = mappingProfileId;
-        this.templateVersionId = Objects.requireNonNull(templateVersionId, "templateVersionId is required");
+        this.templateVersionId =
+                Objects.requireNonNull(templateVersionId, "templateVersionId is required");
         this.inputFileId = inputFileId;
-        this.normalizedPayload = Objects.requireNonNull(normalizedPayload, "normalizedPayload is required");
+        this.normalizedPayload =
+                Objects.requireNonNull(normalizedPayload, "normalizedPayload is required");
         if (outputFormats == null || outputFormats.isEmpty()) {
             throw new IllegalArgumentException("At least one output format is required");
         }
