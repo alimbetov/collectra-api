@@ -221,11 +221,7 @@ public class DashboardQueryService {
             BigDecimal days90Plus) {}
 
     public record CurrencyReceivables(
-            String currency,
-            BigDecimal outstanding,
-            long dueToday,
-            long dueSoon,
-            Aging aging) {}
+            String currency, BigDecimal outstanding, long dueToday, long dueSoon, Aging aging) {}
 
     public record Receivables(
             Instant asOf, LocalDate businessDate, List<CurrencyReceivables> currencies) {}
