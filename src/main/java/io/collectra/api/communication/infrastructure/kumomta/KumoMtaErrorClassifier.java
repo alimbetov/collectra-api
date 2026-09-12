@@ -1,16 +1,14 @@
 package io.collectra.api.communication.infrastructure.kumomta;
 
 import io.collectra.api.communication.application.DeliveryFailureKind;
-
-import org.springframework.http.HttpStatusCode;
-import org.springframework.stereotype.Component;
-import org.springframework.web.client.ResourceAccessException;
-import org.springframework.web.client.RestClientResponseException;
-
 import java.net.ConnectException;
 import java.net.SocketTimeoutException;
 import java.net.http.HttpConnectTimeoutException;
 import java.util.Locale;
+import org.springframework.http.HttpStatusCode;
+import org.springframework.stereotype.Component;
+import org.springframework.web.client.ResourceAccessException;
+import org.springframework.web.client.RestClientResponseException;
 
 @Component
 public class KumoMtaErrorClassifier {
