@@ -1,13 +1,14 @@
 package io.collectra.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.collectra.api.campaign.application.CampaignSelection;
 import io.collectra.api.campaign.application.CampaignService;
 import io.collectra.api.campaign.domain.CampaignRecipient;
 import io.collectra.api.campaign.domain.CampaignRun;
+import io.collectra.api.campaign.domain.CampaignRunStatus;
+import io.collectra.api.campaign.infrastructure.CampaignRunRepository;
 import io.collectra.api.communication.application.DeliveryCommand;
 import io.collectra.api.communication.application.DeliveryGateway;
 import io.collectra.api.communication.application.DeliveryResult;
@@ -67,6 +68,7 @@ class MessageProcessingIntegrationTest extends AbstractIntegrationTest {
     @Autowired CustomerService customers;
     @Autowired ReceivableService receivables;
     @Autowired CampaignService campaigns;
+    @Autowired CampaignRunRepository runs;
     @Autowired MessageRepository messages;
     @Autowired MessageStateService states;
     @Autowired MessageRecoveryService recovery;
@@ -87,23 +89,27 @@ class MessageProcessingIntegrationTest extends AbstractIntegrationTest {
         assertThat(claimed.attemptCount()).isOne();
         assertThat(claimed.body()).isEqualTo("<p>Please pay your invoice</p>");
         assertThat(states.begin(fixture.tenantId(), fixture.messageId())).isEmpty();
-        assertThatThrownBy(() -> states.begin(UUID.randomUUID(), fixture.messageId()))
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () -> states.begin(UUID.randomUUID(), fixture.messageId()))
                 .isInstanceOf(NoSuchElementException.class)
                 .hasMessage("Message not found");
 
-        states.markSent(fixture.tenantId(), fixture.messageId(), "provider-1");
+        assertThat(states.markSent(fixture.tenantId(), fixture.messageId(), "provider-1")).isTrue();
         Message sent = messages.findById(fixture.messageId()).orElseThrow();
         assertThat(sent.getStatus()).isEqualTo(MessageStatus.SENT);
         assertThat(sent.getAttemptCount()).isOne();
         assertThat(sent.getProviderMessageId()).isEqualTo("provider-1");
         assertThat(sent.getSentAt()).isEqualTo(NOW);
         assertThat(states.begin(fixture.tenantId(), fixture.messageId())).isEmpty();
-        assertThatThrownBy(
-                        () ->
-                                states.markSent(
-                                        fixture.tenantId(), fixture.messageId(), "late-result"))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("Expected PROCESSING");
+
+        assertThat(states.markSent(fixture.tenantId(), fixture.messageId(), "late-result"))
+                .isFalse();
+        CampaignRun completed = runs.findById(fixture.runId()).orElseThrow();
+        assertThat(completed.getSentCount()).isOne();
+        assertThat(completed.getFailedCount()).isZero();
+        assertThat(completed.getSkippedCount()).isZero();
+        assertThat(completed.getStatus()).isEqualTo(CampaignRunStatus.COMPLETED);
+        assertThat(completed.getCompletedAt()).isEqualTo(NOW);
     }
 
     @Test
@@ -169,11 +175,22 @@ class MessageProcessingIntegrationTest extends AbstractIntegrationTest {
         assertThat(retry.getStatus()).isEqualTo(MessageStatus.RETRY_WAIT);
         assertThat(retry.getNextRetryAt()).isEqualTo(NOW.plusSeconds(60));
         assertThat(retry.getLastErrorCode()).isEqualTo("PROCESSING_TIMEOUT");
+        CampaignRun retryRun = runs.findById(retryable.runId()).orElseThrow();
+        assertThat(retryRun.getRetryCount()).isOne();
+        assertThat(retryRun.getStatus()).isEqualTo(CampaignRunStatus.RUNNING);
+
         Message failed = messages.findById(exhausted.messageId()).orElseThrow();
         assertThat(failed.getStatus()).isEqualTo(MessageStatus.FAILED);
         assertThat(failed.getLastErrorCode()).isEqualTo("PROCESSING_TIMEOUT");
+        CampaignRun failedRun = runs.findById(exhausted.runId()).orElseThrow();
+        assertThat(failedRun.getFailedCount()).isOne();
+        assertThat(failedRun.getStatus()).isEqualTo(CampaignRunStatus.COMPLETED);
+
         assertThat(messages.findById(fresh.messageId()).orElseThrow().getStatus())
                 .isEqualTo(MessageStatus.PROCESSING);
+        CampaignRun freshRun = runs.findById(fresh.runId()).orElseThrow();
+        assertThat(freshRun.getRetryCount()).isZero();
+        assertThat(freshRun.getFailedCount()).isZero();
     }
 
     @Test
@@ -198,6 +215,8 @@ class MessageProcessingIntegrationTest extends AbstractIntegrationTest {
         assertThat(requeued.getNextRetryAt()).isNull();
         assertThat(messages.findById(future.messageId()).orElseThrow().getStatus())
                 .isEqualTo(MessageStatus.RETRY_WAIT);
+        assertThat(runs.findById(due.runId()).orElseThrow().getRetryCount()).isOne();
+        assertThat(runs.findById(future.runId()).orElseThrow().getRetryCount()).isOne();
 
         assertThat(deliveryEventCount(due.messageId())).isOne();
         String payload =
@@ -214,6 +233,7 @@ class MessageProcessingIntegrationTest extends AbstractIntegrationTest {
 
         assertThat(retryDispatcher.dispatchDue()).isZero();
         assertThat(deliveryEventCount(due.messageId())).isOne();
+        assertThat(runs.findById(due.runId()).orElseThrow().getRetryCount()).isOne();
     }
 
     @Test
@@ -255,6 +275,7 @@ class MessageProcessingIntegrationTest extends AbstractIntegrationTest {
         assertThat(messages.findById(due.messageId()).orElseThrow().getStatus())
                 .isEqualTo(MessageStatus.QUEUED);
         assertThat(deliveryEventCount(due.messageId())).isOne();
+        assertThat(runs.findById(due.runId()).orElseThrow().getRetryCount()).isOne();
     }
 
     private long deliveryEventCount(UUID messageId) {
@@ -275,6 +296,7 @@ class MessageProcessingIntegrationTest extends AbstractIntegrationTest {
         assertThat(gateway.transactionActive()).isFalse();
         assertThat(messages.findById(fixture.messageId()).orElseThrow().getStatus())
                 .isEqualTo(MessageStatus.SENT);
+        assertThat(runs.findById(fixture.runId()).orElseThrow().getSentCount()).isOne();
     }
 
     @Test
@@ -290,6 +312,9 @@ class MessageProcessingIntegrationTest extends AbstractIntegrationTest {
         assertThat(gateway.deliveryCount()).isOne();
         assertThat(messages.findById(fixture.messageId()).orElseThrow().getStatus())
                 .isEqualTo(MessageStatus.SENT);
+        CampaignRun run = runs.findById(fixture.runId()).orElseThrow();
+        assertThat(run.getSentCount()).isOne();
+        assertThat(run.getStatus()).isEqualTo(CampaignRunStatus.COMPLETED);
     }
 
     private Fixture fixture() {
@@ -356,6 +381,8 @@ class MessageProcessingIntegrationTest extends AbstractIntegrationTest {
         campaigns.activate(tenant.getId(), campaign.getId());
         var prepared = campaigns.prepare(tenant.getId(), campaign.getId());
         CampaignRun run = campaigns.run(tenant.getId(), prepared.runId());
+        run.start(NOW);
+        run = runs.saveAndFlush(run);
         CampaignRecipient recipient = campaigns.recipients(tenant.getId(), prepared.runId()).get(0);
         Message message =
                 messages.saveAndFlush(
@@ -372,10 +399,10 @@ class MessageProcessingIntegrationTest extends AbstractIntegrationTest {
                                 templateVersion.getLocale(),
                                 templateVersion.getSubject(),
                                 templateVersion.getContentHtml()));
-        return new Fixture(tenant.getId(), message.getId());
+        return new Fixture(tenant.getId(), message.getId(), run.getId());
     }
 
-    private record Fixture(UUID tenantId, UUID messageId) {}
+    private record Fixture(UUID tenantId, UUID messageId, UUID runId) {}
 
     @TestConfiguration
     static class FixedClockConfiguration {
