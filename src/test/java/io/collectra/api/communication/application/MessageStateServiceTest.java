@@ -11,10 +11,13 @@ import io.collectra.api.campaign.domain.CampaignRun;
 import io.collectra.api.campaign.domain.CampaignRunStatus;
 import io.collectra.api.campaign.infrastructure.CampaignRunRepository;
 import io.collectra.api.communication.domain.CommunicationChannel;
+import io.collectra.api.communication.domain.DeliveryAttemptStatus;
 import io.collectra.api.communication.domain.Message;
 import io.collectra.api.communication.domain.MessageAttachmentStatus;
+import io.collectra.api.communication.domain.MessageDeliveryAttempt;
 import io.collectra.api.communication.domain.MessageStatus;
 import io.collectra.api.communication.infrastructure.MessageAttachmentRepository;
+import io.collectra.api.communication.infrastructure.MessageDeliveryAttemptRepository;
 import io.collectra.api.communication.infrastructure.MessageRepository;
 import io.collectra.api.communication.observability.DeliveryOutcomeEvent;
 import java.time.Clock;
@@ -38,6 +41,7 @@ class MessageStateServiceTest {
 
     @Mock MessageRepository messages;
     @Mock MessageAttachmentRepository attachments;
+    @Mock MessageDeliveryAttemptRepository deliveryAttempts;
     @Mock CampaignRunRepository runs;
     @Mock ApplicationEventPublisher events;
 
@@ -49,6 +53,7 @@ class MessageStateServiceTest {
                 new MessageStateService(
                         messages,
                         attachments,
+                        deliveryAttempts,
                         runs,
                         new MessageRetryPolicy(),
                         Clock.fixed(NOW, ZoneOffset.UTC),
@@ -56,7 +61,7 @@ class MessageStateServiceTest {
     }
 
     @Test
-    void beginClaimsQueuedMessageAndReturnsImmutableSnapshot() {
+    void beginClaimsQueuedMessageWithoutCountingProviderCall() {
         CampaignRun run = runningRun(1);
         Message message = queued(run);
         stubMessage(message);
@@ -67,7 +72,8 @@ class MessageStateServiceTest {
         MessageDeliverySnapshot snapshot = service.begin(TENANT, message.getId()).orElseThrow();
 
         assertThat(message.getStatus()).isEqualTo(MessageStatus.PROCESSING);
-        assertThat(message.getAttemptCount()).isOne();
+        assertThat(message.getAttemptCount()).isZero();
+        assertThat(message.getProcessingAttemptCount()).isOne();
         assertThat(message.getProcessingStartedAt()).isEqualTo(NOW);
         assertThat(snapshot.messageId()).isEqualTo(message.getId());
         assertThat(snapshot.tenantId()).isEqualTo(TENANT);
@@ -76,7 +82,28 @@ class MessageStateServiceTest {
         assertThat(snapshot.destination()).isEqualTo("customer@example.test");
         assertThat(snapshot.subject()).isEqualTo("Reminder");
         assertThat(snapshot.body()).isEqualTo("<p>Pay</p>");
-        assertThat(snapshot.attemptCount()).isOne();
+        assertThat(snapshot.attemptCount()).isZero();
+        assertThat(snapshot.processingAttemptCount()).isOne();
+    }
+
+    @Test
+    void beginProviderAttemptPersistsStableDeliveryIdentityAndCountsPhysicalCall() {
+        CampaignRun run = runningRun(1);
+        Message message = processing(run, NOW.minusSeconds(1));
+        stubMessage(message);
+        when(deliveryAttempts.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ProviderAttemptSnapshot snapshot =
+                service.beginProviderAttempt(TENANT, message.getId()).orElseThrow();
+
+        assertThat(message.getAttemptCount()).isOne();
+        assertThat(snapshot.deliveryKey()).isEqualTo(message.getDeliveryKey());
+        assertThat(snapshot.attemptNo()).isOne();
+        ArgumentCaptor<MessageDeliveryAttempt> attempt =
+                ArgumentCaptor.forClass(MessageDeliveryAttempt.class);
+        verify(deliveryAttempts).save(attempt.capture());
+        assertThat(attempt.getValue().getStatus()).isEqualTo(DeliveryAttemptStatus.STARTED);
+        assertThat(attempt.getValue().getDeliveryKey()).isEqualTo(message.getDeliveryKey());
     }
 
     @Test
@@ -91,6 +118,7 @@ class MessageStateServiceTest {
         assertThat(service.begin(TENANT, message.getId())).isEmpty();
         assertThat(message.getStatus()).isEqualTo(MessageStatus.QUEUED);
         assertThat(message.getAttemptCount()).isZero();
+        assertThat(message.getProcessingAttemptCount()).isZero();
     }
 
     @Test
@@ -130,6 +158,51 @@ class MessageStateServiceTest {
         assertThat(run.getStatus()).isEqualTo(CampaignRunStatus.COMPLETED);
         assertThat(run.getCompletedAt()).isEqualTo(NOW);
         verifyOutcome(DeliveryOutcomeEvent.Outcome.SENT, null);
+    }
+
+    @Test
+    void unknownOutcomeDoesNotBlindlyRetryOrSettleRun() {
+        CampaignRun run = runningRun(1);
+        Message message = processing(run, NOW.minusSeconds(5));
+        startProviderAttempt(message);
+        MessageDeliveryAttempt attempt = startedAttempt(message);
+        when(deliveryAttempts.findLockedByMessageIdAndAttemptNo(message.getId(), 1))
+                .thenReturn(Optional.of(attempt));
+        stubMessage(message);
+
+        assertThat(
+                        service.markUnknown(
+                                TENANT, message.getId(), "PROVIDER_TIMEOUT", "response lost"))
+                .isTrue();
+
+        assertThat(message.getStatus()).isEqualTo(MessageStatus.UNKNOWN);
+        assertThat(message.getNextRetryAt()).isNull();
+        assertThat(attempt.getStatus()).isEqualTo(DeliveryAttemptStatus.UNKNOWN);
+        assertThat(run.getSentCount()).isZero();
+        assertThat(run.getFailedCount()).isZero();
+        assertThat(run.getRetryCount()).isZero();
+        verify(runs, never()).findLockedByIdAndTenantId(any(), any());
+        verifyOutcome(DeliveryOutcomeEvent.Outcome.UNKNOWN, "PROVIDER_TIMEOUT");
+    }
+
+    @Test
+    void lateAcceptanceReconcilesUnknownExactlyOnce() {
+        CampaignRun run = runningRun(1);
+        Message message = processing(run, NOW.minusSeconds(5));
+        startProviderAttempt(message);
+        MessageDeliveryAttempt attempt = startedAttempt(message);
+        attempt.unknown("PROVIDER_TIMEOUT", NOW.minusSeconds(1));
+        message.markUnknown("PROVIDER_TIMEOUT", "response lost");
+        stubMessageAndRun(message, run);
+        when(deliveryAttempts.findLockedByMessageIdAndAttemptNo(message.getId(), 1))
+                .thenReturn(Optional.of(attempt));
+
+        assertThat(service.markSent(TENANT, message.getId(), "provider-42")).isTrue();
+        assertThat(service.markSent(TENANT, message.getId(), "provider-42")).isFalse();
+
+        assertThat(message.getStatus()).isEqualTo(MessageStatus.SENT);
+        assertThat(attempt.getStatus()).isEqualTo(DeliveryAttemptStatus.ACCEPTED);
+        assertThat(run.getSentCount()).isOne();
     }
 
     @Test
@@ -239,7 +312,7 @@ class MessageStateServiceTest {
     }
 
     @Test
-    void recoverySchedulesRetryWhenAttemptsRemain() {
+    void recoverySchedulesRetryWhenProviderWasNeverCalled() {
         Instant cutoff = NOW.minusSeconds(300);
         CampaignRun run = runningRun(1);
         Message message = processing(run, cutoff.minusSeconds(1));
@@ -258,7 +331,26 @@ class MessageStateServiceTest {
     }
 
     @Test
-    void recoveryFailsExhaustedAttemptAndCompletesRun() {
+    void recoveryTurnsInFlightProviderAttemptIntoUnknownInsteadOfRetrying() {
+        Instant cutoff = NOW.minusSeconds(300);
+        CampaignRun run = runningRun(1);
+        Message message = processing(run, cutoff.minusSeconds(1));
+        startProviderAttempt(message);
+        MessageDeliveryAttempt attempt = startedAttempt(message);
+        when(deliveryAttempts.findLockedByMessageIdAndAttemptNo(message.getId(), 1))
+                .thenReturn(Optional.of(attempt));
+        stubMessage(message);
+
+        assertThat(service.recoverStale(TENANT, message.getId(), cutoff, NOW)).isTrue();
+
+        assertThat(message.getStatus()).isEqualTo(MessageStatus.UNKNOWN);
+        assertThat(attempt.getStatus()).isEqualTo(DeliveryAttemptStatus.UNKNOWN);
+        assertThat(run.getRetryCount()).isZero();
+        verify(runs, never()).findLockedByIdAndTenantId(any(), any());
+    }
+
+    @Test
+    void recoveryFailsExhaustedProcessingAttemptAndCompletesRun() {
         Instant cutoff = NOW.minusSeconds(300);
         CampaignRun run = runningRun(1);
         Message message = processingAtAttempt(run, 4, cutoff.minusSeconds(1));
@@ -286,9 +378,6 @@ class MessageStateServiceTest {
                 .isInstanceOf(NoSuchElementException.class)
                 .hasMessage("Campaign run not found");
 
-        // The service is @Transactional. In a Spring-managed call the preceding Message mutation is
-        // rolled back with the transaction. This pure unit test intentionally asserts only effects
-        // outside the aggregate that do not rely on the transaction manager.
         assertThat(run.getSentCount()).isZero();
         verify(events, never()).publishEvent(any());
     }
@@ -329,6 +418,15 @@ class MessageStateServiceTest {
         Message message = queued(run);
         message.beginAttempt(startedAt);
         return message;
+    }
+
+    private void startProviderAttempt(Message message) {
+        message.beginProviderAttempt();
+    }
+
+    private MessageDeliveryAttempt startedAttempt(Message message) {
+        return MessageDeliveryAttempt.started(
+                TENANT, message.getId(), message.getAttemptCount(), message.getDeliveryKey(), NOW.minusSeconds(4));
     }
 
     private Message processingAtAttempt(
