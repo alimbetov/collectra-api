@@ -137,7 +137,6 @@ public class CampaignService {
         LocalDate today = LocalDate.now(clock);
         LocalDate dueDateFrom = dueDateFrom(selection, today);
         LocalDate dueDateTo = dueDateTo(selection, today);
-        String tenantDefaultLocale = tenantLocales.requireDefault(tenantId).getLocale();
 
         int created = 0;
         int pageNumber = 0;
@@ -161,8 +160,7 @@ public class CampaignService {
                             campaign,
                             run,
                             selection,
-                            page.getContent(),
-                            tenantDefaultLocale);
+                            page.getContent());
             pageNumber++;
         } while (page.hasNext());
 
@@ -175,8 +173,7 @@ public class CampaignService {
             Campaign campaign,
             CampaignRun run,
             CampaignSelection selection,
-            List<Invoice> invoices,
-            String tenantDefaultLocale) {
+            List<Invoice> invoices) {
         if (invoices.isEmpty()) {
             return 0;
         }
@@ -192,6 +189,7 @@ public class CampaignService {
         Map<UUID, Set<UUID>> segmentIdsByCustomer =
                 segmentIdsByCustomer(tenantId, selection, customerIds);
 
+        String tenantDefaultLocale = null;
         int created = 0;
         for (Invoice invoice : invoices) {
             Customer customer = customerById.get(invoice.getCustomerId());
@@ -199,7 +197,15 @@ public class CampaignService {
                 continue;
             }
             String destination = emailDestination(emailsByCustomer.get(customer.getId()));
-            String locale = effectiveLocale(customer.getPreferredLocale(), tenantDefaultLocale);
+            String locale = customer.getPreferredLocale();
+            if (locale == null || locale.isBlank()) {
+                if (tenantDefaultLocale == null) {
+                    tenantDefaultLocale = tenantLocales.requireDefault(tenantId).getLocale();
+                }
+                locale = tenantDefaultLocale;
+            } else {
+                locale = locale.trim();
+            }
             recipients.save(
                     new CampaignRecipient(
                             tenantId,
@@ -274,12 +280,6 @@ public class CampaignService {
                 .or(() -> active.stream().findFirst())
                 .map(CustomerEmail::getEmail)
                 .orElse(null);
-    }
-
-    private static String effectiveLocale(String preferredLocale, String tenantDefaultLocale) {
-        return preferredLocale == null || preferredLocale.isBlank()
-                ? tenantDefaultLocale
-                : preferredLocale.trim();
     }
 
     private LocalDate dueDateFrom(CampaignSelection selection, LocalDate today) {
