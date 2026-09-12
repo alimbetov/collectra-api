@@ -18,6 +18,7 @@
 | 6 | [Campaign delivery counters and completion](slice-06-campaign-delivery-counters.md) | READY AFTER 2/5 | atomic counters and durable CampaignRun completion |
 | 7 | [Attachments and generated documents](slice-07-attachments-documents.md) | READY AFTER 3/4/5 + FONT GATE | document/FileService attachments before delivery |
 | 8 | [Delivery API and observability](slice-08-delivery-api-observability.md) | READY AFTER 2–7 | support API, metrics, logging and production visibility |
+| 9 | [Frontend API Completion](slice-09-frontend-api-completion.md) | READY FOR IMPLEMENTATION | normalize existing frontend APIs, add Contract/Collection bounded domains and freeze `/api/v1` contract |
 
 ## Dependency chain
 
@@ -48,11 +49,27 @@ Slice 4 Kumo   Slice 5 materialization
                   \      /
                    v    v
                Slice 8 API/observability
+                       |
+                       v
+              Slice 9 Frontend API Completion
+                9A-1 Customer/Segment normalization
+                         |
+                         v
+                9A-2 Contract foundation
+                         |
+                         v
+                9B Receivables normalization
+                         |
+                         v
+                9C Collection foundation
+                         |
+                         v
+                9D Frontend support/API freeze
 ```
 
 ## Что означает implementation-ready
 
-Каждое ТЗ Slice 2–8 фиксирует:
+Каждое ТЗ Slice 2–9 фиксирует:
 
 - цель и зависимости;
 - текущий baseline, который нельзя строить повторно;
@@ -73,14 +90,14 @@ Slice 4 Kumo   Slice 5 materialization
 
 ## Правила реализации
 
-1. Один Slice — один узкий PR, если diff не требует обоснованного разделения.
+1. Один Slice — один узкий PR, если diff не требует обоснованного разделения. Slice 9 является master-spec: 9A разделён на 9A-1 Customer/Segment normalization и 9A-2 Contract foundation; 9B–9D реализуются отдельными reviewable PR.
 2. Branch создаётся от актуального `main`, а не от documentation branch.
 3. Не вводить новый framework/abstraction, если существующая инфраструктура решает задачу.
-4. Domain state меняется через domain methods, не прямым `setStatus`.
+4. Domain state меняется через domain methods/commands, не прямым `setStatus`.
 5. Tenant id остаётся явной частью async/query contracts.
 6. External network calls не выполняются под PostgreSQL row lock/long transaction.
 7. Async event содержит durable identifiers, а PostgreSQL остаётся source of truth.
-8. Время приходит через application `Clock`.
+8. Время приходит через application `Clock`; business `LocalDate` использует явно заданный ZoneId, не JVM default.
 9. Schema меняется Liquibase migration только когда реально требуется.
 10. Для persistence/concurrency использовать PostgreSQL integration tests, не только H2/mock tests.
 11. Все integration tests соблюдают общий [test-runtime contract](integration-test-runtime.md).
@@ -109,6 +126,28 @@ Transactional Outbox
     единственный DB -> broker publication mechanism
 ```
 
+Для Slice 9 дополнительно:
+
+```text
+Frontend
+    работает только через /api/v1 и не знает persistence model
+
+PostgreSQL query
+    выполняет tenant filter + business filters + paging + sorting
+
+JPA entities
+    не являются public REST DTO
+
+High-volume lists
+    никогда не возвращаются unpaged
+
+Receivable
+    единственный owner paidAmount/outstandingAmount/paymentStatus
+
+Collection
+    владеет workflow state, но не финансовым балансом
+```
+
 ## Definition of Ready перед началом Slice
 
 Перед созданием code branch проверить:
@@ -118,8 +157,8 @@ Transactional Outbox
 - package/class names в ТЗ всё ещё соответствуют проекту;
 - нет уже существующей реализации того же scope;
 - CI `main` не красный по независимой причине;
-- полный integration suite укладывается в connection budget из
-  [test-runtime contract](integration-test-runtime.md);
-- внешние contracts, если они есть, подтверждены (например KumoMTA endpoint/configuration).
+- полный integration suite укладывается в connection budget из [test-runtime contract](integration-test-runtime.md);
+- внешние contracts, если они есть, подтверждены;
+- для Slice 9 повторно подтверждены current domain ownership и existing API paths.
 
-После этого реализация может идти прямо по разделу `Порядок реализации` соответствующего ТЗ.
+После этого реализация может идти прямо по разделу `Implementation order` соответствующего ТЗ.
