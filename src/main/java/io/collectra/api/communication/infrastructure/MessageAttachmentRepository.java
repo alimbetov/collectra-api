@@ -15,7 +15,8 @@ public interface MessageAttachmentRepository extends JpaRepository<MessageAttach
     List<MessageAttachment> findAllByTenantIdAndMessageIdOrderByCreatedAtAsc(
             UUID tenantId, UUID messageId);
 
-    Optional<MessageAttachment> findByTenantIdAndGenerationJobId(UUID tenantId, UUID generationJobId);
+    Optional<MessageAttachment> findByTenantIdAndGenerationJobId(
+            UUID tenantId, UUID generationJobId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query(
