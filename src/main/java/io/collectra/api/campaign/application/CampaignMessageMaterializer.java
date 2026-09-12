@@ -13,7 +13,6 @@ import io.collectra.api.communication.application.MessageDeliveryEventPublisher;
 import io.collectra.api.communication.domain.CommunicationChannel;
 import io.collectra.api.communication.domain.Message;
 import io.collectra.api.communication.infrastructure.MessageRepository;
-import io.collectra.api.localization.application.TenantLocaleService;
 import io.collectra.api.template.application.CompiledTemplate;
 import io.collectra.api.template.application.TemplateCompiler;
 import io.collectra.api.template.application.TemplateRenderer;
@@ -47,7 +46,6 @@ public class CampaignMessageMaterializer {
     private final TemplateRenderer renderer;
     private final MessageRepository messages;
     private final MessageDeliveryEventPublisher deliveryEvents;
-    private final TenantLocaleService tenantLocales;
     private final Clock clock;
 
     public CampaignMessageMaterializer(
@@ -62,7 +60,6 @@ public class CampaignMessageMaterializer {
             TemplateRenderer renderer,
             MessageRepository messages,
             MessageDeliveryEventPublisher deliveryEvents,
-            TenantLocaleService tenantLocales,
             Clock clock) {
         this.runs = runs;
         this.campaigns = campaigns;
@@ -75,7 +72,6 @@ public class CampaignMessageMaterializer {
         this.renderer = renderer;
         this.messages = messages;
         this.deliveryEvents = deliveryEvents;
-        this.tenantLocales = tenantLocales;
         this.clock = clock;
     }
 
@@ -107,7 +103,6 @@ public class CampaignMessageMaterializer {
                 eligibility.evaluateBatch(tenantId, batch);
         Map<String, CampaignRunTemplateBinding> bindingByLocale =
                 bindingService.bindingsByRequestedLocale(tenantId, campaignRunId);
-        String tenantDefaultLocale = tenantLocales.requireDefault(tenantId).getLocale();
 
         Set<UUID> templateVersionIds =
                 bindingByLocale.values().stream()
@@ -130,8 +125,7 @@ public class CampaignMessageMaterializer {
                 continue;
             }
 
-            String requestedLocale =
-                    normalizeRequestedLocale(recipient.getLocale(), tenantDefaultLocale);
+            String requestedLocale = requireSnapshotLocale(recipient.getLocale());
             CampaignRunTemplateBinding binding = bindingByLocale.get(requestedLocale);
             if (binding == null) {
                 throw new IllegalStateException(
@@ -196,8 +190,11 @@ public class CampaignMessageMaterializer {
         }
     }
 
-    private static String normalizeRequestedLocale(String locale, String tenantDefaultLocale) {
-        return locale == null || locale.isBlank() ? tenantDefaultLocale : locale.trim();
+    private static String requireSnapshotLocale(String locale) {
+        if (locale == null || locale.isBlank()) {
+            throw new IllegalStateException("Campaign recipient locale snapshot is missing");
+        }
+        return locale.trim();
     }
 
     public record MaterializationBatchResult(int selected, int queued, int skipped, boolean hasNext) {}
