@@ -3,7 +3,9 @@ package io.collectra.api.communication.application;
 import io.collectra.api.campaign.domain.CampaignRun;
 import io.collectra.api.campaign.infrastructure.CampaignRunRepository;
 import io.collectra.api.communication.domain.Message;
+import io.collectra.api.communication.domain.MessageAttachmentStatus;
 import io.collectra.api.communication.domain.MessageStatus;
+import io.collectra.api.communication.infrastructure.MessageAttachmentRepository;
 import io.collectra.api.communication.infrastructure.MessageRepository;
 import java.time.Clock;
 import java.time.Instant;
@@ -16,16 +18,19 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class MessageStateService {
     private final MessageRepository messages;
+    private final MessageAttachmentRepository attachments;
     private final CampaignRunRepository runs;
     private final MessageRetryPolicy retryPolicy;
     private final Clock clock;
 
     public MessageStateService(
             MessageRepository messages,
+            MessageAttachmentRepository attachments,
             CampaignRunRepository runs,
             MessageRetryPolicy retryPolicy,
             Clock clock) {
         this.messages = messages;
+        this.attachments = attachments;
         this.runs = runs;
         this.retryPolicy = retryPolicy;
         this.clock = clock;
@@ -35,6 +40,10 @@ public class MessageStateService {
     public Optional<MessageDeliverySnapshot> begin(UUID tenantId, UUID messageId) {
         Message message = locked(tenantId, messageId);
         if (message.getStatus() != MessageStatus.QUEUED) {
+            return Optional.empty();
+        }
+        if (attachments.existsRequiredNotReady(
+                tenantId, messageId, MessageAttachmentStatus.READY)) {
             return Optional.empty();
         }
         message.beginAttempt(clock.instant());
@@ -80,6 +89,20 @@ public class MessageStateService {
         }
         CampaignRun run = lockedRun(message);
         message.markFailed(errorCode, errorMessage);
+        run.messageFailed();
+        run.completeIfTerminal(clock.instant());
+        return true;
+    }
+
+    @Transactional
+    public boolean failBeforeDelivery(
+            UUID tenantId, UUID messageId, String errorCode, String errorMessage) {
+        Message message = locked(tenantId, messageId);
+        if (message.getStatus() != MessageStatus.QUEUED) {
+            return false;
+        }
+        CampaignRun run = lockedRun(message);
+        message.markFailedBeforeDelivery(errorCode, errorMessage);
         run.messageFailed();
         run.completeIfTerminal(clock.instant());
         return true;
