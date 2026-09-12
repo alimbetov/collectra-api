@@ -168,7 +168,12 @@ public class MessageStateService {
             Instant outcomeAt) {
         events.publishEvent(
                 new DeliveryOutcomeEvent(
+                        message.getTenantId(),
+                        message.getCampaignId(),
+                        message.getCampaignRunId(),
+                        message.getId(),
                         message.getChannel(),
+                        message.getAttemptCount(),
                         outcome,
                         errorCode,
                         message.getCreatedAt(),
