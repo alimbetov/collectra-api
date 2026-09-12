@@ -58,13 +58,7 @@ public class CampaignFrontendQueryService {
                 "scheduledTo",
                 scheduledTo);
         appendRange(
-                where,
-                params,
-                "created_at",
-                "createdFrom",
-                createdFrom,
-                "createdTo",
-                createdTo);
+                where, params, "created_at", "createdFrom", createdFrom, "createdTo", createdTo);
         long total = count("SELECT COUNT(*) FROM campaigns" + where, params);
         String order = orderBy(sort, CAMPAIGN_SORTS, "createdAt", "DESC");
         List<CampaignItem> items =
