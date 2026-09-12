@@ -1,8 +1,8 @@
 # Slice 9 — Frontend API Completion
 
-Status: PLANNED  
+Status: READY FOR IMPLEMENTATION  
 Depends on: existing identity/customer/receivable/import/template/file/campaign/message APIs and Slice 8  
-Suggested implementation branches: `feat/slice-09a-customer-contract-api`, `feat/slice-09b-receivables-payments-api`, `feat/slice-09c-collection-api`, `feat/slice-09d-frontend-support-api`
+Suggested implementation branches: `feat/slice-09a1-customer-segment-api`, `feat/slice-09a2-contract-domain-api`, `feat/slice-09b-receivables-payments-api`, `feat/slice-09c-collection-api`, `feat/slice-09d-frontend-support-api`
 
 ## 1. Цель
 
@@ -11,28 +11,22 @@ Suggested implementation branches: `feat/slice-09a-customer-contract-api`, `feat
 - обращаться напрямую к PostgreSQL;
 - самостоятельно вычислять authoritative business state;
 - загружать неограниченные `List<>` и фильтровать их в браузере;
-- собирать dashboard из большого количества несвязанных запросов;
+- собирать dashboard через неконтролируемый network fan-out;
 - знать JPA entity structure;
 - обходить tenant/security constraints;
-- реализовывать собственную generic query language поверх API.
+- реализовывать собственный generic query language поверх API.
 
-Slice 9 является master-spec и реализуется четырьмя independently reviewable sub-slices:
-
-```text
-9A Customer + Contract API
-9B Receivables + Payments API
-9C Collection API
-9D Frontend Support API
-```
-
-Внутри 9A рекомендуется два implementation PR, не меняя общий scope Slice 9:
+Slice 9 — master-spec и реализуется отдельными reviewable PR:
 
 ```text
 9A-1 Customer + Segment API normalization
 9A-2 Contract domain foundation + API
+9B   Receivables + Payments API normalization
+9C   Collection bounded domain + API
+9D   Frontend Support API + API freeze
 ```
 
-После merge 9A–9D `/api/v1` считается frontend contract baseline. Дальнейшие breaking changes требуют явной migration/versioning strategy и automated compatibility check.
+После merge 9A-1/9A-2/9B/9C/9D `/api/v1` считается frontend contract baseline. Дальнейшие breaking changes требуют migration/versioning strategy и automated OpenAPI compatibility check.
 
 ---
 
@@ -40,7 +34,7 @@ Slice 9 является master-spec и реализуется четырьмя 
 
 Slice 9 MUST NOT повторно строить уже существующие возможности.
 
-В актуальном `main` уже существуют authoritative/runtime building blocks:
+В `main` уже существуют:
 
 ```text
 Identity/authentication/tenant context
@@ -65,7 +59,9 @@ application Clock
 PostgreSQL/Liquibase/Testcontainers test runtime
 ```
 
-На момент аудита `contract` и `collection` modules не содержат authoritative business implementation кроме package skeleton. Поэтому:
+На момент финального аудита `contract` и `collection` modules не содержат authoritative business implementation кроме package skeleton.
+
+Поэтому:
 
 ```text
 Customer/Segment  -> normalize existing domain/API
@@ -90,8 +86,8 @@ Dashboard         -> read models/projections only
 | Contract | no current owner | create bounded domain |
 | Invoice | `receivable.Invoice` | normalize API |
 | Payment | `receivable.Payment` | normalize API |
-| Allocation | `PaymentAllocation` | normalize API / commands |
-| Financial balance/state | receivable domain | derive only |
+| Allocation | `PaymentAllocation` | harden + normalize API/commands |
+| Financial balance/state | receivable domain | existing persisted authoritative state, maintained only by Receivable |
 | CollectionCase | no current owner | create collection domain |
 | PromiseToPay | no current owner | create collection domain |
 | Dispute | no current owner | create collection domain |
@@ -114,23 +110,29 @@ Slice 9 завершает presentation/query surface и MUST NOT молча п�
 - frontend-specific list/detail/dashboard shape может использовать projection/read model, но projection не становится mutable source of truth;
 - новая authoritative table/domain aggregate создаётся только если owner действительно отсутствует;
 - ownership нового domain state должен быть явно зафиксирован в PR;
-- derived fields (`outstandingAmount`, `paidAmount`, `daysOverdue`, delivery counters и т.п.) не поддерживаются независимо в нескольких aggregates;
+- persisted `Invoice.paidAmount`, `Invoice.outstandingAmount` и `Invoice.paymentStatus` остаются authoritative state Receivable domain и изменяются только через его invariants;
+- `daysOverdue`, dashboard counters и другие presentation values могут вычисляться как projections, но не становятся competing state;
 - import, campaign eligibility, collection views и frontend receivable API MUST видеть один и тот же financial truth.
 
 Authoritative financial chain:
 
 ```text
-Invoice
-  + Payment
-  + PaymentAllocation
-       ↓
-paidAmount / outstandingAmount / payment status / eligibility
+PaymentAllocation command
+        ↓
+Receivable transaction
+        ↓
+Invoice.paidAmount
+Invoice.outstandingAmount
+Invoice.paymentStatus
+        ↓
+Campaign / Collection projection / Dashboard / Frontend
 ```
 
-Forbidden example:
+Forbidden:
 
 ```text
 CollectionCase.outstandingAmount // independently mutable duplicate
+DashboardInvoiceBalance          // independently mutable duplicate without explicit consistency model
 ```
 
 ---
@@ -160,6 +162,7 @@ Controllers возвращают JSON DTO, не JPA entities.
 <DetailResponse>
 <CreateRequest>
 <UpdateRequest>
+<CommandRequest>
 ```
 
 Conventions:
@@ -169,8 +172,9 @@ Conventions:
 - business date -> `LocalDate` / `YYYY-MM-DD`;
 - money -> `BigDecimal` + ISO-4217 currency;
 - `float`/`double` для денег запрещены;
-- semantics `null`, omitted field и `[]` должны быть стабильными;
-- public enum values являются API contract.
+- `null`, omitted field и `[]` имеют стабильную documented semantics;
+- public enum values являются API contract;
+- generic workflow transitions через arbitrary `PATCH status=X` запрещены, если transition имеет business significance.
 
 ### 3.2 Pagination
 
@@ -194,7 +198,7 @@ size > 200 -> 400
 
 Silent clamp запрещён.
 
-Use `Page` только если frontend реально требует total и `COUNT(*)` приемлем:
+`Page` использовать только если frontend реально требует total и `COUNT(*)` приемлем:
 
 ```json
 {
@@ -207,7 +211,7 @@ Use `Page` только если frontend реально требует total и
 }
 ```
 
-Use Slice-style response для high-volume/expensive-count lists:
+Slice-style response использовать для high-volume/expensive-count lists:
 
 ```json
 {
@@ -229,9 +233,7 @@ sort=createdAt,desc
 sort=displayName,asc
 ```
 
-Каждый endpoint имеет explicit allowlist sortable fields.
-
-Arbitrary entity/property/SQL sorting запрещён.
+Каждый endpoint имеет explicit allowlist sortable fields. Arbitrary entity/property/SQL sorting запрещён.
 
 Default stable order:
 
@@ -239,26 +241,47 @@ Default stable order:
 createdAt DESC, id DESC
 ```
 
-Для non-unique user sort repository MUST добавлять unique tie-breaker `id`.
+Для non-unique user sort repository MUST добавлять unique tie-breaker `id`. Tie-breaker direction должен быть детерминирован и согласован с основным порядком; конкретный endpoint фиксирует его в contract.
 
-Unknown field/direction -> `400`.
+Unknown field/direction -> `400 INVALID_REQUEST`.
 
 ### 3.4 Filtering/search
 
-Использовать fixed typed business filters с AND semantics.
+Использовать fixed typed business filters с AND semantics. Generic RSQL/OData/query DSL запрещён.
 
-Generic RSQL/OData/query DSL в Slice 9 запрещён.
+Общие query semantics:
 
-Для каждого string/search filter определить:
+```text
+?search=                 -> treat as absent after trim
+?status=                 -> 400
+?customerId=             -> 400
+from > to                -> 400 INVALID_RANGE
+amountMin > amountMax    -> 400 INVALID_RANGE
+```
 
-- trim semantics;
-- case sensitivity;
-- exact/prefix/contains semantics;
-- min/max length;
-- searchable fields;
-- PostgreSQL index/query strategy.
+Для каждого string/search filter определить exact/prefix/contains semantics и searchable fields.
 
-Default human-readable search: trimmed, case-insensitive, bounded search только по explicit fields. `%term%` на больших таблицах без индекса/query-plan justification запрещён.
+Default endpoint semantics:
+
+```text
+Customer.search:
+  displayName    -> case-insensitive contains
+  externalId     -> case-insensitive prefix
+
+Contract.search:
+  contractNumber -> case-insensitive prefix
+  externalId     -> case-insensitive exact/prefix
+
+Invoice.search:
+  invoiceNumber  -> case-insensitive prefix
+  externalId     -> case-insensitive exact/prefix
+
+Payment.search:
+  paymentReference -> case-insensitive contains
+  externalId       -> case-insensitive exact/prefix
+```
+
+Search input MUST be trimmed and length-bounded. `%term%` на больших таблицах без подходящего PostgreSQL index/query-plan justification запрещён.
 
 Invalid UUID/enum/date/decimal/range -> `400`.
 
@@ -281,7 +304,7 @@ repository.findById(id)
 // then tenant check in Java
 ```
 
-Required pattern:
+Required:
 
 ```java
 repository.findByIdAndTenantId(id, tenantId)
@@ -289,9 +312,7 @@ repository.findByIdAndTenantId(id, tenantId)
 
 или equivalent tenant-scoped projection/query.
 
-Nested resources проверяют tenant + parent + child в query/application boundary.
-
-Foreign tenant, wrong parent и missing resource externally возвращают одинаковый `404`.
+Nested resources проверяют tenant + parent + child. Foreign tenant, wrong parent и missing resource externally возвращают одинаковый `404`.
 
 Count query MUST иметь тот же tenant predicate.
 
@@ -299,7 +320,7 @@ Count query MUST иметь тот же tenant predicate.
 
 Slice 9 MUST reuse existing identity/security model. Новые `PrincipalType`, новый technical-account aggregate или parallel role hierarchy не создавать.
 
-Conceptual actor mapping:
+Conceptual mapping:
 
 ```text
 Platform administrator
@@ -320,8 +341,6 @@ Technical integration
 
 Fine-grained corporate RBAC для каждого screen/resource out-of-scope до подтверждённого requirement.
 
-Machine-to-machine API использует существующую scope convention. Не вводить provider-specific roles вроде `ROLE_1C`/`ROLE_SAP`.
-
 Expected semantics:
 
 ```text
@@ -340,20 +359,7 @@ platform super admin -> admin API           -> allowed
 
 Use existing `ApiExceptionHandler` and Spring `ProblemDetail`. Не создавать второй `ErrorResponse` contract.
 
-Baseline:
-
-```text
-200 successful read/update
-201 successful create
-204 successful command without body
-400 invalid request/query
-401 unauthenticated
-403 authenticated but unauthorized
-404 absent / foreign tenant / wrong hierarchy
-409 business conflict / illegal transition / duplicate business key
-```
-
-Stable error properties должны продолжать существующую модель:
+Stable properties:
 
 ```text
 status
@@ -363,16 +369,49 @@ instance
 code
 traceId
 correlationId
-errors       // validation, where applicable
+errors      // validation when applicable
 ```
 
-Frontend MUST use machine-readable `code`, а не parse exception text.
+Baseline:
+
+```text
+200 successful read/update
+201 successful create
+204 successful idempotent command without body
+400 invalid request/query
+401 unauthenticated
+403 authenticated but unauthorized
+404 absent / foreign tenant / wrong hierarchy
+409 business conflict / illegal transition / duplicate business key / optimistic conflict
+```
+
+Минимальный стабильный catalog business codes для Slice 9:
+
+```text
+VALIDATION_FAILED
+INVALID_REQUEST
+INVALID_RANGE
+NOT_FOUND
+FORBIDDEN
+DUPLICATE_EXTERNAL_ID
+VERSION_CONFLICT
+INVALID_STATE_TRANSITION
+CURRENCY_MISMATCH
+CUSTOMER_MISMATCH
+ALLOCATION_EXCEEDS_PAYMENT
+ALLOCATION_EXCEEDS_INVOICE
+ALLOCATION_ALREADY_REVERSED
+IDEMPOTENCY_CONFLICT
+COLLECTION_CASE_ALREADY_ACTIVE
+```
+
+Frontend MUST использовать `code`, а не parse exception text.
 
 Stack trace, SQL/provider exception, secrets, PII и internal class names наружу не возвращать.
 
-### 3.8 Time/concurrency/audit
+### 3.8 Time/business date/concurrency/audit
 
-Проект уже имеет application `Clock`; Slice 9 MUST использовать injected `Clock` для time-dependent business/read logic.
+Проект уже имеет application `Clock`; Slice 9 MUST использовать injected `Clock` для time-dependent logic.
 
 Forbidden in production Slice 9 code:
 
@@ -384,20 +423,39 @@ OffsetDateTime.now()
 
 без injected `Clock`.
 
-Особенно это относится к:
+`Clock` является authoritative instant source. Для business `LocalDate` нельзя случайно использовать JVM default timezone.
+
+Business date resolution:
 
 ```text
-overdue
-daysOverdue
-due today
-promise due/broken
-next-action overdue
-dashboard aging/asOf
+1. если tenant timezone уже доступен из authoritative tenant/config model -> использовать его ZoneId;
+2. если такого model ещё нет -> использовать один явно configured project-wide business ZoneId;
+3. fallback к JVM default timezone запрещён.
 ```
 
-Mutable financial/workflow aggregates используют optimistic versioning или explicit row locking согласно invariant.
+До появления tenant-specific timezone default для Collectra MVP должен быть явно задан application property, рекомендуемо `Asia/Almaty`, и использован единообразно.
 
-Significant workflow/financial transitions сохраняют actor/time/action/reason audit, где это необходимо.
+Time-dependent semantics:
+
+```text
+overdue invoice:
+  paymentStatus not PAID/CANCELLED
+  AND outstandingAmount > 0
+  AND dueDate < businessDate
+
+daysOverdue:
+  overdue ? DAYS.between(dueDate, businessDate) : 0
+
+collection action overdue:
+  status == PENDING
+  AND dueAt < now(clock)
+```
+
+Mutable financial/workflow aggregates используют optimistic versioning или explicit row locking согласно конкретным invariants ниже.
+
+Для API optimistic locking mutable workflow DTO MUST передавать `version`. Stale version -> `409 VERSION_CONFLICT`.
+
+Significant workflow/financial transitions сохраняют actor/time/action/reason audit.
 
 Hard delete financial/collection history запрещён; использовать archive/status/reversal semantics.
 
@@ -411,9 +469,9 @@ Read model может дублировать representation, но не authorita
 
 ### 3.10 Module dependency rule
 
-Bounded modules не должны напрямую использовать repositories соседнего bounded context как shared database DAO layer.
+Bounded modules не используют repositories соседнего bounded context как shared DAO layer.
 
-Например Collection application layer при необходимости финансового контекста использует `ReceivableService`/dedicated receivable query port, а не произвольные вызовы `InvoiceRepository`/`PaymentRepository` из collection package.
+Например Collection application layer использует `ReceivableService`/dedicated receivable query port, а не `InvoiceRepository`/`PaymentRepository` напрямую.
 
 Target direction:
 
@@ -431,24 +489,24 @@ PostgreSQL
 
 ---
 
-## 4. Slice 9A — Customer + Contract API
+## 4. Slice 9A-1 — Customer + Segment API normalization
 
-### 4.1 9A-1 Customer API normalization
+### 4.1 Customer list
 
-`Customer` уже authoritative. Slice 9A не создаёт новый customer aggregate.
+`Customer` уже authoritative. Новый customer aggregate запрещён.
 
 ```text
 GET /api/v1/customers
 ```
 
-MVP filters при наличии соответствующих fields:
+MVP filters:
 
 ```text
 search
 status
 customerType
 managerId
-segment
+segmentId
 externalId
 email
 phone
@@ -456,7 +514,13 @@ createdFrom
 createdTo
 ```
 
-`search` минимум `displayName` + `externalId`.
+Canonical semantics:
+
+- `externalId` exact match для dedicated filter;
+- `email` normalized case-insensitive exact match;
+- `phone` normalized exact match по существующей normalized phone semantics;
+- `segmentId` означает membership в tenant-owned `CustomerSegment`;
+- filters combine with AND.
 
 Sortable allowlist минимум:
 
@@ -467,59 +531,126 @@ displayName
 externalId
 ```
 
-List response не загружает nested contacts/contracts/invoices collections.
+List response MUST NOT загружать nested contacts/contracts/invoices collections.
 
 ### 4.2 Customer detail/write
+
+Сохраняем существующий command shape вместо нового generic PATCH:
 
 ```text
 GET   /api/v1/customers/{customerId}
 POST  /api/v1/customers
-PATCH /api/v1/customers/{customerId}
+PUT   /api/v1/customers/{customerId}
+PATCH /api/v1/customers/{customerId}/status
 ```
 
-Использовать existing Customer invariants: tenant-scoped externalId, type, displayName, status, manager, locale/timezone, custom fields.
+`PUT` обновляет profile fields существующего Customer и не меняет `externalId`/tenant identity.
 
-Status changes проходят через domain/application rule, не arbitrary setter.
+Status change проходит через domain/application method.
 
 Physical DELETE customer out-of-scope.
 
 ### 4.3 Customer contacts
 
-Expose existing email/phone domain через frontend contract:
+Не создавать generic Contact aggregate. Existing `CustomerEmail` и `CustomerPhone` остаются отдельными resources.
+
+Canonical API:
 
 ```text
-GET    /api/v1/customers/{customerId}/contacts
-POST   /api/v1/customers/{customerId}/contacts
-PATCH  /api/v1/customers/{customerId}/contacts/{contactId}
-DELETE /api/v1/customers/{customerId}/contacts/{contactId}
+GET   /api/v1/customers/{customerId}/emails
+POST  /api/v1/customers/{customerId}/emails
+PATCH /api/v1/customers/{customerId}/emails/{emailId}
+
+GET   /api/v1/customers/{customerId}/phones
+POST  /api/v1/customers/{customerId}/phones
+PATCH /api/v1/customers/{customerId}/phones/{phoneId}
 ```
 
-`DELETE` разрешён только если existing domain semantics допускает physical removal; иначе endpoint заменяется deactivate/status command.
-
-Email/phone — PII: raw values не писать в logs/errors.
-
-Если nested contact count bounded business limits, pagination не требуется.
-
-### 4.4 Segments — existing tenant-configurable resource
-
-`CustomerSegment` и `CustomerSegmentMember` уже существуют. Segment MUST NOT заменяться enum/reference-data.
-
-Normalize/create missing resource API:
+В MVP email/phone value после создания не редактируется. Для смены значения:
 
 ```text
-GET   /api/v1/segments
-GET   /api/v1/segments/{segmentId}
-POST  /api/v1/segments
-PATCH /api/v1/segments/{segmentId}
+deactivate old contact
+create new contact
 ```
 
-List paginated; минимум `search/status`; stable deterministic sort; membership access tenant-scoped.
+PATCH разрешает только bounded metadata/state, если соответствующие domain methods добавлены:
 
-### 4.5 9A-2 Contract domain foundation
+```text
+type
+primary
+status ACTIVE/INACTIVE
+```
 
-На момент аудита authoritative Contract отсутствует. Slice 9A-2 создаёт минимальный bounded aggregate, а не frontend-only table.
+`verified` не выставляется произвольным frontend PATCH, если нет отдельного verification flow.
 
-Minimum model:
+Contact invariants:
+
+```text
+at most one ACTIVE primary email per customer
+at most one ACTIVE primary phone per customer
+```
+
+При назначении нового primary предыдущий ACTIVE primary того же типа atomically demoted в одной transaction.
+
+Email/phone — PII: raw values не писать в application logs/errors.
+
+Nested contact lists bounded и не требуют pagination.
+
+### 4.4 Customer segments
+
+`CustomerSegment`/`CustomerSegmentMember` уже tenant-configurable resources.
+
+Canonical path сохраняет существующее и более точное имя:
+
+```text
+GET   /api/v1/customer-segments
+GET   /api/v1/customer-segments/{segmentId}
+POST  /api/v1/customer-segments
+PATCH /api/v1/customer-segments/{segmentId}
+```
+
+List paginated; filters `search`, `active`; stable deterministic sort.
+
+Membership commands сохраняются:
+
+```text
+POST   /api/v1/customers/{customerId}/segments/{segmentId}
+DELETE /api/v1/customers/{customerId}/segments/{segmentId}
+```
+
+Semantics:
+
+```text
+add existing membership    -> idempotent 204
+remove absent membership   -> idempotent 204
+foreign tenant segment     -> 404
+```
+
+Segment MUST NOT дублироваться как static reference data.
+
+### 4.5 9A-1 acceptance
+
+Frontend способен реализовать:
+
+```text
+Customers table/detail
+Customer profile editor
+Emails/phones management
+Segments management/selector
+Segment membership
+```
+
+без unbounded list/N+1/client-side large filtering.
+
+---
+
+## 5. Slice 9A-2 — Contract bounded domain + API
+
+### 5.1 Contract model
+
+На момент аудита authoritative Contract отсутствует.
+
+Minimum aggregate:
 
 ```text
 Contract
@@ -531,33 +662,61 @@ Contract
 ├── status
 ├── validFrom
 ├── validTo
-├── renewalDate        // only if business requirement retained
+├── renewalDate      // nullable, only informational in MVP
 ├── customFields
 ├── version
 ├── createdAt
 └── updatedAt
 ```
 
-Required invariants:
+ContractStatus:
+
+```text
+ACTIVE
+SUSPENDED
+CLOSED
+CANCELLED
+```
+
+Allowed transitions:
+
+```text
+ACTIVE    -> SUSPENDED | CLOSED | CANCELLED
+SUSPENDED -> ACTIVE | CLOSED | CANCELLED
+CLOSED    -> terminal
+CANCELLED -> terminal
+```
+
+No `DRAFT` in MVP without explicit draft workflow requirement.
+
+Invariants:
 
 - `tenantId` mandatory;
-- customer MUST belong to same tenant;
-- `externalId` tenant-scoped unique;
-- contract-number uniqueness semantics MUST be explicitly chosen and tested;
-- lifecycle/status bounded by domain methods;
+- customer MUST exist in same tenant;
+- `externalId` -> unique `(tenant_id, external_id)`;
+- `contractNumber` is NOT globally/tenant unique by platform invariant; index it for search, but external system uniqueness remains integration/business rule;
+- `validTo`, if present, MUST be >= `validFrom`;
+- `renewalDate`, if present, is informational only in Slice 9 and does not trigger scheduler/workflow;
+- status transitions domain-controlled;
+- optimistic versioning;
 - hard delete forbidden;
-- optimistic versioning for conflicting edits;
-- document content stored/retrieved through FileService references, not byte arrays in Contract;
-- Contract MUST NOT own `paidAmount`, `outstandingAmount`, collection status or delivery counters.
+- documents use FileService references;
+- Contract MUST NOT own financial balances, collection state or delivery counters.
 
-Public API:
+### 5.2 Contract API
 
 ```text
 GET   /api/v1/contracts
 GET   /api/v1/contracts/{contractId}
 POST  /api/v1/contracts
-PATCH /api/v1/contracts/{contractId}
+PUT   /api/v1/contracts/{contractId}
+POST  /api/v1/contracts/{contractId}/suspend
+POST  /api/v1/contracts/{contractId}/activate
+POST  /api/v1/contracts/{contractId}/close
+POST  /api/v1/contracts/{contractId}/cancel
 ```
+
+State commands MUST validate transition and version where concurrent edits matter.
 
 Filters:
 
@@ -573,28 +732,31 @@ renewalTo
 search
 ```
 
-Contract DTO returns safe file/document references only.
+Contract DTO returns file/document references only, not binary content.
 
-### 4.6 9A acceptance
+### 5.3 Invoice relation integrity after Contract introduction
 
-Frontend должен реализовать без large client-side filtering/N+1:
+If `Invoice.contractId != null`:
 
 ```text
-Customers table/detail
-Customer contacts editor
-Segments management/selector
-Contracts table/detail/editor
+Contract MUST exist
+Contract.tenantId == Invoice.tenantId
+Contract.customerId == Invoice.customerId
 ```
 
-9A implementation SHOULD be two reviewable PRs: existing Customer/Segment normalization first, Contract foundation second.
+Creating/importing invoice with inconsistent contract -> `409 CUSTOMER_MISMATCH` or stable domain-specific conflict code.
+
+### 5.4 9A-2 acceptance
+
+Frontend supports Contract table/detail/editor and lifecycle commands. Contract ownership/integrity is tenant-safe and does not duplicate receivable state.
 
 ---
 
-## 5. Slice 9B — Receivables + Payments API
+## 6. Slice 9B — Receivables + Payments API
 
-### 5.1 Authoritative financial model is already present
+### 6.1 Existing authoritative model
 
-Slice 9B MUST reuse:
+Reuse:
 
 ```text
 Invoice
@@ -603,9 +765,9 @@ PaymentAllocation
 ReceivableService
 ```
 
-Imports already persist into this domain and campaign eligibility already consumes it. Slice 9B MUST NOT create replacement Invoice/Receivable/Balance models.
+Imports already persist into this domain and campaign eligibility already consumes it.
 
-The same financial state MUST drive:
+The same financial state drives:
 
 ```text
 receivable frontend API
@@ -614,25 +776,27 @@ collection financial projections
 dashboard receivable metrics
 ```
 
-### 5.2 Invoices
+### 6.2 Invoice API
 
 ```text
-GET   /api/v1/invoices
-GET   /api/v1/invoices/{invoiceId}
-POST  /api/v1/invoices
-PATCH /api/v1/invoices/{invoiceId}
+GET  /api/v1/invoices
+GET  /api/v1/invoices/{invoiceId}
+POST /api/v1/invoices
 ```
 
-POST/PATCH are not generic entity editing. Permitted manual corrections MUST be explicitly enumerated. Immutable financial facts use explicit correction/reversal/status commands instead of arbitrary PATCH.
+Generic `PATCH /invoices/{id}` MUST NOT be added in Slice 9. Existing financial facts are not arbitrary-edit resources.
+
+Any future correction of original amount/customer/currency requires explicit correction/reversal business command in a separate approved requirement.
 
 Filters:
 
 ```text
 customerId
 contractId
-status
+paymentStatus
 currency
 invoiceNumber
+externalId
 search
 issuedFrom
 issuedTo
@@ -645,23 +809,26 @@ outstandingMin
 outstandingMax
 ```
 
-Backend-computed authoritative fields:
+`paymentStatus` uses existing enum semantics and MUST NOT be renamed to ambiguous generic `status`.
+
+Backend fields:
 
 ```text
-amount
+originalAmount
 paidAmount
 outstandingAmount
 currency
-status
+paymentStatus
 dueDate
+overdue
 daysOverdue
 ```
 
-`daysOverdue` and `overdue` MUST use injected application `Clock`.
+`overdue` and `daysOverdue` follow section 3.8 business-date semantics.
 
-Frontend MUST NOT reconstruct balances/status from unrelated records.
+### 6.3 Payment API
 
-### 5.3 Payments
+`Payment` currently has no lifecycle status. Slice 9 MUST NOT invent one only for filtering.
 
 ```text
 GET  /api/v1/payments
@@ -669,16 +836,14 @@ GET  /api/v1/payments/{paymentId}
 POST /api/v1/payments
 ```
 
-Prefer immutable payment + correction/reversal model instead of unrestricted PATCH.
-
 Filters:
 
 ```text
 customerId
-invoiceId       // through allocation relation
-status
+invoiceId          // through ACTIVE allocation relation
 currency
 paymentReference
+externalId
 paymentFrom
 paymentTo
 amountMin
@@ -687,29 +852,134 @@ unallocatedOnly
 search
 ```
 
-### 5.4 Allocations
+`status` filter is explicitly NOT part of Slice 9B.
+
+Payment financial facts are immutable in Slice 9. Correction/reversal of payment itself is out-of-scope unless separately specified.
+
+### 6.4 PaymentAllocation hardened model
+
+Slice 9B extends existing allocation persistence only as required for safe reversal/idempotency.
+
+Required fields/concepts:
 
 ```text
-GET  /api/v1/payments/{paymentId}/allocations
+id
+tenantId
+paymentId
+invoiceId
+amount
+commandId
+status ACTIVE | REVERSED
+reversedAt
+reversedBy
+reversalReason
+createdAt
+```
+
+DB constraints:
+
+```text
+UNIQUE (tenant_id, command_id)
+```
+
+Allocation command:
+
+```text
 POST /api/v1/payments/{paymentId}/allocations
-GET  /api/v1/invoices/{invoiceId}/allocations
-POST /api/v1/payments/{paymentId}/allocations/{allocationId}/reverse
+```
+
+Request:
+
+```json
+{
+  "commandId": "uuid",
+  "invoiceId": "uuid",
+  "amount": 10000.0000
+}
+```
+
+Idempotency semantics:
+
+```text
+same commandId + same canonical payload -> return existing allocation/result, no duplicate state change
+same commandId + different payload      -> 409 IDEMPOTENCY_CONFLICT
+```
+
+### 6.5 Allocation transaction/concurrency contract
+
+All allocate/reverse code paths MUST use one lock order:
+
+```text
+Payment -> Invoice
+```
+
+Allocation transaction:
+
+```text
+1. lock Payment row FOR UPDATE;
+2. lock Invoice row FOR UPDATE;
+3. verify same tenant/customer/currency;
+4. recompute ACTIVE allocated amount for Payment under lock;
+5. validate payment remaining;
+6. validate invoice outstanding;
+7. apply allocation to Invoice authoritative state;
+8. persist ACTIVE PaymentAllocation with commandId;
+9. commit.
 ```
 
 Mandatory invariants:
 
 - amount > 0;
-- payment/invoice/allocation same tenant;
+- same tenant;
+- same customer;
+- same currency;
 - no payment over-allocation;
-- no invoice over-payment unless explicit credit rule exists;
+- no invoice over-payment;
 - no implicit FX conversion;
-- customer consistency where payment has customer ownership;
-- allocation and derived states update in one PostgreSQL transaction;
-- concurrent allocations cannot violate totals;
-- retry/duplicate request cannot silently double-allocate;
-- reversal audit retained.
+- no duplicate command effect;
+- Invoice state + allocation persisted atomically.
 
-### 5.5 9B acceptance
+Conflict codes:
+
+```text
+CUSTOMER_MISMATCH
+CURRENCY_MISMATCH
+ALLOCATION_EXCEEDS_PAYMENT
+ALLOCATION_EXCEEDS_INVOICE
+```
+
+### 6.6 Allocation reversal
+
+```text
+GET  /api/v1/payments/{paymentId}/allocations
+GET  /api/v1/invoices/{invoiceId}/allocations
+POST /api/v1/payments/{paymentId}/allocations/{allocationId}/reverse
+```
+
+Reverse request:
+
+```json
+{
+  "version": 1,
+  "reason": "OPERATOR_CORRECTION"
+}
+```
+
+Reversal transaction follows same lock order `Payment -> Invoice` and atomically:
+
+```text
+ACTIVE allocation -> REVERSED
+Invoice.paidAmount        -= allocation.amount
+Invoice.outstandingAmount += allocation.amount
+Invoice.paymentStatus      = recalculated from authoritative totals
+reversedAt/by/reason       = stored
+```
+
+Reversing already REVERSED allocation -> `409 ALLOCATION_ALREADY_REVERSED`.
+
+Hard delete allocation forbidden.
+
+### 6.7 9B acceptance
 
 Frontend supports:
 
@@ -718,18 +988,19 @@ Receivables table/detail
 Overdue filtering
 Customer receivables
 Payments table/detail
-Allocation/reconciliation UI
+Allocation/reconciliation
+Allocation reversal
 ```
 
-with one authoritative financial model.
+Concurrency tests MUST prove that parallel allocations/reversals cannot violate payment or invoice totals.
 
 ---
 
-## 6. Slice 9C — Collection bounded domain + API
+## 7. Slice 9C — Collection bounded domain + API
 
-### 6.1 Domain ownership
+### 7.1 Domain ownership
 
-Current `collection` module has no authoritative implementation. Slice 9C creates only the minimum domain required for operator UI:
+Slice 9C creates minimum operator workflow domain:
 
 ```text
 CollectionCase
@@ -739,7 +1010,7 @@ CollectionAction
 Collection timeline projection
 ```
 
-Explicitly out-of-scope here:
+Out-of-scope:
 
 ```text
 generic BPM/workflow engine
@@ -750,18 +1021,11 @@ automatic assignment
 automatic PromiseToPay breach scheduler
 ```
 
-Those can be later slices after operator workflow is validated.
-
 Collection owns workflow state. Receivable owns financial truth.
 
-```text
-CollectionCase ──references──> Invoice / Customer
-CollectionCase does NOT own invoice balance
-```
+### 7.2 CollectionCase
 
-### 6.2 CollectionCase
-
-MVP case is invoice-level. `invoiceId` MUST NOT be null in Slice 9C unless a separate customer-level collection requirement is explicitly approved.
+MVP case is invoice-level. `invoiceId` MUST NOT be null.
 
 Minimum fields:
 
@@ -775,26 +1039,79 @@ priority
 assignedTo
 openedAt
 closedAt
-nextActionAt
+closeReason
 version
 audit fields
 ```
 
-Invariant:
+CollectionCaseStatus:
 
 ```text
-At most one active CollectionCase per tenant + invoice.
+OPEN
+IN_PROGRESS
+ON_HOLD
+CLOSED
 ```
 
-Historical closed cases may remain.
+Allowed transitions:
+
+```text
+OPEN        -> IN_PROGRESS | ON_HOLD | CLOSED
+IN_PROGRESS -> ON_HOLD | CLOSED
+ON_HOLD     -> IN_PROGRESS | CLOSED
+CLOSED      -> terminal in Slice 9
+```
+
+One active case invariant:
+
+```text
+At most one case with status OPEN/IN_PROGRESS/ON_HOLD per tenant + invoice.
+```
+
+Creating a case requires:
+
+```text
+Invoice exists in same tenant
+Invoice.customerId == request.customerId
+Invoice.outstandingAmount > 0
+Invoice.paymentStatus not PAID/CANCELLED
+no existing active case
+```
+
+Existing active case -> `409 COLLECTION_CASE_ALREADY_ACTIVE`.
 
 Public API:
 
 ```text
-GET   /api/v1/collection-cases
-GET   /api/v1/collection-cases/{caseId}
-POST  /api/v1/collection-cases
-PATCH /api/v1/collection-cases/{caseId}
+GET  /api/v1/collection-cases
+GET  /api/v1/collection-cases/{caseId}
+POST /api/v1/collection-cases
+PUT  /api/v1/collection-cases/{caseId}
+POST /api/v1/collection-cases/{caseId}/start
+POST /api/v1/collection-cases/{caseId}/hold
+POST /api/v1/collection-cases/{caseId}/close
+```
+
+`PUT` may edit non-state metadata such as priority/assignedTo with optimistic `version`; state transitions use commands.
+
+Close request:
+
+```json
+{
+  "version": 3,
+  "reason": "PAID"
+}
+```
+
+CloseReason values:
+
+```text
+PAID
+SETTLED
+WRITTEN_OFF
+DUPLICATE
+CANCELLED
+OTHER
 ```
 
 Filters:
@@ -807,58 +1124,109 @@ assignedTo
 priority
 overdueDaysMin
 overdueDaysMax
-nextActionFrom
-nextActionTo
-search
+createdFrom
+createdTo
 ```
 
-Status is a bounded state machine; arbitrary `status=X` is forbidden.
+Financial values in case DTO are query-time projections from Receivable and are never mutable Collection fields.
 
-Financial values in case detail/list are query-time projections from Receivable, not mutable Collection fields.
+### 7.3 Promise-to-Pay
 
-### 6.3 Promise-to-Pay
-
-```text
-GET   /api/v1/promises-to-pay
-GET   /api/v1/promises-to-pay/{promiseId}
-POST  /api/v1/promises-to-pay
-PATCH /api/v1/promises-to-pay/{promiseId}
-```
-
-Minimum model:
+Minimum fields:
 
 ```text
+id
+tenantId
 caseId
 promisedAmount
 currency
 promisedDate
 status
-fulfilledAt / brokenAt / cancelledAt as applicable
+fulfilledAt
+brokenAt
+cancelledAt
+version
 audit fields
 ```
 
-Lifecycle distinguishes active/fulfilled/broken/cancelled. History is never physically deleted.
-
-Filters:
+PromiseStatus:
 
 ```text
-customerId
-caseId
-status
-promiseFrom
-promiseTo
+ACTIVE
+FULFILLED
+BROKEN
+CANCELLED
 ```
 
-Time-dependent due/breach representation uses injected `Clock`.
-
-### 6.4 Disputes
+Allowed transitions:
 
 ```text
-GET   /api/v1/disputes
-GET   /api/v1/disputes/{disputeId}
-POST  /api/v1/disputes
-PATCH /api/v1/disputes/{disputeId}
+ACTIVE -> FULFILLED | BROKEN | CANCELLED
+FULFILLED/BROKEN/CANCELLED -> terminal
 ```
+
+Creation invariants:
+
+- case active and same tenant;
+- promisedAmount > 0;
+- currency matches invoice currency in MVP;
+- promisedAmount SHOULD NOT exceed current invoice outstanding amount; if business later allows negotiated excess, that is a separate requirement.
+
+API:
+
+```text
+GET  /api/v1/promises-to-pay
+GET  /api/v1/promises-to-pay/{promiseId}
+POST /api/v1/promises-to-pay
+PUT  /api/v1/promises-to-pay/{promiseId}
+POST /api/v1/promises-to-pay/{promiseId}/fulfill
+POST /api/v1/promises-to-pay/{promiseId}/break
+POST /api/v1/promises-to-pay/{promiseId}/cancel
+```
+
+`PUT` edits only allowed non-terminal promise metadata and uses `version`.
+
+Important Slice 9 rule: passing `promisedDate` does NOT automatically persist `BROKEN`, because automatic breach scheduler is out-of-scope.
+
+Read DTO may expose:
+
+```text
+overdue = status == ACTIVE && promisedDate < businessDate
+```
+
+Persisted `ACTIVE -> BROKEN` happens only via explicit application/operator command in Slice 9.
+
+### 7.4 Dispute
+
+Minimum lifecycle:
+
+```text
+OPEN
+RESOLVED
+CANCELLED
+```
+
+Allowed transitions:
+
+```text
+OPEN -> RESOLVED | CANCELLED
+RESOLVED/CANCELLED -> terminal
+```
+
+API:
+
+```text
+GET  /api/v1/disputes
+GET  /api/v1/disputes/{disputeId}
+POST /api/v1/disputes
+PUT  /api/v1/disputes/{disputeId}
+POST /api/v1/disputes/{disputeId}/resolve
+POST /api/v1/disputes/{disputeId}/cancel
+```
+
+Resolution stores stable reason/code/summary, actor and resolvedAt.
+
+Raw unbounded notes MUST NOT automatically become public/log payload.
 
 Filters:
 
@@ -871,18 +1239,34 @@ createdFrom
 createdTo
 ```
 
-Resolution retains status, reason/code/summary, actor and resolved timestamp. Raw unbounded internal notes MUST NOT automatically become public/log payload.
+### 7.5 Collection actions / work queue
 
-### 6.5 Collection actions / work queue
-
-Resource API:
+ActionStatus:
 
 ```text
-GET   /api/v1/collection-actions
-GET   /api/v1/collection-actions/{actionId}
-POST  /api/v1/collection-actions
-PATCH /api/v1/collection-actions/{actionId}
+PENDING
+COMPLETED
+CANCELLED
 ```
+
+`overdue` is derived, not a persisted status:
+
+```text
+status == PENDING && dueAt < now(clock)
+```
+
+API:
+
+```text
+GET  /api/v1/collection-actions
+GET  /api/v1/collection-actions/{actionId}
+POST /api/v1/collection-actions
+PUT  /api/v1/collection-actions/{actionId}
+POST /api/v1/collection-actions/{actionId}/complete
+POST /api/v1/collection-actions/{actionId}/cancel
+```
+
+`PUT` edits scheduling metadata (`assignedTo`, `dueAt`, `priority`, allowed type-specific metadata) using `version`; completion/cancellation are commands.
 
 Filters:
 
@@ -897,36 +1281,51 @@ dueTo
 overdue
 ```
 
-Default queue sort:
+Default work-queue sort:
 
 ```text
 dueAt ASC, priority DESC, id ASC
 ```
 
-Overdue semantics use injected `Clock`.
-
-### 6.6 Unified timeline
+### 7.6 Unified timeline
 
 ```text
 GET /api/v1/collection-cases/{caseId}/timeline
 ```
 
-Paginated projection aggregates state transitions/promises/disputes/actions into stable chronology. Frontend MUST NOT reconstruct chronology by downloading multiple independent collections.
+Paginated Slice-style projection aggregates:
 
-### 6.7 Collection invariants
+```text
+case state transitions
+promises
+promise transitions
+disputes
+dispute transitions
+actions
+action completion/cancellation
+```
 
-- no hard delete of workflow history;
+Stable chronology:
+
+```text
+eventAt DESC, eventId DESC
+```
+
+Frontend MUST NOT reconstruct chronology by downloading separate lists.
+
+### 7.7 Collection invariants
+
+- no hard delete workflow history;
 - tenant-scoped parent/child access;
-- validated domain transitions;
-- decimal + currency for financial promises;
-- optimistic versioning/locking for conflicting edits;
+- validated transitions;
+- `version` for concurrent operator updates;
 - actor/time/reason audit for significant transitions;
-- notification delivery failure cannot erase Collection state;
-- no direct dependency on HTTP/provider adapters;
+- notification failure cannot erase Collection state;
 - no duplicated invoice/payment balances;
-- Collection module does not reach directly into receivable repositories; use application/query port.
+- Collection does not directly use Receivable repositories;
+- automatic escalation/assignment/breach remains out-of-scope.
 
-### 6.8 9C acceptance
+### 7.8 9C acceptance
 
 Frontend supports:
 
@@ -938,13 +1337,13 @@ Dispute management
 Next action scheduling/completion
 ```
 
+without inventing business state on frontend.
+
 ---
 
-## 7. Slice 9D — Frontend Support API
+## 8. Slice 9D — Frontend Support API
 
-### 7.1 Dashboard read models
-
-Avoid frontend fan-out over many list endpoints.
+### 8.1 Dashboard read models
 
 ```text
 GET /api/v1/dashboard/summary
@@ -953,39 +1352,51 @@ GET /api/v1/dashboard/delivery
 GET /api/v1/dashboard/collections
 ```
 
-Every time-dependent dashboard response SHOULD expose:
+Every time-dependent dashboard response MUST expose:
 
 ```text
 asOf: Instant
+businessDate: LocalDate
 ```
 
-Receivables projection:
+Receivable semantics:
 
 ```text
-outstanding totals
-overdue totals
-due today/soon
-aging buckets
-affected customers
+dueToday:
+  dueDate == businessDate
+  AND outstandingAmount > 0
+  AND paymentStatus not PAID/CANCELLED
+
+dueSoon:
+  businessDate < dueDate <= businessDate + 7 days
+  AND outstandingAmount > 0
+  AND paymentStatus not PAID/CANCELLED
+
+aging buckets for outstanding invoices:
+  CURRENT       -> daysOverdue == 0
+  DAYS_1_30     -> 1..30
+  DAYS_31_60    -> 31..60
+  DAYS_61_90    -> 61..90
+  DAYS_90_PLUS  -> >90
 ```
 
-Different currencies MUST NOT be summed into one number without authoritative FX/base-currency model. Until such model exists, group totals by currency.
+Different currencies MUST NOT be summed into one number without authoritative FX/base-currency model. Until then totals grouped by currency.
 
-Delivery dashboard uses existing persisted/cached delivery counters/metric semantics, not expensive full Message-table recalculation per refresh.
+Delivery dashboard uses existing delivery counters/metrics semantics, not full Message-table recalculation per refresh.
 
-Collection dashboard includes open cases, overdue actions, promises due/broken, disputes open.
+Collection dashboard includes open/active cases, overdue actions, active promises due/overdue, broken promises and open disputes.
 
-Dashboard is a read model only.
+Dashboard remains read model only.
 
-### 7.2 Reference data
+### 8.2 Reference data
 
-Expose static/compile-time code lists through a consistent API, for example:
+Expose static compile-time code lists through consistent API:
 
 ```text
 GET /api/v1/reference-data
 ```
 
-or bounded resources:
+or bounded resources if payload grows:
 
 ```text
 GET /api/v1/reference-data/channels
@@ -994,9 +1405,9 @@ GET /api/v1/reference-data/locales
 GET /api/v1/reference-data/statuses
 ```
 
-Tenant-configurable `CustomerSegment` MUST remain a resource API and MUST NOT be represented as static reference data.
+Tenant-configurable `CustomerSegment` is NOT reference data.
 
-### 7.3 Import history
+### 8.3 Import history
 
 Reuse `ImportBatch` as source of truth.
 
@@ -1016,11 +1427,9 @@ createdFrom
 createdTo
 ```
 
-Import list paginated. Error rows Page/Slice without unbounded raw payload/PII.
+Import list paginated. Error rows Slice/Page without unbounded raw payload/PII.
 
-### 7.4 Generated documents
-
-Normalize read API:
+### 8.4 Generated documents
 
 ```text
 GET /api/v1/generated-documents
@@ -1040,11 +1449,11 @@ createdTo
 
 Return metadata/status/safe error code/file reference. Binary download remains FileService responsibility.
 
-### 7.5 Campaigns/runs/recipients
+### 8.5 Campaigns/runs/recipients
 
-Normalize existing unbounded list endpoints.
+Normalize existing unbounded lists.
 
-`GET /api/v1/campaigns` supports:
+`GET /api/v1/campaigns`:
 
 ```text
 page/size
@@ -1058,25 +1467,25 @@ createdTo
 sort
 ```
 
-Campaign runs are paginated.
+Runs paginated.
 
 Recipients MUST be paginated/high-volume aware.
 
-Preferred hierarchy:
+Canonical hierarchy by 9D freeze:
 
 ```text
 GET /api/v1/campaigns/{campaignId}/runs/{runId}/recipients
 ```
 
-with tenant + campaign + run verification.
+with tenant + campaign + run validation.
 
-Legacy route may remain temporarily before API freeze but two divergent contracts MUST NOT survive 9D.
+Legacy route may exist temporarily before freeze, but two divergent contracts MUST NOT survive 9D.
 
-Message list from Slice 8 remains Slice-style unless UI proves exact totals are required.
+Message list remains Slice-style unless exact totals are proven UI requirement.
 
-### 7.6 Templates/versions
+### 8.6 Templates/versions
 
-Existing template/version lists must be checked for unbounded collections.
+Existing template/version lists checked for unbounded collections.
 
 Minimum template filters:
 
@@ -1093,7 +1502,7 @@ sort
 
 Version history paginated when unbounded.
 
-### 7.7 API freeze/OpenAPI compatibility boundary
+### 8.7 API freeze/OpenAPI compatibility
 
 Before 9D completion deliberate breaking cleanup inside `/api/v1` is allowed because frontend baseline is not frozen.
 
@@ -1104,7 +1513,7 @@ generate/store OpenAPI baseline
 activate CI compatibility check
 ```
 
-After freeze CI MUST reject undeclared representative breaking changes including:
+After freeze CI MUST reject undeclared representative breaking changes:
 
 ```text
 removed endpoint
@@ -1118,19 +1527,19 @@ incompatible request schema
 incompatible status/request semantics where detectable
 ```
 
-Use existing OpenAPI tooling/compatible checker; do not build a custom compatibility framework unless required.
+Use existing OpenAPI compatibility tooling; do not build custom framework without need.
 
 ---
 
-## 8. Database/query/index requirements
+## 9. Database/query/index requirements
 
-No new list endpoint may use `findAll()` + Java filtering.
+No list endpoint may use `findAll()` + Java filtering.
 
 Push tenant/filter/sort/page into PostgreSQL.
 
-Representative list paths SHOULD use projection/query DTO.
+Representative list paths SHOULD use projections/query DTO.
 
-Typical index candidates, justified by actual query patterns:
+Typical index candidates, justified by real query patterns:
 
 ```text
 (tenant_id, created_at DESC, id DESC)
@@ -1140,9 +1549,17 @@ Typical index candidates, justified by actual query patterns:
 (tenant_id, assigned_to, status, due_at, id)
 ```
 
+Additional required constraints/indexes introduced by Slice 9:
+
+```text
+Contract: UNIQUE (tenant_id, external_id)
+PaymentAllocation: UNIQUE (tenant_id, command_id)
+CollectionCase: enforce one active case per tenant+invoice through application invariant and PostgreSQL partial unique index where practical
+```
+
 Do not mechanically index every filter combination.
 
-Each sub-slice PR must provide representative `EXPLAIN ANALYZE` evidence for:
+Each sub-slice PR provides representative `EXPLAIN ANALYZE` evidence for:
 
 ```text
 default list
@@ -1150,97 +1567,130 @@ common combined filter
 one high-volume path
 ```
 
-Acceptance: representative list DTO building performs no lazy-per-row association traversal.
+Acceptance: representative list DTO performs no lazy-per-row association traversal.
 
 ---
 
-## 9. Security/privacy/observability
+## 10. Security/privacy/observability
 
 - tenant restriction in DB query;
-- tenant from authenticated principal/security context;
+- tenant from authenticated context;
 - reuse existing `SystemRole`, human/service authorities and ServiceClient scopes;
 - no raw email/phone in logs/error messages;
 - no auth tokens/password hashes/raw provider response in responses/logs;
 - custom fields cannot bypass privacy rules;
 - `404` hides cross-tenant existence;
-- reuse existing trace/correlation context in logs and ProblemDetail;
+- reuse existing trace/correlation context;
 - log endpoint/operation/status/latency and safe tenant context;
-- do not log raw request/response business payload by default;
-- payment/custom-field/contact payload follows redaction/masking policy;
-- operational metric labels must be bounded cardinality; no customerId/invoiceId/email/raw tenant id where cardinality is unsafe.
+- no raw business request/response body logging by default;
+- payment/contact/custom-field payload follows redaction policy;
+- operational metric labels must be bounded cardinality;
+- no customerId/invoiceId/email/raw high-cardinality tenant labels in metrics.
 
-Do not introduce a parallel `requestId` convention when existing `traceId`/`correlationId` already provide request correlation unless a separate project-wide requirement is approved.
+Do not introduce parallel `requestId` when existing `traceId`/`correlationId` already provide correlation.
 
 ---
 
-## 10. Tests
+## 11. Tests
 
-Every paginated list endpoint includes at least:
+Every paginated list endpoint includes:
 
-- default page/size;
-- max size 200;
-- invalid page/size -> 400;
-- deterministic order with unique tie-breaker;
-- important individual filters;
-- representative AND combined filters;
-- documented search semantics;
-- allowed/invalid sorting;
-- empty result;
-- tenant A cannot see tenant B;
-- wrong nested parent -> 404;
-- unauthenticated -> 401;
-- human own-tenant access;
-- service-scope positive/negative where endpoint supports M2M;
-- tenant user -> admin API = 403;
-- no duplicate rows from joins;
-- representative no-N+1 check;
-- existing ProblemDetail shape/code/traceId/correlationId for representative 400/403/404/409.
+```text
+default page/size
+max size 200
+invalid page/size -> 400
+deterministic order + tie-breaker
+important individual filters
+representative AND combined filters
+search normalization/matching semantics
+allowed/invalid sorting
+empty result
+tenant A cannot see tenant B
+wrong nested parent -> 404
+unauthenticated -> 401
+human own-tenant access
+service scope positive/negative where M2M exposed
+tenant user -> admin API = 403
+no duplicate rows from joins
+representative no-N+1
+ProblemDetail code/traceId/correlationId for 400/403/404/409
+```
 
-9A additionally:
+### 11.1 9A-1 tests
 
 ```text
 Customer externalId uniqueness
-contact ownership/validation
+PUT does not mutate externalId/tenant
+status command validation
+email normalization/uniqueness
+phone normalization/uniqueness
+one ACTIVE primary email
+one ACTIVE primary phone
+primary atomic demotion
+contact ownership
 segment tenant isolation
-Contract tenant/customer ownership
-Contract externalId uniqueness
-Contract number uniqueness semantics
-Contract lifecycle/version conflict
+segment add/remove idempotency
 ```
 
-9B additionally:
+### 11.2 9A-2 tests
 
 ```text
-exact decimal amounts
-paid/outstanding/status from authoritative model
-Clock-based overdue calculations
+Contract tenant/customer ownership
+externalId uniqueness
+contractNumber may repeat when externalId differs
+validTo >= validFrom
+valid/invalid lifecycle transitions
+terminal CLOSED/CANCELLED
+optimistic version conflict
+Invoice contract/customer consistency
+```
+
+### 11.3 9B tests
+
+```text
+exact BigDecimal amounts
+persisted Invoice paid/outstanding/paymentStatus authoritative
+Clock/business-zone overdue calculation
 partial allocation
-over-allocation rejection
-currency/customer mismatch
-concurrent allocation
+payment over-allocation rejection
+invoice over-allocation rejection
+currency mismatch
+customer mismatch
+parallel allocation locking
+commandId idempotent replay
+commandId conflicting payload
 reversal
+second reversal -> 409
+parallel allocate/reverse safety
 transaction rollback atomicity
 ```
 
-9C additionally:
+### 11.4 9C tests
 
 ```text
 one active case per tenant+invoice
-valid/invalid state transitions
-optimistic concurrent update
-promise fulfillment/breach/cancel
-Clock-based due/breach behavior
-dispute resolution
-overdue action filter
+case cannot open for paid/cancelled/zero-outstanding invoice
+valid/invalid case transitions
+case close reason required
+optimistic version conflict
+promise valid transitions
+promise overdue projection without automatic BROKEN mutation
+promise explicit break
+promise currency/outstanding validation
+dispute resolution/cancel
+collection action overdue
+collection action complete/cancel
 timeline stable chronology
 no duplicated financial state
 ```
 
-9D additionally:
+### 11.5 9D tests
 
 ```text
 dashboard currency grouping
-dashboard asOf
+dashboard asOf/businessDate
+dueToday/dueSoon semantics
+aging bucket boundaries
 aggregate tenant isolation
 import errors paging/redaction
 generated-document authorization
@@ -1252,7 +1702,7 @@ Persistence/concurrency tests use PostgreSQL/Testcontainers according to existin
 
 ---
 
-## 11. Performance acceptance
+## 12. Performance acceptance
 
 Minimum:
 
@@ -1263,15 +1713,15 @@ no unbounded collection load
 no lazy-per-row N+1
 indexes backed by query plans
 bounded dashboard query count
-no expensive COUNT when UI does not need totals
+no expensive COUNT where UI does not need totals
 server-side max page size
 ```
 
-Do not introduce Elasticsearch/OpenSearch in Slice 9 without measured need.
+Do not introduce Elasticsearch/OpenSearch without measured need.
 
 ---
 
-## 12. OpenAPI/frontend contract
+## 13. OpenAPI/frontend contract
 
 All public Slice 9 endpoints MUST be present in generated OpenAPI.
 
@@ -1280,44 +1730,44 @@ Before `Frontend API Ready` verify:
 ```text
 query params documented
 enum values visible
+state-command request/response documented
 response/request DTO documented
 400/401/403/404/409 consistent
-existing ProblemDetail schema documented
+ProblemDetail schema documented
 Page/Slice schema consistent
 nullable fields explicit
 money/date/time conventions consistent
+business date timezone documented
 examples contain no real PII/secrets
 ```
 
 Frontend TypeScript client must be generatable/typeable without persistence knowledge.
 
-After 9D the generated OpenAPI baseline is compatibility boundary.
+After 9D generated OpenAPI baseline is compatibility boundary.
 
 ---
 
-## 13. Implementation order
-
-Recommended:
+## 14. Implementation order
 
 ```text
 9A-1 Customer + Segment normalization
         ↓
 9A-2 Contract foundation + API
         ↓
-9B Receivables + Payments normalization
+9B Receivables + Payments hardening/normalization
         ↓
 9C Collection foundation + API
         ↓
 9D Frontend support + normalization + API freeze
 ```
 
-9A–9D are separate PRs from current `main`. Documentation/spec branch MUST NOT be used as implementation base branch.
+Each implementation PR starts from current `main`. Documentation/spec branch MUST NOT be used as code base branch.
 
-9D depends on 9A–9C read models for complete dashboard.
+9D depends on 9A-2/9B/9C read models for complete dashboard.
 
 ---
 
-## 14. Explicit out-of-scope
+## 15. Explicit out-of-scope
 
 - React/frontend implementation;
 - new IAM/ABAC framework;
@@ -1327,7 +1777,10 @@ Recommended:
 - SMS/WhatsApp/Telegram/Push provider adapters;
 - BPM/workflow engine;
 - automatic collection escalation/assignment/rules engine;
-- automatic collection case scheduler;
+- automatic case-opening scheduler;
+- automatic Promise-to-Pay breach scheduler;
+- customer-level CollectionCase in MVP;
+- reopening CLOSED CollectionCase in Slice 9;
 - generic reporting/query DSL;
 - Elasticsearch/OpenSearch without measured requirement;
 - billing/plans/usage metering;
@@ -1335,45 +1788,49 @@ Recommended:
 - provider-specific technical roles;
 - arbitrary cross-tenant admin search;
 - FX conversion engine if no authoritative FX model exists;
-- customer-level collection case in MVP unless explicitly approved;
+- arbitrary mutation of invoice/payment original financial facts;
+- automatic Contract renewal workflow;
 - hard delete financial/collection history.
 
 ---
 
-## 15. Definition of Done — sub-slice
+## 16. Definition of Done — sub-slice
 
-Each 9A/9B/9C/9D is complete only when:
+Each sub-slice is complete only when:
 
-1. Scope is implemented against current `main`, not an obsolete spec assumption.
-2. Domain ownership is verified and no competing authoritative model is introduced.
+1. Scope is implemented against current `main`, not obsolete assumptions.
+2. Domain ownership is verified; no competing authoritative model introduced.
 3. Tenant isolation is enforced in repository/SQL.
 4. Pagination/filter/sort are bounded and deterministic.
 5. DTOs expose no JPA/internal secret model.
-6. Existing identity/security model is reused; applicable security tests are green.
+6. Existing identity/security model is reused.
 7. Existing ProblemDetail/correlation conventions are reused.
-8. Existing application `Clock` is used for time-dependent behavior.
-9. PostgreSQL/Testcontainers integration tests are green.
-10. Liquibase migration is in master changelog when schema changed.
-11. Representative query plans/indexes are checked; no lazy-per-row N+1.
-12. OpenAPI reflects contract.
-13. `mvn verify` is green.
-14. PR is not auto-merged without explicit decision.
+8. Existing `Clock` and explicit business ZoneId are used for time-dependent behavior.
+9. Business state transitions match this spec and are domain/application controlled.
+10. Financial mutation concurrency/idempotency rules are enforced where applicable.
+11. PostgreSQL/Testcontainers integration tests are green.
+12. Liquibase migration is in master changelog when schema changed.
+13. Representative query plans/indexes checked; no lazy-per-row N+1.
+14. OpenAPI reflects contract.
+15. `mvn verify` is green.
+16. PR is not auto-merged without explicit decision.
 
 ---
 
-## 16. Definition of Done — Frontend API Ready
+## 17. Definition of Done — Frontend API Ready
 
-Collectra backend becomes **Frontend API Ready** only after 9A–9D are merged and frontend can implement without backend workarounds:
+Collectra backend becomes **Frontend API Ready** only after all Slice 9 implementation PRs are merged and frontend can implement without backend workarounds:
 
 ```text
 Login/session
 Customers
-Customer detail + contacts
-Segments
+Customer detail/profile
+Emails/phones
+Segments/membership
 Contracts
 Receivables/invoices
 Payments
-Payment allocation/reconciliation
+Payment allocation/reconciliation/reversal
 Collection work queue
 Collection case + timeline
 Promise-to-Pay
@@ -1390,19 +1847,17 @@ Reference/select data
 
 Every data-grid screen has server-side pagination, business filters and deterministic sorting.
 
-Final readiness gates:
+Final gates:
 
 ```text
 tenant isolation verified
-existing SystemRole/human/service security model verified
-ServiceClient scopes verified where M2M exposed
-one authoritative financial model verified
-Contract ownership established
-Collection ownership established
-existing ProblemDetail contract stable
-existing Clock used for time-dependent state
+existing human/service security model verified
+canonical ProblemDetail contract stable
+business date/timezone semantics stable
+financial allocation concurrency/idempotency verified
+state transitions documented and tested
 representative list endpoints free of N+1
 OpenAPI breaking-change CI gate enabled
 ```
 
-After this point new frontend requirements may add endpoint-specific capabilities, but the main UI must not be blocked by missing basic CRUD/read/list/filter/paging contracts.
+После этого новые frontend requirements могут добавлять endpoint-specific capabilities, но отсутствие базового CRUD/read/list/filter/paging/workflow contract не должно блокировать основной UI.
