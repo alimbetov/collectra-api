@@ -9,6 +9,7 @@ import io.collectra.api.communication.domain.CommunicationChannel;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -23,6 +24,7 @@ class MessageDeliveryWorkerTest {
     private static final Instant NOW = Instant.parse("2026-09-11T10:00:00Z");
 
     @Mock MessageStateService states;
+    @Mock MessageAttachmentContentResolver attachmentContent;
     @Mock DeliveryGateway gateway;
 
     private MessageDeliveryWorker worker;
@@ -36,9 +38,11 @@ class MessageDeliveryWorkerTest {
         worker =
                 new MessageDeliveryWorker(
                         states,
+                        attachmentContent,
                         gateway,
                         new MessageRetryPolicy(),
                         Clock.fixed(NOW, ZoneOffset.UTC));
+        when(attachmentContent.resolve(tenantId, messageId)).thenReturn(List.of());
     }
 
     @Test
@@ -96,11 +100,71 @@ class MessageDeliveryWorkerTest {
     }
 
     @Test
-    void duplicateOrTerminalMessageDoesNotCallProvider() {
+    void duplicateOrTerminalMessageDoesNotResolveAttachmentsOrCallProvider() {
         when(states.begin(tenantId, messageId)).thenReturn(Optional.empty());
 
         worker.deliver(tenantId, messageId);
 
+        verify(attachmentContent, never()).resolve(any(), any());
+        verify(gateway, never()).deliver(any());
+    }
+
+    @Test
+    void sendsResolvedAttachmentsToGateway() {
+        claim(1);
+        DeliveryAttachment attachment =
+                new DeliveryAttachment("invoice.pdf", "application/pdf", new byte[] {1, 2, 3});
+        when(attachmentContent.resolve(tenantId, messageId)).thenReturn(List.of(attachment));
+        when(gateway.deliver(any())).thenReturn(new DeliveryResult.Accepted(null));
+        ArgumentCaptor<DeliveryCommand> command = ArgumentCaptor.forClass(DeliveryCommand.class);
+
+        worker.deliver(tenantId, messageId);
+
+        verify(gateway).deliver(command.capture());
+        org.assertj.core.api.Assertions.assertThat(command.getValue().attachments())
+                .containsExactly(attachment);
+    }
+
+    @Test
+    void retryableAttachmentReadFailureSchedulesRetryWithoutCallingProvider() {
+        claim(2);
+        when(attachmentContent.resolve(tenantId, messageId))
+                .thenThrow(
+                        new AttachmentResolutionException(
+                                "ATTACHMENT_STORAGE_READ_FAILED",
+                                DeliveryFailureKind.RETRYABLE,
+                                "Temporary attachment storage read failure"));
+
+        worker.deliver(tenantId, messageId);
+
+        verify(states)
+                .scheduleRetry(
+                        tenantId,
+                        messageId,
+                        NOW.plusSeconds(600),
+                        "ATTACHMENT_STORAGE_READ_FAILED",
+                        "Temporary attachment storage read failure");
+        verify(gateway, never()).deliver(any());
+    }
+
+    @Test
+    void permanentAttachmentFailureMarksFailedWithoutCallingProvider() {
+        claim(1);
+        when(attachmentContent.resolve(tenantId, messageId))
+                .thenThrow(
+                        new AttachmentResolutionException(
+                                "ATTACHMENT_OBJECT_MISSING",
+                                DeliveryFailureKind.PERMANENT,
+                                "Attachment object is missing"));
+
+        worker.deliver(tenantId, messageId);
+
+        verify(states)
+                .markFailed(
+                        tenantId,
+                        messageId,
+                        "ATTACHMENT_OBJECT_MISSING",
+                        "Attachment object is missing");
         verify(gateway, never()).deliver(any());
     }
 
@@ -121,7 +185,8 @@ class MessageDeliveryWorkerTest {
                                 CommunicationChannel.EMAIL,
                                 "client@example.com",
                                 "Subject",
-                                "<p>Body</p>"));
+                                "<p>Body</p>",
+                                List.of()));
     }
 
     private void claim(int attemptCount) {
