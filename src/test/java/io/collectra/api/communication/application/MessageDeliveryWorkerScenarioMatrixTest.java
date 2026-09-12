@@ -27,6 +27,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class MessageDeliveryWorkerScenarioMatrixTest {
     private static final Instant NOW = Instant.parse("2026-09-12T12:00:00Z");
+    private static final String DELIVERY_KEY = "msg-worker-matrix";
 
     @Mock MessageStateService states;
     @Mock MessageAttachmentContentResolver attachments;
@@ -55,17 +56,9 @@ class MessageDeliveryWorkerScenarioMatrixTest {
             CommunicationChannel channel) {
         String subject = channel == CommunicationChannel.EMAIL ? "Reminder" : null;
         when(states.begin(tenantId, messageId))
-                .thenReturn(
-                        Optional.of(
-                                new MessageDeliverySnapshot(
-                                        messageId,
-                                        tenantId,
-                                        UUID.randomUUID(),
-                                        channel,
-                                        destination(channel),
-                                        subject,
-                                        "body",
-                                        1)));
+                .thenReturn(Optional.of(snapshot(channel, 1)));
+        when(states.beginProviderAttempt(tenantId, messageId))
+                .thenReturn(Optional.of(new ProviderAttemptSnapshot(DELIVERY_KEY, 1)));
         when(attachments.resolve(tenantId, messageId)).thenReturn(List.of());
         when(gateway.deliver(any())).thenReturn(new DeliveryResult.Accepted("provider-id"));
         ArgumentCaptor<DeliveryCommand> command = ArgumentCaptor.forClass(DeliveryCommand.class);
@@ -77,6 +70,8 @@ class MessageDeliveryWorkerScenarioMatrixTest {
         assertThat(command.getValue().destination()).isEqualTo(destination(channel));
         assertThat(command.getValue().subject()).isEqualTo(subject);
         assertThat(command.getValue().body()).isEqualTo("body");
+        assertThat(command.getValue().deliveryKey()).isEqualTo(DELIVERY_KEY);
+        assertThat(command.getValue().attemptNo()).isOne();
         verify(states).markSent(tenantId, messageId, "provider-id");
     }
 
@@ -91,6 +86,13 @@ class MessageDeliveryWorkerScenarioMatrixTest {
 
         switch (expectedTransition) {
             case SENT -> verify(states).markSent(tenantId, messageId, "provider-id");
+            case UNKNOWN ->
+                    verify(states)
+                            .markUnknown(
+                                    tenantId,
+                                    messageId,
+                                    ((DeliveryResult.Unknown) result).code(),
+                                    ((DeliveryResult.Unknown) result).message());
             case RETRY ->
                     verify(states)
                             .scheduleRetry(
@@ -135,7 +137,7 @@ class MessageDeliveryWorkerScenarioMatrixTest {
         }
     }
 
-    @ParameterizedTest(name = "attachment failure {0} at attempt {1}")
+    @ParameterizedTest(name = "attachment failure {0} at processing attempt {1}")
     @MethodSource("attachmentFailures")
     void attachmentFailuresNeverInvokeProvider(
             DeliveryFailureKind kind, int attempt, boolean retries) {
@@ -148,6 +150,7 @@ class MessageDeliveryWorkerScenarioMatrixTest {
 
         worker.deliver(tenantId, messageId);
 
+        verify(states, never()).beginProviderAttempt(any(), any());
         verify(gateway, never()).deliver(any());
         if (retries) {
             verify(states)
@@ -170,6 +173,8 @@ class MessageDeliveryWorkerScenarioMatrixTest {
     private void claim(int attempt) {
         when(states.begin(tenantId, messageId))
                 .thenReturn(Optional.of(snapshot(CommunicationChannel.EMAIL, attempt)));
+        when(states.beginProviderAttempt(tenantId, messageId))
+                .thenReturn(Optional.of(new ProviderAttemptSnapshot(DELIVERY_KEY, attempt)));
         when(attachments.resolve(tenantId, messageId)).thenReturn(List.of());
     }
 
@@ -182,6 +187,7 @@ class MessageDeliveryWorkerScenarioMatrixTest {
                 destination(channel),
                 channel == CommunicationChannel.EMAIL ? "Reminder" : null,
                 "body",
+                Math.max(0, attempt - 1),
                 attempt);
     }
 
@@ -200,6 +206,10 @@ class MessageDeliveryWorkerScenarioMatrixTest {
                         "accepted",
                         new DeliveryResult.Accepted("provider-id"),
                         ExpectedTransition.SENT),
+                Arguments.of(
+                        "ambiguous",
+                        new DeliveryResult.Unknown("PROVIDER_TIMEOUT", "response lost"),
+                        ExpectedTransition.UNKNOWN),
                 Arguments.of(
                         "retryable",
                         new DeliveryResult.Rejected(
@@ -248,6 +258,7 @@ class MessageDeliveryWorkerScenarioMatrixTest {
 
     private enum ExpectedTransition {
         SENT,
+        UNKNOWN,
         RETRY,
         FAILED
     }
