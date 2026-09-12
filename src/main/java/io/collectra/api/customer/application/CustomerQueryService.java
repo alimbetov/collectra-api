@@ -69,7 +69,7 @@ public class CustomerQueryService {
         Page<Customer> result =
                 customers.search(
                         tenantId,
-                        trimToNull(search),
+                        normalizeSearch(search),
                         status,
                         customerType,
                         managerId,
@@ -183,6 +183,11 @@ public class CustomerQueryService {
         }
         Sort primary = Sort.by(direction, field);
         return "id".equals(field) ? primary : primary.and(Sort.by(direction, "id"));
+    }
+
+    private static String normalizeSearch(String value) {
+        String normalized = trimToNull(value);
+        return normalized == null ? null : normalized.toLowerCase(Locale.ROOT);
     }
 
     private static String normalizeEmail(String value) {

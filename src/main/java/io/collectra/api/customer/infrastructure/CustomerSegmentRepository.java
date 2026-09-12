@@ -25,8 +25,8 @@ public interface CustomerSegmentRepository extends JpaRepository<CustomerSegment
               and (:active is null or s.active = :active)
               and (
                     :search is null
-                    or lower(s.name) like concat(concat('%', lower(:search)), '%')
-                    or lower(s.code) like concat(lower(:search), '%')
+                    or lower(s.name) like concat(concat('%', :search), '%')
+                    or lower(s.code) like concat(:search, '%')
               )
             """)
     Page<CustomerSegment> search(
