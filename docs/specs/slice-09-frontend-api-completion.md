@@ -1,7 +1,7 @@
 # Slice 9 — Frontend API Completion
 
 Status: PLANNED  
-Depends on: existing identity/import/template/file/campaign/message APIs and Slice 8  
+Depends on: existing identity/customer/receivable/import/template/file/campaign/message APIs and Slice 8  
 Suggested implementation branches: `feat/slice-09a-customer-contract-api`, `feat/slice-09b-receivables-payments-api`, `feat/slice-09c-collection-api`, `feat/slice-09d-frontend-support-api`
 
 ## 1. Цель
@@ -16,7 +16,7 @@ Suggested implementation branches: `feat/slice-09a-customer-contract-api`, `feat
 - обходить tenant/security constraints;
 - реализовывать собственную generic query language поверх API.
 
-Slice 9 является master-spec и реализуется четырьмя независимо reviewable sub-slices:
+Slice 9 является master-spec и реализуется четырьмя independently reviewable sub-slices:
 
 ```text
 9A Customer + Contract API
@@ -25,63 +25,135 @@ Slice 9 является master-spec и реализуется четырьмя 
 9D Frontend Support API
 ```
 
+Внутри 9A рекомендуется два implementation PR, не меняя общий scope Slice 9:
+
+```text
+9A-1 Customer + Segment API normalization
+9A-2 Contract domain foundation + API
+```
+
 После merge 9A–9D `/api/v1` считается frontend contract baseline. Дальнейшие breaking changes требуют явной migration/versioning strategy и automated compatibility check.
 
-## 2. Текущий baseline
+---
 
-Не строить повторно уже существующие возможности.
+## 2. Проверенный baseline `main`
 
-В `main` уже существуют:
+Slice 9 MUST NOT повторно строить уже существующие возможности.
 
-- identity/authentication/tenant context;
-- `Customer` и customer contact/segment domain types;
-- import domain, включая `ImportBatch`;
-- templates/versioned configuration;
-- FileService и async generated documents;
-- campaigns, campaign runs, recipients;
-- Message delivery API из Slice 8 с bounded paging/filtering;
-- common exception handling, PostgreSQL/Liquibase integration-test runtime.
+В актуальном `main` уже существуют authoritative/runtime building blocks:
 
-`collection` module на момент подготовки этого ТЗ не содержит business implementation, поэтому Slice 9C включает минимальный collection domain/persistence/state model, а не только HTTP controllers.
+```text
+Identity/authentication/tenant context
+SystemRole
+Tenant membership / human JWT security
+ServiceClient / service JWT / scopes
+Customer
+CustomerEmail / CustomerPhone
+CustomerSegment / CustomerSegmentMember
+Invoice
+Payment
+PaymentAllocation
+ReceivableService
+ImportBatch + BusinessRecordPersistenceService
+Templates/versioned configuration
+FileService
+Generated documents
+Campaign / CampaignRun / CampaignRecipient
+Message delivery API / Slice 8
+ApiExceptionHandler + Spring ProblemDetail
+application Clock
+PostgreSQL/Liquibase/Testcontainers test runtime
+```
 
-До начала каждого sub-slice разработчик обязан повторно сверить актуальный `main`: если предыдущий PR уже реализовал часть scope, specification адаптируется к фактическому коду.
+На момент аудита `contract` и `collection` modules не содержат authoritative business implementation кроме package skeleton. Поэтому:
 
-### 2.1 Domain ownership rule
+```text
+Customer/Segment  -> normalize existing domain/API
+Receivables       -> normalize existing domain/API
+Contract          -> create minimal new bounded domain
+Collection        -> create minimal new bounded domain
+Dashboard         -> read models/projections only
+```
 
-Slice 9 завершает presentation/query surface и **не должен молча перепроектировать domain**.
+До начала каждого sub-slice разработчик MUST повторно сверить актуальный `main`. Если предыдущий PR уже реализовал часть scope, implementation адаптируется к фактическому коду без создания competing model.
 
-Перед добавлением нового aggregate/table/authoritative field разработчик обязан определить существующий source of truth.
+### 2.1 Authoritative ownership matrix
+
+| Capability | Authoritative owner | Slice 9 action |
+|---|---|---|
+| Identity | existing `identity` | reuse |
+| Tenant membership / human roles | existing identity/security | reuse |
+| Technical integration identity | `ServiceClient` | reuse |
+| Customer | `customer.Customer` | normalize API |
+| Email/phone contacts | customer domain | normalize API |
+| Segment | `CustomerSegment` | normalize API |
+| Contract | no current owner | create bounded domain |
+| Invoice | `receivable.Invoice` | normalize API |
+| Payment | `receivable.Payment` | normalize API |
+| Allocation | `PaymentAllocation` | normalize API / commands |
+| Financial balance/state | receivable domain | derive only |
+| CollectionCase | no current owner | create collection domain |
+| PromiseToPay | no current owner | create collection domain |
+| Dispute | no current owner | create collection domain |
+| CollectionAction | no current owner | create collection domain |
+| Import history | `ImportBatch` | normalize read API |
+| Generated documents | existing document domain | normalize read API |
+| Files | FileService | reuse |
+| Campaign | campaign domain | normalize API |
+| Message | message domain / Slice 8 | reuse |
+| Dashboard | no authoritative owner | read model only |
+
+### 2.2 Domain ownership rule
+
+Slice 9 завершает presentation/query surface и MUST NOT молча перепроектировать domain.
 
 Правила:
 
-- Slice 9 MUST NOT создавать второй authoritative source для уже существующего business fact;
-- если authoritative aggregate уже существует, frontend API использует его напрямую через application/query service;
-- для frontend-specific list/detail/dashboard shape допускаются query projections/read models, но они не становятся новым source of truth;
-- новая authoritative table/domain aggregate создаётся только если после проверки актуального `main` действительно отсутствует существующий owner;
-- ownership нового domain state должен быть явно описан в соответствующем sub-slice/PR;
-- derived fields (`outstandingAmount`, `paidAmount`, `daysOverdue`, eligibility/status counters и т.п.) не должны независимо поддерживаться в нескольких aggregates без формально заданной consistency strategy.
+- MUST NOT создавать второй authoritative source для уже существующего business fact;
+- если aggregate/source of truth уже существует, frontend API использует его через application/query service;
+- frontend-specific list/detail/dashboard shape может использовать projection/read model, но projection не становится mutable source of truth;
+- новая authoritative table/domain aggregate создаётся только если owner действительно отсутствует;
+- ownership нового domain state должен быть явно зафиксирован в PR;
+- derived fields (`outstandingAmount`, `paidAmount`, `daysOverdue`, delivery counters и т.п.) не поддерживаются независимо в нескольких aggregates;
+- import, campaign eligibility, collection views и frontend receivable API MUST видеть один и тот же financial truth.
 
-Пример: если финансовое состояние уже определяется `Invoice + Payment + PaymentAllocation`, Slice 9 не должен создавать отдельный independently mutable `CollectionAccount.outstandingAmount` только ради UI.
+Authoritative financial chain:
 
-## 3. Общий API contract для Slice 9
+```text
+Invoice
+  + Payment
+  + PaymentAllocation
+       ↓
+paidAmount / outstandingAmount / payment status / eligibility
+```
 
-### 3.1 Base path и representation
+Forbidden example:
 
-Tenant-facing endpoints:
+```text
+CollectionCase.outstandingAmount // independently mutable duplicate
+```
+
+---
+
+## 3. Общий API contract
+
+### 3.1 Base paths и representations
+
+Tenant-facing API:
 
 ```text
 /api/v1/...
 ```
 
-Platform administration использует отдельный namespace:
+Platform administration:
 
 ```text
 /admin/api/v1/...
 ```
 
-Использовать JSON DTO. JPA entities напрямую из controller не возвращать.
+Controllers возвращают JSON DTO, не JPA entities.
 
-Разделять модели минимум на:
+При необходимости разделять:
 
 ```text
 <ListItemResponse>
@@ -90,23 +162,21 @@ Platform administration использует отдельный namespace:
 <UpdateRequest>
 ```
 
-если list и detail требуют различный объём данных.
+Conventions:
 
-Contract conventions:
-
-- UUID передавать как UUID;
-- timestamps — ISO-8601 UTC (`Instant`);
-- business date — `YYYY-MM-DD` (`LocalDate`);
-- денежные значения — decimal/`BigDecimal` + ISO-4217 currency;
-- `float`/`double` для денежных сумм запрещены;
-- semantics `null`, отсутствующего поля и `[]` должны быть стабильными и задокументированными;
-- public enum values являются частью API contract и не переименовываются без compatibility/migration strategy.
+- UUID -> UUID;
+- timestamp -> ISO-8601 UTC / `Instant`;
+- business date -> `LocalDate` / `YYYY-MM-DD`;
+- money -> `BigDecimal` + ISO-4217 currency;
+- `float`/`double` для денег запрещены;
+- semantics `null`, omitted field и `[]` должны быть стабильными;
+- public enum values являются API contract.
 
 ### 3.2 Pagination
 
-Любой endpoint, который потенциально может вернуть более ~100 строк, MUST быть paginated.
+Любой потенциально большой endpoint MUST быть paginated.
 
-Default contract:
+Default:
 
 ```text
 page=0
@@ -114,17 +184,17 @@ size=50
 max size=200
 ```
 
-Ошибки:
+Validation:
 
 ```text
-page < 0      -> 400
-size <= 0     -> 400
-size > 200    -> 400
+page < 0   -> 400
+size <= 0  -> 400
+size > 200 -> 400
 ```
 
-Не silently clamp `size`.
+Silent clamp запрещён.
 
-Для экранов, где frontend реально использует totals и `COUNT(*)` остаётся разумным, вернуть Page contract:
+Use `Page` только если frontend реально требует total и `COUNT(*)` приемлем:
 
 ```json
 {
@@ -137,7 +207,7 @@ size > 200    -> 400
 }
 ```
 
-Для high-volume/expensive-count ресурсов использовать Slice contract:
+Use Slice-style response для high-volume/expensive-count lists:
 
 ```json
 {
@@ -148,81 +218,70 @@ size > 200    -> 400
 }
 ```
 
-`messages` остаётся Slice-style API. Import row errors также предпочтительно делать Slice, если точный total требует дорогого count.
+`messages` остаётся Slice-style. Import row errors также предпочтительно Slice, если exact count дорогой.
 
 ### 3.3 Sorting
 
-Query syntax:
+Syntax:
 
 ```text
 sort=createdAt,desc
 sort=displayName,asc
 ```
 
-Каждый endpoint имеет explicit allowlist sortable fields. Передавать arbitrary entity/property/SQL field запрещено.
+Каждый endpoint имеет explicit allowlist sortable fields.
 
-Default stable order для большинства списков:
+Arbitrary entity/property/SQL sorting запрещён.
+
+Default stable order:
 
 ```text
 createdAt DESC, id DESC
 ```
 
-Если пользователь сортирует по non-unique полю, repository MUST добавлять unique deterministic tie-breaker `id`.
+Для non-unique user sort repository MUST добавлять unique tie-breaker `id`.
 
-Unknown sort field/direction -> `400`.
+Unknown field/direction -> `400`.
 
-### 3.4 Filtering и search semantics
+### 3.4 Filtering/search
 
-Использовать fixed typed business filters и AND semantics.
+Использовать fixed typed business filters с AND semantics.
 
-Пример:
+Generic RSQL/OData/query DSL в Slice 9 запрещён.
 
-```text
-status=ACTIVE&managerId=<uuid>&createdFrom=...&createdTo=...
-```
-
-означает conjunction всех переданных условий.
-
-Не вводить generic RSQL/OData/query DSL ради Slice 9.
-
-Для каждого `search`/string filter endpoint обязан определить:
+Для каждого string/search filter определить:
 
 - trim semantics;
 - case sensitivity;
 - exact/prefix/contains semantics;
-- min/max input length;
-- конкретные searchable fields;
-- индексную/query strategy для ожидаемого dataset.
+- min/max length;
+- searchable fields;
+- PostgreSQL index/query strategy.
 
-Default recommendation для human-readable search: trim, case-insensitive, bounded contains/prefix только по явно перечисленным полям. Не применять `%term%` механически к большим таблицам без подходящего PostgreSQL index/query plan.
-
-Wildcard/raw SQL syntax от клиента не интерпретировать.
+Default human-readable search: trimmed, case-insensitive, bounded search только по explicit fields. `%term%` на больших таблицах без индекса/query-plan justification запрещён.
 
 Invalid UUID/enum/date/decimal/range -> `400`.
 
 ### 3.5 Tenant isolation
 
-Tenant id для tenant-facing API берётся только из authenticated principal/security context.
+Tenant id tenant-facing API берётся только из authenticated security context.
 
-Caller-controlled `tenantId` из query/body/path/header не является источником authorization.
+Caller-controlled `tenantId` из path/query/body/header не является authorization source.
 
-Tenant isolation MUST выполняться в repository/SQL query:
+Tenant predicate MUST находиться в repository/SQL:
 
 ```text
 tenant_id = :tenantId
 ```
 
-Application-side post filtering запрещён.
-
-Нельзя:
+Forbidden:
 
 ```java
 repository.findById(id)
+// then tenant check in Java
 ```
 
-и затем проверять tenant в Java.
-
-Нужно:
+Required pattern:
 
 ```java
 repository.findByIdAndTenantId(id, tenantId)
@@ -230,123 +289,159 @@ repository.findByIdAndTenantId(id, tenantId)
 
 или equivalent tenant-scoped projection/query.
 
-Для nested resources query одновременно проверяет tenant + parent id + child id.
+Nested resources проверяют tenant + parent + child в query/application boundary.
 
-Чужой tenant, неправильный parent path и отсутствующий resource должны быть externally indistinguishable `404`.
+Foreign tenant, wrong parent и missing resource externally возвращают одинаковый `404`.
 
-Page count query также MUST содержать tenant restriction.
+Count query MUST иметь тот же tenant predicate.
 
-### 3.6 Authentication/authorization — минимальная модель
+### 3.6 Authentication/authorization — reuse current security model
 
-В Slice 9 не вводить сложный корпоративный RBAC без реального business requirement.
+Slice 9 MUST reuse existing identity/security model. Новые `PrincipalType`, новый technical-account aggregate или parallel role hierarchy не создавать.
 
-Поддерживаются три типа principal:
-
-```text
-PLATFORM_ADMIN
-TENANT_USER
-TECHNICAL_ACCOUNT
-```
-
-Contract:
-
-- `TENANT_USER` всегда связан ровно с одним tenant;
-- `TECHNICAL_ACCOUNT` всегда связан ровно с одним tenant;
-- `PLATFORM_ADMIN` не tenant-bound и работает через `/admin/api/v1/**`;
-- обычный tenant-facing `/api/v1/**` не должен автоматически разрешать cross-tenant access только потому, что caller является platform admin;
-- fine-grained business RBAC внутри tenant сознательно out-of-scope для Slice 9 до появления подтверждённого требования.
-
-`TENANT_USER` получает coarse-grained доступ к frontend API своего tenant.
-
-`TECHNICAL_ACCOUNT` использует небольшой набор scopes для machine-to-machine интеграций. Минимальная модель scopes:
+Conceptual actor mapping:
 
 ```text
-customer:read
-customer:write
-invoice:read
-invoice:write
-payment:read
-payment:write
-import:execute
-message:read
+Platform administrator
+  -> existing platform identity
+  -> SystemRole.PLATFORM_SUPER_ADMIN
+
+Tenant human user
+  -> existing human JWT
+  -> ROLE_HUMAN
+  -> existing tenant membership / SystemRole.TENANT_ADMIN or TENANT_USER
+
+Technical integration
+  -> existing ServiceClient
+  -> service JWT
+  -> ROLE_SERVICE + existing SCOPE_* authorities
+  -> tenant-bound
 ```
 
-Добавлять scope только под реальный integration use case. Не создавать provider-specific роли `ROLE_1C`, `ROLE_SAP`, `ROLE_ERP` и т.п.
+Fine-grained corporate RBAC для каждого screen/resource out-of-scope до подтверждённого requirement.
 
-Expected authorization semantics:
+Machine-to-machine API использует существующую scope convention. Не вводить provider-specific roles вроде `ROLE_1C`/`ROLE_SAP`.
+
+Expected semantics:
 
 ```text
-unauthenticated                                      -> 401
-TENANT_USER -> own tenant resource                   -> allowed
-TENANT_USER -> foreign tenant resource               -> 404
-TECHNICAL_ACCOUNT + required scope                   -> allowed
-TECHNICAL_ACCOUNT without required write/read scope  -> 403
-TENANT_USER -> /admin/api/v1/**                      -> 403
-PLATFORM_ADMIN -> /admin/api/v1/**                   -> allowed
+unauthenticated                            -> 401
+human user own-tenant resource             -> allowed
+human user foreign-tenant resource         -> 404
+service client + required scope            -> allowed
+service client without required scope      -> 403
+human tenant user -> /admin/api/v1/**      -> 403
+platform super admin -> admin API           -> allowed
 ```
+
+Обычный `/api/v1/**` не становится cross-tenant API для platform admin автоматически.
 
 ### 3.7 HTTP/error semantics
+
+Use existing `ApiExceptionHandler` and Spring `ProblemDetail`. Не создавать второй `ErrorResponse` contract.
 
 Baseline:
 
 ```text
 200 successful read/update
 201 successful create
-204 successful command without response
-400 invalid request/query parameter
+204 successful command without body
+400 invalid request/query
 401 unauthenticated
-403 authenticated but not authorized
-404 resource absent / wrong tenant / wrong parent hierarchy
+403 authenticated but unauthorized
+404 absent / foreign tenant / wrong hierarchy
 409 business conflict / illegal transition / duplicate business key
 ```
 
-Public API должен иметь единый machine-readable error contract. Предпочтительно использовать Spring `ProblemDetail` / RFC 9457 semantics либо существующий equivalent, но frontend не должен парсить exception message.
-
-Минимальный error payload должен стабильно предоставлять:
+Stable error properties должны продолжать существующую модель:
 
 ```text
 status
-title/code
-requestId
-fieldErrors[] when validation applies
+title
+detail
+instance
+code
+traceId
+correlationId
+errors       // validation, where applicable
 ```
 
-`code` является стабильным machine-readable identifier. Stack trace, SQL/provider exception, PII и internal class names наружу не возвращать.
+Frontend MUST use machine-readable `code`, а не parse exception text.
 
-### 3.8 Concurrency, audit и time
+Stack trace, SQL/provider exception, secrets, PII и internal class names наружу не возвращать.
 
-Mutable business aggregates должны использовать existing audit fields и application `Clock`.
+### 3.8 Time/concurrency/audit
 
-Для financial/workflow records, где concurrent edits существенны, использовать optimistic locking/version или explicit row locking согласно invariant.
+Проект уже имеет application `Clock`; Slice 9 MUST использовать injected `Clock` для time-dependent business/read logic.
 
-Financial/workflow transition audit должен позволять восстановить минимум actor/time/action/reason там, где transition имеет business significance.
+Forbidden in production Slice 9 code:
 
-Hard delete business history по умолчанию запрещён. Использовать status/archive/reversal semantics.
+```java
+LocalDate.now()
+Instant.now()
+OffsetDateTime.now()
+```
+
+без injected `Clock`.
+
+Особенно это относится к:
+
+```text
+overdue
+daysOverdue
+due today
+promise due/broken
+next-action overdue
+dashboard aging/asOf
+```
+
+Mutable financial/workflow aggregates используют optimistic versioning или explicit row locking согласно invariant.
+
+Significant workflow/financial transitions сохраняют actor/time/action/reason audit, где это необходимо.
+
+Hard delete financial/collection history запрещён; использовать archive/status/reversal semantics.
 
 ### 3.9 Query/read-model boundary
 
-List/dashboard endpoints должны быть оптимизированы под чтение и не обязаны материализовать full JPA aggregate.
+List/dashboard API SHOULD использовать query projections, dedicated query repositories или explicit JPQL/native queries, а не materialize full aggregate без необходимости.
 
-Допускаются:
+Forbidden: lazy association traversal per row при построении list DTO.
 
-- DTO/interface projections;
-- explicit JPQL/native queries;
-- dedicated query repositories;
-- bounded read models/materialized views при доказанной необходимости.
+Read model может дублировать representation, но не authoritative state.
 
-Запрещено строить list DTO через цикл по entities с lazy navigation, создающий N+1.
+### 3.10 Module dependency rule
 
-Read projection может дублировать representation для чтения, но не становится independently mutable source of truth.
+Bounded modules не должны напрямую использовать repositories соседнего bounded context как shared database DAO layer.
+
+Например Collection application layer при необходимости финансового контекста использует `ReceivableService`/dedicated receivable query port, а не произвольные вызовы `InvoiceRepository`/`PaymentRepository` из collection package.
+
+Target direction:
+
+```text
+REST
+  ↓
+Application / Query service
+  ↓
+Domain owner / dedicated query port
+  ↓
+Repository
+  ↓
+PostgreSQL
+```
+
+---
 
 ## 4. Slice 9A — Customer + Contract API
 
-### 4.1 Customer list
+### 4.1 9A-1 Customer API normalization
+
+`Customer` уже authoritative. Slice 9A не создаёт новый customer aggregate.
 
 ```text
 GET /api/v1/customers
 ```
 
-MVP filters, если соответствующее поле существует в domain:
+MVP filters при наличии соответствующих fields:
 
 ```text
 search
@@ -361,7 +456,7 @@ createdFrom
 createdTo
 ```
 
-`search` минимум по `displayName` и `externalId`; дополнительные поля включать только при наличии корректных indexes/use case.
+`search` минимум `displayName` + `externalId`.
 
 Sortable allowlist минимум:
 
@@ -372,7 +467,7 @@ displayName
 externalId
 ```
 
-List response не должен загружать unbounded contacts/contracts/invoices nested collections.
+List response не загружает nested contacts/contracts/invoices collections.
 
 ### 4.2 Customer detail/write
 
@@ -382,17 +477,15 @@ POST  /api/v1/customers
 PATCH /api/v1/customers/{customerId}
 ```
 
-Использовать существующие invariants `Customer`: tenant-scoped unique `externalId`, customer type, display name, status, manager, preferred locale/timezone, custom fields.
+Использовать existing Customer invariants: tenant-scoped externalId, type, displayName, status, manager, locale/timezone, custom fields.
 
-Изменение status должно проходить через domain method, не direct setter.
+Status changes проходят через domain/application rule, не arbitrary setter.
 
-Не добавлять physical DELETE customer в MVP.
+Physical DELETE customer out-of-scope.
 
 ### 4.3 Customer contacts
 
-Existing email/phone domain types должны быть доступны frontend через понятный contract.
-
-Предпочтительно:
+Expose existing email/phone domain через frontend contract:
 
 ```text
 GET    /api/v1/customers/{customerId}/contacts
@@ -401,20 +494,17 @@ PATCH  /api/v1/customers/{customerId}/contacts/{contactId}
 DELETE /api/v1/customers/{customerId}/contacts/{contactId}
 ```
 
-`DELETE` допустим только если текущая domain semantics действительно допускает удаление контакта; иначе заменить на deactivate/status command.
+`DELETE` разрешён только если existing domain semantics допускает physical removal; иначе endpoint заменяется deactivate/status command.
 
-DTO должен скрывать internal persistence details. Email/phone считаются PII: не писать raw values в application logs/errors.
+Email/phone — PII: raw values не писать в logs/errors.
 
-Если contact list bounded существующими domain limits (например <=5 email и <=2 phone), pagination для nested contacts не нужна.
+Если nested contact count bounded business limits, pagination не требуется.
 
-### 4.4 Segments
+### 4.4 Segments — existing tenant-configurable resource
 
-Сначала классифицировать текущую модель segment:
+`CustomerSegment` и `CustomerSegmentMember` уже существуют. Segment MUST NOT заменяться enum/reference-data.
 
-- если это tenant-configurable resource — дать CRUD/list API с tenant scope;
-- если это bounded enum/value — включить в reference data 9D и не создавать искусственный CRUD.
-
-Если configurable:
+Normalize/create missing resource API:
 
 ```text
 GET   /api/v1/segments
@@ -423,17 +513,44 @@ POST  /api/v1/segments
 PATCH /api/v1/segments/{segmentId}
 ```
 
-List paginated, filter `search/status`, stable sort.
+List paginated; минимум `search/status`; stable deterministic sort; membership access tenant-scoped.
 
-### 4.5 Contracts
+### 4.5 9A-2 Contract domain foundation
 
-До code implementation проверить, существует ли contract aggregate/persistence в актуальном `main`.
+На момент аудита authoritative Contract отсутствует. Slice 9A-2 создаёт минимальный bounded aggregate, а не frontend-only table.
 
-Если authoritative Contract уже существует — переиспользовать его и добавить только недостающий application/query/API layer.
+Minimum model:
 
-Если authoritative Contract отсутствует — 9A может создать минимальную domain/persistence foundation, но PR обязан явно зафиксировать ownership и доказать отсутствие competing source of truth.
+```text
+Contract
+├── id
+├── tenantId
+├── customerId
+├── externalId
+├── contractNumber
+├── status
+├── validFrom
+├── validTo
+├── renewalDate        // only if business requirement retained
+├── customFields
+├── version
+├── createdAt
+└── updatedAt
+```
 
-Public contract:
+Required invariants:
+
+- `tenantId` mandatory;
+- customer MUST belong to same tenant;
+- `externalId` tenant-scoped unique;
+- contract-number uniqueness semantics MUST be explicitly chosen and tested;
+- lifecycle/status bounded by domain methods;
+- hard delete forbidden;
+- optimistic versioning for conflicting edits;
+- document content stored/retrieved through FileService references, not byte arrays in Contract;
+- Contract MUST NOT own `paidAmount`, `outstandingAmount`, collection status or delivery counters.
+
+Public API:
 
 ```text
 GET   /api/v1/contracts
@@ -442,12 +559,13 @@ POST  /api/v1/contracts
 PATCH /api/v1/contracts/{contractId}
 ```
 
-Business filters:
+Filters:
 
 ```text
 customerId
 status
-contractNumber/externalId
+contractNumber
+externalId
 validFrom
 validTo
 renewalFrom
@@ -455,34 +573,48 @@ renewalTo
 search
 ```
 
-Не возвращать document bytes внутри contract DTO. Если contract связан с FileService, возвращать safe file metadata/id/link contract.
+Contract DTO returns safe file/document references only.
 
-### 4.6 9A acceptance criteria
+### 4.6 9A acceptance
 
-Frontend способен реализовать:
+Frontend должен реализовать без large client-side filtering/N+1:
 
 ```text
-Customers table
-Customer detail
+Customers table/detail
 Customer contacts editor
-Segments selector/management when configurable
-Contracts table
-Contract detail/editor
+Segments management/selector
+Contracts table/detail/editor
 ```
 
-без client-side filtering больших наборов и без N+1 list materialization.
+9A implementation SHOULD be two reviewable PRs: existing Customer/Segment normalization first, Contract foundation second.
+
+---
 
 ## 5. Slice 9B — Receivables + Payments API
 
-### 5.1 Domain readiness gate
+### 5.1 Authoritative financial model is already present
 
-До implementation сверить актуальные Invoice/Receivable/Payment entities/tables и определить authoritative owner каждого финансового факта.
+Slice 9B MUST reuse:
 
-Если какая-либо сущность существует только как import projection или отсутствует как authoritative business aggregate, сначала определить, нужен ли новый aggregate вообще. Query/read-model потребность frontend сама по себе не является основанием создавать новый mutable domain aggregate.
+```text
+Invoice
+Payment
+PaymentAllocation
+ReceivableService
+```
 
-Не создавать второй competing Invoice/Payment/Balance aggregate рядом с уже существующим.
+Imports already persist into this domain and campaign eligibility already consumes it. Slice 9B MUST NOT create replacement Invoice/Receivable/Balance models.
 
-### 5.2 Invoices / receivables
+The same financial state MUST drive:
+
+```text
+receivable frontend API
+campaign eligibility
+collection financial projections
+dashboard receivable metrics
+```
+
+### 5.2 Invoices
 
 ```text
 GET   /api/v1/invoices
@@ -491,7 +623,7 @@ POST  /api/v1/invoices
 PATCH /api/v1/invoices/{invoiceId}
 ```
 
-POST/PATCH нужны для manual/API correction flows только в пределах подтверждённых domain rules. Если financial record должен быть immutable после import, использовать explicit correction/status command вместо arbitrary patch.
+POST/PATCH are not generic entity editing. Permitted manual corrections MUST be explicitly enumerated. Immutable financial facts use explicit correction/reversal/status commands instead of arbitrary PATCH.
 
 Filters:
 
@@ -506,14 +638,14 @@ issuedFrom
 issuedTo
 dueFrom
 dueTo
-overdue=true|false
+overdue
 amountMin
 amountMax
 outstandingMin
 outstandingMax
 ```
 
-List/detail должны возвращать backend-computed authoritative fields, где применимо:
+Backend-computed authoritative fields:
 
 ```text
 amount
@@ -525,9 +657,9 @@ dueDate
 daysOverdue
 ```
 
-`paidAmount`, `outstandingAmount`, `status`, `daysOverdue` и collection eligibility MUST происходить из единой authoritative financial model/domain rules. Slice 9 не вводит собственные параллельные финансовые расчёты только для frontend.
+`daysOverdue` and `overdue` MUST use injected application `Clock`.
 
-Frontend не должен сам вычислять invoice status/days overdue/outstanding from unrelated records.
+Frontend MUST NOT reconstruct balances/status from unrelated records.
 
 ### 5.3 Payments
 
@@ -537,13 +669,13 @@ GET  /api/v1/payments/{paymentId}
 POST /api/v1/payments
 ```
 
-Предпочитать immutable payment + correction/reversal model вместо unrestricted PATCH финансового факта.
+Prefer immutable payment + correction/reversal model instead of unrestricted PATCH.
 
 Filters:
 
 ```text
 customerId
-invoiceId (через allocation relation)
+invoiceId       // through allocation relation
 status
 currency
 paymentReference
@@ -557,83 +689,104 @@ search
 
 ### 5.4 Allocations
 
-Minimum API:
-
 ```text
 GET  /api/v1/payments/{paymentId}/allocations
 POST /api/v1/payments/{paymentId}/allocations
 GET  /api/v1/invoices/{invoiceId}/allocations
-```
-
-Для отмены allocation предпочтительно explicit reversal:
-
-```text
 POST /api/v1/payments/{paymentId}/allocations/{allocationId}/reverse
 ```
 
-а не destructive DELETE.
-
 Mandatory invariants:
 
-- allocation amount > 0;
-- payment/invoice/allocation одного tenant;
-- no over-allocation payment;
-- no over-payment invoice, если business rule не разрешает credit;
-- currency compatibility либо explicit FX rule; implicit conversion запрещена;
-- customer consistency, если payment привязан к customer;
-- allocation + derived payment/invoice state меняются атомарно в одной PostgreSQL transaction;
-- concurrent allocation не может нарушить totals;
-- retry/duplicate request не должен silently double-allocate; mutation command должен иметь idempotency strategy либо deterministic conflict semantics;
-- reversal audit сохраняется.
+- amount > 0;
+- payment/invoice/allocation same tenant;
+- no payment over-allocation;
+- no invoice over-payment unless explicit credit rule exists;
+- no implicit FX conversion;
+- customer consistency where payment has customer ownership;
+- allocation and derived states update in one PostgreSQL transaction;
+- concurrent allocations cannot violate totals;
+- retry/duplicate request cannot silently double-allocate;
+- reversal audit retained.
 
-### 5.5 9B acceptance criteria
+### 5.5 9B acceptance
 
-Frontend способен реализовать:
+Frontend supports:
 
 ```text
 Receivables table/detail
-Overdue filter
-Customer receivables view
+Overdue filtering
+Customer receivables
 Payments table/detail
-Payment allocation/reconciliation UI
+Allocation/reconciliation UI
 ```
 
-с authoritative balances от backend и без duplicated financial source of truth.
+with one authoritative financial model.
 
-## 6. Slice 9C — Collection API
+---
 
-### 6.1 Domain foundation
+## 6. Slice 9C — Collection bounded domain + API
 
-Так как текущий `collection` module не содержит implementation, Slice 9C включает только минимальный новый authoritative collection domain, если повторная сверка `main` подтверждает отсутствие существующего owner:
+### 6.1 Domain ownership
+
+Current `collection` module has no authoritative implementation. Slice 9C creates only the minimum domain required for operator UI:
 
 ```text
 CollectionCase
 PromiseToPay
 Dispute
-CollectionAction (Next Action)
+CollectionAction
+Collection timeline projection
 ```
 
-Не вводить generic BPM/workflow engine.
+Explicitly out-of-scope here:
 
-Collection domain владеет collection workflow state, но не должен становиться альтернативным owner invoice/payment balances. Финансовые значения для collection read models берутся из authoritative receivables/payment model.
+```text
+generic BPM/workflow engine
+automatic case-opening scheduler
+automatic escalation engine
+rules engine
+automatic assignment
+automatic PromiseToPay breach scheduler
+```
+
+Those can be later slices after operator workflow is validated.
+
+Collection owns workflow state. Receivable owns financial truth.
+
+```text
+CollectionCase ──references──> Invoice / Customer
+CollectionCase does NOT own invoice balance
+```
 
 ### 6.2 CollectionCase
 
-Minimum fields должны покрывать:
+MVP case is invoice-level. `invoiceId` MUST NOT be null in Slice 9C unless a separate customer-level collection requirement is explicitly approved.
+
+Minimum fields:
 
 ```text
 id
 tenantId
 customerId
-invoiceId (nullable только если case действительно customer-level)
+invoiceId
 status
 priority
 assignedTo
 openedAt
 closedAt
 nextActionAt
-version/audit fields
+version
+audit fields
 ```
+
+Invariant:
+
+```text
+At most one active CollectionCase per tenant + invoice.
+```
+
+Historical closed cases may remain.
 
 Public API:
 
@@ -659,7 +812,9 @@ nextActionTo
 search
 ```
 
-Status transition должен быть bounded state machine. Arbitrary `status=X` без transition validation запрещён.
+Status is a bounded state machine; arbitrary `status=X` is forbidden.
+
+Financial values in case detail/list are query-time projections from Receivable, not mutable Collection fields.
 
 ### 6.3 Promise-to-Pay
 
@@ -669,6 +824,20 @@ GET   /api/v1/promises-to-pay/{promiseId}
 POST  /api/v1/promises-to-pay
 PATCH /api/v1/promises-to-pay/{promiseId}
 ```
+
+Minimum model:
+
+```text
+caseId
+promisedAmount
+currency
+promisedDate
+status
+fulfilledAt / brokenAt / cancelledAt as applicable
+audit fields
+```
+
+Lifecycle distinguishes active/fulfilled/broken/cancelled. History is never physically deleted.
 
 Filters:
 
@@ -680,9 +849,7 @@ promiseFrom
 promiseTo
 ```
 
-Model должен поддерживать минимум promised amount/date, currency, status and fulfillment/breach outcome.
-
-Promise lifecycle должен различать active/fulfilled/broken/cancelled semantics. Не удалять history.
+Time-dependent due/breach representation uses injected `Clock`.
 
 ### 6.4 Disputes
 
@@ -693,7 +860,7 @@ POST  /api/v1/disputes
 PATCH /api/v1/disputes/{disputeId}
 ```
 
-Filters минимум:
+Filters:
 
 ```text
 customerId
@@ -704,11 +871,11 @@ createdFrom
 createdTo
 ```
 
-Resolution хранит status, resolution summary/code, resolvedAt/actor; raw unbounded internal notes не должны автоматически становиться публичным API/log payload.
+Resolution retains status, reason/code/summary, actor and resolved timestamp. Raw unbounded internal notes MUST NOT automatically become public/log payload.
 
-### 6.5 Next actions / work queue
+### 6.5 Collection actions / work queue
 
-Resource name API: `collection-actions`.
+Resource API:
 
 ```text
 GET   /api/v1/collection-actions
@@ -727,40 +894,41 @@ status
 type
 dueFrom
 dueTo
-overdue=true|false
+overdue
 ```
 
-Это основной work-queue endpoint collection manager, поэтому default sorting рекомендуется:
+Default queue sort:
 
 ```text
 dueAt ASC, priority DESC, id ASC
 ```
 
-### 6.6 Collection timeline
+Overdue semantics use injected `Clock`.
 
-Добавить paginated unified timeline:
+### 6.6 Unified timeline
 
 ```text
 GET /api/v1/collection-cases/{caseId}/timeline
 ```
 
-Timeline может агрегировать promises/disputes/actions/state transitions через backend projection. Frontend не должен скачивать четыре списка и пытаться самостоятельно восстановить business chronology.
+Paginated projection aggregates state transitions/promises/disputes/actions into stable chronology. Frontend MUST NOT reconstruct chronology by downloading multiple independent collections.
 
-### 6.7 9C invariants
+### 6.7 Collection invariants
 
-- no hard delete collection history;
-- all parent-child lookups tenant-scoped;
-- state transitions validated domain-side;
-- financial promises use decimal + currency;
-- optimistic versioning/locking для conflicting operator updates;
-- actor/time/reason audit для significant transitions;
-- notification delivery failure не должен автоматически терять collection state;
-- collection domain не зависит от HTTP/provider adapters;
-- collection state не дублирует authoritative invoice/payment balances.
+- no hard delete of workflow history;
+- tenant-scoped parent/child access;
+- validated domain transitions;
+- decimal + currency for financial promises;
+- optimistic versioning/locking for conflicting edits;
+- actor/time/reason audit for significant transitions;
+- notification delivery failure cannot erase Collection state;
+- no direct dependency on HTTP/provider adapters;
+- no duplicated invoice/payment balances;
+- Collection module does not reach directly into receivable repositories; use application/query port.
 
-### 6.8 9C acceptance criteria
+### 6.8 9C acceptance
 
-Frontend способен реализовать:
+Frontend supports:
 
 ```text
 Collection work queue
@@ -770,13 +938,13 @@ Dispute management
 Next action scheduling/completion
 ```
 
+---
+
 ## 7. Slice 9D — Frontend Support API
 
 ### 7.1 Dashboard read models
 
-Не заставлять frontend строить dashboard через десятки list endpoints.
-
-Добавить bounded aggregate API:
+Avoid frontend fan-out over many list endpoints.
 
 ```text
 GET /api/v1/dashboard/summary
@@ -785,35 +953,39 @@ GET /api/v1/dashboard/delivery
 GET /api/v1/dashboard/collections
 ```
 
-`summary` минимум должен позволять показать high-level cards без N+1/network fan-out.
+Every time-dependent dashboard response SHOULD expose:
 
-Receivables aggregation:
+```text
+asOf: Instant
+```
 
-- outstanding totals;
-- overdue totals;
-- due today/soon;
-- aging buckets;
-- affected customers.
+Receivables projection:
 
-**Запрещено суммировать разные currencies в одно число без существующей authoritative FX/base-currency model.** Пока FX отсутствует, totals группировать по currency.
+```text
+outstanding totals
+overdue totals
+due today/soon
+aging buckets
+affected customers
+```
 
-Delivery dashboard использует persisted/cached delivery counters/metrics semantics, а не пересчитывает Message table без необходимости.
+Different currencies MUST NOT be summed into one number without authoritative FX/base-currency model. Until such model exists, group totals by currency.
 
-Collection dashboard: open cases, overdue actions, promises due/broken, disputes open.
+Delivery dashboard uses existing persisted/cached delivery counters/metric semantics, not expensive full Message-table recalculation per refresh.
 
-Dashboard queries tenant-scoped и должны иметь indexes/materialized/read-model strategy при необходимости; тяжелая full-table aggregation на каждый refresh недопустима.
+Collection dashboard includes open cases, overdue actions, promises due/broken, disputes open.
 
-Dashboard read model является projection и не становится новым owner business state.
+Dashboard is a read model only.
 
 ### 7.2 Reference data
 
-Добавить один согласованный read API, например:
+Expose static/compile-time code lists through a consistent API, for example:
 
 ```text
 GET /api/v1/reference-data
 ```
 
-или bounded sub-resources, если payload становится слишком большим:
+or bounded resources:
 
 ```text
 GET /api/v1/reference-data/channels
@@ -822,15 +994,11 @@ GET /api/v1/reference-data/locales
 GET /api/v1/reference-data/statuses
 ```
 
-В reference data отдавать compile-time/static code lists, необходимые UI select/filter controls.
-
-Tenant-configurable business entities (например configurable segments) не маскировать под static reference-data; для них остаётся полноценный resource API.
+Tenant-configurable `CustomerSegment` MUST remain a resource API and MUST NOT be represented as static reference data.
 
 ### 7.3 Import history
 
-Существующий `ImportBatch` использовать как source of truth.
-
-Добавить/нормализовать:
+Reuse `ImportBatch` as source of truth.
 
 ```text
 GET /api/v1/imports
@@ -841,18 +1009,18 @@ GET /api/v1/imports/{importId}/errors
 Filters:
 
 ```text
-type/definition/schema where applicable
+type/definition/schema as applicable
 status
 filename/search
 createdFrom
 createdTo
 ```
 
-Import list paginated. Error rows paginated/Slice и не возвращают unbounded input/raw payload, если он может содержать PII. Detail должен показывать безопасные counters/status/timestamps/file metadata.
+Import list paginated. Error rows Page/Slice without unbounded raw payload/PII.
 
 ### 7.4 Generated documents
 
-Добавить/нормализовать read API:
+Normalize read API:
 
 ```text
 GET /api/v1/generated-documents
@@ -870,13 +1038,13 @@ createdFrom
 createdTo
 ```
 
-Ответ возвращает metadata/status/safe error code-summary/file reference. Binary content идёт через существующий FileService/download authorization contract, не inline base64.
+Return metadata/status/safe error code/file reference. Binary download remains FileService responsibility.
 
-### 7.5 Existing campaigns/runs/recipients
+### 7.5 Campaigns/runs/recipients
 
-Текущие unbounded list endpoints привести к общему contract.
+Normalize existing unbounded list endpoints.
 
-`GET /api/v1/campaigns`:
+`GET /api/v1/campaigns` supports:
 
 ```text
 page/size
@@ -890,73 +1058,79 @@ createdTo
 sort
 ```
 
-`GET /api/v1/campaigns/{campaignId}/runs`:
+Campaign runs are paginated.
 
-```text
-page/size
-status
-createdFrom
-createdTo
-sort
-```
+Recipients MUST be paginated/high-volume aware.
 
-`GET /api/v1/campaigns/runs/{runId}/recipients` также MUST стать paginated, потому что recipients потенциально high-volume.
-
-Предпочтительно нормализовать hierarchy route к:
+Preferred hierarchy:
 
 ```text
 GET /api/v1/campaigns/{campaignId}/runs/{runId}/recipients
 ```
 
-с tenant + campaign + run verification. Старый route либо сохранить временно совместимым, либо удалить до frontend contract freeze; не держать два расходящихся contracts.
+with tenant + campaign + run verification.
 
-Message list из Slice 8 остаётся Slice и не переводится на expensive total count без UI requirement.
+Legacy route may remain temporarily before API freeze but two divergent contracts MUST NOT survive 9D.
+
+Message list from Slice 8 remains Slice-style unless UI proves exact totals are required.
 
 ### 7.6 Templates/versions
 
-Existing template list/version list endpoints проверить на unbounded `List`.
+Existing template/version lists must be checked for unbounded collections.
 
-Минимум template list:
+Minimum template filters:
 
 ```text
 page/size
 search
 channel
 status
-locale where applicable
+locale
 createdFrom
 createdTo
 sort
 ```
 
-Template versions также paginated, если history unbounded.
+Version history paginated when unbounded.
 
-### 7.7 Frontend compatibility boundary
+### 7.7 API freeze/OpenAPI compatibility boundary
 
-До окончания 9D допустимы deliberate breaking corrections существующих `/api/v1` list response contracts, поскольку frontend baseline ещё не заморожен.
+Before 9D completion deliberate breaking cleanup inside `/api/v1` is allowed because frontend baseline is not frozen.
 
-После 9D следующие изменения считаются breaking:
+At 9D completion:
 
-- удаление endpoint;
-- rename/removal response field;
-- изменение field type;
-- optional -> required;
-- удаление/переименование enum value;
-- `List -> Page/Slice` change;
-- path restructuring;
-- несовместимое изменение HTTP status/request semantics.
+```text
+generate/store OpenAPI baseline
+activate CI compatibility check
+```
 
-До завершения 9D добавить CI API compatibility/breaking-change check для generated OpenAPI baseline. После freeze CI MUST fail на незаявленное breaking change.
+After freeze CI MUST reject undeclared representative breaking changes including:
+
+```text
+removed endpoint
+removed/renamed response field
+field type change
+optional -> required
+removed/renamed enum value
+List -> Page/Slice contract change
+path restructuring
+incompatible request schema
+incompatible status/request semantics where detectable
+```
+
+Use existing OpenAPI tooling/compatible checker; do not build a custom compatibility framework unless required.
+
+---
 
 ## 8. Database/query/index requirements
 
-Новые list endpoints не реализовывать через `findAll()` + Java filtering.
+No new list endpoint may use `findAll()` + Java filtering.
 
-Repository queries должны push down tenant/filter/sort/paging в PostgreSQL.
+Push tenant/filter/sort/page into PostgreSQL.
 
-List endpoints SHOULD использовать DTO/query projections и не materialize full aggregate без необходимости.
+Representative list paths SHOULD use projection/query DTO.
 
-Индексы проектировать от фактических query patterns. Типовые кандидаты:
+Typical index candidates, justified by actual query patterns:
 
 ```text
 (tenant_id, created_at DESC, id DESC)
@@ -966,200 +1140,240 @@ List endpoints SHOULD использовать DTO/query projections и не mat
 (tenant_id, assigned_to, status, due_at, id)
 ```
 
-Не создавать индекс на каждый возможный параметр mechanically.
+Do not mechanically index every filter combination.
 
-Для каждого sub-slice предоставить representative `EXPLAIN ANALYZE` минимум для:
+Each sub-slice PR must provide representative `EXPLAIN ANALYZE` evidence for:
 
-- default list;
-- наиболее частого combined filter;
-- one high-volume path.
+```text
+default list
+common combined filter
+one high-volume path
+```
 
-Избегать N+1 при list DTO enrichment. Нужные names/counts получать projection/join/batch query, а не lazy loop queries.
+Acceptance: representative list DTO building performs no lazy-per-row association traversal.
 
-Acceptance rule: representative list endpoint не должен выполнять lazy association traversal per row для построения DTO.
+---
 
-## 9. Security/privacy/observability requirements
+## 9. Security/privacy/observability
 
-- tenant isolation enforced in DB queries;
-- tenant identity берётся из authenticated principal, не из caller-controlled parameter/header;
-- PII (email/phone) не писать в logs/error messages;
-- auth tokens/password hashes/raw provider responses не возвращать и не логировать;
-- custom fields не должны обходить authorization/privacy policy;
-- financial amounts and collection history доступны только caller, которому разрешён соответствующий tenant/API contract;
-- dashboard не должен становиться privilege-escalation path;
-- `404` не раскрывает cross-tenant existence;
-- application logs содержат `requestId`, endpoint/operation, HTTP status, latency и безопасный tenant identifier/context;
-- raw request/response body tenant business API по умолчанию не логируется;
-- email/phone/payment payload/custom fields должны проходить redaction/masking policy;
-- operational metrics не должны использовать unbounded-cardinality labels (`customerId`, `invoiceId`, raw tenant/customer/email и т.п.).
+- tenant restriction in DB query;
+- tenant from authenticated principal/security context;
+- reuse existing `SystemRole`, human/service authorities and ServiceClient scopes;
+- no raw email/phone in logs/error messages;
+- no auth tokens/password hashes/raw provider response in responses/logs;
+- custom fields cannot bypass privacy rules;
+- `404` hides cross-tenant existence;
+- reuse existing trace/correlation context in logs and ProblemDetail;
+- log endpoint/operation/status/latency and safe tenant context;
+- do not log raw request/response business payload by default;
+- payment/custom-field/contact payload follows redaction/masking policy;
+- operational metric labels must be bounded cardinality; no customerId/invoiceId/email/raw tenant id where cardinality is unsafe.
+
+Do not introduce a parallel `requestId` convention when existing `traceId`/`correlationId` already provide request correlation unless a separate project-wide requirement is approved.
+
+---
 
 ## 10. Tests
 
-Каждый paginated list endpoint должен иметь минимум:
+Every paginated list endpoint includes at least:
 
 - default page/size;
 - max size 200;
 - invalid page/size -> 400;
-- stable deterministic order с unique tie-breaker;
-- each important single filter;
-- representative combined filters с AND semantics;
-- defined search trim/case/matching semantics;
-- allowed sorting;
-- invalid sort -> 400;
+- deterministic order with unique tie-breaker;
+- important individual filters;
+- representative AND combined filters;
+- documented search semantics;
+- allowed/invalid sorting;
 - empty result;
-- tenant A не видит tenant B;
+- tenant A cannot see tenant B;
 - wrong nested parent -> 404;
 - unauthenticated -> 401;
-- `TENANT_USER` own tenant access;
-- `TECHNICAL_ACCOUNT` required-scope positive/negative cases для exposed M2M endpoint;
-- tenant user access to `/admin/api/v1/**` -> 403;
+- human own-tenant access;
+- service-scope positive/negative where endpoint supports M2M;
+- tenant user -> admin API = 403;
 - no duplicate rows from joins;
-- no N+1 regression для representative list path, где это practically testable;
-- canonical error payload/code/requestId для representative 400/403/404/409.
+- representative no-N+1 check;
+- existing ProblemDetail shape/code/traceId/correlationId for representative 400/403/404/409.
 
-9A дополнительно:
+9A additionally:
 
-- duplicate tenant/externalId conflict;
-- contact validation/ownership;
-- customer status/update rules.
+```text
+Customer externalId uniqueness
+contact ownership/validation
+segment tenant isolation
+Contract tenant/customer ownership
+Contract externalId uniqueness
+Contract number uniqueness semantics
+Contract lifecycle/version conflict
+```
 
-9B дополнительно:
+9B additionally:
 
-- exact decimal amounts;
-- outstanding/status calculations from authoritative model;
-- partial allocations;
-- over-allocation rejection;
-- currency/customer mismatch;
-- concurrent allocations;
-- reversal;
-- rollback atomicity.
+```text
+exact decimal amounts
+paid/outstanding/status from authoritative model
+Clock-based overdue calculations
+partial allocation
+over-allocation rejection
+currency/customer mismatch
+concurrent allocation
+reversal
+transaction rollback atomicity
+```
 
-9C дополнительно:
+9C additionally:
 
-- valid/invalid state transitions;
-- optimistic concurrent update;
-- promise fulfillment/breach;
-- dispute resolution;
-- overdue action filter;
-- timeline stable chronology.
+```text
+one active case per tenant+invoice
+valid/invalid state transitions
+optimistic concurrent update
+promise fulfillment/breach/cancel
+Clock-based due/breach behavior
+dispute resolution
+overdue action filter
+timeline stable chronology
+no duplicated financial state
+```
 
-9D дополнительно:
+9D additionally:
 
-- dashboard currency grouping;
-- aggregate tenant isolation;
-- import errors paging/redaction;
-- generated document access;
-- campaigns/runs/recipients/templates pagination migration;
-- OpenAPI compatibility check detects representative breaking change.
+```text
+dashboard currency grouping
+dashboard asOf
+aggregate tenant isolation
+import errors paging/redaction
+generated-document authorization
+campaign/run/recipient/template pagination
+OpenAPI compatibility check catches representative breaking change
+```
 
-Persistence/concurrency tests — PostgreSQL/Testcontainers согласно existing test-runtime contract.
+Persistence/concurrency tests use PostgreSQL/Testcontainers according to existing test-runtime contract.
+
+---
 
 ## 11. Performance acceptance
 
-Frontend list endpoints должны быть usable на realistic tenant dataset, а не только на десятках fixtures.
+Minimum:
 
-Минимальные требования:
+```text
+DB-side pagination/filter/sort
+projection for representative list paths
+no unbounded collection load
+no lazy-per-row N+1
+indexes backed by query plans
+bounded dashboard query count
+no expensive COUNT when UI does not need totals
+server-side max page size
+```
 
-- DB-side paging/filtering/sorting;
-- DTO/query projection для representative list paths;
-- no unbounded collection load;
-- no lazy-per-row N+1;
-- indexes justified query plans;
-- dashboard query count bounded;
-- expensive `COUNT(*)` не использовать там, где UI не требует totals;
-- max page size enforced server-side.
+Do not introduce Elasticsearch/OpenSearch in Slice 9 without measured need.
 
-Не вводить premature Elasticsearch/OpenSearch для этого Slice. PostgreSQL search/indexing использовать до появления доказанной необходимости отдельного search engine.
+---
 
 ## 12. OpenAPI/frontend contract
 
-Все public endpoints Slice 9 должны присутствовать в generated OpenAPI.
+All public Slice 9 endpoints MUST be present in generated OpenAPI.
 
-Перед `Frontend API Ready` проверить:
-
-- query params documented;
-- enum values visible;
-- response DTO documented;
-- 400/401/403/404/409 semantics consistent;
-- canonical error schema documented;
-- Page/Slice schema единообразна;
-- nullable fields explicit;
-- money/date/time conventions consistent;
-- examples не содержат real PII/secrets.
-
-Frontend TypeScript client должен иметь возможность генерироваться/типизироваться из stable API contract без знания persistence model.
-
-После 9D generated OpenAPI baseline является compatibility boundary и проверяется в CI.
-
-## 13. Порядок реализации
-
-Рекомендуемый порядок:
+Before `Frontend API Ready` verify:
 
 ```text
-9A Customer + Contract
-        |
-        v
-9B Receivables + Payments
-        |
-        v
-9C Collection
-        |
-        v
-9D Frontend Support + API normalization + compatibility gate
+query params documented
+enum values visible
+response/request DTO documented
+400/401/403/404/409 consistent
+existing ProblemDetail schema documented
+Page/Slice schema consistent
+nullable fields explicit
+money/date/time conventions consistent
+examples contain no real PII/secrets
 ```
 
-9A–9D реализуются отдельными PR от актуального `main`. Documentation/spec branch не использовать как base code branch.
+Frontend TypeScript client must be generatable/typeable without persistence knowledge.
 
-9D зависит от business read models 9A–9C для полноценного dashboard.
+After 9D the generated OpenAPI baseline is compatibility boundary.
+
+---
+
+## 13. Implementation order
+
+Recommended:
+
+```text
+9A-1 Customer + Segment normalization
+        ↓
+9A-2 Contract foundation + API
+        ↓
+9B Receivables + Payments normalization
+        ↓
+9C Collection foundation + API
+        ↓
+9D Frontend support + normalization + API freeze
+```
+
+9A–9D are separate PRs from current `main`. Documentation/spec branch MUST NOT be used as implementation base branch.
+
+9D depends on 9A–9C read models for complete dashboard.
+
+---
 
 ## 14. Explicit out-of-scope
 
-Не входит в Slice 9:
-
 - React/frontend implementation;
-- сложный fine-grained business RBAC внутри tenant до появления подтверждённого requirement;
-- отдельный IAM/ABAC framework;
+- new IAM/ABAC framework;
+- replacement identity/security model;
+- duplicate PrincipalType/technical-account model;
+- fine-grained business RBAC without confirmed requirement;
 - SMS/WhatsApp/Telegram/Push provider adapters;
-- generic workflow/BPM engine;
+- BPM/workflow engine;
+- automatic collection escalation/assignment/rules engine;
+- automatic collection case scheduler;
 - generic reporting/query DSL;
-- Elasticsearch/OpenSearch без отдельного performance requirement;
+- Elasticsearch/OpenSearch without measured requirement;
 - billing/plans/usage metering;
 - 1C/ERP-specific connectors;
-- provider-specific technical-account roles;
+- provider-specific technical roles;
 - arbitrary cross-tenant admin search;
-- FX conversion engine, если его нет в текущем domain;
+- FX conversion engine if no authoritative FX model exists;
+- customer-level collection case in MVP unless explicitly approved;
 - hard delete financial/collection history.
+
+---
 
 ## 15. Definition of Done — sub-slice
 
-Каждый 9A/9B/9C/9D считается готовым только если:
+Each 9A/9B/9C/9D is complete only when:
 
-1. API/domain requirements соответствующего раздела реализованы.
-2. Domain ownership/source of truth проверен и не создан competing authoritative model.
-3. Tenant isolation находится в repository/SQL.
-4. Paginated endpoints имеют bounded size, filters, stable sorting с unique tie-breaker.
-5. DTO не экспонируют JPA entities/internal secrets.
-6. Security tests для principal/tenant/scopes соответствующего scope green.
-7. PostgreSQL integration tests green.
-8. Liquibase migrations включены в master changelog, если schema менялась.
-9. Representative query plans/indexes проверены, list query не содержит lazy-per-row N+1.
-10. OpenAPI отражает contract и canonical errors.
-11. `mvn verify` green.
-12. PR не auto-merge без явного решения.
+1. Scope is implemented against current `main`, not an obsolete spec assumption.
+2. Domain ownership is verified and no competing authoritative model is introduced.
+3. Tenant isolation is enforced in repository/SQL.
+4. Pagination/filter/sort are bounded and deterministic.
+5. DTOs expose no JPA/internal secret model.
+6. Existing identity/security model is reused; applicable security tests are green.
+7. Existing ProblemDetail/correlation conventions are reused.
+8. Existing application `Clock` is used for time-dependent behavior.
+9. PostgreSQL/Testcontainers integration tests are green.
+10. Liquibase migration is in master changelog when schema changed.
+11. Representative query plans/indexes are checked; no lazy-per-row N+1.
+12. OpenAPI reflects contract.
+13. `mvn verify` is green.
+14. PR is not auto-merged without explicit decision.
+
+---
 
 ## 16. Definition of Done — Frontend API Ready
 
-Collectra backend получает статус **Frontend API Ready** только после merge 9A–9D и проверки, что frontend может реализовать следующие экраны без backend workarounds:
+Collectra backend becomes **Frontend API Ready** only after 9A–9D are merged and frontend can implement without backend workarounds:
 
 ```text
-Login / session
+Login/session
 Customers
 Customer detail + contacts
 Segments
 Contracts
-Receivables / invoices
+Receivables/invoices
 Payments
-Payment allocation / reconciliation
+Payment allocation/reconciliation
 Collection work queue
 Collection case + timeline
 Promise-to-Pay
@@ -1174,17 +1388,21 @@ Dashboard
 Reference/select data
 ```
 
-Для каждого data-grid экрана должны существовать server-side pagination, необходимые business filters и deterministic sorting.
+Every data-grid screen has server-side pagination, business filters and deterministic sorting.
 
-Дополнительно должны быть выполнены общие readiness gates:
+Final readiness gates:
 
 ```text
 tenant isolation verified
-PLATFORM_ADMIN / TENANT_USER / TECHNICAL_ACCOUNT model verified
-technical-account scopes verified where exposed
-canonical API error contract stable
+existing SystemRole/human/service security model verified
+ServiceClient scopes verified where M2M exposed
+one authoritative financial model verified
+Contract ownership established
+Collection ownership established
+existing ProblemDetail contract stable
+existing Clock used for time-dependent state
 representative list endpoints free of N+1
 OpenAPI breaking-change CI gate enabled
 ```
 
-После этого новые frontend requirements могут добавлять endpoint-specific capabilities, но отсутствие базового CRUD/read/list/filter/paging contract не должно блокировать разработку основного UI.
+After this point new frontend requirements may add endpoint-specific capabilities, but the main UI must not be blocked by missing basic CRUD/read/list/filter/paging contracts.
