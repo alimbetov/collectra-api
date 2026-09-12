@@ -82,11 +82,7 @@ public class CustomerQueryService {
                         PageRequest.of(
                                 page,
                                 size,
-                                parseSort(
-                                        sort,
-                                        CUSTOMER_SORTS,
-                                        "createdAt",
-                                        Sort.Direction.DESC)));
+                                parseSort(sort, CUSTOMER_SORTS, "createdAt", Sort.Direction.DESC)));
 
         List<UUID> customerIds = result.getContent().stream().map(Customer::getId).toList();
         Map<UUID, List<UUID>> segmentIdsByCustomer = new LinkedHashMap<>();
