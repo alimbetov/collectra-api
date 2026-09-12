@@ -1,10 +1,9 @@
 package io.collectra.api.communication.infrastructure.kumomta;
 
-import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.stereotype.Component;
-
 import java.net.URI;
 import java.time.Duration;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.stereotype.Component;
 
 @Component
 @ConfigurationProperties(prefix = "collectra.communication.kumomta")
@@ -39,7 +38,7 @@ public class KumoMtaProperties {
         if (hasText(username) != hasText(password)) {
             throw new IllegalArgumentException(
                     "collectra.communication.kumomta.username and password must be configured"
-                        + " together");
+                            + " together");
         }
     }
 
