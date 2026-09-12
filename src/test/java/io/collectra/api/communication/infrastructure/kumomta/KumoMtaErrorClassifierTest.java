@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.collectra.api.communication.application.DeliveryFailureKind;
 import java.net.SocketTimeoutException;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.client.ResourceAccessException;
@@ -44,14 +45,42 @@ class KumoMtaErrorClassifierTest {
     void onlyExplicitlyTransientRecipientErrorIsRetryable() {
         var temporary =
                 new KumoMtaInjectResponse(
-                        0, 1, java.util.List.of("a@b.kz"), java.util.List.of("temporary overload"));
+                        0, 1, List.of("a@b.kz"), List.of("temporary overload"));
         var rejected =
                 new KumoMtaInjectResponse(
-                        0, 1, java.util.List.of("a@b.kz"), java.util.List.of("mailbox rejected"));
+                        0, 1, List.of("a@b.kz"), List.of("mailbox rejected"));
 
         assertThat(classifier.classifyResponse(temporary).kind())
                 .isEqualTo(DeliveryFailureKind.RETRYABLE);
         assertThat(classifier.classifyResponse(rejected).kind())
                 .isEqualTo(DeliveryFailureKind.PERMANENT);
+    }
+
+    @Test
+    void inconsistentTwoHundredResponseIsRetryableProviderFailure() {
+        var empty = new KumoMtaInjectResponse(0, 0, List.of(), List.of());
+        var impossible = new KumoMtaInjectResponse(2, 0, List.of(), List.of());
+
+        assertThat(classifier.classifyResponse(empty).code()).isEqualTo("KUMO_INVALID_RESPONSE");
+        assertThat(classifier.classifyResponse(empty).kind())
+                .isEqualTo(DeliveryFailureKind.RETRYABLE);
+        assertThat(classifier.classifyResponse(impossible).kind())
+                .isEqualTo(DeliveryFailureKind.RETRYABLE);
+    }
+
+    @Test
+    void recipientEmailIsRedactedFromPersistedProviderMessage() {
+        var rejected =
+                new KumoMtaInjectResponse(
+                        0,
+                        1,
+                        List.of("client@example.com"),
+                        List.of("mailbox client@example.com rejected"));
+
+        var result = classifier.classifyResponse(rejected);
+
+        assertThat(result.message())
+                .contains("[redacted-email]")
+                .doesNotContain("client@example.com");
     }
 }
