@@ -3,7 +3,7 @@ set -euo pipefail
 
 MODE="${1:-unit}"
 
-UNIT_TESTS="MessageAttachmentTest,MessageStateServiceAttachmentGateTest,MessageDeliveryRequestServiceTest,MessageAttachmentContentResolverTest,MessageAttachmentServiceTest,MessageDeliveryWorkerTest,KumoMtaEmailDeliveryGatewayTest,PdfRendererLocaleUnitTest"
+UNIT_TESTS="MessageAttachmentTest,MessageStateServiceAttachmentGateTest,MessageDeliveryRequestServiceTest,MessageAttachmentContentResolverTest,MessageAttachmentServiceTest,AttachmentPropertiesTest,MessageDeliveryWorkerTest,KumoMtaEmailDeliveryGatewayTest,PdfRendererLocaleUnitTest"
 
 case "$MODE" in
   unit)
