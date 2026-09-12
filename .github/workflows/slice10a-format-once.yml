@@ -23,7 +23,7 @@ jobs:
           java-version: '17'
           cache: maven
       - name: Apply Spotless
-        run: ./mvnw -q spotless:apply
+        run: mvn --batch-mode --no-transfer-progress spotless:apply
       - name: Commit formatting
         shell: bash
         run: |
