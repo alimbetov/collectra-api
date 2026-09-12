@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, "feature/**", "chore/**", "fix/**"]
+    branches: [main, "feature/**", "feat/**", "chore/**", "fix/**"]
   pull_request:
     branches: [main]
 
@@ -26,5 +26,7 @@ jobs:
           git log -1 --oneline
       - name: Check formatting
         run: mvn --batch-mode --no-transfer-progress spotless:check
+      - name: Slice 7 focused unit tests
+        run: bash scripts/test-slice-07.sh unit
       - name: Verify with PostgreSQL Testcontainers
         run: mvn --batch-mode --no-transfer-progress clean verify

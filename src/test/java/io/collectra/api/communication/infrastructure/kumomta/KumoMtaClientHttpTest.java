@@ -72,6 +72,8 @@ class KumoMtaClientHttpTest {
         assertThat(body.path("content").path("headers").path("Subject").asText())
                 .isEqualTo("Subject");
         assertThat(body.path("content").path("html_body").asText()).isEqualTo("<p>Body</p>");
+        assertThat(body.path("content").path("attachments").isArray()).isTrue();
+        assertThat(body.path("content").path("attachments")).isEmpty();
         assertThat(body.path("recipients").get(0).path("email").asText())
                 .isEqualTo("client@example.com");
         assertThat(body.path("recipients").get(0).path("metadata").path("message_id").asText())
@@ -138,7 +140,8 @@ class KumoMtaClientHttpTest {
                 "bounce@collectra.kz",
                 new KumoMtaInjectRequest.Content(
                         Map.of("From", "Collectra <noreply@collectra.kz>", "Subject", "Subject"),
-                        "<p>Body</p>"),
+                        "<p>Body</p>",
+                        List.of()),
                 List.of(
                         new KumoMtaRecipient(
                                 "client@example.com", Map.of("message_id", "message-1"))),

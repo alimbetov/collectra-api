@@ -27,28 +27,47 @@ class DocumentGenerationListenerUnitTest {
 
     @Test
     void routesTransientFailureThroughDelayedRetryQueue() {
+        UUID tenantId = UUID.randomUUID();
         UUID jobId = UUID.randomUUID();
-        var payload = json.createObjectNode().put("jobId", jobId.toString());
+        var payload =
+                json.createObjectNode()
+                        .put("tenantId", tenantId.toString())
+                        .put("jobId", jobId.toString());
         doThrow(new DocumentStorageException("storage unavailable", new java.io.IOException()))
-                .when(worker).generate(jobId);
+                .when(worker)
+                .generate(tenantId, jobId);
 
         listener.consume(payload, new Message(new byte[0], new MessageProperties()));
 
-        verify(states).retry(jobId, "GENERATION_RETRY", "IOException");
-        verify(rabbit).convertAndSend(eq(DocumentMessagingConfig.RETRY_EXCHANGE), eq("1m"),
-                eq(payload), any(MessagePostProcessor.class));
+        verify(states).retry(tenantId, jobId, "GENERATION_RETRY", "IOException");
+        verify(rabbit)
+                .convertAndSend(
+                        eq(DocumentMessagingConfig.RETRY_EXCHANGE),
+                        eq("1m"),
+                        eq(payload),
+                        any(MessagePostProcessor.class));
     }
 
     @Test
     void routesPermanentFailureToDeadLetterQueue() {
+        UUID tenantId = UUID.randomUUID();
         UUID jobId = UUID.randomUUID();
-        var payload = json.createObjectNode().put("jobId", jobId.toString());
-        doThrow(new IllegalArgumentException("invalid template")).when(worker).generate(jobId);
+        var payload =
+                json.createObjectNode()
+                        .put("tenantId", tenantId.toString())
+                        .put("jobId", jobId.toString());
+        doThrow(new IllegalArgumentException("invalid template"))
+                .when(worker)
+                .generate(tenantId, jobId);
 
         listener.consume(payload, new Message(new byte[0], new MessageProperties()));
 
-        verify(states).fail(jobId, "GENERATION_FAILED", "invalid template");
-        verify(rabbit).convertAndSend(eq(DocumentMessagingConfig.EXCHANGE), eq("generation.dead"),
-                eq(payload), any(MessagePostProcessor.class));
+        verify(states).fail(tenantId, jobId, "GENERATION_FAILED", "invalid template");
+        verify(rabbit)
+                .convertAndSend(
+                        eq(DocumentMessagingConfig.EXCHANGE),
+                        eq("generation.dead"),
+                        eq(payload),
+                        any(MessagePostProcessor.class));
     }
 }

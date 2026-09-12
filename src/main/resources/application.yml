@@ -33,6 +33,10 @@ collectra:
       simulation:
         success-rate-percent: 80
         permanent-failure-rate-percent: 10
+    attachments:
+      max-file-size: 10MB
+      max-total-size: 20MB
+      max-count: 10
     processing-timeout: 5m
     recovery-batch-size: 100
     recovery-delay: 1m

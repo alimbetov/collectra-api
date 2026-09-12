@@ -20,28 +20,58 @@ public class FontProfileRegistry {
                     new FontProfile(
                             "Noto Sans",
                             List.of(
-                                    face("fonts/latin-cyrillic/NotoSans-Regular.ttf", 400, FontStyle.NORMAL),
-                                    face("fonts/latin-cyrillic/NotoSans-Bold.ttf", 700, FontStyle.NORMAL),
-                                    face("fonts/latin-cyrillic/NotoSans-Italic.ttf", 400, FontStyle.ITALIC),
-                                    face("fonts/latin-cyrillic/NotoSans-BoldItalic.ttf", 700, FontStyle.ITALIC))),
+                                    face(
+                                            "fonts/latin-cyrillic/NotoSans-Regular.ttf",
+                                            400,
+                                            FontStyle.NORMAL),
+                                    face(
+                                            "fonts/latin-cyrillic/NotoSans-Bold.ttf",
+                                            700,
+                                            FontStyle.NORMAL),
+                                    face(
+                                            "fonts/latin-cyrillic/NotoSans-Italic.ttf",
+                                            400,
+                                            FontStyle.ITALIC),
+                                    face(
+                                            "fonts/latin-cyrillic/NotoSans-BoldItalic.ttf",
+                                            700,
+                                            FontStyle.ITALIC))),
                     FontProfileCode.ARMENIAN,
                     new FontProfile(
                             "Noto Sans Armenian",
                             List.of(
-                                    face("fonts/armenian/NotoSansArmenian-Regular.ttf", 400, FontStyle.NORMAL),
-                                    face("fonts/armenian/NotoSansArmenian-Bold.ttf", 700, FontStyle.NORMAL))),
+                                    face(
+                                            "fonts/armenian/NotoSansArmenian-Regular.ttf",
+                                            400,
+                                            FontStyle.NORMAL),
+                                    face(
+                                            "fonts/armenian/NotoSansArmenian-Bold.ttf",
+                                            700,
+                                            FontStyle.NORMAL))),
                     FontProfileCode.GEORGIAN,
                     new FontProfile(
                             "Noto Sans Georgian",
                             List.of(
-                                    face("fonts/georgian/NotoSansGeorgian-Regular.ttf", 400, FontStyle.NORMAL),
-                                    face("fonts/georgian/NotoSansGeorgian-Bold.ttf", 700, FontStyle.NORMAL))),
+                                    face(
+                                            "fonts/georgian/NotoSansGeorgian-Regular.ttf",
+                                            400,
+                                            FontStyle.NORMAL),
+                                    face(
+                                            "fonts/georgian/NotoSansGeorgian-Bold.ttf",
+                                            700,
+                                            FontStyle.NORMAL))),
                     FontProfileCode.CJK_SC,
                     new FontProfile(
-                            "Noto Sans CJK SC",
+                            "Noto Sans SC",
                             List.of(
-                                    face("fonts/cjk-sc/NotoSansCJKsc-Regular.otf", 400, FontStyle.NORMAL),
-                                    face("fonts/cjk-sc/NotoSansCJKsc-Bold.otf", 700, FontStyle.NORMAL))));
+                                    face(
+                                            "fonts/ttf/NotoSansSC/NotoSansSC-Regular.ttf",
+                                            400,
+                                            FontStyle.NORMAL),
+                                    face(
+                                            "fonts/ttf/NotoSansSC/NotoSansSC-Bold.ttf",
+                                            700,
+                                            FontStyle.NORMAL))));
 
     public FontProfile require(FontProfileCode code) {
         FontProfile profile = PROFILES.get(code);
@@ -66,7 +96,10 @@ public class FontProfileRegistry {
         if (code == BASE_PROFILE) {
             return quote(selected.family()) + ", sans-serif";
         }
-        return quote(selected.family()) + ", " + quote(require(BASE_PROFILE).family()) + ", sans-serif";
+        return quote(selected.family())
+                + ", "
+                + quote(require(BASE_PROFILE).family())
+                + ", sans-serif";
     }
 
     public void verifyBundledResources() {

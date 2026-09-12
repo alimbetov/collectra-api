@@ -1,7 +1,7 @@
 package io.collectra.api.document.infrastructure;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-
+import java.util.Map;
 import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.DirectExchange;
@@ -10,13 +10,13 @@ import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import java.util.Map;
-
 @Configuration
 public class DocumentMessagingConfig {
     public static final String EXCHANGE = "collectra.documents";
     public static final String QUEUE = "collectra.document-generation";
     public static final String ROUTING_KEY = "generation.requested";
+    public static final String COMPLETED_ROUTING_KEY = "generation.completed";
+    public static final String FAILED_ROUTING_KEY = "generation.failed";
     public static final String RETRY_EXCHANGE = "collectra.documents.retry";
     public static final String DEAD_QUEUE = "collectra.document-generation.dead";
 

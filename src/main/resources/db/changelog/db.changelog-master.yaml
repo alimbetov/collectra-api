@@ -47,3 +47,5 @@ databaseChangeLog:
       file: db/changelog/changes/026-communication-delivery-core.sql
   - include:
       file: db/changelog/changes/027-campaign-message-materialization.sql
+  - include:
+      file: db/changelog/changes/028-message-attachments.sql
