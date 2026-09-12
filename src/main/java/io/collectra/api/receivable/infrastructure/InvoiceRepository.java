@@ -1,6 +1,7 @@
 package io.collectra.api.receivable.infrastructure;
 
 import io.collectra.api.receivable.domain.Invoice;
+import jakarta.persistence.LockModeType;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Collection;
@@ -10,10 +11,13 @@ import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-public interface InvoiceRepository extends JpaRepository<Invoice, UUID> {
+public interface InvoiceRepository
+        extends JpaRepository<Invoice, UUID>, JpaSpecificationExecutor<Invoice> {
     Optional<Invoice> findByIdAndTenantId(UUID id, UUID tenantId);
 
     Optional<Invoice> findByTenantIdAndExternalId(UUID tenantId, String externalId);
@@ -21,6 +25,10 @@ public interface InvoiceRepository extends JpaRepository<Invoice, UUID> {
     List<Invoice> findAllByTenantIdOrderByCreatedAtDesc(UUID tenantId);
 
     List<Invoice> findAllByTenantIdAndIdIn(UUID tenantId, Collection<UUID> ids);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select i from Invoice i where i.id = :id and i.tenantId = :tenantId")
+    Optional<Invoice> lockByIdAndTenantId(@Param("id") UUID id, @Param("tenantId") UUID tenantId);
 
     @Query(
             """
