@@ -34,7 +34,8 @@ public class MessageController {
             @RequestParam(required = false) CommunicationChannel channel,
             @RequestParam(required = false) UUID customerId,
             @RequestParam(defaultValue = "0") @Min(0) int page,
-            @RequestParam(defaultValue = "50") @Min(1) @Max(MessageQueryService.MAX_SIZE) int size) {
+            @RequestParam(defaultValue = "50") @Min(1) @Max(MessageQueryService.MAX_SIZE)
+                    int size) {
         return messages.list(
                 TenantContext.requireTenantId(),
                 campaignId,
@@ -48,9 +49,7 @@ public class MessageController {
 
     @GetMapping("/{messageId}")
     MessageQueryService.MessageDetail detail(
-            @PathVariable UUID campaignId,
-            @PathVariable UUID runId,
-            @PathVariable UUID messageId) {
+            @PathVariable UUID campaignId, @PathVariable UUID runId, @PathVariable UUID messageId) {
         return messages.detail(TenantContext.requireTenantId(), campaignId, runId, messageId);
     }
 }
