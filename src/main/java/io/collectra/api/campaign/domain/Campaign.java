@@ -92,14 +92,16 @@ public class Campaign extends AuditableEntity {
         this.scheduledAt = scheduledAt;
         this.selectionCriteria = Objects.requireNonNull(selectionCriteria).deepCopy();
         this.generatedPdfAttachment = generatedPdfAttachment;
-        this.generatedPdfAttachmentRequired = generatedPdfAttachment && generatedPdfAttachmentRequired;
+        this.generatedPdfAttachmentRequired =
+                generatedPdfAttachment && generatedPdfAttachmentRequired;
         this.createdBy = createdBy;
         this.status = CampaignStatus.DRAFT;
     }
 
     public void configureGeneratedPdfAttachment(boolean enabled, boolean required) {
         if (status != CampaignStatus.DRAFT) {
-            throw new IllegalStateException("Generated PDF attachment can only be configured for draft campaign");
+            throw new IllegalStateException(
+                    "Generated PDF attachment can only be configured for draft campaign");
         }
         generatedPdfAttachment = enabled;
         generatedPdfAttachmentRequired = enabled && required;
