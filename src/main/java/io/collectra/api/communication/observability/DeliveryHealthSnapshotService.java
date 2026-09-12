@@ -57,7 +57,8 @@ public class DeliveryHealthSnapshotService {
         Instant cutoff = now.minus(processingTimeout);
 
         stuckCount.set(
-                messages.countByStatusAndProcessingStartedAtBefore(MessageStatus.PROCESSING, cutoff));
+                messages.countByStatusAndProcessingStartedAtBefore(
+                        MessageStatus.PROCESSING, cutoff));
         oldestStuckAgeSeconds.set(
                 messages.findFirstByStatusAndProcessingStartedAtBeforeOrderByProcessingStartedAtAsc(
                                 MessageStatus.PROCESSING, cutoff)
