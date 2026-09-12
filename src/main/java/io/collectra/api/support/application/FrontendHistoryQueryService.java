@@ -122,36 +122,50 @@ public class FrontendHistoryQueryService {
             int size) {
         validatePage(page, size);
         validateRange(createdFrom, createdTo);
-        StringBuilder where = new StringBuilder(" WHERE tenant_id = :tenantId");
+        StringBuilder where = new StringBuilder(" WHERE gd.tenant_id = :tenantId");
         Map<String, Object> params = baseParams(tenantId, page, size);
         if (format != null && !format.isBlank()) {
-            where.append(" AND format = :format");
+            where.append(" AND gd.format = :format");
             params.put("format", format.trim().toUpperCase(java.util.Locale.ROOT));
         }
         if (generationJobId != null) {
-            where.append(" AND generation_job_id = :generationJobId");
+            where.append(" AND gd.generation_job_id = :generationJobId");
             params.put("generationJobId", generationJobId);
         }
-        appendInstantRange(where, params, createdFrom, createdTo);
-        long total = count("SELECT COUNT(*) FROM generated_documents" + where, params);
+        if (createdFrom != null) {
+            where.append(" AND gd.created_at >= :createdFrom");
+            params.put("createdFrom", createdFrom);
+        }
+        if (createdTo != null) {
+            where.append(" AND gd.created_at <= :createdTo");
+            params.put("createdTo", createdTo);
+        }
+        long total =
+                count(
+                        "SELECT COUNT(*) FROM generated_documents gd JOIN generation_jobs gj ON gj.id = gd.generation_job_id AND gj.tenant_id = gd.tenant_id"
+                                + where,
+                        params);
         List<GeneratedDocumentItem> items =
                 jdbc.query(
                         """
-                        SELECT id, generation_job_id, format, media_type, size_bytes, sha256, created_at
-                        FROM generated_documents
+                        SELECT gd.id,
+                               gd.generation_job_id,
+                               gd.format,
+                               gd.media_type,
+                               gd.size_bytes,
+                               gd.sha256,
+                               gd.created_at,
+                               gj.status AS generation_status,
+                               gj.error_code AS generation_error_code
+                        FROM generated_documents gd
+                        JOIN generation_jobs gj
+                          ON gj.id = gd.generation_job_id
+                         AND gj.tenant_id = gd.tenant_id
                         """
                                 + where
-                                + " ORDER BY created_at DESC, id DESC LIMIT :limit OFFSET :offset",
+                                + " ORDER BY gd.created_at DESC, gd.id DESC LIMIT :limit OFFSET :offset",
                         params,
-                        (rs, rowNum) ->
-                                new GeneratedDocumentItem(
-                                        rs.getObject("id", UUID.class),
-                                        rs.getObject("generation_job_id", UUID.class),
-                                        rs.getString("format"),
-                                        rs.getString("media_type"),
-                                        rs.getLong("size_bytes"),
-                                        rs.getString("sha256"),
-                                        instant(rs, "created_at")));
+                        (rs, rowNum) -> generatedDocumentItem(rs));
         return page(items, page, size, total);
     }
 
@@ -160,20 +174,23 @@ public class FrontendHistoryQueryService {
         List<GeneratedDocumentItem> items =
                 jdbc.query(
                         """
-                        SELECT id, generation_job_id, format, media_type, size_bytes, sha256, created_at
-                        FROM generated_documents
-                        WHERE tenant_id = :tenantId AND id = :id
+                        SELECT gd.id,
+                               gd.generation_job_id,
+                               gd.format,
+                               gd.media_type,
+                               gd.size_bytes,
+                               gd.sha256,
+                               gd.created_at,
+                               gj.status AS generation_status,
+                               gj.error_code AS generation_error_code
+                        FROM generated_documents gd
+                        JOIN generation_jobs gj
+                          ON gj.id = gd.generation_job_id
+                         AND gj.tenant_id = gd.tenant_id
+                        WHERE gd.tenant_id = :tenantId AND gd.id = :id
                         """,
                         Map.of("tenantId", tenantId, "id", documentId),
-                        (rs, rowNum) ->
-                                new GeneratedDocumentItem(
-                                        rs.getObject("id", UUID.class),
-                                        rs.getObject("generation_job_id", UUID.class),
-                                        rs.getString("format"),
-                                        rs.getString("media_type"),
-                                        rs.getLong("size_bytes"),
-                                        rs.getString("sha256"),
-                                        instant(rs, "created_at")));
+                        (rs, rowNum) -> generatedDocumentItem(rs));
         if (items.isEmpty()) {
             throw new NoSuchElementException("Generated document not found");
         }
@@ -206,6 +223,20 @@ public class FrontendHistoryQueryService {
     private long count(String sql, Map<String, Object> params) {
         Long value = jdbc.queryForObject(sql, params, Long.class);
         return value == null ? 0 : value;
+    }
+
+    private static GeneratedDocumentItem generatedDocumentItem(java.sql.ResultSet rs)
+            throws java.sql.SQLException {
+        return new GeneratedDocumentItem(
+                rs.getObject("id", UUID.class),
+                rs.getObject("generation_job_id", UUID.class),
+                rs.getString("format"),
+                rs.getString("media_type"),
+                rs.getLong("size_bytes"),
+                rs.getString("sha256"),
+                rs.getString("generation_status"),
+                rs.getString("generation_error_code"),
+                instant(rs, "created_at"));
     }
 
     private static Instant instant(java.sql.ResultSet rs, String column)
@@ -260,5 +291,7 @@ public class FrontendHistoryQueryService {
             String mediaType,
             long sizeBytes,
             String sha256,
+            String status,
+            String errorCode,
             Instant createdAt) {}
 }
