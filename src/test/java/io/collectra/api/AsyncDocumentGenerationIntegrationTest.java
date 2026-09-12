@@ -3,7 +3,6 @@ package io.collectra.api;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-
 import io.collectra.api.document.application.DocumentGenerationWorker;
 import io.collectra.api.document.application.DocumentStorage;
 import io.collectra.api.document.application.GenerationJobService;
@@ -29,14 +28,6 @@ import io.collectra.api.template.infrastructure.FieldDefinitionRepository;
 import io.collectra.api.template.infrastructure.TemplateVersionRepository;
 import io.collectra.api.tenant.domain.Tenant;
 import io.collectra.api.tenant.infrastructure.TenantRepository;
-
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Import;
-import org.springframework.context.annotation.Primary;
-
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.HexFormat;
@@ -44,6 +35,12 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
 
 @Import(AsyncDocumentGenerationIntegrationTest.StorageConfig.class)
 class AsyncDocumentGenerationIntegrationTest extends AbstractIntegrationTest {
@@ -152,8 +149,8 @@ class AsyncDocumentGenerationIntegrationTest extends AbstractIntegrationTest {
         assertThat(job.getNormalizedPayload().at("/custom/invoice/total").decimalValue())
                 .isEqualByComparingTo("1250.75");
 
-        worker.generate(job.getId());
-        worker.generate(job.getId());
+        worker.generate(tenant.getId(), job.getId());
+        worker.generate(tenant.getId(), job.getId());
 
         assertThat(jobs.findById(job.getId()).orElseThrow().getStatus())
                 .isEqualTo(GenerationJobStatus.COMPLETED);

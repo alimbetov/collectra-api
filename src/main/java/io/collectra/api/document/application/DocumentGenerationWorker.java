@@ -3,11 +3,9 @@ package io.collectra.api.document.application;
 import io.collectra.api.document.domain.OutputFormat;
 import io.collectra.api.template.application.TemplateRenderer;
 import io.collectra.api.template.infrastructure.TemplateVersionRepository;
-
-import org.springframework.stereotype.Service;
-
 import java.util.NoSuchElementException;
 import java.util.UUID;
+import org.springframework.stereotype.Service;
 
 @Service
 public class DocumentGenerationWorker {
@@ -30,20 +28,23 @@ public class DocumentGenerationWorker {
         this.outputs = outputs;
     }
 
-    public void generate(UUID jobId) {
-        var job = states.begin(jobId);
-        if (job == null) return;
+    public void generate(UUID tenantId, UUID jobId) {
+        var job = states.begin(tenantId, jobId);
+        if (job == null) {
+            return;
+        }
         var version =
-                versions.findById(job.templateVersionId())
+                versions.findByIdAndTenantId(job.templateVersionId(), tenantId)
                         .orElseThrow(
                                 () -> new NoSuchElementException("Template version not found"));
         String html = templates.render(version, job.payload()).html();
-        if (job.formats().contains(OutputFormat.HTML))
+        if (job.formats().contains(OutputFormat.HTML)) {
             outputs.storeHtml(job.tenantId(), job.jobId(), html);
+        }
         if (job.formats().contains(OutputFormat.PDF)) {
-            states.step(jobId, "RENDER_PDF");
+            states.step(tenantId, jobId, "RENDER_PDF");
             outputs.storePdf(job.tenantId(), job.jobId(), pdf.render(html, version.getLocale()));
         }
-        states.complete(jobId);
+        states.complete(tenantId, jobId);
     }
 }

@@ -1,5 +1,6 @@
 package io.collectra.api.communication.infrastructure.messaging;
 
+import io.collectra.api.document.infrastructure.DocumentMessagingConfig;
 import java.util.Map;
 import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.BindingBuilder;
@@ -17,6 +18,10 @@ public class CommunicationMessagingConfig {
     public static final String DEAD_EXCHANGE = "collectra.communication.dead";
     public static final String DEAD_QUEUE = "collectra.communication.message-delivery.dead";
     public static final String DEAD_ROUTING_KEY = "message.delivery.dead";
+    public static final String DOCUMENT_COMPLETED_QUEUE =
+            "collectra.communication.document-generation-completed";
+    public static final String DOCUMENT_FAILED_QUEUE =
+            "collectra.communication.document-generation-failed";
 
     @Bean
     DirectExchange communicationExchange() {
@@ -59,5 +64,33 @@ public class CommunicationMessagingConfig {
             @Qualifier("communicationMessageDeliveryDeadQueue") Queue queue,
             @Qualifier("communicationDeadExchange") DirectExchange exchange) {
         return BindingBuilder.bind(queue).to(exchange).with(DEAD_ROUTING_KEY);
+    }
+
+    @Bean
+    Queue communicationDocumentCompletedQueue() {
+        return new Queue(DOCUMENT_COMPLETED_QUEUE, true);
+    }
+
+    @Bean
+    Queue communicationDocumentFailedQueue() {
+        return new Queue(DOCUMENT_FAILED_QUEUE, true);
+    }
+
+    @Bean
+    Binding communicationDocumentCompletedBinding(
+            @Qualifier("communicationDocumentCompletedQueue") Queue queue,
+            @Qualifier("documentExchange") DirectExchange documentExchange) {
+        return BindingBuilder.bind(queue)
+                .to(documentExchange)
+                .with(DocumentMessagingConfig.COMPLETED_ROUTING_KEY);
+    }
+
+    @Bean
+    Binding communicationDocumentFailedBinding(
+            @Qualifier("communicationDocumentFailedQueue") Queue queue,
+            @Qualifier("documentExchange") DirectExchange documentExchange) {
+        return BindingBuilder.bind(queue)
+                .to(documentExchange)
+                .with(DocumentMessagingConfig.FAILED_ROUTING_KEY);
     }
 }

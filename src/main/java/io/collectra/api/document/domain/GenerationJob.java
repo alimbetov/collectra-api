@@ -1,16 +1,18 @@
 package io.collectra.api.document.domain;
 
 import com.fasterxml.jackson.databind.JsonNode;
-
 import io.collectra.api.shared.persistence.AuditableEntity;
-
-import jakarta.persistence.*;
-
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import java.time.Instant;
+import java.util.Objects;
+import java.util.UUID;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
-
-import java.time.Instant;
-import java.util.UUID;
 
 @Entity
 @Table(name = "generation_jobs")
@@ -98,12 +100,17 @@ public class GenerationJob extends AuditableEntity {
             JsonNode normalizedPayload,
             java.util.Set<OutputFormat> outputFormats) {
         this.id = UUID.randomUUID();
-        this.tenantId = tenantId;
-        this.documentType = documentType;
+        this.tenantId = Objects.requireNonNull(tenantId, "tenantId is required");
+        this.documentType = Objects.requireNonNull(documentType, "documentType is required");
         this.mappingProfileId = mappingProfileId;
-        this.templateVersionId = templateVersionId;
+        this.templateVersionId =
+                Objects.requireNonNull(templateVersionId, "templateVersionId is required");
         this.inputFileId = inputFileId;
-        this.normalizedPayload = normalizedPayload;
+        this.normalizedPayload =
+                Objects.requireNonNull(normalizedPayload, "normalizedPayload is required");
+        if (outputFormats == null || outputFormats.isEmpty()) {
+            throw new IllegalArgumentException("At least one output format is required");
+        }
         this.outputFormats =
                 outputFormats.stream()
                         .sorted()
@@ -113,12 +120,24 @@ public class GenerationJob extends AuditableEntity {
     }
 
     public GenerationJob(
-            UUID tenantId, String documentType, UUID sourceSchemaVersionId,
-            UUID mappingProfileId, UUID templateVersionId, UUID inputFileId,
-            JsonNode normalizedPayload, java.util.Set<OutputFormat> outputFormats,
-            String mappingConfigSha256, String templateConfigSha256) {
-        this(tenantId, documentType, mappingProfileId, templateVersionId, inputFileId,
-                normalizedPayload, outputFormats);
+            UUID tenantId,
+            String documentType,
+            UUID sourceSchemaVersionId,
+            UUID mappingProfileId,
+            UUID templateVersionId,
+            UUID inputFileId,
+            JsonNode normalizedPayload,
+            java.util.Set<OutputFormat> outputFormats,
+            String mappingConfigSha256,
+            String templateConfigSha256) {
+        this(
+                tenantId,
+                documentType,
+                mappingProfileId,
+                templateVersionId,
+                inputFileId,
+                normalizedPayload,
+                outputFormats);
         this.sourceSchemaVersionId = sourceSchemaVersionId;
         this.mappingConfigSha256 = mappingConfigSha256;
         this.templateConfigSha256 = templateConfigSha256;
@@ -132,14 +151,29 @@ public class GenerationJob extends AuditableEntity {
         return tenantId;
     }
 
+    public String getDocumentType() {
+        return documentType;
+    }
+
     public UUID getTemplateVersionId() {
         return templateVersionId;
     }
 
-    public UUID getSourceSchemaVersionId() { return sourceSchemaVersionId; }
-    public UUID getMappingProfileId() { return mappingProfileId; }
-    public String getMappingConfigSha256() { return mappingConfigSha256; }
-    public String getTemplateConfigSha256() { return templateConfigSha256; }
+    public UUID getSourceSchemaVersionId() {
+        return sourceSchemaVersionId;
+    }
+
+    public UUID getMappingProfileId() {
+        return mappingProfileId;
+    }
+
+    public String getMappingConfigSha256() {
+        return mappingConfigSha256;
+    }
+
+    public String getTemplateConfigSha256() {
+        return templateConfigSha256;
+    }
 
     public JsonNode getNormalizedPayload() {
         return normalizedPayload;
@@ -165,6 +199,14 @@ public class GenerationJob extends AuditableEntity {
         return attemptCount;
     }
 
+    public Instant getStartedAt() {
+        return startedAt;
+    }
+
+    public Instant getCompletedAt() {
+        return completedAt;
+    }
+
     public java.util.Set<OutputFormat> getOutputFormats() {
         return java.util.Arrays.stream(outputFormats.split(","))
                 .filter(value -> !value.isBlank())
@@ -172,44 +214,58 @@ public class GenerationJob extends AuditableEntity {
                 .collect(java.util.stream.Collectors.toUnmodifiableSet());
     }
 
-    public void start(String step) {
-        if (status != GenerationJobStatus.PENDING)
+    public void start(String step, Instant now) {
+        if (status != GenerationJobStatus.PENDING) {
             throw new IllegalStateException("Job is not pending");
+        }
         status = GenerationJobStatus.PROCESSING;
-        currentStep = step;
-        startedAt = Instant.now();
+        currentStep = Objects.requireNonNull(step, "step is required");
+        startedAt = Objects.requireNonNull(now, "now is required");
+        completedAt = null;
         attemptCount++;
         errorCode = null;
         errorMessage = null;
     }
 
     public void step(String step) {
-        if (status != GenerationJobStatus.PROCESSING)
+        if (status != GenerationJobStatus.PROCESSING) {
             throw new IllegalStateException("Job is not processing");
-        currentStep = step;
+        }
+        currentStep = Objects.requireNonNull(step, "step is required");
     }
 
     public void retry(String code, String message) {
-        if (status != GenerationJobStatus.PROCESSING)
+        if (status != GenerationJobStatus.PROCESSING) {
             throw new IllegalStateException("Job is not processing");
+        }
         status = GenerationJobStatus.PENDING;
         currentStep = null;
+        startedAt = null;
         errorCode = code;
         errorMessage = message;
     }
 
-    public void complete() {
-        if (status != GenerationJobStatus.PROCESSING)
+    public void complete(Instant now) {
+        if (status != GenerationJobStatus.PROCESSING) {
             throw new IllegalStateException("Job is not processing");
+        }
         status = GenerationJobStatus.COMPLETED;
         currentStep = null;
-        completedAt = Instant.now();
+        completedAt = Objects.requireNonNull(now, "now is required");
     }
 
-    public void fail(String code, String message) {
+    public boolean fail(String code, String message, Instant now) {
+        if (status == GenerationJobStatus.FAILED) {
+            return false;
+        }
+        if (status == GenerationJobStatus.COMPLETED) {
+            return false;
+        }
         status = GenerationJobStatus.FAILED;
+        currentStep = null;
         errorCode = code;
         errorMessage = message;
-        completedAt = Instant.now();
+        completedAt = Objects.requireNonNull(now, "now is required");
+        return true;
     }
 }

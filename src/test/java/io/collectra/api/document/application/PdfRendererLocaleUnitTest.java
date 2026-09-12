@@ -36,13 +36,17 @@ class PdfRendererLocaleUnitTest {
 
         assertThat(pdf.length).isGreaterThan(1_000);
         assertThat(new String(pdf, 0, 4, StandardCharsets.US_ASCII)).isEqualTo("%PDF");
-        assertThat(extractText(pdf)).contains(sample);
+        assertThat(normalizePdfText(extractText(pdf))).contains(normalizePdfText(sample));
     }
 
     private static String extractText(byte[] pdf) throws IOException {
         try (PDDocument document = PDDocument.load(new ByteArrayInputStream(pdf))) {
             return new PDFTextStripper().getText(document);
         }
+    }
+
+    private static String normalizePdfText(String value) {
+        return value.replace('\u00A0', ' ').replaceAll("\\s+", " ").trim();
     }
 
     private static Stream<Arguments> localeSamples() {

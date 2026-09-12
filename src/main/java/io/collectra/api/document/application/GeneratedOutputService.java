@@ -3,21 +3,23 @@ package io.collectra.api.document.application;
 import io.collectra.api.document.domain.GeneratedDocument;
 import io.collectra.api.document.domain.OutputFormat;
 import io.collectra.api.document.infrastructure.GeneratedDocumentRepository;
-
+import java.nio.charset.StandardCharsets;
+import java.time.Clock;
+import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.nio.charset.StandardCharsets;
-import java.util.UUID;
 
 @Service
 public class GeneratedOutputService {
     private final GeneratedDocumentRepository documents;
     private final DocumentStorage storage;
+    private final Clock clock;
 
-    public GeneratedOutputService(GeneratedDocumentRepository documents, DocumentStorage storage) {
+    public GeneratedOutputService(
+            GeneratedDocumentRepository documents, DocumentStorage storage, Clock clock) {
         this.documents = documents;
         this.storage = storage;
+        this.clock = clock;
     }
 
     @Transactional
@@ -38,7 +40,7 @@ public class GeneratedOutputService {
     protected GeneratedDocument store(
             UUID tenantId, UUID jobId, OutputFormat format, byte[] content, String mediaType) {
         return documents
-                .findByGenerationJobIdAndFormat(jobId, format)
+                .findByTenantIdAndGenerationJobIdAndFormat(tenantId, jobId, format)
                 .orElseGet(
                         () -> {
                             String key =
@@ -56,7 +58,8 @@ public class GeneratedOutputService {
                                             stored.key(),
                                             stored.mediaType(),
                                             stored.sizeBytes(),
-                                            stored.sha256()));
+                                            stored.sha256(),
+                                            clock.instant()));
                         });
     }
 

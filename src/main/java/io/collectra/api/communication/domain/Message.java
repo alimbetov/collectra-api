@@ -70,6 +70,9 @@ public class Message extends AuditableEntity {
     @Column(nullable = false, length = 20)
     private MessageStatus status;
 
+    @Column(name = "delivery_requested_at")
+    private Instant deliveryRequestedAt;
+
     @Column(name = "attempt_count", nullable = false)
     private int attemptCount;
 
@@ -155,6 +158,16 @@ public class Message extends AuditableEntity {
                 body);
     }
 
+    public boolean markDeliveryRequested(Instant now) {
+        Objects.requireNonNull(now, "now is required");
+        if (deliveryRequestedAt != null) {
+            return false;
+        }
+        requireStatus(MessageStatus.QUEUED);
+        deliveryRequestedAt = now;
+        return true;
+    }
+
     public void beginAttempt(Instant now) {
         requireStatus(MessageStatus.QUEUED);
         Instant startedAt = Objects.requireNonNull(now, "now is required");
@@ -194,6 +207,15 @@ public class Message extends AuditableEntity {
 
     public void markFailed(String errorCode, String errorMessage) {
         requireStatus(MessageStatus.PROCESSING);
+        fail(errorCode, errorMessage);
+    }
+
+    public void markFailedBeforeDelivery(String errorCode, String errorMessage) {
+        requireStatus(MessageStatus.QUEUED);
+        fail(errorCode, errorMessage);
+    }
+
+    private void fail(String errorCode, String errorMessage) {
         String normalizedErrorCode = normalizedErrorCode(errorCode);
         String normalizedErrorMessage = limit(trim(errorMessage), ERROR_MESSAGE_MAX_LENGTH);
         status = MessageStatus.FAILED;
@@ -304,6 +326,10 @@ public class Message extends AuditableEntity {
 
     public MessageStatus getStatus() {
         return status;
+    }
+
+    public Instant getDeliveryRequestedAt() {
+        return deliveryRequestedAt;
     }
 
     public int getAttemptCount() {

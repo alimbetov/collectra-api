@@ -1,8 +1,13 @@
 package io.collectra.api.document.domain;
 
-import jakarta.persistence.*;
-
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
 import java.time.Instant;
+import java.util.Objects;
 import java.util.UUID;
 
 @Entity
@@ -44,20 +49,25 @@ public class GeneratedDocument {
             String storageKey,
             String mediaType,
             long sizeBytes,
-            String sha256) {
+            String sha256,
+            Instant createdAt) {
         this.id = UUID.randomUUID();
-        this.tenantId = tenantId;
-        this.generationJobId = jobId;
-        this.format = format;
-        this.storageKey = storageKey;
-        this.mediaType = mediaType;
+        this.tenantId = Objects.requireNonNull(tenantId, "tenantId is required");
+        this.generationJobId = Objects.requireNonNull(jobId, "jobId is required");
+        this.format = Objects.requireNonNull(format, "format is required");
+        this.storageKey = Objects.requireNonNull(storageKey, "storageKey is required");
+        this.mediaType = Objects.requireNonNull(mediaType, "mediaType is required");
         this.sizeBytes = sizeBytes;
-        this.sha256 = sha256;
-        this.createdAt = Instant.now();
+        this.sha256 = Objects.requireNonNull(sha256, "sha256 is required");
+        this.createdAt = Objects.requireNonNull(createdAt, "createdAt is required");
     }
 
     public UUID getId() {
         return id;
+    }
+
+    public UUID getTenantId() {
+        return tenantId;
     }
 
     public UUID getGenerationJobId() {
@@ -82,5 +92,9 @@ public class GeneratedDocument {
 
     public String getSha256() {
         return sha256;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
     }
 }

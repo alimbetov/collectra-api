@@ -9,10 +9,14 @@ import io.collectra.api.campaign.domain.CampaignRunTemplateBinding;
 import io.collectra.api.campaign.infrastructure.CampaignRecipientRepository;
 import io.collectra.api.campaign.infrastructure.CampaignRepository;
 import io.collectra.api.campaign.infrastructure.CampaignRunRepository;
-import io.collectra.api.communication.application.MessageDeliveryEventPublisher;
+import io.collectra.api.communication.application.MessageAttachmentService;
+import io.collectra.api.communication.application.MessageDeliveryRequestService;
 import io.collectra.api.communication.domain.CommunicationChannel;
 import io.collectra.api.communication.domain.Message;
 import io.collectra.api.communication.infrastructure.MessageRepository;
+import io.collectra.api.document.application.GenerationJobService;
+import io.collectra.api.document.domain.GenerationJob;
+import io.collectra.api.document.domain.OutputFormat;
 import io.collectra.api.template.application.CompiledTemplate;
 import io.collectra.api.template.application.TemplateCompiler;
 import io.collectra.api.template.application.TemplateRenderer;
@@ -44,7 +48,9 @@ public class CampaignMessageMaterializer {
     private final TemplateCompiler compiler;
     private final TemplateRenderer renderer;
     private final MessageRepository messages;
-    private final MessageDeliveryEventPublisher deliveryEvents;
+    private final GenerationJobService generationJobs;
+    private final MessageAttachmentService attachmentService;
+    private final MessageDeliveryRequestService deliveryRequests;
     private final Clock clock;
 
     public CampaignMessageMaterializer(
@@ -58,7 +64,9 @@ public class CampaignMessageMaterializer {
             TemplateCompiler compiler,
             TemplateRenderer renderer,
             MessageRepository messages,
-            MessageDeliveryEventPublisher deliveryEvents,
+            GenerationJobService generationJobs,
+            MessageAttachmentService attachmentService,
+            MessageDeliveryRequestService deliveryRequests,
             Clock clock) {
         this.runs = runs;
         this.campaigns = campaigns;
@@ -70,7 +78,9 @@ public class CampaignMessageMaterializer {
         this.compiler = compiler;
         this.renderer = renderer;
         this.messages = messages;
-        this.deliveryEvents = deliveryEvents;
+        this.generationJobs = generationJobs;
+        this.attachmentService = attachmentService;
+        this.deliveryRequests = deliveryRequests;
         this.clock = clock;
     }
 
@@ -169,7 +179,27 @@ public class CampaignMessageMaterializer {
                                     binding.getResolvedLocale(),
                                     subject,
                                     body));
-            deliveryEvents.requestDelivery(tenantId, message.getId());
+
+            if (campaign.isGeneratedPdfAttachment()) {
+                GenerationJob generationJob =
+                        generationJobs.prepareFromNormalizedPayload(
+                                tenantId, version.getId(), payload, Set.of(OutputFormat.PDF));
+                attachmentService.createPendingGeneratedPdf(
+                        message,
+                        generationJob,
+                        attachmentFilename(message),
+                        campaign.isGeneratedPdfAttachmentRequired());
+
+                // The requirement is durable before the broker-visible generation request exists.
+                generationJobs.request(generationJob);
+
+                // Optional PENDING attachments are explicitly non-blocking.
+                if (!campaign.isGeneratedPdfAttachmentRequired()) {
+                    deliveryRequests.requestIfEligible(message);
+                }
+            } else {
+                deliveryRequests.requestIfEligible(message);
+            }
             queued++;
         }
 
@@ -179,6 +209,12 @@ public class CampaignMessageMaterializer {
                 !recipients.findMaterializationCandidates(tenantId, campaignRunId, 1).isEmpty();
         run.completeIfTerminal(clock.instant());
         return new MaterializationBatchResult(batch.size(), queued, evaluated.skipped(), hasNext);
+    }
+
+    private static String attachmentFilename(Message message) {
+        return message.getInvoiceId() == null
+                ? "message-" + message.getId() + ".pdf"
+                : "invoice-" + message.getInvoiceId() + ".pdf";
     }
 
     private static void requireMaterializable(CampaignRun run) {

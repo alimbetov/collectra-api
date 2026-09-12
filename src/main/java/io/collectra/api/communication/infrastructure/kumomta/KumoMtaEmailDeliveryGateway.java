@@ -1,10 +1,12 @@
 package io.collectra.api.communication.infrastructure.kumomta;
 
+import io.collectra.api.communication.application.DeliveryAttachment;
 import io.collectra.api.communication.application.DeliveryCommand;
 import io.collectra.api.communication.application.DeliveryFailureKind;
 import io.collectra.api.communication.application.DeliveryGateway;
 import io.collectra.api.communication.application.DeliveryResult;
 import io.collectra.api.communication.domain.CommunicationChannel;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import org.slf4j.Logger;
@@ -54,6 +56,8 @@ public class KumoMtaEmailDeliveryGateway implements DeliveryGateway {
     }
 
     private KumoMtaInjectRequest toRequest(DeliveryCommand command) {
+        List<KumoMtaInjectRequest.Attachment> attachments =
+                command.attachments().stream().map(this::toAttachment).toList();
         return new KumoMtaInjectRequest(
                 properties.getEnvelopeSender().trim(),
                 new KumoMtaInjectRequest.Content(
@@ -62,7 +66,8 @@ public class KumoMtaEmailDeliveryGateway implements DeliveryGateway {
                                 properties.effectiveFromHeader(),
                                 "Subject",
                                 command.subject()),
-                        command.body()),
+                        command.body(),
+                        attachments),
                 List.of(
                         new KumoMtaRecipient(
                                 command.destination().trim(),
@@ -74,6 +79,15 @@ public class KumoMtaEmailDeliveryGateway implements DeliveryGateway {
                 "Static",
                 false,
                 false);
+    }
+
+    private KumoMtaInjectRequest.Attachment toAttachment(DeliveryAttachment attachment) {
+        return new KumoMtaInjectRequest.Attachment(
+                attachment.filename(),
+                attachment.contentType(),
+                Base64.getEncoder().encodeToString(attachment.content()),
+                true,
+                null);
     }
 
     private DeliveryResult validate(DeliveryCommand command) {
@@ -88,6 +102,11 @@ public class KumoMtaEmailDeliveryGateway implements DeliveryGateway {
         }
         if (!hasText(command.subject()) || !hasText(command.body())) {
             return permanent("INVALID_CONTENT", "Email subject and body are required");
+        }
+        for (DeliveryAttachment attachment : command.attachments()) {
+            if (!hasText(attachment.filename()) || !hasText(attachment.contentType())) {
+                return permanent("INVALID_ATTACHMENT", "Attachment metadata is invalid");
+            }
         }
         return null;
     }
