@@ -9,12 +9,10 @@ import io.collectra.api.communication.application.DeliveryCommand;
 import io.collectra.api.communication.application.DeliveryFailureKind;
 import io.collectra.api.communication.application.DeliveryResult;
 import io.collectra.api.communication.domain.CommunicationChannel;
-
-import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
-
 import java.util.List;
 import java.util.UUID;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 class KumoMtaEmailDeliveryGatewayTest {
     private final KumoMtaClient client = mock(KumoMtaClient.class);
