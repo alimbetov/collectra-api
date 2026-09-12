@@ -16,4 +16,12 @@ record KumoMtaInjectResponse(
     boolean acceptedSingleRecipient() {
         return successCount == 1 && failCount == 0 && failedRecipients.isEmpty();
     }
+
+    boolean rejectedSingleRecipient() {
+        return successCount == 0 && failCount == 1;
+    }
+
+    boolean validSingleRecipientContract() {
+        return acceptedSingleRecipient() || rejectedSingleRecipient();
+    }
 }
