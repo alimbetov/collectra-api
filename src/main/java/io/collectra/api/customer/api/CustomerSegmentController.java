@@ -42,8 +42,7 @@ public class CustomerSegmentController {
             @RequestParam(required = false) String search,
             @RequestParam(required = false) Boolean active,
             @RequestParam(defaultValue = "0") @Min(0) int page,
-            @RequestParam(defaultValue = "50") @Min(1) @Max(CustomerQueryService.MAX_SIZE)
-                    int size,
+            @RequestParam(defaultValue = "50") @Min(1) @Max(CustomerQueryService.MAX_SIZE) int size,
             @RequestParam(defaultValue = "name,asc") String sort) {
         return queries.segments(tenant(), search, active, page, size, sort);
     }
