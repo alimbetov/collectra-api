@@ -29,11 +29,7 @@ class MessageStateServiceAttachmentGateTest {
     private final MessageRetryPolicy retryPolicy = new MessageRetryPolicy();
     private final MessageStateService service =
             new MessageStateService(
-                    messages,
-                    attachments,
-                    runs,
-                    retryPolicy,
-                    Clock.fixed(NOW, ZoneOffset.UTC));
+                    messages, attachments, runs, retryPolicy, Clock.fixed(NOW, ZoneOffset.UTC));
 
     @Test
     void requiredPendingAttachmentBlocksQueuedToProcessing() {
@@ -59,7 +55,8 @@ class MessageStateServiceAttachmentGateTest {
                         message.getTenantId(), message.getId(), MessageAttachmentStatus.READY))
                 .thenReturn(false);
 
-        Optional<MessageDeliverySnapshot> result = service.begin(message.getTenantId(), message.getId());
+        Optional<MessageDeliverySnapshot> result =
+                service.begin(message.getTenantId(), message.getId());
 
         assertThat(result).isPresent();
         assertThat(message.getStatus()).isEqualTo(MessageStatus.PROCESSING);
