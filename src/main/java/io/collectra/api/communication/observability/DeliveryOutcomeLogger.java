@@ -21,11 +21,12 @@ public class DeliveryOutcomeLogger {
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onOutcome(DeliveryOutcomeEvent event) {
         String normalizedErrorCode = errorSummary.normalizeCode(event.errorCode());
-        String semanticEvent = switch (event.outcome()) {
-            case SENT -> "message_delivery_sent";
-            case FAILED -> "message_delivery_failed";
-            case RETRY_SCHEDULED -> "message_delivery_retry_scheduled";
-        };
+        String semanticEvent =
+                switch (event.outcome()) {
+                    case SENT -> "message_delivery_sent";
+                    case FAILED -> "message_delivery_failed";
+                    case RETRY_SCHEDULED -> "message_delivery_retry_scheduled";
+                };
 
         log.info(
                 "event={} tenantId={} campaignId={} campaignRunId={} messageId={} channel={} attemptCount={} errorCode={} traceId={} spanId={}",
