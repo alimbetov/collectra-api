@@ -236,7 +236,9 @@ public class ReceivableService {
                     new PaymentAllocation(tenantId, paymentId, invoiceId, commandId, amount));
         } catch (DataIntegrityViolationException ex) {
             PaymentAllocation concurrent =
-                    allocations.findByTenantIdAndCommandId(tenantId, commandId).orElseThrow(() -> ex);
+                    allocations
+                            .findByTenantIdAndCommandId(tenantId, commandId)
+                            .orElseThrow(() -> ex);
             if (concurrent.getPaymentId().equals(paymentId)
                     && concurrent.getInvoiceId().equals(invoiceId)
                     && concurrent.getAmount().compareTo(amount) == 0) {
