@@ -9,12 +9,15 @@ import java.util.HashSet;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
 class Slice09dApiCompatibilityIntegrationTest extends AbstractIntegrationTest {
-    @Autowired RequestMappingHandlerMapping mappings;
+    @Autowired
+    @Qualifier("requestMappingHandlerMapping")
+    RequestMappingHandlerMapping mappings;
 
     @Test
     void requiredFrontendOperationsRemainAvailable() throws Exception {
