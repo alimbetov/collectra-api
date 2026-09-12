@@ -31,8 +31,7 @@ class Slice09dApiCompatibilityIntegrationTest extends AbstractIntegrationTest {
                         });
 
         Set<String> baseline = new HashSet<>();
-        ClassPathResource resource =
-                new ClassPathResource("api/slice-09d-required-operations.txt");
+        ClassPathResource resource = new ClassPathResource("api/slice-09d-required-operations.txt");
         try (BufferedReader reader =
                 new BufferedReader(
                         new InputStreamReader(resource.getInputStream(), StandardCharsets.UTF_8))) {
