@@ -6,11 +6,9 @@ import io.collectra.api.communication.application.DeliveryCommand;
 import io.collectra.api.communication.application.DeliveryFailureKind;
 import io.collectra.api.communication.application.DeliveryResult;
 import io.collectra.api.communication.domain.CommunicationChannel;
-
-import org.junit.jupiter.api.Test;
-
 import java.util.EnumSet;
 import java.util.UUID;
+import org.junit.jupiter.api.Test;
 
 class SimulatedDeliveryGatewayTest {
     private final SimulatedDeliveryGateway gateway = new SimulatedDeliveryGateway(80, 10);
