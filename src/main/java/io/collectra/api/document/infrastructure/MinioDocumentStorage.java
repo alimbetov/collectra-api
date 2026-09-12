@@ -1,19 +1,19 @@
 package io.collectra.api.document.infrastructure;
 
+import io.collectra.api.document.application.DocumentObjectNotFoundException;
 import io.collectra.api.document.application.DocumentStorage;
 import io.minio.BucketExistsArgs;
 import io.minio.GetObjectArgs;
 import io.minio.MakeBucketArgs;
 import io.minio.MinioClient;
 import io.minio.PutObjectArgs;
-
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
-
+import io.minio.errors.ErrorResponseException;
 import java.io.ByteArrayInputStream;
 import java.security.MessageDigest;
 import java.util.HexFormat;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
 
 @Component
 public class MinioDocumentStorage implements DocumentStorage {
@@ -51,15 +51,24 @@ public class MinioDocumentStorage implements DocumentStorage {
         try (var input =
                 client.getObject(GetObjectArgs.builder().bucket(bucket).object(key).build())) {
             return input.readAllBytes();
+        } catch (ErrorResponseException ex) {
+            String code = ex.errorResponse() == null ? null : ex.errorResponse().code();
+            if ("NoSuchKey".equals(code) || "NoSuchObject".equals(code)) {
+                throw new DocumentObjectNotFoundException(key, ex);
+            }
+            throw new DocumentStorageException("Cannot read generated document", ex);
         } catch (Exception ex) {
             throw new DocumentStorageException("Cannot read generated document", ex);
         }
     }
 
     private synchronized void ensureBucket() throws Exception {
-        if (bucketReady.get()) return;
-        if (!client.bucketExists(BucketExistsArgs.builder().bucket(bucket).build()))
+        if (bucketReady.get()) {
+            return;
+        }
+        if (!client.bucketExists(BucketExistsArgs.builder().bucket(bucket).build())) {
             client.makeBucket(MakeBucketArgs.builder().bucket(bucket).build());
+        }
         bucketReady.set(true);
     }
 
