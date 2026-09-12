@@ -18,7 +18,7 @@
 | 6 | [Campaign delivery counters and completion](slice-06-campaign-delivery-counters.md) | READY AFTER 2/5 | atomic counters and durable CampaignRun completion |
 | 7 | [Attachments and generated documents](slice-07-attachments-documents.md) | READY AFTER 3/4/5 + FONT GATE | document/FileService attachments before delivery |
 | 8 | [Delivery API and observability](slice-08-delivery-api-observability.md) | READY AFTER 2–7 | support API, metrics, logging and production visibility |
-| 9 | [Frontend API Completion](slice-09-frontend-api-completion.md) | PLANNED | complete paginated/filterable business API for frontend: customers/contracts, receivables/payments, collection and frontend support |
+| 9 | [Frontend API Completion](slice-09-frontend-api-completion.md) | PLANNED | normalize existing frontend APIs, add Contract/Collection bounded domains and freeze `/api/v1` contract |
 
 ## Dependency chain
 
@@ -52,7 +52,19 @@ Slice 4 Kumo   Slice 5 materialization
                        |
                        v
               Slice 9 Frontend API Completion
-                9A -> 9B -> 9C -> 9D
+                9A-1 Customer/Segment normalization
+                         |
+                         v
+                9A-2 Contract foundation
+                         |
+                         v
+                9B Receivables normalization
+                         |
+                         v
+                9C Collection foundation
+                         |
+                         v
+                9D Frontend support/API freeze
 ```
 
 ## Что означает implementation-ready
@@ -78,7 +90,7 @@ Slice 4 Kumo   Slice 5 materialization
 
 ## Правила реализации
 
-1. Один Slice — один узкий PR, если diff не требует обоснованного разделения. Slice 9 является master-spec и реализуется отдельными PR 9A–9D.
+1. Один Slice — один узкий PR, если diff не требует обоснованного разделения. Slice 9 является master-spec: 9A рекомендуется разделить на 9A-1 Customer/Segment normalization и 9A-2 Contract foundation; 9B–9D реализуются отдельными reviewable PR.
 2. Branch создаётся от актуального `main`, а не от documentation branch.
 3. Не вводить новый framework/abstraction, если существующая инфраструктура решает задачу.
 4. Domain state меняется через domain methods, не прямым `setStatus`.
@@ -120,6 +132,22 @@ Transactional Outbox
 Frontend
     работает только через /api/v1 и не знает persistence model
 
+Existing authoritative domains
+    Customer/Segment и Receivable переиспользуются и нормализуются,
+    а не создаются заново
+
+New authoritative domains
+    Contract и Collection создаются как bounded domains
+
+Financial truth
+    Invoice + Payment + PaymentAllocation остаются единственным owner balances/status
+
+Security
+    переиспользуются existing SystemRole / human JWT / ServiceClient / scopes
+
+Errors/time
+    переиспользуются existing ProblemDetail + traceId/correlationId и application Clock
+
 PostgreSQL query
     выполняет tenant filter + business filters + paging + sorting
 
@@ -138,9 +166,10 @@ High-volume lists
 - migration numbering актуален;
 - package/class names в ТЗ всё ещё соответствуют проекту;
 - нет уже существующей реализации того же scope;
+- для нового domain подтверждено отсутствие существующего authoritative owner;
 - CI `main` не красный по независимой причине;
 - полный integration suite укладывается в connection budget из
   [test-runtime contract](integration-test-runtime.md);
 - внешние contracts, если они есть, подтверждены (например KumoMTA endpoint/configuration).
 
-После этого реализация может идти прямо по разделу `Порядок реализации` соответствующего ТЗ.
+После этого реализация может идти прямо по разделу `Implementation order` соответствующего ТЗ.
