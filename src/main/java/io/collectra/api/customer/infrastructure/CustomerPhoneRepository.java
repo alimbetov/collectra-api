@@ -15,5 +15,8 @@ public interface CustomerPhoneRepository extends JpaRepository<CustomerPhone, UU
     List<CustomerPhone> findAllByTenantIdAndCustomerIdAndPrimaryTrueAndStatus(
             UUID tenantId, UUID customerId, String status);
 
+    boolean existsByTenantIdAndCustomerIdAndNormalizedPhone(
+            UUID tenantId, UUID customerId, String normalizedPhone);
+
     long countByTenantIdAndCustomerIdAndStatus(UUID tenantId, UUID customerId, String status);
 }
