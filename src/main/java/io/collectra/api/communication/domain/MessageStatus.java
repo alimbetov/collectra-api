@@ -5,5 +5,6 @@ public enum MessageStatus {
     PROCESSING,
     RETRY_WAIT,
     SENT,
-    FAILED
+    FAILED,
+    UNKNOWN
 }
