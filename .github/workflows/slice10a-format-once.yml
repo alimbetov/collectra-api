@@ -16,25 +16,14 @@ jobs:
       - uses: actions/checkout@v5
         with:
           ref: feat/slice-10a-test-lab-consolidated
+          fetch-depth: 0
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
           cache: maven
       - name: Apply Spotless
-        id: spotless
-        continue-on-error: true
-        run: mvn -B -ntp spotless:apply > spotless.log 2>&1
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: slice10a-spotless-log
-          path: spotless.log
-      - name: Fail when Spotless failed
-        if: steps.spotless.outcome != 'success'
-        run: |
-          cat spotless.log
-          exit 1
+        run: mvn -B -ntp spotless:apply
       - name: Commit formatting
         run: |
           if git diff --quiet; then
