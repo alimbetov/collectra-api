@@ -3,12 +3,10 @@ package io.collectra.api.communication.infrastructure.kumomta;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.collectra.api.communication.application.DeliveryFailureKind;
-
+import java.net.SocketTimeoutException;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.client.ResourceAccessException;
-
-import java.net.SocketTimeoutException;
 
 class KumoMtaErrorClassifierTest {
     private final KumoMtaErrorClassifier classifier = new KumoMtaErrorClassifier();
