@@ -4,9 +4,10 @@ import io.collectra.api.communication.infrastructure.messaging.CommunicationMess
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
-import java.util.Map;
+import java.util.Properties;
 import java.util.concurrent.atomic.AtomicLong;
 import org.springframework.amqp.core.AmqpAdmin;
+import org.springframework.amqp.rabbit.core.RabbitAdmin;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -35,14 +36,14 @@ public class DeadLetterMonitor {
 
     @Scheduled(fixedDelayString = "${collectra.communication.dead-letter-refresh-delay:30s}")
     public synchronized void refresh() {
-        Map<String, Object> properties =
+        Properties properties =
                 amqpAdmin.getQueueProperties(CommunicationMessagingConfig.DEAD_QUEUE);
         if (properties == null) {
             depth.set(0L);
             lastObservedDepth = 0L;
             return;
         }
-        Object countValue = properties.get(AmqpAdmin.QUEUE_MESSAGE_COUNT);
+        Object countValue = properties.get(RabbitAdmin.QUEUE_MESSAGE_COUNT);
         long current = countValue instanceof Number number ? number.longValue() : 0L;
         if (current > lastObservedDepth) {
             arrivals.increment(current - lastObservedDepth);
