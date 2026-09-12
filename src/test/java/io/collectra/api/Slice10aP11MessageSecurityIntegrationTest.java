@@ -36,11 +36,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
+import org.springframework.security.oauth2.jwt.JwsHeader;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
-import org.springframework.security.oauth2.jwt.JwsHeader;
 import org.springframework.test.web.servlet.MockMvc;
 
 @AutoConfigureMockMvc
@@ -135,8 +135,8 @@ class Slice10aP11MessageSecurityIntegrationTest extends AbstractIntegrationTest 
                         + "\",\"password\":\"StrongPassword123!\"}";
         String response =
                 mockMvc.perform(
-                                org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post(
-                                                "/api/v1/auth/tenants/register")
+                                org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                                        .post("/api/v1/auth/tenants/register")
                                         .contentType(MediaType.APPLICATION_JSON)
                                         .content(body))
                         .andExpect(status().is2xxSuccessful())
@@ -145,7 +145,8 @@ class Slice10aP11MessageSecurityIntegrationTest extends AbstractIntegrationTest 
                         .getContentAsString();
         JsonNode payload = json.readTree(response);
         String accessToken = payload.get("accessToken").asText();
-        UUID tenantId = UUID.fromString(jwtDecoder.decode(accessToken).getClaimAsString("tenant_id"));
+        UUID tenantId =
+                UUID.fromString(jwtDecoder.decode(accessToken).getClaimAsString("tenant_id"));
         return new Auth(tenantId, accessToken);
     }
 
@@ -273,9 +274,5 @@ class Slice10aP11MessageSecurityIntegrationTest extends AbstractIntegrationTest 
     private record Auth(UUID tenantId, String accessToken) {}
 
     private record Fixture(
-            UUID campaignId,
-            UUID runId,
-            UUID messageId,
-            UUID customerId,
-            String rawDestination) {}
+            UUID campaignId, UUID runId, UUID messageId, UUID customerId, String rawDestination) {}
 }

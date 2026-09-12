@@ -244,7 +244,8 @@ class Slice10aP08ConcurrencyIntegrationTest extends AbstractIntegrationTest {
                 }
             } catch (InterruptedException exception) {
                 Thread.currentThread().interrupt();
-                throw new IllegalStateException("Interrupted while waiting for P08 provider release", exception);
+                throw new IllegalStateException(
+                        "Interrupted while waiting for P08 provider release", exception);
             }
             return new DeliveryResult.Accepted("p08-provider-" + call);
         }

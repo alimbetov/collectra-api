@@ -68,7 +68,8 @@ class Slice10aP02ParserSecurityUnitTest {
     @Test
     void rejectsExcelBeyondTenThousandRows() throws Exception {
         byte[] workbook;
-        try (var excel = new XSSFWorkbook(); var output = new ByteArrayOutputStream()) {
+        try (var excel = new XSSFWorkbook();
+                var output = new ByteArrayOutputStream()) {
             var sheet = excel.createSheet("Data");
             sheet.createRow(0).createCell(0).setCellValue("Id");
             for (int i = 1; i <= 10_001; i++) {
@@ -99,9 +100,7 @@ class Slice10aP02ParserSecurityUnitTest {
 
         ParsedInput input =
                 parser.parse(
-                        SourceFormat.CSV,
-                        csv.getBytes(StandardCharsets.UTF_8),
-                        List.of("Value"));
+                        SourceFormat.CSV, csv.getBytes(StandardCharsets.UTF_8), List.of("Value"));
 
         assertThat(input.rows()).hasSize(1);
         assertThat(input.rows().get(0).values().get("Value").asText()).isEqualTo(dangerous);
@@ -110,7 +109,8 @@ class Slice10aP02ParserSecurityUnitTest {
     @Test
     void excelFormulaIsConvertedToAValueRatherThanPersistedAsFormulaText() throws Exception {
         byte[] workbook;
-        try (var excel = new XSSFWorkbook(); var output = new ByteArrayOutputStream()) {
+        try (var excel = new XSSFWorkbook();
+                var output = new ByteArrayOutputStream()) {
             var sheet = excel.createSheet("Data");
             sheet.createRow(0).createCell(0).setCellValue("Value");
             sheet.createRow(1).createCell(0).setCellFormula("1+1");
