@@ -24,12 +24,7 @@ jobs:
           echo "branch=${GITHUB_REF_NAME}"
           echo "sha=$(git rev-parse HEAD)"
           git log -1 --oneline
-      - name: Capture Spotless repair diff
-        run: |
-          mvn --batch-mode --no-transfer-progress spotless:apply
-          git diff -- src/main/java src/test/java
-          if ! git diff --quiet -- src/main/java src/test/java; then
-            exit 1
-          fi
+      - name: Check formatting
+        run: mvn --batch-mode --no-transfer-progress spotless:check
       - name: Verify with PostgreSQL Testcontainers
         run: mvn --batch-mode --no-transfer-progress clean verify
