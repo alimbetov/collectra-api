@@ -122,10 +122,12 @@ class CustomerFrontendApiIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void segmentMembershipCommandsAreIdempotent() throws Exception {
+    void segmentMembershipCommandsAreIdempotentAndForeignSegmentIsHidden() throws Exception {
         String token = register("customer-segment");
+        String foreignToken = register("customer-segment-foreign");
         JsonNode customer = createCustomer(token, "EXT-SEGMENT", "Segment Company");
         JsonNode segment = createSegment(token, "PRIORITY", "Priority");
+        JsonNode foreignSegment = createSegment(foreignToken, "FOREIGN", "Foreign");
 
         String customerId = customer.get("id").asText();
         String segmentId = segment.get("id").asText();
@@ -156,6 +158,15 @@ class CustomerFrontendApiIntegrationTest extends AbstractIntegrationTest {
                                     .header("Authorization", bearer(token)))
                     .andExpect(status().isNoContent());
         }
+
+        mockMvc.perform(
+                        delete(
+                                        "/api/v1/customers/{customerId}/segments/{segmentId}",
+                                        customerId,
+                                        foreignSegment.get("id").asText())
+                                .header("Authorization", bearer(token)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("NOT_FOUND"));
     }
 
     @Test
@@ -225,7 +236,7 @@ class CustomerFrontendApiIntegrationTest extends AbstractIntegrationTest {
                                                 + UUID.randomUUID()
                                                 + "@example.test\","
                                                 + "\"password\":\"StrongPassword123!\"}"),
-                        200);
+                        201);
         return response.get("accessToken").asText();
     }
 
