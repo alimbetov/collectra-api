@@ -62,6 +62,14 @@ class CustomerFrontendApiIntegrationTest extends AbstractIntegrationTest {
         mockMvc.perform(
                         get("/api/v1/customers")
                                 .header("Authorization", bearer(tenantAToken))
+                                .param("search", "ALPHA"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.items[0].externalId").value("EXT-ALPHA"));
+
+        mockMvc.perform(
+                        get("/api/v1/customers")
+                                .header("Authorization", bearer(tenantAToken))
                                 .param("externalId", "EXT-ALPHA")
                                 .param("email", "alpha@example.test")
                                 .param("segmentId", segment.get("id").asText()))
@@ -148,6 +156,14 @@ class CustomerFrontendApiIntegrationTest extends AbstractIntegrationTest {
                                 .param("segmentId", segmentId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(1));
+
+        mockMvc.perform(
+                        get("/api/v1/customer-segments")
+                                .header("Authorization", bearer(token))
+                                .param("search", "priority"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.items[0].id").value(segmentId));
 
         for (int i = 0; i < 2; i++) {
             mockMvc.perform(

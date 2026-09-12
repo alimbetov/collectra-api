@@ -35,7 +35,7 @@ public interface CustomerRepository extends JpaRepository<Customer, UUID> {
               and (:createdFrom is null or c.createdAt >= :createdFrom)
               and (:createdTo is null or c.createdAt <= :createdTo)
               and (
-                    :search is null
+                    :searchEnabled = false
                     or lower(c.displayName) like concat(concat('%', :search), '%')
                     or lower(c.externalId) like concat(:search, '%')
               )
@@ -72,6 +72,7 @@ public interface CustomerRepository extends JpaRepository<Customer, UUID> {
             """)
     Page<Customer> search(
             @Param("tenantId") UUID tenantId,
+            @Param("searchEnabled") boolean searchEnabled,
             @Param("search") String search,
             @Param("status") CustomerStatus status,
             @Param("customerType") CustomerType customerType,

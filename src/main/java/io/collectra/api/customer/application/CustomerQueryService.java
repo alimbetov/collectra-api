@@ -66,10 +66,12 @@ public class CustomerQueryService {
         validatePage(page, size);
         validateRange(createdFrom, createdTo);
 
+        String normalizedSearch = normalizeSearch(search);
         Page<Customer> result =
                 customers.search(
                         tenantId,
-                        normalizeSearch(search),
+                        normalizedSearch != null,
+                        normalizedSearch == null ? "" : normalizedSearch,
                         status,
                         customerType,
                         managerId,
@@ -128,10 +130,12 @@ public class CustomerQueryService {
     public SegmentPage segments(
             UUID tenantId, String search, Boolean active, int page, int size, String sort) {
         validatePage(page, size);
+        String normalizedSearch = normalizeSearch(search);
         Page<CustomerSegment> result =
                 segments.search(
                         tenantId,
-                        trimToNull(search),
+                        normalizedSearch != null,
+                        normalizedSearch == null ? "" : normalizedSearch,
                         active,
                         PageRequest.of(
                                 page,
