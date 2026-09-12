@@ -83,7 +83,8 @@ public class GenerationJobService {
         TemplateVersion version = requirePublishedVersion(tenantId, templateVersionId);
         var template = requireTemplate(tenantId, version);
         if (!template.getDocumentType().equals(mapped.documentType())) {
-            throw new IllegalArgumentException("Mapping profile and template document types differ");
+            throw new IllegalArgumentException(
+                    "Mapping profile and template document types differ");
         }
         renderer.render(version, mapped.normalizedPayload());
         GenerationJob job =
@@ -173,7 +174,8 @@ public class GenerationJobService {
     private TemplateVersion requirePublishedVersion(UUID tenantId, UUID templateVersionId) {
         TemplateVersion version =
                 versions.findByIdAndTenantId(templateVersionId, tenantId)
-                        .orElseThrow(() -> new NoSuchElementException("Template version not found"));
+                        .orElseThrow(
+                                () -> new NoSuchElementException("Template version not found"));
         if (version.getStatus() != TemplateVersionStatus.PUBLISHED) {
             throw new IllegalArgumentException("Only published template versions can be generated");
         }
