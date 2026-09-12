@@ -42,7 +42,6 @@ class MessageDeliveryWorkerTest {
                         gateway,
                         new MessageRetryPolicy(),
                         Clock.fixed(NOW, ZoneOffset.UTC));
-        when(attachmentContent.resolve(tenantId, messageId)).thenReturn(List.of());
     }
 
     @Test
@@ -127,7 +126,7 @@ class MessageDeliveryWorkerTest {
 
     @Test
     void retryableAttachmentReadFailureSchedulesRetryWithoutCallingProvider() {
-        claim(2);
+        claimWithoutAttachmentsStub(2);
         when(attachmentContent.resolve(tenantId, messageId))
                 .thenThrow(
                         new AttachmentResolutionException(
@@ -149,7 +148,7 @@ class MessageDeliveryWorkerTest {
 
     @Test
     void permanentAttachmentFailureMarksFailedWithoutCallingProvider() {
-        claim(1);
+        claimWithoutAttachmentsStub(1);
         when(attachmentContent.resolve(tenantId, messageId))
                 .thenThrow(
                         new AttachmentResolutionException(
@@ -190,6 +189,11 @@ class MessageDeliveryWorkerTest {
     }
 
     private void claim(int attemptCount) {
+        claimWithoutAttachmentsStub(attemptCount);
+        when(attachmentContent.resolve(tenantId, messageId)).thenReturn(List.of());
+    }
+
+    private void claimWithoutAttachmentsStub(int attemptCount) {
         when(states.begin(tenantId, messageId))
                 .thenReturn(
                         Optional.of(
