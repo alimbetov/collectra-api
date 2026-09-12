@@ -14,7 +14,7 @@ public interface CampaignRecipientRepository extends JpaRepository<CampaignRecip
 
     List<CampaignRecipient> findAllByTenantIdAndRunIdOrderByCreatedAtAsc(UUID tenantId, UUID runId);
 
-    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Modifying(flushAutomatically = true)
     @Query(
             value =
                     """
