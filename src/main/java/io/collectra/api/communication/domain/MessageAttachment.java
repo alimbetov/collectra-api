@@ -115,7 +115,8 @@ public class MessageAttachment {
         Objects.requireNonNull(now, "now is required");
         if (status == MessageAttachmentStatus.READY) {
             if (!generatedDocumentId.equals(this.generatedDocumentId)) {
-                throw new IllegalStateException("Attachment is already bound to another generated document");
+                throw new IllegalStateException(
+                        "Attachment is already bound to another generated document");
             }
             return false;
         }
