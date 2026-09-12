@@ -18,6 +18,7 @@
 | 6 | [Campaign delivery counters and completion](slice-06-campaign-delivery-counters.md) | READY AFTER 2/5 | atomic counters and durable CampaignRun completion |
 | 7 | [Attachments and generated documents](slice-07-attachments-documents.md) | READY AFTER 3/4/5 + FONT GATE | document/FileService attachments before delivery |
 | 8 | [Delivery API and observability](slice-08-delivery-api-observability.md) | READY AFTER 2–7 | support API, metrics, logging and production visibility |
+| 9 | [Frontend API Completion](slice-09-frontend-api-completion.md) | PLANNED | complete paginated/filterable business API for frontend: customers/contracts, receivables/payments, collection and frontend support |
 
 ## Dependency chain
 
@@ -48,11 +49,15 @@ Slice 4 Kumo   Slice 5 materialization
                   \      /
                    v    v
                Slice 8 API/observability
+                       |
+                       v
+              Slice 9 Frontend API Completion
+                9A -> 9B -> 9C -> 9D
 ```
 
 ## Что означает implementation-ready
 
-Каждое ТЗ Slice 2–8 фиксирует:
+Каждое ТЗ Slice 2–9 фиксирует:
 
 - цель и зависимости;
 - текущий baseline, который нельзя строить повторно;
@@ -73,7 +78,7 @@ Slice 4 Kumo   Slice 5 materialization
 
 ## Правила реализации
 
-1. Один Slice — один узкий PR, если diff не требует обоснованного разделения.
+1. Один Slice — один узкий PR, если diff не требует обоснованного разделения. Slice 9 является master-spec и реализуется отдельными PR 9A–9D.
 2. Branch создаётся от актуального `main`, а не от documentation branch.
 3. Не вводить новый framework/abstraction, если существующая инфраструктура решает задачу.
 4. Domain state меняется через domain methods, не прямым `setStatus`.
@@ -107,6 +112,22 @@ RabbitMQ
 
 Transactional Outbox
     единственный DB -> broker publication mechanism
+```
+
+Для Slice 9 дополнительно:
+
+```text
+Frontend
+    работает только через /api/v1 и не знает persistence model
+
+PostgreSQL query
+    выполняет tenant filter + business filters + paging + sorting
+
+JPA entities
+    не являются public REST DTO
+
+High-volume lists
+    никогда не возвращаются unpaged
 ```
 
 ## Definition of Ready перед началом Slice
