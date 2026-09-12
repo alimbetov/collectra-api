@@ -59,9 +59,11 @@ public class CampaignRunTemplateBindingService {
         }
 
         String tenantDefault = tenantLocales.requireDefault(tenantId).getLocale();
+        recipients.snapshotMissingLocales(tenantId, run.getId(), tenantDefault);
+
         LinkedHashSet<String> requestedLocales =
                 recipients.findDistinctLocalesByTenantIdAndRunId(tenantId, run.getId()).stream()
-                        .map(locale -> normalize(locale, tenantDefault))
+                        .map(CampaignRunTemplateBindingService::requireSnapshotLocale)
                         .collect(Collectors.toCollection(LinkedHashSet::new));
 
         for (String requestedLocale : requestedLocales) {
@@ -95,13 +97,10 @@ public class CampaignRunTemplateBindingService {
                         CampaignRunTemplateBinding::getRequestedLocale, Function.identity()));
     }
 
-    public String normalizeRequestedLocale(UUID tenantId, String requestedLocale) {
-        return normalize(requestedLocale, tenantLocales.requireDefault(tenantId).getLocale());
-    }
-
-    private static String normalize(String requestedLocale, String tenantDefault) {
-        return requestedLocale == null || requestedLocale.isBlank()
-                ? tenantDefault
-                : requestedLocale.trim();
+    private static String requireSnapshotLocale(String locale) {
+        if (locale == null || locale.isBlank()) {
+            throw new IllegalStateException("Campaign recipient locale snapshot is missing");
+        }
+        return locale.trim();
     }
 }
