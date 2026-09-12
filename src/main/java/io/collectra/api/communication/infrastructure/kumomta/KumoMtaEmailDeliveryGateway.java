@@ -11,6 +11,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestClientResponseException;
 
 @Component
 @ConditionalOnProperty(name = "collectra.communication.delivery.provider", havingValue = "kumomta")
@@ -40,15 +41,15 @@ public class KumoMtaEmailDeliveryGateway implements DeliveryGateway {
             KumoMtaInjectResponse response = client.inject(toRequest(command));
             if (response != null && response.acceptedSingleRecipient()) {
                 log.info(
-                        "KumoMTA injection accepted tenantId={} messageId={} latencyMs={}",
+                        "KumoMTA injection accepted tenantId={} messageId={} httpStatus=200 latencyMs={}",
                         command.tenantId(),
                         command.messageId(),
                         elapsedMillis(started));
                 return new DeliveryResult.Accepted(null);
             }
-            return reject(command, errors.classifyResponse(response), started);
+            return reject(command, errors.classifyResponse(response), "200", started);
         } catch (RuntimeException failure) {
-            return reject(command, errors.classify(failure), started);
+            return reject(command, errors.classify(failure), httpStatus(failure), started);
         }
     }
 
@@ -94,16 +95,25 @@ public class KumoMtaEmailDeliveryGateway implements DeliveryGateway {
     private DeliveryResult reject(
             DeliveryCommand command,
             KumoMtaErrorClassifier.Classification classification,
+            String httpStatus,
             long started) {
         log.warn(
-                "KumoMTA injection rejected tenantId={} messageId={} code={} kind={} latencyMs={}",
+                "KumoMTA injection rejected tenantId={} messageId={} httpStatus={} code={} kind={} latencyMs={}",
                 command.tenantId(),
                 command.messageId(),
+                httpStatus,
                 classification.code(),
                 classification.kind(),
                 elapsedMillis(started));
         return new DeliveryResult.Rejected(
                 classification.kind(), classification.code(), classification.message());
+    }
+
+    private String httpStatus(RuntimeException failure) {
+        if (failure instanceof RestClientResponseException responseFailure) {
+            return Integer.toString(responseFailure.getStatusCode().value());
+        }
+        return "n/a";
     }
 
     private DeliveryResult permanent(String code, String message) {
