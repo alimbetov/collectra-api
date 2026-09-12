@@ -145,7 +145,8 @@ public class MessageQueryService {
         }
     }
 
-    public record MessageSlice(List<MessageListItem> content, int page, int size, boolean hasNext) {}
+    public record MessageSlice(
+            List<MessageListItem> content, int page, int size, boolean hasNext) {}
 
     public record MessageListItem(
             UUID id,
