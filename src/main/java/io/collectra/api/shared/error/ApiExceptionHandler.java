@@ -44,7 +44,9 @@ public class ApiExceptionHandler {
         ConstraintViolationException.class
     })
     ProblemDetail invalidRequest(Exception ex, HttpServletRequest request) {
-        return withCode(base(HttpStatus.BAD_REQUEST, "Invalid request parameter", request), "INVALID_REQUEST");
+        return withCode(
+                base(HttpStatus.BAD_REQUEST, "Invalid request parameter", request),
+                "INVALID_REQUEST");
     }
 
     @ExceptionHandler({BadCredentialsException.class, InvalidRefreshTokenException.class})
