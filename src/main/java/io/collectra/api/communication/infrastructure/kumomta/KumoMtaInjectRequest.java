@@ -11,5 +11,16 @@ record KumoMtaInjectRequest(
         @JsonProperty("template_dialect") String templateDialect,
         @JsonProperty("deferred_generation") boolean deferredGeneration,
         @JsonProperty("deferred_spool") boolean deferredSpool) {
-    record Content(Map<String, String> headers, @JsonProperty("html_body") String htmlBody) {}
+
+    record Content(
+            Map<String, String> headers,
+            @JsonProperty("html_body") String htmlBody,
+            List<Attachment> attachments) {}
+
+    record Attachment(
+            @JsonProperty("file_name") String fileName,
+            @JsonProperty("content_type") String contentType,
+            String data,
+            boolean base64,
+            @JsonProperty("content_id") String contentId) {}
 }
