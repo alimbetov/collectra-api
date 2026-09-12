@@ -1,0 +1,36 @@
+name: Slice 10A format once
+
+on:
+  push:
+    branches:
+      - feat/slice-10a-test-lab-consolidated
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+      - name: Apply project formatting
+        run: mvn --batch-mode --no-transfer-progress spotless:apply
+      - name: Commit formatting if needed
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            echo "No formatting changes required"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/test/java
+          git commit -m "style: apply Spotless to Slice 10A tests"
+          git push
