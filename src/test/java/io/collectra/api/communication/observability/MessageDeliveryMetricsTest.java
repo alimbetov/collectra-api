@@ -6,6 +6,7 @@ import io.collectra.api.communication.application.DeliveryErrorSummary;
 import io.collectra.api.communication.domain.CommunicationChannel;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Instant;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 class MessageDeliveryMetricsTest {
@@ -15,8 +16,7 @@ class MessageDeliveryMetricsTest {
         var metrics = new MessageDeliveryMetrics(registry, new DeliveryErrorSummary());
 
         metrics.onOutcome(
-                new DeliveryOutcomeEvent(
-                        CommunicationChannel.EMAIL,
+                event(
                         DeliveryOutcomeEvent.Outcome.RETRY_SCHEDULED,
                         "provider_specific_timeout_abc123",
                         Instant.parse("2026-09-12T10:00:00Z"),
@@ -42,8 +42,7 @@ class MessageDeliveryMetricsTest {
         var metrics = new MessageDeliveryMetrics(registry, new DeliveryErrorSummary());
 
         metrics.onOutcome(
-                new DeliveryOutcomeEvent(
-                        CommunicationChannel.EMAIL,
+                event(
                         DeliveryOutcomeEvent.Outcome.SENT,
                         null,
                         Instant.parse("2026-09-12T10:00:00Z"),
@@ -55,5 +54,23 @@ class MessageDeliveryMetricsTest {
                                 .timer()
                                 .totalTime(java.util.concurrent.TimeUnit.SECONDS))
                 .isEqualTo(5.0);
+    }
+
+    private DeliveryOutcomeEvent event(
+            DeliveryOutcomeEvent.Outcome outcome,
+            String errorCode,
+            Instant createdAt,
+            Instant outcomeAt) {
+        return new DeliveryOutcomeEvent(
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                CommunicationChannel.EMAIL,
+                1,
+                outcome,
+                errorCode,
+                createdAt,
+                outcomeAt);
     }
 }
