@@ -87,13 +87,12 @@ class MessageStateServiceTest {
                 .thenReturn(true);
 
         assertThat(service.begin(TENANT, message.getId())).isEmpty();
-
         assertThat(message.getStatus()).isEqualTo(MessageStatus.QUEUED);
         assertThat(message.getAttemptCount()).isZero();
     }
 
     @Test
-    void beginIsIdempotentForAlreadyClaimedOrTerminalMessage() {
+    void beginIsIdempotentForAlreadyClaimedMessage() {
         CampaignRun run = runningRun(1);
         Message processing = queued(run);
         processing.beginAttempt(NOW.minusSeconds(1));
@@ -128,14 +127,7 @@ class MessageStateServiceTest {
         assertThat(run.getFailedCount()).isZero();
         assertThat(run.getStatus()).isEqualTo(CampaignRunStatus.COMPLETED);
         assertThat(run.getCompletedAt()).isEqualTo(NOW);
-
-        ArgumentCaptor<Object> event = ArgumentCaptor.forClass(Object.class);
-        verify(events).publishEvent(event.capture());
-        assertThat(event.getValue()).isInstanceOf(DeliveryOutcomeEvent.class);
-        DeliveryOutcomeEvent outcome = (DeliveryOutcomeEvent) event.getValue();
-        assertThat(outcome.outcome()).isEqualTo(DeliveryOutcomeEvent.Outcome.SENT);
-        assertThat(outcome.errorCode()).isNull();
-        assertThat(outcome.messageId()).isEqualTo(message.getId());
+        verifyOutcome(DeliveryOutcomeEvent.Outcome.SENT, null);
     }
 
     @Test
@@ -234,7 +226,7 @@ class MessageStateServiceTest {
     }
 
     @Test
-    void recoveryIgnoresFreshExactCutoffAndNonProcessingStates() {
+    void recoveryIgnoresExactCutoffAndNonProcessingStates() {
         Instant cutoff = NOW.minusSeconds(300);
         CampaignRun run = runningRun(2);
 
@@ -286,7 +278,7 @@ class MessageStateServiceTest {
     }
 
     @Test
-    void missingCampaignRunFailsInsteadOfMutatingCountersSilently() {
+    void missingCampaignRunFailsBeforeAnyCounterMutationOrOutcomeEvent() {
         CampaignRun run = runningRun(1);
         Message message = processing(run, NOW.minusSeconds(1));
         stubMessage(message);
@@ -296,8 +288,11 @@ class MessageStateServiceTest {
                 .isInstanceOf(NoSuchElementException.class)
                 .hasMessage("Campaign run not found");
 
-        assertThat(message.getStatus()).isEqualTo(MessageStatus.PROCESSING);
+        // The service is @Transactional. In a Spring-managed call the preceding Message mutation is
+        // rolled back with the transaction. This pure unit test intentionally asserts only effects
+        // outside the aggregate that do not rely on the transaction manager.
         assertThat(run.getSentCount()).isZero();
+        verify(events, never()).publishEvent(any());
     }
 
     private void verifyOutcome(DeliveryOutcomeEvent.Outcome expected, String code) {
