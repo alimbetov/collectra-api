@@ -19,6 +19,7 @@ import java.time.ZoneOffset;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.ApplicationEventPublisher;
 
 class MessageStateServiceAttachmentGateTest {
     private static final Instant NOW = Instant.parse("2026-09-12T10:00:00Z");
@@ -27,9 +28,15 @@ class MessageStateServiceAttachmentGateTest {
     private final MessageAttachmentRepository attachments = mock(MessageAttachmentRepository.class);
     private final CampaignRunRepository runs = mock(CampaignRunRepository.class);
     private final MessageRetryPolicy retryPolicy = new MessageRetryPolicy();
+    private final ApplicationEventPublisher events = mock(ApplicationEventPublisher.class);
     private final MessageStateService service =
             new MessageStateService(
-                    messages, attachments, runs, retryPolicy, Clock.fixed(NOW, ZoneOffset.UTC));
+                    messages,
+                    attachments,
+                    runs,
+                    retryPolicy,
+                    Clock.fixed(NOW, ZoneOffset.UTC),
+                    events);
 
     @Test
     void requiredPendingAttachmentBlocksQueuedToProcessing() {

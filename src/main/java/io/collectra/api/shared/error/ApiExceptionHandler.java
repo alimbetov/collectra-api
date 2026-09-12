@@ -9,6 +9,7 @@ import io.collectra.api.importing.application.ImportBatchFailedException;
 import io.collectra.api.shared.security.RateLimitExceededException;
 import io.collectra.api.shared.tenant.MissingTenantException;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.ConstraintViolationException;
 import java.net.URI;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -20,6 +21,8 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 @RestControllerAdvice
 public class ApiExceptionHandler {
@@ -33,6 +36,17 @@ public class ApiExceptionHandler {
         p.setProperty("errors", errors);
         p.setProperty("code", "VALIDATION_FAILED");
         return p;
+    }
+
+    @ExceptionHandler({
+        MethodArgumentTypeMismatchException.class,
+        HandlerMethodValidationException.class,
+        ConstraintViolationException.class
+    })
+    ProblemDetail invalidRequest(Exception ex, HttpServletRequest request) {
+        return withCode(
+                base(HttpStatus.BAD_REQUEST, "Invalid request parameter", request),
+                "INVALID_REQUEST");
     }
 
     @ExceptionHandler({BadCredentialsException.class, InvalidRefreshTokenException.class})

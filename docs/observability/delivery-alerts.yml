@@ -1,0 +1,47 @@
+groups:
+  - name: collectra-delivery
+    rules:
+      - alert: CollectraDeliveryProcessingStuck
+        expr: collectra_message_processing_oldest_stuck_age_seconds > 600
+        for: 5m
+        labels:
+          severity: warning
+          owner: collectra-backend
+        annotations:
+          summary: Delivery processing has been stuck beyond two processing timeouts
+          runbook: docs/runbooks/delivery-observability.md#processing-stuck
+
+      - alert: CollectraDeliveryRetryBacklog
+        expr: collectra_message_retry_wait_due > 100
+        for: 10m
+        labels:
+          severity: warning
+          owner: collectra-backend
+        annotations:
+          summary: Due retry backlog is not draining
+          runbook: docs/runbooks/delivery-observability.md#retry-backlog
+
+      - alert: CollectraDeliveryFailureRateHigh
+        expr: |
+          sum(rate(collectra_message_delivery_total{result="failed"}[10m]))
+          /
+          clamp_min(sum(rate(collectra_message_delivery_total[10m])), 0.001)
+          > 0.10
+          and sum(rate(collectra_message_delivery_total[10m])) > 0.1
+        for: 10m
+        labels:
+          severity: warning
+          owner: collectra-backend
+        annotations:
+          summary: Delivery failure ratio is above 10 percent with a traffic floor
+          runbook: docs/runbooks/delivery-observability.md#failure-rate
+
+      - alert: CollectraDeliveryDeadLetterQueueNotEmpty
+        expr: collectra_message_dead_letter_depth > 0
+        for: 2m
+        labels:
+          severity: critical
+          owner: collectra-backend
+        annotations:
+          summary: Message delivery dead-letter queue contains messages
+          runbook: docs/runbooks/delivery-observability.md#dead-letter

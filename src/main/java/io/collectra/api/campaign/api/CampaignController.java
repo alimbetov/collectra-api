@@ -127,9 +127,34 @@ public class CampaignController {
         }
     }
 
-    record RunResponse(UUID id, UUID campaignId, CampaignRunStatus status) {
+    record RunResponse(
+            UUID id,
+            UUID campaignId,
+            CampaignRunStatus status,
+            int recipientCount,
+            int sentCount,
+            int failedCount,
+            int skippedCount,
+            int retryCount,
+            int pendingCount) {
         static RunResponse from(CampaignRun value) {
-            return new RunResponse(value.getId(), value.getCampaignId(), value.getStatus());
+            int pending =
+                    Math.max(
+                            0,
+                            value.getRecipientCount()
+                                    - value.getSentCount()
+                                    - value.getFailedCount()
+                                    - value.getSkippedCount());
+            return new RunResponse(
+                    value.getId(),
+                    value.getCampaignId(),
+                    value.getStatus(),
+                    value.getRecipientCount(),
+                    value.getSentCount(),
+                    value.getFailedCount(),
+                    value.getSkippedCount(),
+                    value.getRetryCount(),
+                    pending);
         }
     }
 
