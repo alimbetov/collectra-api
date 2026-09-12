@@ -6,13 +6,11 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
-
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
-
 import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "outbox_events")
@@ -64,15 +62,6 @@ public class OutboxEvent {
     private Instant createdAt;
 
     protected OutboxEvent() {}
-
-    public OutboxEvent(
-            UUID tenantId,
-            String aggregateType,
-            UUID aggregateId,
-            String eventType,
-            String payload) {
-        this(tenantId, aggregateType, aggregateId, eventType, payload, Instant.now());
-    }
 
     public OutboxEvent(
             UUID tenantId,
@@ -159,7 +148,8 @@ public class OutboxEvent {
     }
 
     private static String requireText(String value, String field) {
-        if (value == null || value.isBlank()) throw new IllegalArgumentException(field + " is required");
+        if (value == null || value.isBlank())
+            throw new IllegalArgumentException(field + " is required");
         return value;
     }
 

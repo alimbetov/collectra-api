@@ -67,4 +67,13 @@ class ArchitectureTest {
                     .should()
                     .dependOnClassesThat()
                     .resideInAPackage("io.collectra.api.communication.infrastructure.kumomta..");
+
+    @ArchTest
+    static final ArchRule COMMUNICATION_APPLICATION_DOES_NOT_DEPEND_ON_MESSAGING_INFRASTRUCTURE =
+            noClasses()
+                    .that()
+                    .resideInAPackage("io.collectra.api.communication.application..")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAPackage("io.collectra.api.communication.infrastructure.messaging..");
 }
