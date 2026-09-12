@@ -82,13 +82,36 @@ public class MessageStateService {
     @Transactional
     public boolean markSent(UUID tenantId, UUID messageId, String providerMessageId) {
         Message message = locked(tenantId, messageId);
+        if (message.getStatus() == MessageStatus.UNKNOWN) {
+            return reconcileUnknownAsSent(message, providerMessageId);
+        }
         if (message.getStatus() != MessageStatus.PROCESSING) {
             return false;
         }
         CampaignRun run = lockedRun(message);
         Instant now = clock.instant();
-        currentStartedAttempt(message).ifPresent(attempt -> attempt.accepted(providerMessageId, now));
+        currentAttempt(message)
+                .filter(attempt -> attempt.getStatus() == DeliveryAttemptStatus.STARTED)
+                .ifPresent(attempt -> attempt.accepted(providerMessageId, now));
         message.markSent(providerMessageId, now);
+        run.messageSent();
+        run.completeIfTerminal(now);
+        publish(message, DeliveryOutcomeEvent.Outcome.SENT, null, now);
+        return true;
+    }
+
+    private boolean reconcileUnknownAsSent(Message message, String providerMessageId) {
+        MessageDeliveryAttempt attempt =
+                currentAttempt(message)
+                        .filter(value -> value.getStatus() == DeliveryAttemptStatus.UNKNOWN)
+                        .orElse(null);
+        if (attempt == null) {
+            return false;
+        }
+        CampaignRun run = lockedRun(message);
+        Instant now = clock.instant();
+        attempt.acceptedAfterUnknown(providerMessageId, now);
+        message.resolveUnknownAsSent(providerMessageId, now);
         run.messageSent();
         run.completeIfTerminal(now);
         publish(message, DeliveryOutcomeEvent.Outcome.SENT, null, now);
@@ -187,7 +210,8 @@ public class MessageStateService {
         }
 
         CampaignRun run = lockedRun(message);
-        if (retryPolicy.exhausted(message.getAttemptCount())) {
+        int processingAttempt = Math.max(1, message.getProcessingAttemptCount());
+        if (retryPolicy.exhausted(processingAttempt)) {
             message.markFailed(
                     MessageRecoveryService.PROCESSING_TIMEOUT,
                     MessageRecoveryService.PROCESSING_TIMEOUT_MESSAGE);
@@ -199,9 +223,8 @@ public class MessageStateService {
                     MessageRecoveryService.PROCESSING_TIMEOUT,
                     recoveryTime);
         } else {
-            int retryOrdinal = Math.max(1, message.getAttemptCount());
             message.scheduleRetry(
-                    retryPolicy.nextRetryAt(retryOrdinal, recoveryTime),
+                    retryPolicy.nextRetryAt(processingAttempt, recoveryTime),
                     MessageRecoveryService.PROCESSING_TIMEOUT,
                     MessageRecoveryService.PROCESSING_TIMEOUT_MESSAGE);
             run.messageRetryScheduled();
@@ -215,12 +238,16 @@ public class MessageStateService {
     }
 
     private Optional<MessageDeliveryAttempt> currentStartedAttempt(Message message) {
+        return currentAttempt(message)
+                .filter(attempt -> attempt.getStatus() == DeliveryAttemptStatus.STARTED);
+    }
+
+    private Optional<MessageDeliveryAttempt> currentAttempt(Message message) {
         if (message.getAttemptCount() < 1) {
             return Optional.empty();
         }
-        return deliveryAttempts
-                .findLockedByMessageIdAndAttemptNo(message.getId(), message.getAttemptCount())
-                .filter(attempt -> attempt.getStatus() == DeliveryAttemptStatus.STARTED);
+        return deliveryAttempts.findLockedByMessageIdAndAttemptNo(
+                message.getId(), message.getAttemptCount());
     }
 
     private void publish(
@@ -261,6 +288,7 @@ public class MessageStateService {
                 message.getDestination(),
                 message.getSubject(),
                 message.getBody(),
-                message.getAttemptCount());
+                message.getAttemptCount(),
+                message.getProcessingAttemptCount());
     }
 }
