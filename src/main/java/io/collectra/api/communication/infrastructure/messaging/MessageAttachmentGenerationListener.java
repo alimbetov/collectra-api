@@ -16,7 +16,8 @@ public class MessageAttachmentGenerationListener {
 
     @RabbitListener(queues = CommunicationMessagingConfig.DOCUMENT_COMPLETED_QUEUE)
     public void completed(JsonNode payload) {
-        attachments.generationCompleted(requiredUuid(payload, "tenantId"), requiredUuid(payload, "jobId"));
+        attachments.generationCompleted(
+                requiredUuid(payload, "tenantId"), requiredUuid(payload, "jobId"));
     }
 
     @RabbitListener(queues = CommunicationMessagingConfig.DOCUMENT_FAILED_QUEUE)
