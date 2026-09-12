@@ -3,6 +3,7 @@ package io.collectra.api.template.infrastructure;
 import io.collectra.api.template.domain.TemplateChannel;
 import io.collectra.api.template.domain.TemplateVersion;
 import io.collectra.api.template.domain.TemplateVersionStatus;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -36,4 +37,10 @@ public interface TemplateVersionRepository extends JpaRepository<TemplateVersion
                     + "and v.templateId = t.id and t.tenantId = :tenantId")
     Optional<TemplateVersion> findByIdAndTenantId(
             @Param("id") UUID id, @Param("tenantId") UUID tenantId);
+
+    @Query(
+            "select v from TemplateVersion v, DocumentTemplate t where v.id in :ids "
+                    + "and v.templateId = t.id and t.tenantId = :tenantId")
+    List<TemplateVersion> findAllByIdsAndTenantId(
+            @Param("ids") Collection<UUID> ids, @Param("tenantId") UUID tenantId);
 }
