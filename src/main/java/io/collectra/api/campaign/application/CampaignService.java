@@ -13,6 +13,7 @@ import io.collectra.api.customer.application.CustomerService;
 import io.collectra.api.customer.domain.Customer;
 import io.collectra.api.customer.domain.CustomerEmail;
 import io.collectra.api.customer.domain.CustomerSegmentMember;
+import io.collectra.api.localization.application.TenantLocaleService;
 import io.collectra.api.receivable.application.ReceivableService;
 import io.collectra.api.receivable.domain.Invoice;
 import io.collectra.api.template.domain.TemplateChannel;
@@ -45,6 +46,7 @@ public class CampaignService {
     private final CustomerService customers;
     private final ReceivableService receivables;
     private final TemplateVersionRepository templates;
+    private final TenantLocaleService tenantLocales;
     private final ObjectMapper json;
     private final Clock clock;
 
@@ -55,6 +57,7 @@ public class CampaignService {
             CustomerService customers,
             ReceivableService receivables,
             TemplateVersionRepository templates,
+            TenantLocaleService tenantLocales,
             ObjectMapper json,
             Clock clock) {
         this.campaigns = campaigns;
@@ -63,6 +66,7 @@ public class CampaignService {
         this.customers = customers;
         this.receivables = receivables;
         this.templates = templates;
+        this.tenantLocales = tenantLocales;
         this.json = json;
         this.clock = clock;
     }
@@ -133,6 +137,7 @@ public class CampaignService {
         LocalDate today = LocalDate.now(clock);
         LocalDate dueDateFrom = dueDateFrom(selection, today);
         LocalDate dueDateTo = dueDateTo(selection, today);
+        String tenantDefaultLocale = tenantLocales.requireDefault(tenantId).getLocale();
 
         int created = 0;
         int pageNumber = 0;
@@ -150,7 +155,14 @@ public class CampaignService {
                                     pageNumber,
                                     PREPARE_PAGE_SIZE,
                                     Sort.by(Sort.Direction.ASC, "id")));
-            created += preparePage(tenantId, campaign, run, selection, page.getContent());
+            created +=
+                    preparePage(
+                            tenantId,
+                            campaign,
+                            run,
+                            selection,
+                            page.getContent(),
+                            tenantDefaultLocale);
             pageNumber++;
         } while (page.hasNext());
 
@@ -163,7 +175,8 @@ public class CampaignService {
             Campaign campaign,
             CampaignRun run,
             CampaignSelection selection,
-            List<Invoice> invoices) {
+            List<Invoice> invoices,
+            String tenantDefaultLocale) {
         if (invoices.isEmpty()) {
             return 0;
         }
@@ -186,6 +199,7 @@ public class CampaignService {
                 continue;
             }
             String destination = emailDestination(emailsByCustomer.get(customer.getId()));
+            String locale = effectiveLocale(customer.getPreferredLocale(), tenantDefaultLocale);
             recipients.save(
                     new CampaignRecipient(
                             tenantId,
@@ -195,7 +209,7 @@ public class CampaignService {
                             invoice.getId(),
                             campaign.getChannel(),
                             destination,
-                            customer.getPreferredLocale()));
+                            locale));
             created++;
         }
         return created;
@@ -260,6 +274,12 @@ public class CampaignService {
                 .or(() -> active.stream().findFirst())
                 .map(CustomerEmail::getEmail)
                 .orElse(null);
+    }
+
+    private static String effectiveLocale(String preferredLocale, String tenantDefaultLocale) {
+        return preferredLocale == null || preferredLocale.isBlank()
+                ? tenantDefaultLocale
+                : preferredLocale.trim();
     }
 
     private LocalDate dueDateFrom(CampaignSelection selection, LocalDate today) {
