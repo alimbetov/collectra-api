@@ -191,12 +191,9 @@ public class ReceivableService {
 
     @Transactional
     public PaymentAllocation allocate(
-            UUID tenantId,
-            UUID paymentId,
-            UUID commandId,
-            UUID invoiceId,
-            BigDecimal amount) {
-        PaymentAllocation replay = allocations.findByTenantIdAndCommandId(tenantId, commandId).orElse(null);
+            UUID tenantId, UUID paymentId, UUID commandId, UUID invoiceId, BigDecimal amount) {
+        PaymentAllocation replay =
+                allocations.findByTenantIdAndCommandId(tenantId, commandId).orElse(null);
         if (replay != null) {
             if (replay.getPaymentId().equals(paymentId)
                     && replay.getInvoiceId().equals(invoiceId)
@@ -218,7 +215,8 @@ public class ReceivableService {
                     "CURRENCY_MISMATCH", "Payment and invoice currencies differ");
         }
         if (amount == null || amount.signum() <= 0) {
-            throw new BusinessConflictException("INVALID_REQUEST", "Allocation amount must be positive");
+            throw new BusinessConflictException(
+                    "INVALID_REQUEST", "Allocation amount must be positive");
         }
 
         BigDecimal alreadyAllocated =
@@ -238,9 +236,7 @@ public class ReceivableService {
                     new PaymentAllocation(tenantId, paymentId, invoiceId, commandId, amount));
         } catch (DataIntegrityViolationException ex) {
             PaymentAllocation concurrent =
-                    allocations
-                            .findByTenantIdAndCommandId(tenantId, commandId)
-                            .orElseThrow(() -> ex);
+                    allocations.findByTenantIdAndCommandId(tenantId, commandId).orElseThrow(() -> ex);
             if (concurrent.getPaymentId().equals(paymentId)
                     && concurrent.getInvoiceId().equals(invoiceId)
                     && concurrent.getAmount().compareTo(amount) == 0) {
