@@ -5,7 +5,6 @@ import java.net.ConnectException;
 import java.net.SocketTimeoutException;
 import java.net.http.HttpConnectTimeoutException;
 import java.util.Locale;
-import java.util.regex.Pattern;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.ResourceAccessException;
@@ -13,9 +12,6 @@ import org.springframework.web.client.RestClientResponseException;
 
 @Component
 public class KumoMtaErrorClassifier {
-    private static final Pattern EMAIL =
-            Pattern.compile("(?i)[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}");
-
     Classification classify(Throwable failure) {
         if (failure instanceof RestClientResponseException responseFailure) {
             return classifyStatus(responseFailure.getStatusCode());
@@ -38,11 +34,12 @@ public class KumoMtaErrorClassifier {
             return retryable(
                     "KUMO_INVALID_RESPONSE", "KumoMTA returned an invalid injection response");
         }
-        String providerMessage = sanitize(response.errors());
-        if (isExplicitlyTransient(providerMessage)) {
-            return retryable("KUMO_RECIPIENT_TEMPORARY_FAILURE", providerMessage);
+        if (isExplicitlyTransient(response.errors())) {
+            return retryable(
+                    "KUMO_RECIPIENT_TEMPORARY_FAILURE",
+                    "KumoMTA temporarily rejected recipient");
         }
-        return permanent("KUMO_RECIPIENT_REJECTED", providerMessage);
+        return permanent("KUMO_RECIPIENT_REJECTED", "KumoMTA rejected recipient");
     }
 
     Classification classifyStatus(HttpStatusCode status) {
@@ -68,35 +65,22 @@ public class KumoMtaErrorClassifier {
         return retryable("KUMO_HTTP_ERROR", "Unexpected KumoMTA HTTP status");
     }
 
-    private boolean isExplicitlyTransient(String value) {
-        String normalized = value.toLowerCase(Locale.ROOT);
-        return normalized.contains("temporar")
-                || normalized.contains("try again")
-                || normalized.contains("rate limit")
-                || normalized.contains("timeout")
-                || normalized.contains("unavailable")
-                || normalized.contains("overload");
-    }
-
-    private String sanitize(Iterable<String> errors) {
-        StringBuilder result = new StringBuilder();
+    private boolean isExplicitlyTransient(Iterable<String> errors) {
         for (String error : errors) {
             if (error == null || error.isBlank()) {
                 continue;
             }
-            if (result.length() > 0) {
-                result.append("; ");
-            }
-            String normalized = error.replaceAll("[\\r\\n\\t]+", " ").trim();
-            result.append(EMAIL.matcher(normalized).replaceAll("[redacted-email]"));
-            if (result.length() >= 256) {
-                break;
+            String normalized = error.toLowerCase(Locale.ROOT);
+            if (normalized.contains("temporar")
+                    || normalized.contains("try again")
+                    || normalized.contains("rate limit")
+                    || normalized.contains("timeout")
+                    || normalized.contains("unavailable")
+                    || normalized.contains("overload")) {
+                return true;
             }
         }
-        if (result.length() == 0) {
-            return "KumoMTA rejected recipient";
-        }
-        return result.substring(0, Math.min(result.length(), 256));
+        return false;
     }
 
     private boolean containsCause(Throwable failure, Class<? extends Throwable> type) {
