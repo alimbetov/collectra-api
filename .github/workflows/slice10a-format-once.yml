@@ -22,7 +22,19 @@ jobs:
           java-version: '17'
           cache: maven
       - name: Apply Spotless
-        run: mvn -B -ntp spotless:apply
+        id: spotless
+        continue-on-error: true
+        run: mvn -B -ntp spotless:apply > spotless.log 2>&1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: slice10a-spotless-log
+          path: spotless.log
+      - name: Fail when Spotless failed
+        if: steps.spotless.outcome != 'success'
+        run: |
+          cat spotless.log
+          exit 1
       - name: Commit formatting
         run: |
           if git diff --quiet; then
