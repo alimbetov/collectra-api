@@ -91,7 +91,8 @@ public class ReceivableController {
             @RequestParam(required = false) BigDecimal outstandingMin,
             @RequestParam(required = false) BigDecimal outstandingMax,
             @RequestParam(defaultValue = "0") @Min(0) int page,
-            @RequestParam(defaultValue = "50") @Min(1) @Max(ReceivableQueryService.MAX_SIZE) int size,
+            @RequestParam(defaultValue = "50") @Min(1) @Max(ReceivableQueryService.MAX_SIZE)
+                    int size,
             @RequestParam(defaultValue = "createdAt,desc") String sort) {
         return queries.invoices(
                 tenant(),
@@ -151,7 +152,8 @@ public class ReceivableController {
             @RequestParam(required = false) Boolean unallocatedOnly,
             @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "0") @Min(0) int page,
-            @RequestParam(defaultValue = "50") @Min(1) @Max(ReceivableQueryService.MAX_SIZE) int size,
+            @RequestParam(defaultValue = "50") @Min(1) @Max(ReceivableQueryService.MAX_SIZE)
+                    int size,
             @RequestParam(defaultValue = "createdAt,desc") String sort) {
         return queries.payments(
                 tenant(),
@@ -182,11 +184,7 @@ public class ReceivableController {
             @PathVariable UUID id, @Valid @RequestBody AllocationRequest request) {
         PaymentAllocation value =
                 service.allocate(
-                        tenant(),
-                        id,
-                        request.commandId(),
-                        request.invoiceId(),
-                        request.amount());
+                        tenant(), id, request.commandId(), request.invoiceId(), request.amount());
         return AllocationResponse.from(value);
     }
 
