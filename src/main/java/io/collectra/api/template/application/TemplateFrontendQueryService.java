@@ -16,7 +16,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class TemplateFrontendQueryService {
     public static final int MAX_SIZE = 200;
-    private static final Set<String> TEMPLATE_SORTS = Set.of("createdAt", "updatedAt", "name", "code");
+    private static final Set<String> TEMPLATE_SORTS =
+            Set.of("createdAt", "updatedAt", "name", "code");
 
     private final NamedParameterJdbcTemplate jdbc;
 
@@ -57,7 +58,8 @@ public class TemplateFrontendQueryService {
             params.put("createdTo", createdTo);
         }
         if ((channel != null && !channel.isBlank()) || (locale != null && !locale.isBlank())) {
-            where.append(" AND EXISTS (SELECT 1 FROM template_versions tv WHERE tv.template_id = dt.id");
+            where.append(
+                    " AND EXISTS (SELECT 1 FROM template_versions tv WHERE tv.template_id = dt.id");
             if (channel != null && !channel.isBlank()) {
                 where.append(" AND tv.channel = :channel");
                 params.put("channel", channel.trim().toUpperCase(Locale.ROOT));
