@@ -262,7 +262,8 @@ public class ReceivableQueryService {
                         cb.or(
                                 root.get("paymentStatus")
                                         .in(PaymentStatus.PAID, PaymentStatus.CANCELLED),
-                                cb.lessThanOrEqualTo(root.get("outstandingAmount"), BigDecimal.ZERO),
+                                cb.lessThanOrEqualTo(
+                                        root.get("outstandingAmount"), BigDecimal.ZERO),
                                 cb.greaterThanOrEqualTo(root.get("dueDate"), businessDate)));
             }
             if (amountMin != null) {
