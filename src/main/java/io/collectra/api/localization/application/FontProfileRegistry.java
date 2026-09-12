@@ -38,10 +38,10 @@ public class FontProfileRegistry {
                                     face("fonts/georgian/NotoSansGeorgian-Bold.ttf", 700, FontStyle.NORMAL))),
                     FontProfileCode.CJK_SC,
                     new FontProfile(
-                            "Noto Sans CJK SC",
+                            "Noto Sans SC",
                             List.of(
-                                    face("fonts/cjk-sc/NotoSansCJKsc-Regular.otf", 400, FontStyle.NORMAL),
-                                    face("fonts/cjk-sc/NotoSansCJKsc-Bold.otf", 700, FontStyle.NORMAL))));
+                                    face("fonts/ttf/NotoSansSC/NotoSansSC-Regular.ttf", 400, FontStyle.NORMAL),
+                                    face("fonts/ttf/NotoSansSC/NotoSansSC-Bold.ttf", 700, FontStyle.NORMAL))));
 
     public FontProfile require(FontProfileCode code) {
         FontProfile profile = PROFILES.get(code);
