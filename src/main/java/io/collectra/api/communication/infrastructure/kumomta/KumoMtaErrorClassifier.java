@@ -5,6 +5,7 @@ import java.net.ConnectException;
 import java.net.SocketTimeoutException;
 import java.net.http.HttpConnectTimeoutException;
 import java.util.Locale;
+import java.util.regex.Pattern;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.ResourceAccessException;
@@ -12,6 +13,9 @@ import org.springframework.web.client.RestClientResponseException;
 
 @Component
 public class KumoMtaErrorClassifier {
+    private static final Pattern EMAIL =
+            Pattern.compile("(?i)[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}");
+
     Classification classify(Throwable failure) {
         if (failure instanceof RestClientResponseException responseFailure) {
             return classifyStatus(responseFailure.getStatusCode());
@@ -30,14 +34,15 @@ public class KumoMtaErrorClassifier {
     }
 
     Classification classifyResponse(KumoMtaInjectResponse response) {
-        if (response == null) {
-            return retryable("KUMO_INVALID_RESPONSE", "KumoMTA returned an empty response");
+        if (response == null || !response.validSingleRecipientContract()) {
+            return retryable(
+                    "KUMO_INVALID_RESPONSE", "KumoMTA returned an invalid injection response");
         }
-        String message = sanitize(response.errors());
-        if (isExplicitlyTransient(message)) {
-            return retryable("KUMO_RECIPIENT_TEMPORARY_FAILURE", message);
+        String providerMessage = sanitize(response.errors());
+        if (isExplicitlyTransient(providerMessage)) {
+            return retryable("KUMO_RECIPIENT_TEMPORARY_FAILURE", providerMessage);
         }
-        return permanent("KUMO_RECIPIENT_REJECTED", message);
+        return permanent("KUMO_RECIPIENT_REJECTED", providerMessage);
     }
 
     Classification classifyStatus(HttpStatusCode status) {
@@ -82,7 +87,8 @@ public class KumoMtaErrorClassifier {
             if (result.length() > 0) {
                 result.append("; ");
             }
-            result.append(error.replaceAll("[\\r\\n\\t]+", " ").trim());
+            String normalized = error.replaceAll("[\\r\\n\\t]+", " ").trim();
+            result.append(EMAIL.matcher(normalized).replaceAll("[redacted-email]"));
             if (result.length() >= 256) {
                 break;
             }
