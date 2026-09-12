@@ -63,8 +63,7 @@ public class CustomerService {
                 .ifPresent(
                         value -> {
                             throw new BusinessConflictException(
-                                    "DUPLICATE_EXTERNAL_ID",
-                                    "Customer externalId already exists");
+                                    "DUPLICATE_EXTERNAL_ID", "Customer externalId already exists");
                         });
         return customers.save(
                 new Customer(
@@ -150,7 +149,8 @@ public class CustomerService {
         get(tenantId, customerId);
         String normalized = CustomerEmail.normalizeForLookup(email);
         if (emails.existsByTenantIdAndCustomerIdAndEmail(tenantId, customerId, normalized)) {
-            throw new BusinessConflictException("DUPLICATE_CONTACT", "Customer email already exists");
+            throw new BusinessConflictException(
+                    "DUPLICATE_CONTACT", "Customer email already exists");
         }
         if (emails.countByTenantIdAndCustomerIdAndStatus(tenantId, customerId, "ACTIVE") >= 5) {
             throw new BusinessConflictException(
@@ -189,7 +189,8 @@ public class CustomerService {
         String normalized = CustomerPhone.normalizeForLookup(phone);
         if (phones.existsByTenantIdAndCustomerIdAndNormalizedPhone(
                 tenantId, customerId, normalized)) {
-            throw new BusinessConflictException("DUPLICATE_CONTACT", "Customer phone already exists");
+            throw new BusinessConflictException(
+                    "DUPLICATE_CONTACT", "Customer phone already exists");
         }
         if (phones.countByTenantIdAndCustomerIdAndStatus(tenantId, customerId, "ACTIVE") >= 2) {
             throw new BusinessConflictException(
@@ -249,7 +250,8 @@ public class CustomerService {
                 .ifPresent(
                         value -> {
                             throw new BusinessConflictException(
-                                    "DUPLICATE_SEGMENT_CODE", "Customer segment code already exists");
+                                    "DUPLICATE_SEGMENT_CODE",
+                                    "Customer segment code already exists");
                         });
         return segments.save(new CustomerSegment(tenantId, normalizedCode, name, description));
     }
@@ -316,7 +318,8 @@ public class CustomerService {
     }
 
     private void demoteEmailPrimaries(UUID tenantId, UUID customerId, UUID exceptId) {
-        emails.findAllByTenantIdAndCustomerIdAndPrimaryTrueAndStatus(
+        emails
+                .findAllByTenantIdAndCustomerIdAndPrimaryTrueAndStatus(
                         tenantId, customerId, "ACTIVE")
                 .stream()
                 .filter(value -> exceptId == null || !value.getId().equals(exceptId))
@@ -324,7 +327,8 @@ public class CustomerService {
     }
 
     private void demotePhonePrimaries(UUID tenantId, UUID customerId, UUID exceptId) {
-        phones.findAllByTenantIdAndCustomerIdAndPrimaryTrueAndStatus(
+        phones
+                .findAllByTenantIdAndCustomerIdAndPrimaryTrueAndStatus(
                         tenantId, customerId, "ACTIVE")
                 .stream()
                 .filter(value -> exceptId == null || !value.getId().equals(exceptId))
