@@ -51,3 +51,5 @@ databaseChangeLog:
       file: db/changelog/changes/028-message-attachments.sql
   - include:
       file: db/changelog/changes/029-delivery-api-observability.sql
+  - include:
+      file: db/changelog/changes/030-slice-09a1-customer-query-indexes.sql
