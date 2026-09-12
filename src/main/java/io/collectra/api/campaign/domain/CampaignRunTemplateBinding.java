@@ -68,11 +68,31 @@ public class CampaignRunTemplateBinding extends AuditableEntity {
         return value.trim();
     }
 
-    public UUID getId() { return id; }
-    public UUID getTenantId() { return tenantId; }
-    public UUID getCampaignRunId() { return campaignRunId; }
-    public String getRequestedLocale() { return requestedLocale; }
-    public String getResolvedLocale() { return resolvedLocale; }
-    public UUID getTemplateVersionId() { return templateVersionId; }
-    public TemplateLocaleResolutionSource getResolutionSource() { return resolutionSource; }
+    public UUID getId() {
+        return id;
+    }
+
+    public UUID getTenantId() {
+        return tenantId;
+    }
+
+    public UUID getCampaignRunId() {
+        return campaignRunId;
+    }
+
+    public String getRequestedLocale() {
+        return requestedLocale;
+    }
+
+    public String getResolvedLocale() {
+        return resolvedLocale;
+    }
+
+    public UUID getTemplateVersionId() {
+        return templateVersionId;
+    }
+
+    public TemplateLocaleResolutionSource getResolutionSource() {
+        return resolutionSource;
+    }
 }
