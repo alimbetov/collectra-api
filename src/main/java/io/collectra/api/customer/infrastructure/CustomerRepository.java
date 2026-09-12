@@ -36,8 +36,8 @@ public interface CustomerRepository extends JpaRepository<Customer, UUID> {
               and (:createdTo is null or c.createdAt <= :createdTo)
               and (
                     :search is null
-                    or lower(c.displayName) like concat(concat('%', lower(:search)), '%')
-                    or lower(c.externalId) like concat(lower(:search), '%')
+                    or lower(c.displayName) like concat(concat('%', :search), '%')
+                    or lower(c.externalId) like concat(:search, '%')
               )
               and (
                     :segmentId is null
