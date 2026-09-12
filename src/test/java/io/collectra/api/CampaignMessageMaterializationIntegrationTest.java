@@ -68,7 +68,7 @@ class CampaignMessageMaterializationIntegrationTest extends AbstractIntegrationT
                 new TemplateVersion(
                         fixture.template().getId(),
                         2,
-                        "ru-KZ",
+                        "ru",
                         TemplateChannel.EMAIL,
                         "Reminder v2",
                         "<p>Version two</p>",
@@ -92,8 +92,8 @@ class CampaignMessageMaterializationIntegrationTest extends AbstractIntegrationT
                 .singleElement()
                 .satisfies(
                         binding -> {
-                            assertThat(binding.getRequestedLocale()).isEqualTo("ru-KZ");
-                            assertThat(binding.getResolvedLocale()).isEqualTo("ru-KZ");
+                            assertThat(binding.getRequestedLocale()).isEqualTo("ru");
+                            assertThat(binding.getResolvedLocale()).isEqualTo("ru");
                             assertThat(binding.getTemplateVersionId())
                                     .isEqualTo(fixture.version1().getId());
                         });
@@ -125,7 +125,7 @@ class CampaignMessageMaterializationIntegrationTest extends AbstractIntegrationT
                             assertThat(message.getTemplateVersionId())
                                     .isEqualTo(fixture.version1().getId());
                             assertThat(message.getStatus()).isEqualTo(MessageStatus.QUEUED);
-                            assertThat(message.getResolvedLocale()).isEqualTo("ru-KZ");
+                            assertThat(message.getResolvedLocale()).isEqualTo("ru");
                             assertThat(message.getDestination()).isEqualTo("customer@example.com");
                             assertThat(message.getSubject()).isEqualTo("Reminder v1");
                             assertThat(message.getBody()).contains("Version one");
@@ -217,7 +217,7 @@ class CampaignMessageMaterializationIntegrationTest extends AbstractIntegrationT
                         new Tenant(
                                 "message-materialization-" + UUID.randomUUID(),
                                 "Message Materialization"));
-        tenantLocales.saveAndFlush(new TenantLocale(tenant.getId(), "ru-KZ", true, true, 0));
+        tenantLocales.saveAndFlush(new TenantLocale(tenant.getId(), "ru", true, true, 0));
 
         DocumentTemplate template =
                 templates.saveAndFlush(
@@ -227,7 +227,7 @@ class CampaignMessageMaterializationIntegrationTest extends AbstractIntegrationT
                 new TemplateVersion(
                         template.getId(),
                         1,
-                        "ru-KZ",
+                        "ru",
                         TemplateChannel.EMAIL,
                         "Reminder v1",
                         "<p>Version one</p>",
@@ -247,7 +247,7 @@ class CampaignMessageMaterializationIntegrationTest extends AbstractIntegrationT
                         null,
                         null,
                         null,
-                        "ru-KZ",
+                        "ru",
                         "Asia/Almaty",
                         json.createObjectNode());
         customers.addEmail(tenant.getId(), customer.getId(), "customer@example.com", "WORK", true);
