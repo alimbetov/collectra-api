@@ -2,7 +2,6 @@ package io.collectra.api.support.api;
 
 import java.util.Currency;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -63,14 +62,29 @@ public class ReferenceDataController {
         return Map.ofEntries(
                 Map.entry("customer", List.of("ACTIVE", "INACTIVE")),
                 Map.entry("contract", List.of("ACTIVE", "SUSPENDED", "CLOSED", "CANCELLED")),
-                Map.entry("invoicePayment", List.of("UNPAID", "PARTIALLY_PAID", "PAID", "CANCELLED")),
+                Map.entry(
+                        "invoicePayment",
+                        List.of("UNPAID", "PARTIALLY_PAID", "PAID", "CANCELLED")),
                 Map.entry("campaign", List.of("DRAFT", "ACTIVE", "ARCHIVED")),
-                Map.entry("campaignRun", List.of("PREPARING", "READY", "RUNNING", "COMPLETED", "CANCELLED", "FAILED")),
-                Map.entry("message", List.of("QUEUED", "PROCESSING", "RETRY_WAIT", "SENT", "FAILED")),
-                Map.entry("collectionCase", List.of("OPEN", "IN_PROGRESS", "ON_HOLD", "CLOSED")),
-                Map.entry("promiseToPay", List.of("ACTIVE", "FULFILLED", "BROKEN", "CANCELLED")),
+                Map.entry(
+                        "campaignRun",
+                        List.of(
+                                "PREPARING",
+                                "READY",
+                                "RUNNING",
+                                "COMPLETED",
+                                "CANCELLED",
+                                "FAILED")),
+                Map.entry(
+                        "message",
+                        List.of("QUEUED", "PROCESSING", "RETRY_WAIT", "SENT", "FAILED")),
+                Map.entry(
+                        "collectionCase", List.of("OPEN", "IN_PROGRESS", "ON_HOLD", "CLOSED")),
+                Map.entry(
+                        "promiseToPay", List.of("ACTIVE", "FULFILLED", "BROKEN", "CANCELLED")),
                 Map.entry("dispute", List.of("OPEN", "RESOLVED", "CANCELLED")),
-                Map.entry("collectionAction", List.of("PENDING", "COMPLETED", "CANCELLED")));
+                Map.entry(
+                        "collectionAction", List.of("PENDING", "COMPLETED", "CANCELLED")));
     }
 
     public record LocaleItem(String code, String displayName, String nativeName, String direction) {}
