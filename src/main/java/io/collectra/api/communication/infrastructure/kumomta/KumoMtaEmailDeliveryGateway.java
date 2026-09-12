@@ -5,14 +5,12 @@ import io.collectra.api.communication.application.DeliveryFailureKind;
 import io.collectra.api.communication.application.DeliveryGateway;
 import io.collectra.api.communication.application.DeliveryResult;
 import io.collectra.api.communication.domain.CommunicationChannel;
-
+import java.util.List;
+import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
-
-import java.util.List;
-import java.util.Map;
 
 @Component
 @ConditionalOnProperty(name = "collectra.communication.delivery.provider", havingValue = "kumomta")
