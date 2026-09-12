@@ -84,11 +84,7 @@ public class MessageStateService {
         CampaignRun run = lockedRun(message);
         message.scheduleRetry(nextRetryAt, errorCode, errorMessage);
         run.messageRetryScheduled();
-        publish(
-                message,
-                DeliveryOutcomeEvent.Outcome.RETRY_SCHEDULED,
-                errorCode,
-                clock.instant());
+        publish(message, DeliveryOutcomeEvent.Outcome.RETRY_SCHEDULED, errorCode, clock.instant());
         return true;
     }
 
