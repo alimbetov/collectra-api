@@ -59,17 +59,7 @@ class MessageQueryServiceTest {
     @ParameterizedTest(name = "page={0}, size={1}")
     @MethodSource("invalidPages")
     void invalidPagingIsRejectedBeforeDatabaseAccess(int page, int size) {
-        assertThatThrownBy(
-                        () ->
-                                service.list(
-                                        TENANT,
-                                        CAMPAIGN,
-                                        RUN,
-                                        null,
-                                        null,
-                                        null,
-                                        page,
-                                        size))
+        assertThatThrownBy(() -> service.list(TENANT, CAMPAIGN, RUN, null, null, null, page, size))
                 .isInstanceOf(IllegalArgumentException.class);
 
         verify(runs, never()).findByIdAndTenantId(any(), any());
@@ -81,8 +71,7 @@ class MessageQueryServiceTest {
     void foreignOrMismatchedRunIsNotDisclosed() {
         when(runs.findByIdAndTenantId(RUN, TENANT)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(
-                        () -> service.list(TENANT, CAMPAIGN, RUN, null, null, null, 0, 50))
+        assertThatThrownBy(() -> service.list(TENANT, CAMPAIGN, RUN, null, null, null, 0, 50))
                 .isInstanceOf(NoSuchElementException.class)
                 .hasMessage("Campaign run not found");
         verify(messages, never())
@@ -90,8 +79,7 @@ class MessageQueryServiceTest {
 
         CampaignRun anotherCampaign = run(UUID.randomUUID());
         when(runs.findByIdAndTenantId(RUN, TENANT)).thenReturn(Optional.of(anotherCampaign));
-        assertThatThrownBy(
-                        () -> service.list(TENANT, CAMPAIGN, RUN, null, null, null, 0, 50))
+        assertThatThrownBy(() -> service.list(TENANT, CAMPAIGN, RUN, null, null, null, 0, 50))
                 .isInstanceOf(NoSuchElementException.class)
                 .hasMessage("Campaign run not found");
     }
@@ -142,8 +130,7 @@ class MessageQueryServiceTest {
 
     @ParameterizedTest(name = "{0} is opaque in list output")
     @MethodSource("nonEmailDestinations")
-    void nonEmailDestinationsAreAlwaysOpaque(
-            CommunicationChannel channel, String rawDestination) {
+    void nonEmailDestinationsAreAlwaysOpaque(CommunicationChannel channel, String rawDestination) {
         CampaignRun run = run(CAMPAIGN);
         Message message = message(channel, rawDestination, UUID.randomUUID());
         when(runs.findByIdAndTenantId(RUN, TENANT)).thenReturn(Optional.of(run));
@@ -189,8 +176,7 @@ class MessageQueryServiceTest {
         when(messages.findByIdAndTenantIdAndCampaignIdAndCampaignRunId(
                         message.getId(), TENANT, CAMPAIGN, RUN))
                 .thenReturn(Optional.of(message));
-        when(attachments.findAllByTenantIdAndMessageIdOrderByCreatedAtAsc(
-                        TENANT, message.getId()))
+        when(attachments.findAllByTenantIdAndMessageIdOrderByCreatedAtAsc(TENANT, message.getId()))
                 .thenReturn(List.of(attachment));
 
         MessageQueryService.MessageDetail detail =
@@ -229,8 +215,7 @@ class MessageQueryServiceTest {
         return new CampaignRun(TENANT, campaignId);
     }
 
-    private Message message(
-            CommunicationChannel channel, String destination, UUID customerId) {
+    private Message message(CommunicationChannel channel, String destination, UUID customerId) {
         return Message.queued(
                 TENANT,
                 CAMPAIGN,
