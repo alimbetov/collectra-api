@@ -42,8 +42,20 @@ public class CustomerSegment extends AuditableEntity {
         this.tenantId = Objects.requireNonNull(tenantId);
         this.code = required(code).toUpperCase(Locale.ROOT);
         this.name = required(name);
-        this.description = description == null || description.isBlank() ? null : description.trim();
+        this.description = normalizeDescription(description);
         this.active = true;
+    }
+
+    public void update(String name, String description, Boolean active) {
+        if (name != null) {
+            this.name = required(name);
+        }
+        if (description != null) {
+            this.description = normalizeDescription(description);
+        }
+        if (active != null) {
+            this.active = active;
+        }
     }
 
     public UUID getId() {
@@ -75,5 +87,9 @@ public class CustomerSegment extends AuditableEntity {
             throw new IllegalArgumentException("value is required");
         }
         return value.trim();
+    }
+
+    private static String normalizeDescription(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 }
