@@ -61,8 +61,7 @@ public class CustomerController {
             @RequestParam(required = false) Instant createdFrom,
             @RequestParam(required = false) Instant createdTo,
             @RequestParam(defaultValue = "0") @Min(0) int page,
-            @RequestParam(defaultValue = "50") @Min(1) @Max(CustomerQueryService.MAX_SIZE)
-                    int size,
+            @RequestParam(defaultValue = "50") @Min(1) @Max(CustomerQueryService.MAX_SIZE) int size,
             @RequestParam(defaultValue = "createdAt,desc") String sort) {
         return queries.customers(
                 tenant(),
@@ -156,7 +155,12 @@ public class CustomerController {
             @Valid @RequestBody ContactPatchRequest request) {
         return EmailResponse.from(
                 service.updateEmail(
-                        tenant(), id, emailId, request.type(), request.primary(), request.status()));
+                        tenant(),
+                        id,
+                        emailId,
+                        request.type(),
+                        request.primary(),
+                        request.status()));
     }
 
     @PostMapping("/{id}/phones")
@@ -180,7 +184,12 @@ public class CustomerController {
             @Valid @RequestBody ContactPatchRequest request) {
         return PhoneResponse.from(
                 service.updatePhone(
-                        tenant(), id, phoneId, request.type(), request.primary(), request.status()));
+                        tenant(),
+                        id,
+                        phoneId,
+                        request.type(),
+                        request.primary(),
+                        request.status()));
     }
 
     @PostMapping("/{id}/segments/{segmentId}")
