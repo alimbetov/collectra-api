@@ -87,8 +87,10 @@ class MessageAttachmentContentResolverTest {
         UUID messageId = UUID.randomUUID();
         MessageAttachment first = ready(tenantId, messageId, true, UUID.randomUUID());
         MessageAttachment second = ready(tenantId, messageId, true, UUID.randomUUID());
-        GeneratedDocument firstDocument = generated(tenantId, first, first.getGeneratedDocumentId(), 11L * 1024 * 1024);
-        GeneratedDocument secondDocument = generated(tenantId, second, second.getGeneratedDocumentId(), 11L * 1024 * 1024);
+        GeneratedDocument firstDocument =
+                generated(tenantId, first, first.getGeneratedDocumentId(), 11L * 1024 * 1024);
+        GeneratedDocument secondDocument =
+                generated(tenantId, second, second.getGeneratedDocumentId(), 11L * 1024 * 1024);
         when(attachments.findAllByTenantIdAndMessageIdOrderByCreatedAtAsc(tenantId, messageId))
                 .thenReturn(List.of(first, second));
         when(documents.findByIdAndTenantId(first.getGeneratedDocumentId(), tenantId))
@@ -115,7 +117,9 @@ class MessageAttachmentContentResolverTest {
                 .thenReturn(List.of(ready));
         when(documents.findByIdAndTenantId(documentId, tenantId)).thenReturn(Optional.of(document));
         when(outputs.read(document))
-                .thenThrow(new DocumentObjectNotFoundException("missing.pdf", new RuntimeException("404")));
+                .thenThrow(
+                        new DocumentObjectNotFoundException(
+                                "missing.pdf", new RuntimeException("404")));
 
         assertResolutionFailure(
                 () -> resolver.resolve(tenantId, messageId),
@@ -176,12 +180,7 @@ class MessageAttachmentContentResolverTest {
 
     private MessageAttachment pending(UUID tenantId, UUID messageId, boolean required) {
         return MessageAttachment.pendingPdf(
-                tenantId,
-                messageId,
-                UUID.randomUUID(),
-                "invoice.pdf",
-                required,
-                NOW);
+                tenantId, messageId, UUID.randomUUID(), "invoice.pdf", required, NOW);
     }
 
     private MessageAttachment ready(
