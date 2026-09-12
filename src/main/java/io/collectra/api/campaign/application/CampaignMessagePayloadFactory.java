@@ -40,11 +40,17 @@ public class CampaignMessagePayloadFactory {
         }
 
         put(document, "number", invoice.getInvoiceNumber());
-        put(document, "date", invoice.getInvoiceDate() == null ? null : invoice.getInvoiceDate().toString());
+        put(
+                document,
+                "date",
+                invoice.getInvoiceDate() == null ? null : invoice.getInvoiceDate().toString());
 
         put(invoiceNode, "externalId", invoice.getExternalId());
         put(invoiceNode, "invoiceNumber", invoice.getInvoiceNumber());
-        put(invoiceNode, "invoiceDate", invoice.getInvoiceDate() == null ? null : invoice.getInvoiceDate().toString());
+        put(
+                invoiceNode,
+                "invoiceDate",
+                invoice.getInvoiceDate() == null ? null : invoice.getInvoiceDate().toString());
         put(invoiceNode, "dueDate", invoice.getDueDate().toString());
         invoiceNode.put("amount", invoice.getOriginalAmount());
         invoiceNode.put("originalAmount", invoice.getOriginalAmount());
@@ -52,8 +58,14 @@ public class CampaignMessagePayloadFactory {
         invoiceNode.put("outstandingAmount", invoice.getOutstandingAmount());
         put(invoiceNode, "currency", invoice.getCurrency());
         put(invoiceNode, "paymentStatus", invoice.getPaymentStatus().name());
-        put(invoiceNode, "contractId", invoice.getContractId() == null ? null : invoice.getContractId().toString());
-        put(invoiceNode, "documentFileId", invoice.getDocumentFileId() == null ? null : invoice.getDocumentFileId().toString());
+        put(
+                invoiceNode,
+                "contractId",
+                invoice.getContractId() == null ? null : invoice.getContractId().toString());
+        put(
+                invoiceNode,
+                "documentFileId",
+                invoice.getDocumentFileId() == null ? null : invoice.getDocumentFileId().toString());
         custom.set("invoice", objectOrEmpty(invoice.getCustomFields()));
         return root;
     }
