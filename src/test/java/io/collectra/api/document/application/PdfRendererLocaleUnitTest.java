@@ -30,7 +30,9 @@ class PdfRendererLocaleUnitTest {
         when(locales.requireSupported(locale)).thenReturn(supported);
         PdfRenderer renderer = new PdfRenderer(locales, new FontProfileRegistry());
 
-        byte[] pdf = renderer.render("<html><body><strong>" + sample + "</strong></body></html>", locale);
+        byte[] pdf =
+                renderer.render(
+                        "<html><body><strong>" + sample + "</strong></body></html>", locale);
 
         assertThat(pdf.length).isGreaterThan(1_000);
         assertThat(new String(pdf, 0, 4, StandardCharsets.US_ASCII)).isEqualTo("%PDF");
