@@ -2,12 +2,11 @@ package io.collectra.api.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.io.IOException;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.env.YamlPropertySourceLoader;
 import org.springframework.core.env.PropertySource;
 import org.springframework.core.io.ClassPathResource;
-
-import java.io.IOException;
 
 class ProductionConfigurationTest {
     private final YamlPropertySourceLoader loader = new YamlPropertySourceLoader();
