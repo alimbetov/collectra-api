@@ -261,9 +261,7 @@ public class CustomerController {
             boolean primary) {}
 
     public record PhoneCreateRequest(
-            @NotBlank @Size(max = 40) String phone,
-            @Size(max = 20) String type,
-            boolean primary) {}
+            @NotBlank @Size(max = 40) String phone, @Size(max = 20) String type, boolean primary) {}
 
     public record ContactPatchRequest(
             @Size(max = 20) String type,
