@@ -8,6 +8,7 @@ import io.collectra.api.customer.domain.CustomerEmail;
 import io.collectra.api.customer.domain.CustomerStatus;
 import io.collectra.api.receivable.application.ReceivableService;
 import io.collectra.api.receivable.domain.Invoice;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -34,10 +35,21 @@ public class CampaignEligibilityService {
 
     @Transactional
     public EligibilityResult recheck(UUID tenantId, UUID runId) {
-        List<CampaignRecipient> values =
-                recipients.findAllByTenantIdAndRunIdOrderByCreatedAtAsc(tenantId, runId);
+        EligibilityBatch batch =
+                evaluateBatch(
+                        tenantId,
+                        recipients.findAllByTenantIdAndRunIdOrderByCreatedAtAsc(tenantId, runId));
+        return new EligibilityResult(batch.total(), batch.eligibleCount(), batch.skipped());
+    }
+
+    public EligibilityBatch evaluateBatch(UUID tenantId, List<CampaignRecipient> values) {
+        Objects.requireNonNull(tenantId, "tenantId is required");
+        Objects.requireNonNull(values, "recipients are required");
         if (values.isEmpty()) {
-            return new EligibilityResult(0, 0, 0);
+            return new EligibilityBatch(0, 0, 0, Map.of());
+        }
+        if (values.stream().anyMatch(recipient -> !tenantId.equals(recipient.getTenantId()))) {
+            throw new IllegalArgumentException("Eligibility batch contains another tenant");
         }
 
         Set<UUID> customerIds =
@@ -58,7 +70,7 @@ public class CampaignEligibilityService {
                 receivables.invoicesByIds(tenantId, invoiceIds).stream()
                         .collect(Collectors.toMap(Invoice::getId, value -> value));
 
-        int eligible = 0;
+        Map<UUID, EligibleRecipientContext> eligible = new LinkedHashMap<>();
         int skipped = 0;
         for (CampaignRecipient recipient : values) {
             Customer customer = customerById.get(recipient.getCustomerId());
@@ -69,30 +81,50 @@ public class CampaignEligibilityService {
             }
             boolean contactExists =
                     emailsByCustomer.getOrDefault(customer.getId(), List.of()).stream()
-                            .anyMatch(
-                                    email ->
-                                            "ACTIVE".equals(email.getStatus())
-                                                    && recipient.getDestination() != null
-                                                    && email.getEmail()
-                                                            .equalsIgnoreCase(
-                                                                    recipient.getDestination()));
+                            .anyMatch(email -> isActiveSnapshotDestination(email, recipient));
             if (!contactExists) {
                 recipient.skip("NO_CONTACT");
                 skipped++;
                 continue;
             }
+
+            Invoice invoice = null;
             if (recipient.getInvoiceId() != null) {
-                Invoice invoice = invoiceById.get(recipient.getInvoiceId());
+                invoice = invoiceById.get(recipient.getInvoiceId());
                 if (invoice == null || invoice.getOutstandingAmount().signum() <= 0) {
                     recipient.skip("PAID");
                     skipped++;
                     continue;
                 }
             }
+
             recipient.eligible();
-            eligible++;
+            eligible.put(recipient.getId(), new EligibleRecipientContext(customer, invoice));
         }
-        return new EligibilityResult(values.size(), eligible, skipped);
+        return new EligibilityBatch(values.size(), eligible.size(), skipped, Map.copyOf(eligible));
+    }
+
+    private static boolean isActiveSnapshotDestination(
+            CustomerEmail email, CampaignRecipient recipient) {
+        return "ACTIVE".equals(email.getStatus())
+                && recipient.getDestination() != null
+                && email.getEmail().equalsIgnoreCase(recipient.getDestination());
+    }
+
+    public record EligibleRecipientContext(Customer customer, Invoice invoice) {}
+
+    public record EligibilityBatch(
+            int total,
+            int eligibleCount,
+            int skipped,
+            Map<UUID, EligibleRecipientContext> eligibleByRecipientId) {
+        public EligibleRecipientContext contextFor(UUID recipientId) {
+            EligibleRecipientContext context = eligibleByRecipientId.get(recipientId);
+            if (context == null) {
+                throw new IllegalArgumentException("Recipient is not eligible: " + recipientId);
+            }
+            return context;
+        }
     }
 
     public record EligibilityResult(int total, int eligible, int skipped) {}
