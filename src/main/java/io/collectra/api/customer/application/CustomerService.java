@@ -293,6 +293,7 @@ public class CustomerService {
     @Transactional
     public void removeSegment(UUID tenantId, UUID customerId, UUID segmentId) {
         get(tenantId, customerId);
+        segment(tenantId, segmentId);
         members.deleteByTenantIdAndCustomerIdAndSegmentId(tenantId, customerId, segmentId);
     }
 
@@ -301,6 +302,7 @@ public class CustomerService {
         get(tenantId, customerId);
         return members.findAllByTenantIdAndCustomerId(tenantId, customerId).stream()
                 .map(CustomerSegmentMember::getSegmentId)
+                .sorted()
                 .toList();
     }
 
