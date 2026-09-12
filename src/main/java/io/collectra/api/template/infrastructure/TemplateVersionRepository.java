@@ -21,16 +21,14 @@ public interface TemplateVersionRepository extends JpaRepository<TemplateVersion
             UUID templateId, String locale, TemplateChannel channel);
 
     boolean existsByTemplateIdAndLocaleAndChannelAndStatus(
-            UUID templateId,
-            String locale,
-            TemplateChannel channel,
-            TemplateVersionStatus status);
+            UUID templateId, String locale, TemplateChannel channel, TemplateVersionStatus status);
 
-    Optional<TemplateVersion> findFirstByTemplateIdAndLocaleAndChannelAndStatusOrderByTemplateVersionDesc(
-            UUID templateId,
-            String locale,
-            TemplateChannel channel,
-            TemplateVersionStatus status);
+    Optional<TemplateVersion>
+            findFirstByTemplateIdAndLocaleAndChannelAndStatusOrderByTemplateVersionDesc(
+                    UUID templateId,
+                    String locale,
+                    TemplateChannel channel,
+                    TemplateVersionStatus status);
 
     @Query(
             "select v from TemplateVersion v, DocumentTemplate t where v.id = :id "

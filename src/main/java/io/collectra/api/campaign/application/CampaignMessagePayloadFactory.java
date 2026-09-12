@@ -65,7 +65,9 @@ public class CampaignMessagePayloadFactory {
         put(
                 invoiceNode,
                 "documentFileId",
-                invoice.getDocumentFileId() == null ? null : invoice.getDocumentFileId().toString());
+                invoice.getDocumentFileId() == null
+                        ? null
+                        : invoice.getDocumentFileId().toString());
         custom.set("invoice", objectOrEmpty(invoice.getCustomFields()));
         return root;
     }

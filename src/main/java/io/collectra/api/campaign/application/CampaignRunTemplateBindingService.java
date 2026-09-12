@@ -42,7 +42,8 @@ public class CampaignRunTemplateBindingService {
 
     public void initialize(UUID tenantId, Campaign campaign, CampaignRun run) {
         if (!bindings.findAllByTenantIdAndCampaignRunId(tenantId, run.getId()).isEmpty()) {
-            throw new IllegalStateException("Template bindings already exist for READY run " + run.getId());
+            throw new IllegalStateException(
+                    "Template bindings already exist for READY run " + run.getId());
         }
         if (!"EMAIL".equals(campaign.getChannel())) {
             throw new IllegalStateException("Slice 5 supports EMAIL campaigns only");
@@ -50,7 +51,10 @@ public class CampaignRunTemplateBindingService {
 
         TemplateVersion anchor =
                 versions.findByIdAndTenantId(campaign.getTemplateVersionId(), tenantId)
-                        .orElseThrow(() -> new IllegalStateException("Campaign template version not found"));
+                        .orElseThrow(
+                                () ->
+                                        new IllegalStateException(
+                                                "Campaign template version not found"));
         if (anchor.getChannel() != TemplateChannel.EMAIL) {
             throw new IllegalStateException("Campaign template version must use EMAIL channel");
         }
@@ -69,16 +73,21 @@ public class CampaignRunTemplateBindingService {
         for (String requestedLocale : requestedLocales) {
             ResolvedTemplateLocale resolved =
                     localeResolver.resolve(
-                            tenantId, anchor.getTemplateId(), TemplateChannel.EMAIL, requestedLocale);
+                            tenantId,
+                            anchor.getTemplateId(),
+                            TemplateChannel.EMAIL,
+                            requestedLocale);
             TemplateVersion selected =
                     versions.findFirstByTemplateIdAndLocaleAndChannelAndStatusOrderByTemplateVersionDesc(
                                     anchor.getTemplateId(),
                                     resolved.resolvedLocale(),
                                     TemplateChannel.EMAIL,
                                     TemplateVersionStatus.PUBLISHED)
-                            .orElseThrow(() -> new IllegalStateException(
-                                    "Resolved published template version disappeared for locale "
-                                            + resolved.resolvedLocale()));
+                            .orElseThrow(
+                                    () ->
+                                            new IllegalStateException(
+                                                    "Resolved published template version disappeared for locale "
+                                                            + resolved.resolvedLocale()));
             bindings.save(
                     new CampaignRunTemplateBinding(
                             tenantId,
@@ -93,8 +102,10 @@ public class CampaignRunTemplateBindingService {
     public Map<String, CampaignRunTemplateBinding> bindingsByRequestedLocale(
             UUID tenantId, UUID runId) {
         return bindings.findAllByTenantIdAndCampaignRunId(tenantId, runId).stream()
-                .collect(Collectors.toUnmodifiableMap(
-                        CampaignRunTemplateBinding::getRequestedLocale, Function.identity()));
+                .collect(
+                        Collectors.toUnmodifiableMap(
+                                CampaignRunTemplateBinding::getRequestedLocale,
+                                Function.identity()));
     }
 
     private static String requireSnapshotLocale(String locale) {

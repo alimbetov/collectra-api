@@ -154,13 +154,7 @@ public class CampaignService {
                                     pageNumber,
                                     PREPARE_PAGE_SIZE,
                                     Sort.by(Sort.Direction.ASC, "id")));
-            created +=
-                    preparePage(
-                            tenantId,
-                            campaign,
-                            run,
-                            selection,
-                            page.getContent());
+            created += preparePage(tenantId, campaign, run, selection, page.getContent());
             pageNumber++;
         } while (page.hasNext());
 

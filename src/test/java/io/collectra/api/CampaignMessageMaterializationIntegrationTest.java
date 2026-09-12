@@ -86,20 +86,23 @@ class CampaignMessageMaterializationIntegrationTest extends AbstractIntegrationT
                 .isEqualTo(CampaignRunStatus.RUNNING);
 
         List<CampaignRunTemplateBinding> runBindings =
-                bindings.findAllByTenantIdAndCampaignRunId(fixture.tenant().getId(), fixture.runId());
+                bindings.findAllByTenantIdAndCampaignRunId(
+                        fixture.tenant().getId(), fixture.runId());
         assertThat(runBindings)
                 .singleElement()
                 .satisfies(
                         binding -> {
                             assertThat(binding.getRequestedLocale()).isEqualTo("ru-KZ");
                             assertThat(binding.getResolvedLocale()).isEqualTo("ru-KZ");
-                            assertThat(binding.getTemplateVersionId()).isEqualTo(fixture.version1().getId());
+                            assertThat(binding.getTemplateVersionId())
+                                    .isEqualTo(fixture.version1().getId());
                         });
 
         version2.publish();
         versions.saveAndFlush(version2);
 
-        var second = materializer.materializeNextBatch(fixture.tenant().getId(), fixture.runId(), 1);
+        var second =
+                materializer.materializeNextBatch(fixture.tenant().getId(), fixture.runId(), 1);
         var retry = materializer.materializeNextBatch(fixture.tenant().getId(), fixture.runId(), 1);
 
         assertThat(second.selected()).isEqualTo(1);
@@ -119,7 +122,8 @@ class CampaignMessageMaterializationIntegrationTest extends AbstractIntegrationT
         assertThat(materialized)
                 .allSatisfy(
                         message -> {
-                            assertThat(message.getTemplateVersionId()).isEqualTo(fixture.version1().getId());
+                            assertThat(message.getTemplateVersionId())
+                                    .isEqualTo(fixture.version1().getId());
                             assertThat(message.getStatus()).isEqualTo(MessageStatus.QUEUED);
                             assertThat(message.getResolvedLocale()).isEqualTo("ru-KZ");
                             assertThat(message.getDestination()).isEqualTo("customer@example.com");
@@ -129,8 +133,15 @@ class CampaignMessageMaterializationIntegrationTest extends AbstractIntegrationT
 
         assertThat(
                         outbox.findAll().stream()
-                                .filter(event -> fixture.tenant().getId().equals(event.getTenantId()))
-                                .filter(event -> MessageDeliveryRequested.EVENT_TYPE.equals(event.getEventType())))
+                                .filter(
+                                        event ->
+                                                fixture.tenant()
+                                                        .getId()
+                                                        .equals(event.getTenantId()))
+                                .filter(
+                                        event ->
+                                                MessageDeliveryRequested.EVENT_TYPE.equals(
+                                                        event.getEventType())))
                 .hasSize(2)
                 .allSatisfy(
                         event -> {
@@ -160,7 +171,10 @@ class CampaignMessageMaterializationIntegrationTest extends AbstractIntegrationT
                         "TEST",
                         json.createObjectNode());
         receivables.allocate(
-                fixture.tenant().getId(), payment.getId(), invoice.getId(), invoice.getOriginalAmount());
+                fixture.tenant().getId(),
+                payment.getId(),
+                invoice.getId(),
+                invoice.getOriginalAmount());
 
         var result =
                 materializer.materializeNextBatch(fixture.tenant().getId(), fixture.runId(), 100);
@@ -178,20 +192,31 @@ class CampaignMessageMaterializationIntegrationTest extends AbstractIntegrationT
                         });
         assertThat(
                         messages.findAllByTenantIdAndCampaignRunId(
-                                        fixture.tenant().getId(), fixture.runId(), PageRequest.of(0, 10))
+                                        fixture.tenant().getId(),
+                                        fixture.runId(),
+                                        PageRequest.of(0, 10))
                                 .getContent())
                 .isEmpty();
         assertThat(
                         outbox.findAll().stream()
-                                .filter(event -> fixture.tenant().getId().equals(event.getTenantId()))
-                                .filter(event -> MessageDeliveryRequested.EVENT_TYPE.equals(event.getEventType())))
+                                .filter(
+                                        event ->
+                                                fixture.tenant()
+                                                        .getId()
+                                                        .equals(event.getTenantId()))
+                                .filter(
+                                        event ->
+                                                MessageDeliveryRequested.EVENT_TYPE.equals(
+                                                        event.getEventType())))
                 .isEmpty();
     }
 
     private Fixture prepareCampaign(int invoiceCount) {
         Tenant tenant =
                 tenants.saveAndFlush(
-                        new Tenant("message-materialization-" + UUID.randomUUID(), "Message Materialization"));
+                        new Tenant(
+                                "message-materialization-" + UUID.randomUUID(),
+                                "Message Materialization"));
         tenantLocales.saveAndFlush(new TenantLocale(tenant.getId(), "ru-KZ", true, true, 0));
 
         DocumentTemplate template =
@@ -260,7 +285,12 @@ class CampaignMessageMaterializationIntegrationTest extends AbstractIntegrationT
         assertThat(prepared.recipients()).isEqualTo(invoiceCount);
 
         return new Fixture(
-                tenant, template, version1, customer.getId(), List.copyOf(invoices), prepared.runId());
+                tenant,
+                template,
+                version1,
+                customer.getId(),
+                List.copyOf(invoices),
+                prepared.runId());
     }
 
     private record Fixture(

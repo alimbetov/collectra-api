@@ -85,7 +85,8 @@ public class CampaignMessageMaterializer {
         requireMaterializable(run);
 
         Campaign campaign =
-                campaigns.findByIdAndTenantId(run.getCampaignId(), tenantId)
+                campaigns
+                        .findByIdAndTenantId(run.getCampaignId(), tenantId)
                         .orElseThrow(() -> new NoSuchElementException("Campaign not found"));
 
         if (run.getStatus() == CampaignRunStatus.READY) {
@@ -112,7 +113,8 @@ public class CampaignMessageMaterializer {
                 templateVersions.findAllByIdsAndTenantId(templateVersionIds, tenantId).stream()
                         .collect(Collectors.toMap(TemplateVersion::getId, Function.identity()));
         if (versionById.size() != templateVersionIds.size()) {
-            throw new IllegalStateException("A snapshotted template version is missing or outside tenant");
+            throw new IllegalStateException(
+                    "A snapshotted template version is missing or outside tenant");
         }
 
         Map<UUID, CompiledTemplate> compiledBodies = new HashMap<>();
@@ -145,7 +147,8 @@ public class CampaignMessageMaterializer {
                     compiledSubjects.computeIfAbsent(
                             version.getId(), id -> compiler.compileText(id, version.getSubject()));
             CompiledTemplate bodyTemplate =
-                    compiledBodies.computeIfAbsent(version.getId(), id -> compiler.compile(version));
+                    compiledBodies.computeIfAbsent(
+                            version.getId(), id -> compiler.compile(version));
             String subject = renderer.renderText(subjectTemplate, payload);
             String body = renderer.render(bodyTemplate, payload).html();
 
@@ -185,8 +188,7 @@ public class CampaignMessageMaterializer {
 
     private static void requireBatchSize(int batchSize) {
         if (batchSize <= 0 || batchSize > MAX_BATCH_SIZE) {
-            throw new IllegalArgumentException(
-                    "batchSize must be between 1 and " + MAX_BATCH_SIZE);
+            throw new IllegalArgumentException("batchSize must be between 1 and " + MAX_BATCH_SIZE);
         }
     }
 
@@ -197,5 +199,6 @@ public class CampaignMessageMaterializer {
         return locale.trim();
     }
 
-    public record MaterializationBatchResult(int selected, int queued, int skipped, boolean hasNext) {}
+    public record MaterializationBatchResult(
+            int selected, int queued, int skipped, boolean hasNext) {}
 }
