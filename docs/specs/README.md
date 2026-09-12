@@ -13,7 +13,7 @@
 |---|---|---|---|
 | 2 | [Message processing core](slice-02-message-processing.md) | DONE | safe claim, retry, recovery, provider-neutral worker |
 | 3 | [Message delivery messaging](slice-03-message-delivery-messaging.md) | DONE | Outbox -> RabbitMQ -> MessageDeliveryWorker |
-| 4 | [KumoMTA email adapter](slice-04-kumomta-email-adapter.md) | READY | real EMAIL injection through KumoMTA HTTP API |
+| 4 | [KumoMTA email adapter](slice-04-kumomta-email-adapter.md) | IN PROGRESS | real EMAIL injection through KumoMTA HTTP API |
 | 5 | [CampaignRun to Message materialization](slice-05-message-materialization.md) | READY | Campaign recipients -> immutable Message + Outbox |
 | 6 | [Campaign delivery counters and completion](slice-06-campaign-delivery-counters.md) | READY AFTER 2/5 | atomic counters and durable CampaignRun completion |
 | 7 | [Attachments and generated documents](slice-07-attachments-documents.md) | READY AFTER 3/4/5 + FONT GATE | document/FileService attachments before delivery |

@@ -76,4 +76,13 @@ class ArchitectureTest {
                     .should()
                     .dependOnClassesThat()
                     .resideInAPackage("io.collectra.api.communication.infrastructure.messaging..");
+
+    @ArchTest
+    static final ArchRule COMMUNICATION_APPLICATION_DOES_NOT_DEPEND_ON_SIMULATION_INFRASTRUCTURE =
+            noClasses()
+                    .that()
+                    .resideInAPackage("io.collectra.api.communication.application..")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAPackage("io.collectra.api.communication.infrastructure.simulation..");
 }
