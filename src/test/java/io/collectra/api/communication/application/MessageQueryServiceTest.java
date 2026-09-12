@@ -197,7 +197,8 @@ class MessageQueryServiceTest {
                 service.detail(TENANT, CAMPAIGN, RUN, message.getId());
 
         assertThat(detail.maskedDestination()).isEqualTo("a***@example.test");
-        assertThat(detail.lastErrorCode()).isEqualTo("PROVIDER_503");
+        assertThat(detail.lastErrorCode()).isEqualTo("UNKNOWN");
+        assertThat(detail.lastErrorSummary()).isEqualTo("Delivery failed");
         assertThat(detail.lastErrorSummary()).doesNotContain("sensitive raw provider message");
         assertThat(detail.attachments()).hasSize(1);
         assertThat(detail.attachments().get(0).filename()).isEqualTo("invoice.pdf");
