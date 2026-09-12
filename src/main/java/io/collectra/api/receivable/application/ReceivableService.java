@@ -191,6 +191,12 @@ public class ReceivableService {
 
     @Transactional
     public PaymentAllocation allocate(
+            UUID tenantId, UUID paymentId, UUID invoiceId, BigDecimal amount) {
+        return allocate(tenantId, paymentId, UUID.randomUUID(), invoiceId, amount);
+    }
+
+    @Transactional
+    public PaymentAllocation allocate(
             UUID tenantId, UUID paymentId, UUID commandId, UUID invoiceId, BigDecimal amount) {
         PaymentAllocation replay =
                 allocations.findByTenantIdAndCommandId(tenantId, commandId).orElse(null);
