@@ -19,5 +19,7 @@ public interface CustomerEmailRepository extends JpaRepository<CustomerEmail, UU
     List<CustomerEmail> findAllByTenantIdAndCustomerIdAndPrimaryTrueAndStatus(
             UUID tenantId, UUID customerId, String status);
 
+    boolean existsByTenantIdAndCustomerIdAndEmail(UUID tenantId, UUID customerId, String email);
+
     long countByTenantIdAndCustomerIdAndStatus(UUID tenantId, UUID customerId, String status);
 }
