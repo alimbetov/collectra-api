@@ -63,6 +63,8 @@ public interface MessageRepository extends JpaRepository<Message, UUID> {
     Optional<Message> findFirstByStatusAndNextRetryAtLessThanEqualOrderByNextRetryAtAsc(
             MessageStatus status, Instant now);
 
+    Optional<Message> findFirstByStatusOrderByCreatedAtAsc(MessageStatus status);
+
     @Query(
             value =
                     """
