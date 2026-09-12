@@ -12,6 +12,11 @@ import org.springframework.web.client.RestClientResponseException;
 
 @Component
 public class KumoMtaErrorClassifier {
+    boolean isAmbiguous(Throwable failure) {
+        return containsCause(failure, SocketTimeoutException.class)
+                && !containsCause(failure, HttpConnectTimeoutException.class);
+    }
+
     Classification classify(Throwable failure) {
         if (failure instanceof RestClientResponseException responseFailure) {
             return classifyStatus(responseFailure.getStatusCode());
