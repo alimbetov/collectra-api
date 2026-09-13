@@ -58,6 +58,22 @@ public class AuthService {
 
     @Transactional
     public AuthTokens login(UUID tenantId, String email, String password) {
+        return loginResolved(tenantId, email, password);
+    }
+
+    @Transactional
+    public AuthTokens login(String tenantSlug, String email, String password) {
+        String normalizedSlug = tenantSlug == null ? null : tenantSlug.trim().toLowerCase(Locale.ROOT);
+        if (normalizedSlug == null || normalizedSlug.isBlank()) {
+            throw new BadCredentialsException("Invalid credentials");
+        }
+        UUID tenantId = tenants.findBySlugIgnoreCase(normalizedSlug)
+                .map(Tenant::getId)
+                .orElseThrow(() -> new BadCredentialsException("Invalid credentials"));
+        return loginResolved(tenantId, email, password);
+    }
+
+    private AuthTokens loginResolved(UUID tenantId, String email, String password) {
         limiter.check("login:" + tenantId + ":" + email.toLowerCase(Locale.ROOT), 5, Duration.ofMinutes(15));
         UserAccount user = users.findByTenantIdAndEmailIgnoreCase(tenantId, email)
                 .filter(account -> "ACTIVE".equals(account.getStatus()))

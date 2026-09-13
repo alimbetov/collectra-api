@@ -52,6 +52,16 @@ public class RbacService {
     }
 
     @Transactional(readOnly = true)
+    public List<UUID> roleIds(UUID tenantId, UUID membershipId) {
+        memberships.findByIdAndTenantId(membershipId, tenantId)
+                .orElseThrow(() -> new NoSuchElementException("Membership not found"));
+        return jdbc.queryForList(
+                "select role_id from membership_roles where membership_id = ? order by role_id",
+                UUID.class,
+                membershipId);
+    }
+
+    @Transactional(readOnly = true)
     public List<TenantMembership> memberships(UUID tenantId) {
         return memberships.findAllByTenantId(tenantId);
     }
