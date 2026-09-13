@@ -1,6 +1,7 @@
 package io.collectra.api.customer.infrastructure;
 
 import io.collectra.api.customer.domain.CustomerPhone;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -11,6 +12,9 @@ public interface CustomerPhoneRepository extends JpaRepository<CustomerPhone, UU
             UUID id, UUID tenantId, UUID customerId);
 
     List<CustomerPhone> findAllByTenantIdAndCustomerId(UUID tenantId, UUID customerId);
+
+    List<CustomerPhone> findAllByTenantIdAndCustomerIdIn(
+            UUID tenantId, Collection<UUID> customerIds);
 
     List<CustomerPhone> findAllByTenantIdAndCustomerIdAndPrimaryTrueAndStatus(
             UUID tenantId, UUID customerId, String status);
