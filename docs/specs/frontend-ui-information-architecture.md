@@ -1,6 +1,6 @@
 # FrontendWeb — UI Information Architecture
 
-Status: PROPOSED PRODUCT/UI BASELINE
+Status: REVIEWED / API-ALIGNED PRODUCT/UI BASELINE
 
 ## 1. Goal
 
@@ -49,7 +49,7 @@ Collectra
 
 Contracts не выносятся в первичную навигацию как обязательный top-level пункт. Основной UX: открыть Contract из Customer detail или через Receivables filters. Отдельный Contracts list может быть добавлен как secondary navigation для организаций с большим contract volume.
 
-## 4. Application shell
+## 4. Application shell and authentication
 
 Desktop-first admin application.
 
@@ -69,6 +69,16 @@ Desktop-first admin application.
 | Administration       |                                       |
 +----------------------+---------------------------------------+
 ```
+
+Frontend login form:
+
+```text
+Tenant / workspace slug
+Email
+Password
+```
+
+It uses `POST /api/v1/auth/login/by-slug`. Ordinary web users never type or manage tenant UUID before authentication. The old UUID-based login endpoint remains compatibility-only.
 
 Global requirements:
 
@@ -103,28 +113,28 @@ Dashboard
 │   └── Active collection cases
 ├── Receivables card
 │   ├── total outstanding
-│   ├── overdue amount
-│   └── aging/state summary
+│   ├── overdue amount / aging buckets
+│   └── due today / due soon
 ├── Delivery card
-│   ├── queued/processing
+│   ├── recipients
 │   ├── sent
 │   ├── retry
-│   └── failed
+│   ├── failed
+│   └── skipped
 └── Collections card
-    ├── open/in progress/on hold
-    ├── overdue promises/actions
-    └── priority workload
+    ├── active cases
+    ├── overdue actions
+    ├── promises due/overdue/broken
+    └── open disputes
 ```
 
 Dashboard is a navigation surface, not a second source of truth. Clicking KPI/card opens the corresponding filtered list.
 
 ## 6. Customers
 
-Backend surface already supports paged list, detail, create/update, status, contacts and segments.
-
 ### Customers list
 
-Columns:
+Columns are now directly supported by the server-side list projection:
 
 ```text
 Name
@@ -137,6 +147,8 @@ Manager
 Segments
 Updated
 ```
+
+`GET /api/v1/customers` returns primary contacts, manager display label and segment summaries in bounded batch queries. React MUST NOT fetch contacts/managers/segments row-by-row.
 
 Filters:
 
@@ -162,8 +174,6 @@ Change status
 
 ### Customer detail
 
-Use tabbed workspace:
-
 ```text
 Customer: Acme LLP
 [Overview] [Contacts] [Contracts] [Invoices] [Payments] [Collections] [Activity]
@@ -178,7 +188,7 @@ Overview:
 - locale/timezone;
 - custom fields;
 - segments;
-- high-level receivable counters if available from existing query surfaces.
+- high-level receivable counters only when supplied by an authoritative query surface.
 
 Contacts:
 
@@ -190,15 +200,7 @@ Contacts:
 
 Do not edit email/phone value in place if backend contract models replacement as deactivate + add.
 
-Contracts tab:
-
-- server-filtered `customerId` contracts;
-- create/open contract;
-- lifecycle actions according to backend status/version.
-
-Invoices/Payments tabs use corresponding backend filters by `customerId`.
-
-Collections tab uses collection cases filtered by `customerId`.
+Contracts, invoices, payments and collection cases use server-side `customerId` filters.
 
 ## 7. Contracts
 
@@ -223,13 +225,11 @@ Contract detail
 └── Lifecycle actions
 ```
 
-Lifecycle actions must use current `version`; stale update maps to `409 VERSION_CONFLICT` and UI reload prompt.
+Lifecycle actions use current `version`; stale update maps to `409 VERSION_CONFLICT` and UI reload prompt.
 
 ## 8. Receivables
 
 ### Invoices list
-
-Columns:
 
 ```text
 Invoice number
@@ -259,29 +259,9 @@ amount range
 outstanding range
 ```
 
-Row emphasis:
-
-- overdue invoices visually distinct;
-- paid/cancelled de-emphasized;
-- amount formatting based on currency.
-
-### Invoice detail
-
-```text
-Invoice header
-├── customer / contract links
-├── financial summary
-├── dates/status
-├── linked document
-├── allocations
-└── collections
-```
-
-Frontend never recalculates authoritative `paidAmount`, `outstandingAmount`, `paymentStatus`. It displays backend values.
+Frontend never recalculates authoritative `paidAmount`, `outstandingAmount`, `paymentStatus`, `overdue` or `daysOverdue`.
 
 ### Payments list/detail
-
-Columns:
 
 ```text
 Date
@@ -290,33 +270,17 @@ Reference
 Amount
 Currency
 Source
-Allocation state (derived from backend/query support only)
 ```
 
-Payment detail:
-
-- payment facts;
-- allocations;
-- allocate action;
-- reverse allocation action.
-
-Allocation modal:
-
-```text
-Select invoice
-Amount
-Confirm
-```
-
-Frontend generates one UUID `commandId` per user allocation intent and reuses it on retry of the same user action.
+Payment detail contains payment facts and allocations. Allocation mutation creates one UUID `commandId` per user intent and reuses it on safe replay.
 
 ## 9. Collections
 
 This is the main operational workspace for collection officers.
 
-### Collection cases list
+### Collection work queue
 
-Columns:
+The list projection directly supports:
 
 ```text
 Customer
@@ -325,8 +289,8 @@ Status
 Priority
 Assigned user
 Opened
-Outstanding context
-Next action / overdue indicator
+Outstanding / currency / payment status
+Next action / due / overdue indicator
 ```
 
 Filters:
@@ -339,9 +303,9 @@ priority
 assignedTo
 ```
 
-### Collection case detail
+Customer/invoice/assignee labels and earliest pending next action are resolved server-side. No row fan-out is permitted from React.
 
-Single workspace with strongly visible financial context:
+### Collection case detail
 
 ```text
 Case header
@@ -376,47 +340,35 @@ UI never permits arbitrary status dropdown where backend exposes explicit comman
 
 ## 10. Templates
 
-Templates are a dedicated authoring workspace.
+Templates are split into two user concerns.
 
-### Template list
+### Template Management
 
-Columns:
+- definitions;
+- versions;
+- locale/channel/status;
+- publish/reopen/archive lifecycle.
 
-```text
-Name
-Code
-Document type
-Channel
-Locale/version summary
-Status
-Updated
-```
+### Template Builder
 
-### Template detail/editor
+The current builder API supplies:
 
-```text
-Template
-├── metadata
-├── Versions
-│   ├── locale
-│   ├── channel
-│   ├── subject
-│   ├── content HTML
-│   ├── stylesheet
-│   └── status
-├── Placeholder / field catalogue
-├── Validate
-├── Preview
-└── Publish / reopen / archive
-```
+- field catalogue;
+- assets;
+- supported channels;
+- placeholder/loop/asset syntax;
+- builder schema version;
+- draft validation and preview;
+- structured builder document validation and preview;
+- save/update builder versions.
 
-Recommended editor layout:
+Recommended editor:
 
 ```text
 +-----------------------+-------------------------------+
 | Fields/placeholders   | Editor                        |
 | {{customer.*}}        | subject                       |
-| {{invoice.*}}         | HTML/content                  |
+| {{invoice.*}}         | HTML/structured content       |
 | {{custom.*}}          | stylesheet                    |
 +-----------------------+-------------------------------+
 | Preview                                                |
@@ -427,11 +379,7 @@ Channel mocks do not change this UX: template/version/channel model stays provid
 
 ## 11. Campaigns
 
-Backend supports campaign create/list/detail, activate, prepare run, list runs/recipients and eligibility recheck.
-
 ### Campaign list
-
-Columns:
 
 ```text
 Name
@@ -439,7 +387,7 @@ Channel
 Template
 Status
 Scheduled at
-Last run summary
+Last run summary when supplied by read projection
 ```
 
 Filters:
@@ -454,16 +402,16 @@ created range
 
 ### Campaign creation wizard
 
-Recommended UX:
-
 ```text
 Step 1 — Basics
   name
   channel
 
 Step 2 — Audience
-  CampaignSelection
-  segment/customer/receivable criteria according to backend selection model
+  customerIds
+  segmentIds
+  daysOverdueFrom / daysOverdueTo
+  amountFrom / amountTo
 
 Step 3 — Template
   choose published compatible templateVersion
@@ -497,7 +445,7 @@ Prepare/Create run
 Eligibility recheck
 ```
 
-Message delivery status must remain provider-neutral. Mock and real providers render through the same UI.
+Message delivery status remains provider-neutral. Mock and real providers render through the same UI.
 
 ## 12. Message / delivery monitoring
 
@@ -507,58 +455,60 @@ Nested under campaign run:
 Campaign -> Run -> Messages
 ```
 
-Columns:
+List columns supported by current message projection:
 
 ```text
-Recipient/customer
+Customer reference
 Channel
 Masked destination
 Status
 Attempt count
 Next retry
-Last error summary
-Updated
+Sent at
+Created at
 ```
 
-Filters:
+Message detail additionally shows:
 
-```text
-status
-channel
-customer
-```
-
-Message detail should show:
-
-- immutable materialized destination/content metadata appropriate for operator access;
-- status/history;
-- attempts/retry timing;
-- attachment state;
-- safe error summary;
-- correlation identifiers where exposed;
-- no secrets/raw provider auth.
+- invoice/template references;
+- resolved locale;
+- processing/retry/sent timestamps;
+- provider message id where safe;
+- normalized error code + safe summary;
+- attachment status;
+- no secrets/raw provider auth or raw provider body.
 
 ## 13. Imports
 
-Import UX is a guided process, not a raw upload button.
+Import is split into two workflows.
+
+### Import Configuration — Data Manager/Admin
 
 ```text
-1 Select source/mapping profile
-2 Select template/version and output formats
-3 Upload file or choose JSON/XML mode
-4 Validate/upload
-5 Show accepted batch
-6 Poll/view batch result
-7 Show errors/result documents
+Source Schema
+  definitions -> versions -> fields -> row configuration -> validate -> publish
+
+Mapping Profile
+  definitions -> versions -> rules -> test -> validate -> publish
 ```
 
-Current backend supports multipart, JSON and XML import entry points with `Idempotency-Key`; source schemas and mapping profiles have dedicated APIs.
+### Import Execution — Operator
 
-The frontend must generate a stable `Idempotency-Key` for one import attempt and reuse it only for safe replay of the same intent.
+```text
+1 Select published mapping profile version
+2 Select template/version and output formats
+3 Upload file or choose JSON/XML mode
+4 Submit with stable Idempotency-Key
+5 Show accepted batch
+6 Bounded poll/view batch result
+7 Show safe errors/result documents
+```
+
+The created business entities are authoritative after persistence; frontend does not maintain a parallel financial model.
 
 ## 14. Files
 
-Files are primarily contextual resources rather than a standalone document management product.
+Files are contextual resources rather than a standalone DMS.
 
 Supported UI actions:
 
@@ -574,8 +524,6 @@ File picker should be reusable from invoices, templates/assets, attachments and 
 
 Administration is permission-driven.
 
-Areas based on current identity API:
-
 ```text
 Members
 Invitations
@@ -583,6 +531,8 @@ Roles
 Permissions
 Account lifecycle
 ```
+
+The member list now returns membership id, user id, email, display name and status. Current member role ids are available from a dedicated endpoint when opening role editing. This avoids embedding an unbounded role graph into every row.
 
 Navigation item is hidden if user cannot access administration surfaces. Backend remains authoritative; hiding UI is not an authorization control.
 
@@ -595,6 +545,7 @@ GET/PATCH /api/v1/identity/me
 POST /api/v1/identity/me/change-password
 GET /api/v1/identity/me/sessions
 DELETE /api/v1/identity/me/sessions/{id}
+POST /api/v1/auth/logout-all
 ```
 
 UI:
@@ -617,7 +568,7 @@ Security
 
 ### Status badges
 
-All enum/status rendering must use a centralized frontend dictionary per domain. Unknown backend enum value must render as `Unknown (<raw>)`, not crash the page.
+All enum/status rendering uses a centralized frontend dictionary per domain. Unknown backend enum value renders as `Unknown (<raw>)`, not a page crash.
 
 ### Optimistic concurrency
 
@@ -625,11 +576,15 @@ Entities exposing `version` keep it in frontend state. Mutation sends current ve
 
 ### Destructive/business-significant actions
 
-Close/cancel/reverse/archive/publish must use confirmation dialogs and show business consequence, not only technical action name.
+Close/cancel/reverse/archive/publish use confirmation dialogs and explain the business consequence.
 
 ### Filters
 
 Filters live in URL query state where practical so screens are bookmarkable/shareable. No client-side filtering of unbounded lists.
+
+### Async polling
+
+Import batches, campaign runs/messages and generated documents use bounded polling that stops on terminal state, slows/pauses in background and stops on route unmount.
 
 ### Loading
 
@@ -644,7 +599,7 @@ FW-UX3 Customers + contacts + segments
 FW-UX4 Contracts
 FW-UX5 Invoices + payments + allocations
 FW-UX6 Collections workspace
-FW-UX7 Templates
+FW-UX7 Templates / Builder
 FW-UX8 Campaigns + runs + messages
 FW-UX9 Imports + files
 FW-UX10 Administration + profile
@@ -659,5 +614,7 @@ This UI baseline is accepted when:
 - user commands map to explicit backend commands;
 - tenant/security model is respected;
 - large lists use server paging/filter/sort;
+- list projections avoid frontend N+1/fan-out;
 - provider-specific channel implementation does not leak into ordinary operator UX;
-- screen hierarchy supports the end-to-end business process defined in `frontend-user-processes.md`.
+- screen hierarchy supports the end-to-end business process defined in `frontend-user-processes.md`;
+- the screen/API contract is tracked by `frontend-screen-api-matrix.md`.
