@@ -50,6 +50,7 @@ public class SecurityConfig {
                                 .requestMatchers(
                                         "/api/v1/auth/tenants/register",
                                         "/api/v1/auth/login",
+                                        "/api/v1/auth/login/by-slug",
                                         "/api/v1/auth/refresh",
                                         "/api/v1/auth/logout",
                                         "/api/v1/auth/invitations/accept",
