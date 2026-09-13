@@ -69,13 +69,16 @@ class MessageScenarioMatrixTest {
                 .hasMessageContaining("Expected QUEUED");
     }
 
-    @ParameterizedTest(name = "attempt {0}")
+    @ParameterizedTest(name = "provider attempt {0}")
     @MethodSource("attemptCounts")
-    void attemptCountMeansActualProcessingClaims(int attempts) {
+    void attemptCountMeansActualProviderCalls(int attempts) {
         Message message = queuedEmail();
         Instant cursor = T0;
         for (int i = 1; i <= attempts; i++) {
             message.beginAttempt(cursor);
+            assertThat(message.getProcessingAttemptCount()).isEqualTo(i);
+            assertThat(message.getAttemptCount()).isEqualTo(i - 1);
+            assertThat(message.beginProviderAttempt()).isEqualTo(i);
             assertThat(message.getAttemptCount()).isEqualTo(i);
             if (i < attempts) {
                 message.scheduleRetry(cursor.plusSeconds(1), "TEMP", "retry");
@@ -98,9 +101,11 @@ class MessageScenarioMatrixTest {
     void successfulSendClearsRetryAndDiagnosticState() {
         Message message = queuedEmail();
         message.beginAttempt(T0);
+        message.beginProviderAttempt();
         message.scheduleRetry(T1, "TEMP", "retry");
         message.requeue();
         message.beginAttempt(T1.plusSeconds(1));
+        message.beginProviderAttempt();
         message.markSent(" provider-42 ", T1.plusSeconds(2));
 
         assertThat(message.getStatus()).isEqualTo(MessageStatus.SENT);
@@ -143,6 +148,7 @@ class MessageScenarioMatrixTest {
     void blankOptionalProviderIdAndErrorMessageNormalizeToNull() {
         Message sent = queuedEmail();
         sent.beginAttempt(T0);
+        sent.beginProviderAttempt();
         sent.markSent("   ", T1);
         assertThat(sent.getProviderMessageId()).isNull();
 
@@ -293,6 +299,7 @@ class MessageScenarioMatrixTest {
     private static Stream<Arguments> illegalTerminalStates() {
         Message sent = queuedEmail();
         sent.beginAttempt(T0);
+        sent.beginProviderAttempt();
         sent.markSent("id", T1);
         Message failed = queuedEmail();
         failed.beginAttempt(T0);
