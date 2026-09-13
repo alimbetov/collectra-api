@@ -6,3 +6,6 @@ target/
 .env
 data/
 *.zip
+frontendweb/node_modules/
+frontendweb/dist/
+frontendweb/.vite/
