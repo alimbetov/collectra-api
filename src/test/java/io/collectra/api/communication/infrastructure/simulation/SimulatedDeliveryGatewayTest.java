@@ -7,6 +7,7 @@ import io.collectra.api.communication.application.DeliveryFailureKind;
 import io.collectra.api.communication.application.DeliveryResult;
 import io.collectra.api.communication.domain.CommunicationChannel;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
@@ -55,9 +56,12 @@ class SimulatedDeliveryGatewayTest {
         return new DeliveryCommand(
                 messageId,
                 UUID.randomUUID(),
+                messageId.toString(),
+                1,
                 channel,
                 "destination@example.com",
                 channel == CommunicationChannel.EMAIL ? "Subject" : null,
-                "Body");
+                "Body",
+                List.of());
     }
 }
