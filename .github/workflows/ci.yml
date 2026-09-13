@@ -30,3 +30,25 @@ jobs:
         run: bash scripts/test-slice-07.sh unit
       - name: Verify with PostgreSQL Testcontainers
         run: mvn --batch-mode --no-transfer-progress clean verify
+
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: frontendweb
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.20.0"
+          cache: npm
+          cache-dependency-path: frontendweb/package-lock.json
+      - name: Install frontend dependencies
+        run: npm ci
+      - name: Frontend typecheck
+        run: npm run typecheck
+      - name: Frontend tests
+        run: npm run test:ci
+      - name: Frontend production build
+        run: npm run build
