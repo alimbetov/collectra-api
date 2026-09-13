@@ -158,6 +158,10 @@ export async function apiRequest<T>(
     }
   }
 
+  if (response.status === 401 && auth) {
+    invalidateSession();
+  }
+
   if (!response.ok) {
     throw new ApiError(response.status, await readProblem(response));
   }
