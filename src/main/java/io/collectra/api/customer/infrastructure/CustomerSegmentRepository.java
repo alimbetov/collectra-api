@@ -1,6 +1,7 @@
 package io.collectra.api.customer.infrastructure;
 
 import io.collectra.api.customer.domain.CustomerSegment;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -14,4 +15,6 @@ public interface CustomerSegmentRepository
     Optional<CustomerSegment> findByTenantIdAndCode(UUID tenantId, String code);
 
     List<CustomerSegment> findAllByTenantIdOrderByNameAsc(UUID tenantId);
+
+    List<CustomerSegment> findAllByTenantIdAndIdIn(UUID tenantId, Collection<UUID> ids);
 }
