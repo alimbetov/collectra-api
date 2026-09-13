@@ -181,9 +181,10 @@ public class Message extends AuditableEntity {
     }
 
     public void beginAttempt(Instant now) {
+        Instant startedAt = Objects.requireNonNull(now, "now is required");
         requireStatus(MessageStatus.QUEUED);
         status = MessageStatus.PROCESSING;
-        processingStartedAt = Objects.requireNonNull(now, "now is required");
+        processingStartedAt = startedAt;
         processingAttemptCount++;
     }
 
@@ -264,47 +265,6 @@ public class Message extends AuditableEntity {
         requireStatus(MessageStatus.RETRY_WAIT);
         status = MessageStatus.QUEUED;
         nextRetryAt = null;
-    }
-
-    private static String normalizedErrorCode(String errorCode) {
-        return limit(required(errorCode, "errorCode"), ERROR_CODE_MAX_LENGTH);
-    }
-
-    private void requireStatus(MessageStatus expected) {
-        if (status != expected) {
-            throw new IllegalStateException("Expected " + expected + " but was " + status);
-        }
-    }
-
-    private static String required(String value, String field) {
-        if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException(field + " is required");
-        }
-        return value.trim();
-    }
-
-    private static String required(String value, String field, int maxLength) {
-        String normalized = required(value, field);
-        if (normalized.length() > maxLength) {
-            throw new IllegalArgumentException(field + " exceeds " + maxLength + " characters");
-        }
-        return normalized;
-    }
-
-    private static String optional(String value, String field, int maxLength) {
-        String normalized = trim(value);
-        if (normalized != null && normalized.length() > maxLength) {
-            throw new IllegalArgumentException(field + " exceeds " + maxLength + " characters");
-        }
-        return normalized;
-    }
-
-    private static String trim(String value) {
-        return value == null || value.isBlank() ? null : value.trim();
-    }
-
-    private static String limit(String value, int maxLength) {
-        return value == null || value.length() <= maxLength ? value : value.substring(0, maxLength);
     }
 
     public UUID getId() {
@@ -401,5 +361,56 @@ public class Message extends AuditableEntity {
 
     public Instant getSentAt() {
         return sentAt;
+    }
+
+    private void requireStatus(MessageStatus expected) {
+        if (status != expected) {
+            throw new IllegalStateException(
+                    "Expected " + expected + " message but was " + status + " for " + id);
+        }
+    }
+
+    private static String normalizedErrorCode(String value) {
+        String normalized = required(value, "errorCode", ERROR_CODE_MAX_LENGTH);
+        return limit(normalized, ERROR_CODE_MAX_LENGTH);
+    }
+
+    private static String required(String value, String field) {
+        String normalized = trim(value);
+        if (normalized == null) {
+            throw new IllegalArgumentException(field + " is required");
+        }
+        return normalized;
+    }
+
+    private static String required(String value, String field, int maxLength) {
+        String normalized = required(value, field);
+        if (normalized.length() > maxLength) {
+            throw new IllegalArgumentException(field + " exceeds max length " + maxLength);
+        }
+        return normalized;
+    }
+
+    private static String optional(String value, String field, int maxLength) {
+        String normalized = trim(value);
+        if (normalized != null && normalized.length() > maxLength) {
+            throw new IllegalArgumentException(field + " exceeds max length " + maxLength);
+        }
+        return normalized;
+    }
+
+    private static String trim(String value) {
+        if (value == null) {
+            return null;
+        }
+        String normalized = value.trim();
+        return normalized.isEmpty() ? null : normalized;
+    }
+
+    private static String limit(String value, int maxLength) {
+        if (value == null || value.length() <= maxLength) {
+            return value;
+        }
+        return value.substring(0, maxLength);
     }
 }
