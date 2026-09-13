@@ -18,6 +18,7 @@ class MessageTest {
 
         assertThat(message.getStatus()).isEqualTo(MessageStatus.QUEUED);
         assertThat(message.getAttemptCount()).isZero();
+        assertThat(message.getProcessingAttemptCount()).isZero();
         assertThat(message.getDestination()).isEqualTo("customer@example.com");
         assertThat(message.getResolvedLocale()).isEqualTo("ru-KZ");
         assertThat(message.getSubject()).isEqualTo("Payment reminder");
@@ -49,8 +50,12 @@ class MessageTest {
 
         message.beginAttempt(STARTED_AT);
         assertThat(message.getStatus()).isEqualTo(MessageStatus.PROCESSING);
-        assertThat(message.getAttemptCount()).isOne();
+        assertThat(message.getProcessingAttemptCount()).isOne();
+        assertThat(message.getAttemptCount()).isZero();
         assertThat(message.getProcessingStartedAt()).isEqualTo(STARTED_AT);
+
+        assertThat(message.beginProviderAttempt()).isOne();
+        assertThat(message.getAttemptCount()).isOne();
 
         message.markSent(null, SENT_AT);
         assertThat(message.getStatus()).isEqualTo(MessageStatus.SENT);
@@ -61,7 +66,7 @@ class MessageTest {
     }
 
     @Test
-    void schedulesRetryAndRequeuesWithoutIncreasingAttemptCount() {
+    void schedulesRetryAndRequeuesWithoutIncreasingProviderAttemptCount() {
         Message message = queuedEmail();
         message.beginAttempt(STARTED_AT);
 
@@ -74,10 +79,12 @@ class MessageTest {
         message.requeue();
         assertThat(message.getStatus()).isEqualTo(MessageStatus.QUEUED);
         assertThat(message.getNextRetryAt()).isNull();
-        assertThat(message.getAttemptCount()).isOne();
+        assertThat(message.getAttemptCount()).isZero();
+        assertThat(message.getProcessingAttemptCount()).isOne();
 
         message.beginAttempt(RETRY_AT);
-        assertThat(message.getAttemptCount()).isEqualTo(2);
+        assertThat(message.getAttemptCount()).isZero();
+        assertThat(message.getProcessingAttemptCount()).isEqualTo(2);
     }
 
     @Test
@@ -97,6 +104,7 @@ class MessageTest {
     void rejectsInvalidTransitionsAndRetryTime() {
         Message sent = queuedEmail();
         sent.beginAttempt(STARTED_AT);
+        sent.beginProviderAttempt();
         sent.markSent("provider-id", SENT_AT);
 
         assertThatThrownBy(() -> sent.beginAttempt(RETRY_AT))
@@ -126,6 +134,7 @@ class MessageTest {
                 .hasMessageContaining("now");
         assertThat(queued.getStatus()).isEqualTo(MessageStatus.QUEUED);
         assertThat(queued.getAttemptCount()).isZero();
+        assertThat(queued.getProcessingAttemptCount()).isZero();
 
         Message processing = queuedEmail();
         processing.beginAttempt(STARTED_AT);
