@@ -371,7 +371,7 @@ public class Message extends AuditableEntity {
     }
 
     private static String normalizedErrorCode(String value) {
-        String normalized = required(value, "errorCode", ERROR_CODE_MAX_LENGTH);
+        String normalized = required(value, "errorCode");
         return limit(normalized, ERROR_CODE_MAX_LENGTH);
     }
 
