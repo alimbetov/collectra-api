@@ -7,6 +7,11 @@ interface LoginLocationState {
   from?: string;
 }
 
+function safePostLoginPath(state: LoginLocationState | null): string {
+  const candidate = state?.from;
+  return candidate && candidate.startsWith('/') && !candidate.startsWith('//') ? candidate : '/';
+}
+
 export function LoginPage() {
   const { login, status } = useAuth();
   const navigate = useNavigate();
@@ -27,9 +32,9 @@ export function LoginPage() {
     setSubmitting(true);
 
     try {
-      await login({ tenantSlug: tenantSlug.trim(), email: email.trim(), password });
+      await login({ tenantSlug: tenantSlug.trim().toLowerCase(), email: email.trim(), password });
       const state = location.state as LoginLocationState | null;
-      navigate(state?.from || '/', { replace: true });
+      navigate(safePostLoginPath(state), { replace: true });
     } catch (error) {
       if (error instanceof ApiError) {
         setErrorMessage(error.problem?.detail ?? error.problem?.title ?? 'Unable to sign in');
@@ -56,7 +61,7 @@ export function LoginPage() {
               name="tenantSlug"
               autoComplete="organization"
               value={tenantSlug}
-              onChange={(event) => setTenantSlug(event.target.value)}
+              onChange={(event) => setTenantSlug(event.target.value.toLowerCase())}
               required
               pattern="[a-z0-9-]{3,80}"
             />
