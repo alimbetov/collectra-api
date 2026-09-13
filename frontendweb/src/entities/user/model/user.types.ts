@@ -3,9 +3,9 @@ import type { UUID } from '../../../shared/api/contracts';
 export interface MeDto {
   id: UUID;
   email: string;
-  displayName: string;
-  locale: string;
-  timezone: string;
+  displayName: string | null;
+  locale: string | null;
+  timezone: string | null;
   membershipId: UUID;
   membershipStatus: string;
   roles: string[];
