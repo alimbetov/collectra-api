@@ -20,6 +20,21 @@
 | 8 | [Delivery API and observability](slice-08-delivery-api-observability.md) | READY AFTER 2–7 | support API, metrics, logging and production visibility |
 | 9 | [Frontend API Completion](slice-09-frontend-api-completion.md) | READY FOR IMPLEMENTATION | normalize existing frontend APIs, add Contract/Collection bounded domains and freeze `/api/v1` contract |
 
+## Post-Slice 10A hardening plan
+
+Master plan: [Post-Slice 10A Hardening Roadmap](post-slice10a-hardening-roadmap.md).
+
+| Order | Specification | Purpose |
+|---|---|---|
+| A0 | [Frontend API Baseline Freeze](frontend-api-baseline-freeze.md) | freeze actual `/api/v1` contract so frontend can proceed independently |
+| B0 | [Test Infrastructure Cleanup](test-infrastructure-cleanup.md) | disable RabbitMQ schedulers/background activity in generic tests and make runtime deterministic |
+| B1 | [Slice 10A Final Closure](slice-10a-final-closure.md) | close mandatory P08/P11/P02/P10 scenarios and enforce 95/90 critical-core gate |
+| B4 | [Slice 10B RabbitMQ Production Hardening](slice-10b-rabbitmq-production-hardening.md) | DLQ/restart/redelivery/publisher-confirm/ambiguous-outcome hardening |
+| B5 | [Real KumoMTA Environment and Acceptance](real-kumomta-environment-acceptance.md) | prove real inject, remote SMTP outcome and reconciliation |
+| B6-B9 | [Real Channel Adapters Roadmap](real-channel-adapters-roadmap.md) | SMS -> Telegram -> WhatsApp -> In-App/Push |
+
+Frontend work and delivery hardening are intentionally parallel tracks. Frontend implementation MUST NOT wait for RabbitMQ production hardening or real providers unless a concrete screen depends on those providers.
+
 ## Dependency chain
 
 ```text
@@ -69,7 +84,7 @@ Slice 4 Kumo   Slice 5 materialization
 
 ## Что означает implementation-ready
 
-Каждое ТЗ Slice 2–9 фиксирует:
+Каждое ТЗ фиксирует:
 
 - цель и зависимости;
 - текущий baseline, который нельзя строить повторно;
@@ -86,11 +101,11 @@ Slice 4 Kumo   Slice 5 materialization
 - explicit out-of-scope;
 - Definition of Done.
 
-ТЗ является стартовым техническим контрактом PR. Перед началом конкретного Slice разработчик всё равно обязан сверить его с актуальным `main`: если предыдущий PR уже реализовал часть scope или изменил имя класса/contract, ТЗ корректируется по фактическому коду, а не наоборот.
+ТЗ является стартовым техническим контрактом PR. Перед началом конкретного Slice разработчик обязан сверить его с актуальным `main`: если предыдущий PR уже реализовал часть scope или изменил имя класса/contract, ТЗ корректируется по фактическому коду, а не наоборот.
 
 ## Правила реализации
 
-1. Один Slice — один узкий PR, если diff не требует обоснованного разделения. Slice 9 является master-spec: 9A разделён на 9A-1 Customer/Segment normalization и 9A-2 Contract foundation; 9B–9D реализуются отдельными reviewable PR.
+1. Один Slice — один узкий PR, если diff не требует обоснованного разделения.
 2. Branch создаётся от актуального `main`, а не от documentation branch.
 3. Не вводить новый framework/abstraction, если существующая инфраструктура решает задачу.
 4. Domain state меняется через domain methods/commands, не прямым `setStatus`.
@@ -101,7 +116,7 @@ Slice 4 Kumo   Slice 5 materialization
 9. Schema меняется Liquibase migration только когда реально требуется.
 10. Для persistence/concurrency использовать PostgreSQL integration tests, не только H2/mock tests.
 11. Все integration tests соблюдают общий [test-runtime contract](integration-test-runtime.md).
-12. `mvn verify` обязан быть green перед PR completion.
+12. `mvn verify` обязан быть green перед PR completion; Slice 10A closure дополнительно требует `-Pslice10a-coverage`.
 13. PR не мержится автоматически без явного решения.
 
 ## Общие архитектурные ограничения
@@ -126,7 +141,7 @@ Transactional Outbox
     единственный DB -> broker publication mechanism
 ```
 
-Для Slice 9 дополнительно:
+Для frontend API дополнительно:
 
 ```text
 Frontend
@@ -159,6 +174,6 @@ Collection
 - CI `main` не красный по независимой причине;
 - полный integration suite укладывается в connection budget из [test-runtime contract](integration-test-runtime.md);
 - внешние contracts, если они есть, подтверждены;
-- для Slice 9 повторно подтверждены current domain ownership и existing API paths.
+- для frontend work повторно подтверждены current domain ownership и existing API paths.
 
 После этого реализация может идти прямо по разделу `Implementation order` соответствующего ТЗ.
