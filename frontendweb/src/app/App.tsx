@@ -1,4 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom';
+import { useAuth } from '../features/auth/model/auth-context';
 
 const navigation = [
   ['Dashboard', '/'],
@@ -12,6 +13,8 @@ const navigation = [
 ] as const;
 
 export function App() {
+  const { user, logout } = useAuth();
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -33,10 +36,16 @@ export function App() {
         <header className="topbar">
           <div>
             <strong>Operations workspace</strong>
-            <span className="environment">Frontend shell</span>
+            <span className="environment">Authenticated session</span>
           </div>
-          <div className="user-placeholder" aria-label="Current user">
-            Session pending FW1
+          <div className="session-summary" aria-label="Current user">
+            <div>
+              <strong>{user?.displayName || user?.email}</strong>
+              <span>{user?.email}</span>
+            </div>
+            <button type="button" className="secondary-button" onClick={() => void logout()}>
+              Sign out
+            </button>
           </div>
         </header>
         <section className="page-content">
