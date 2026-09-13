@@ -77,27 +77,55 @@ async function execute(path: string, options: ApiRequestOptions): Promise<Respon
   return fetch(path, prepareRequest(options));
 }
 
-let refreshPromise: Promise<boolean> | null = null;
+function invalidateSession(): false {
+  clearTokens();
+  emitSessionLost();
+  return false;
+}
 
-async function performRefresh(refreshToken: string): Promise<boolean> {
-  const response = await fetch('/api/v1/auth/refresh', {
-    method: 'POST',
-    headers: {
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ refreshToken }),
-  });
-
-  if (!response.ok) {
-    clearTokens();
-    emitSessionLost();
+function isAuthTokens(value: unknown): value is AuthTokens {
+  if (!value || typeof value !== 'object') {
     return false;
   }
 
-  const tokens = (await response.json()) as AuthTokens;
-  setTokens(tokens);
-  return true;
+  const candidate = value as Partial<AuthTokens>;
+  return (
+    typeof candidate.accessToken === 'string' &&
+    candidate.accessToken.length > 0 &&
+    typeof candidate.refreshToken === 'string' &&
+    candidate.refreshToken.length > 0 &&
+    typeof candidate.tokenType === 'string' &&
+    typeof candidate.expiresIn === 'number'
+  );
+}
+
+let refreshPromise: Promise<boolean> | null = null;
+
+async function performRefresh(refreshToken: string): Promise<boolean> {
+  try {
+    const response = await fetch('/api/v1/auth/refresh', {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ refreshToken }),
+    });
+
+    if (!response.ok) {
+      return invalidateSession();
+    }
+
+    const tokens: unknown = await response.json();
+    if (!isAuthTokens(tokens)) {
+      return invalidateSession();
+    }
+
+    setTokens(tokens);
+    return true;
+  } catch {
+    return invalidateSession();
+  }
 }
 
 export function refreshAccessToken(): Promise<boolean> {
