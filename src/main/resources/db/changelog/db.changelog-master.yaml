@@ -59,3 +59,7 @@ databaseChangeLog:
       file: db/changelog/changes/032-slice-09b-receivable-payment-hardening.sql
   - include:
       file: db/changelog/changes/033-slice-09c-collection-domain.sql
+  - include:
+      file: db/changelog/changes/034-delivery-attempt-idempotency.sql
+  - include:
+      file: db/changelog/changes/035-message-processing-attempt-count.sql

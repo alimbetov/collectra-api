@@ -18,6 +18,7 @@ public record DeliveryOutcomeEvent(
     public enum Outcome {
         SENT,
         FAILED,
-        RETRY_SCHEDULED
+        RETRY_SCHEDULED,
+        UNKNOWN
     }
 }

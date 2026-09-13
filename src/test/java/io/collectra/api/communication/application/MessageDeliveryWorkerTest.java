@@ -1,5 +1,6 @@
 package io.collectra.api.communication.application;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -22,6 +23,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class MessageDeliveryWorkerTest {
     private static final Instant NOW = Instant.parse("2026-09-11T10:00:00Z");
+    private static final String DELIVERY_KEY = "msg-test-delivery-key";
 
     @Mock MessageStateService states;
     @Mock MessageAttachmentContentResolver attachmentContent;
@@ -52,6 +54,18 @@ class MessageDeliveryWorkerTest {
         worker.deliver(tenantId, messageId);
 
         verify(states).markSent(tenantId, messageId, "kumo-1");
+    }
+
+    @Test
+    void ambiguousDeliveryMarksUnknownAndDoesNotScheduleRetry() {
+        claim(1);
+        when(gateway.deliver(any()))
+                .thenReturn(new DeliveryResult.Unknown("PROVIDER_TIMEOUT", "response lost"));
+
+        worker.deliver(tenantId, messageId);
+
+        verify(states).markUnknown(tenantId, messageId, "PROVIDER_TIMEOUT", "response lost");
+        verify(states, never()).scheduleRetry(any(), any(), any(), any(), any());
     }
 
     @Test
@@ -105,11 +119,12 @@ class MessageDeliveryWorkerTest {
         worker.deliver(tenantId, messageId);
 
         verify(attachmentContent, never()).resolve(any(), any());
+        verify(states, never()).beginProviderAttempt(any(), any());
         verify(gateway, never()).deliver(any());
     }
 
     @Test
-    void sendsResolvedAttachmentsToGateway() {
+    void sendsResolvedAttachmentsAndStableAttemptIdentityToGateway() {
         claim(1);
         DeliveryAttachment attachment =
                 new DeliveryAttachment("invoice.pdf", "application/pdf", new byte[] {1, 2, 3});
@@ -120,12 +135,13 @@ class MessageDeliveryWorkerTest {
         worker.deliver(tenantId, messageId);
 
         verify(gateway).deliver(command.capture());
-        org.assertj.core.api.Assertions.assertThat(command.getValue().attachments())
-                .containsExactly(attachment);
+        assertThat(command.getValue().attachments()).containsExactly(attachment);
+        assertThat(command.getValue().deliveryKey()).isEqualTo(DELIVERY_KEY);
+        assertThat(command.getValue().attemptNo()).isOne();
     }
 
     @Test
-    void retryableAttachmentReadFailureSchedulesRetryWithoutCallingProvider() {
+    void retryableAttachmentReadFailureSchedulesRetryWithoutProviderAttempt() {
         claimWithoutAttachmentsStub(2);
         when(attachmentContent.resolve(tenantId, messageId))
                 .thenThrow(
@@ -143,6 +159,7 @@ class MessageDeliveryWorkerTest {
                         NOW.plusSeconds(600),
                         "ATTACHMENT_STORAGE_READ_FAILED",
                         "Temporary attachment storage read failure");
+        verify(states, never()).beginProviderAttempt(any(), any());
         verify(gateway, never()).deliver(any());
     }
 
@@ -164,6 +181,7 @@ class MessageDeliveryWorkerTest {
                         messageId,
                         "ATTACHMENT_OBJECT_MISSING",
                         "Attachment object is missing");
+        verify(states, never()).beginProviderAttempt(any(), any());
         verify(gateway, never()).deliver(any());
     }
 
@@ -176,11 +194,13 @@ class MessageDeliveryWorkerTest {
         worker.deliver(tenantId, messageId);
 
         verify(gateway).deliver(command.capture());
-        org.assertj.core.api.Assertions.assertThat(command.getValue())
+        assertThat(command.getValue())
                 .isEqualTo(
                         new DeliveryCommand(
                                 messageId,
                                 tenantId,
+                                DELIVERY_KEY,
+                                1,
                                 CommunicationChannel.EMAIL,
                                 "client@example.com",
                                 "Subject",
@@ -188,12 +208,14 @@ class MessageDeliveryWorkerTest {
                                 List.of()));
     }
 
-    private void claim(int attemptCount) {
-        claimWithoutAttachmentsStub(attemptCount);
+    private void claim(int providerAttemptNo) {
+        claimWithoutAttachmentsStub(providerAttemptNo);
+        when(states.beginProviderAttempt(tenantId, messageId))
+                .thenReturn(Optional.of(new ProviderAttemptSnapshot(DELIVERY_KEY, providerAttemptNo)));
         when(attachmentContent.resolve(tenantId, messageId)).thenReturn(List.of());
     }
 
-    private void claimWithoutAttachmentsStub(int attemptCount) {
+    private void claimWithoutAttachmentsStub(int processingAttemptNo) {
         when(states.begin(tenantId, messageId))
                 .thenReturn(
                         Optional.of(
@@ -205,6 +227,7 @@ class MessageDeliveryWorkerTest {
                                         "client@example.com",
                                         "Subject",
                                         "<p>Body</p>",
-                                        attemptCount)));
+                                        Math.max(0, processingAttemptNo - 1),
+                                        processingAttemptNo)));
     }
 }

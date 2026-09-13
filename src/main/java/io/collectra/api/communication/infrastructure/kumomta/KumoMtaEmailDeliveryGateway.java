@@ -43,14 +43,25 @@ public class KumoMtaEmailDeliveryGateway implements DeliveryGateway {
             KumoMtaInjectResponse response = client.inject(toRequest(command));
             if (response != null && response.acceptedSingleRecipient()) {
                 log.info(
-                        "KumoMTA injection accepted tenantId={} messageId={} httpStatus=200 latencyMs={}",
+                        "KumoMTA injection accepted tenantId={} messageId={} attemptNo={} httpStatus=200 latencyMs={}",
                         command.tenantId(),
                         command.messageId(),
+                        command.attemptNo(),
                         elapsedMillis(started));
                 return new DeliveryResult.Accepted(null);
             }
             return reject(command, errors.classifyResponse(response), "200", started);
         } catch (RuntimeException failure) {
+            if (errors.isAmbiguous(failure)) {
+                log.warn(
+                        "KumoMTA outcome ambiguous tenantId={} messageId={} attemptNo={} latencyMs={}",
+                        command.tenantId(),
+                        command.messageId(),
+                        command.attemptNo(),
+                        elapsedMillis(started));
+                return new DeliveryResult.Unknown(
+                        "KUMO_READ_TIMEOUT", "KumoMTA response timed out after request dispatch");
+            }
             return reject(command, errors.classify(failure), httpStatus(failure), started);
         }
     }
@@ -75,7 +86,11 @@ public class KumoMtaEmailDeliveryGateway implements DeliveryGateway {
                                         "collectra_message_id",
                                         command.messageId().toString(),
                                         "collectra_tenant_id",
-                                        command.tenantId().toString()))),
+                                        command.tenantId().toString(),
+                                        "collectra_delivery_key",
+                                        command.deliveryKey(),
+                                        "collectra_attempt_no",
+                                        Integer.toString(command.attemptNo())))),
                 "Static",
                 false,
                 false);
@@ -117,9 +132,10 @@ public class KumoMtaEmailDeliveryGateway implements DeliveryGateway {
             String httpStatus,
             long started) {
         log.warn(
-                "KumoMTA injection rejected tenantId={} messageId={} httpStatus={} code={} kind={} latencyMs={}",
+                "KumoMTA injection rejected tenantId={} messageId={} attemptNo={} httpStatus={} code={} kind={} latencyMs={}",
                 command.tenantId(),
                 command.messageId(),
+                command.attemptNo(),
                 httpStatus,
                 classification.code(),
                 classification.kind(),

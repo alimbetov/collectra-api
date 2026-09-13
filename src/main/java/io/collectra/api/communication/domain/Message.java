@@ -23,6 +23,7 @@ public class Message extends AuditableEntity {
     private static final int DESTINATION_MAX_LENGTH = 500;
     private static final int LOCALE_MAX_LENGTH = 35;
     private static final int SUBJECT_MAX_LENGTH = 500;
+    private static final int DELIVERY_KEY_MAX_LENGTH = 100;
     private static final int PROVIDER_MESSAGE_ID_MAX_LENGTH = 255;
     private static final int ERROR_CODE_MAX_LENGTH = 80;
     private static final int ERROR_MESSAGE_MAX_LENGTH = 1000;
@@ -70,11 +71,21 @@ public class Message extends AuditableEntity {
     @Column(nullable = false, length = 20)
     private MessageStatus status;
 
+    @Column(
+            name = "delivery_key",
+            nullable = false,
+            length = DELIVERY_KEY_MAX_LENGTH,
+            unique = true)
+    private String deliveryKey;
+
     @Column(name = "delivery_requested_at")
     private Instant deliveryRequestedAt;
 
     @Column(name = "attempt_count", nullable = false)
     private int attemptCount;
+
+    @Column(name = "processing_attempt_count", nullable = false)
+    private int processingAttemptCount;
 
     @Column(name = "processing_started_at")
     private Instant processingStartedAt;
@@ -127,6 +138,7 @@ public class Message extends AuditableEntity {
             throw new IllegalArgumentException("subject is required for EMAIL");
         }
         this.body = required(body, "body");
+        this.deliveryKey = "msg-" + id;
         this.status = MessageStatus.QUEUED;
     }
 
@@ -170,14 +182,28 @@ public class Message extends AuditableEntity {
 
     public void beginAttempt(Instant now) {
         requireStatus(MessageStatus.QUEUED);
-        Instant startedAt = Objects.requireNonNull(now, "now is required");
         status = MessageStatus.PROCESSING;
+        processingStartedAt = Objects.requireNonNull(now, "now is required");
+        processingAttemptCount++;
+    }
+
+    public int beginProviderAttempt() {
+        requireStatus(MessageStatus.PROCESSING);
         attemptCount++;
-        processingStartedAt = startedAt;
+        return attemptCount;
     }
 
     public void markSent(String providerMessageId, Instant now) {
         requireStatus(MessageStatus.PROCESSING);
+        completeAsSent(providerMessageId, now);
+    }
+
+    public void resolveUnknownAsSent(String providerMessageId, Instant now) {
+        requireStatus(MessageStatus.UNKNOWN);
+        completeAsSent(providerMessageId, now);
+    }
+
+    private void completeAsSent(String providerMessageId, Instant now) {
         Instant acceptedAt = Objects.requireNonNull(now, "now is required");
         String normalizedProviderMessageId =
                 optional(providerMessageId, "providerMessageId", PROVIDER_MESSAGE_ID_MAX_LENGTH);
@@ -188,6 +214,15 @@ public class Message extends AuditableEntity {
         nextRetryAt = null;
         lastErrorCode = null;
         lastErrorMessage = null;
+    }
+
+    public void markUnknown(String errorCode, String errorMessage) {
+        requireStatus(MessageStatus.PROCESSING);
+        status = MessageStatus.UNKNOWN;
+        processingStartedAt = null;
+        nextRetryAt = null;
+        lastErrorCode = normalizedErrorCode(errorCode);
+        lastErrorMessage = limit(trim(errorMessage), ERROR_MESSAGE_MAX_LENGTH);
     }
 
     public void scheduleRetry(Instant nextRetryAt, String errorCode, String errorMessage) {
@@ -328,12 +363,20 @@ public class Message extends AuditableEntity {
         return status;
     }
 
+    public String getDeliveryKey() {
+        return deliveryKey;
+    }
+
     public Instant getDeliveryRequestedAt() {
         return deliveryRequestedAt;
     }
 
     public int getAttemptCount() {
         return attemptCount;
+    }
+
+    public int getProcessingAttemptCount() {
+        return processingAttemptCount;
     }
 
     public Instant getProcessingStartedAt() {

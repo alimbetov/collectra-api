@@ -12,6 +12,7 @@ import io.collectra.api.communication.domain.Message;
 import io.collectra.api.communication.domain.MessageAttachmentStatus;
 import io.collectra.api.communication.domain.MessageStatus;
 import io.collectra.api.communication.infrastructure.MessageAttachmentRepository;
+import io.collectra.api.communication.infrastructure.MessageDeliveryAttemptRepository;
 import io.collectra.api.communication.infrastructure.MessageRepository;
 import java.time.Clock;
 import java.time.Instant;
@@ -26,6 +27,8 @@ class MessageStateServiceAttachmentGateTest {
 
     private final MessageRepository messages = mock(MessageRepository.class);
     private final MessageAttachmentRepository attachments = mock(MessageAttachmentRepository.class);
+    private final MessageDeliveryAttemptRepository deliveryAttempts =
+            mock(MessageDeliveryAttemptRepository.class);
     private final CampaignRunRepository runs = mock(CampaignRunRepository.class);
     private final MessageRetryPolicy retryPolicy = new MessageRetryPolicy();
     private final ApplicationEventPublisher events = mock(ApplicationEventPublisher.class);
@@ -33,6 +36,7 @@ class MessageStateServiceAttachmentGateTest {
             new MessageStateService(
                     messages,
                     attachments,
+                    deliveryAttempts,
                     runs,
                     retryPolicy,
                     Clock.fixed(NOW, ZoneOffset.UTC),
@@ -51,10 +55,11 @@ class MessageStateServiceAttachmentGateTest {
 
         assertThat(message.getStatus()).isEqualTo(MessageStatus.QUEUED);
         assertThat(message.getAttemptCount()).isZero();
+        assertThat(message.getProcessingAttemptCount()).isZero();
     }
 
     @Test
-    void allRequiredReadyAllowsProcessing() {
+    void allRequiredReadyAllowsProcessingWithoutCountingProviderCall() {
         Message message = queued();
         when(messages.findLockedByIdAndTenantId(message.getTenantId(), message.getId()))
                 .thenReturn(Optional.of(message));
@@ -67,7 +72,8 @@ class MessageStateServiceAttachmentGateTest {
 
         assertThat(result).isPresent();
         assertThat(message.getStatus()).isEqualTo(MessageStatus.PROCESSING);
-        assertThat(message.getAttemptCount()).isEqualTo(1);
+        assertThat(message.getAttemptCount()).isZero();
+        assertThat(message.getProcessingAttemptCount()).isOne();
         assertThat(message.getProcessingStartedAt()).isEqualTo(NOW);
     }
 

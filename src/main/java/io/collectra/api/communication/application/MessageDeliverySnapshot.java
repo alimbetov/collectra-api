@@ -11,4 +11,5 @@ public record MessageDeliverySnapshot(
         String destination,
         String subject,
         String body,
-        int attemptCount) {}
+        int attemptCount,
+        int processingAttemptCount) {}

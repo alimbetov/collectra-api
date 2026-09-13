@@ -10,20 +10,23 @@ import io.collectra.api.communication.application.DeliveryCommand;
 import io.collectra.api.communication.application.DeliveryFailureKind;
 import io.collectra.api.communication.application.DeliveryResult;
 import io.collectra.api.communication.domain.CommunicationChannel;
+import java.net.SocketTimeoutException;
 import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.web.client.ResourceAccessException;
 
 class KumoMtaEmailDeliveryGatewayTest {
+    private static final String DELIVERY_KEY = "msg-kumo-test";
     private final KumoMtaClient client = mock(KumoMtaClient.class);
     private final KumoMtaProperties properties = properties();
     private final KumoMtaEmailDeliveryGateway gateway =
             new KumoMtaEmailDeliveryGateway(client, properties, new KumoMtaErrorClassifier());
 
     @Test
-    void mapsRenderedEmailToStaticSingleRecipientRequest() {
+    void mapsRenderedEmailAndStableDeliveryIdentityToStaticSingleRecipientRequest() {
         DeliveryCommand command = email("Subject {{already-rendered}}", "<p>Body {{fixed}}</p>");
         when(client.inject(org.mockito.ArgumentMatchers.any()))
                 .thenReturn(new KumoMtaInjectResponse(1, 0, List.of(), List.of()));
@@ -45,10 +48,26 @@ class KumoMtaEmailDeliveryGatewayTest {
         assertThat(request.getValue().recipients().get(0).email()).isEqualTo(command.destination());
         assertThat(request.getValue().recipients().get(0).metadata())
                 .containsEntry("collectra_message_id", command.messageId().toString())
-                .containsEntry("collectra_tenant_id", command.tenantId().toString());
+                .containsEntry("collectra_tenant_id", command.tenantId().toString())
+                .containsEntry("collectra_delivery_key", DELIVERY_KEY)
+                .containsEntry("collectra_attempt_no", "1");
         assertThat(request.getValue().templateDialect()).isEqualTo("Static");
         assertThat(request.getValue().deferredGeneration()).isFalse();
         assertThat(request.getValue().deferredSpool()).isFalse();
+    }
+
+    @Test
+    void readTimeoutAfterDispatchIsAmbiguousInsteadOfRetryable() {
+        when(client.inject(org.mockito.ArgumentMatchers.any()))
+                .thenThrow(
+                        new ResourceAccessException(
+                                "read timeout", new SocketTimeoutException("read timed out")));
+
+        DeliveryResult result = gateway.deliver(email("S", "B"));
+
+        assertThat(result).isInstanceOf(DeliveryResult.Unknown.class);
+        DeliveryResult.Unknown unknown = (DeliveryResult.Unknown) result;
+        assertThat(unknown.code()).isEqualTo("KUMO_READ_TIMEOUT");
     }
 
     @Test
@@ -60,6 +79,8 @@ class KumoMtaEmailDeliveryGatewayTest {
                 new DeliveryCommand(
                         UUID.randomUUID(),
                         UUID.randomUUID(),
+                        DELIVERY_KEY,
+                        1,
                         CommunicationChannel.EMAIL,
                         "client@example.com",
                         "Invoice",
@@ -101,10 +122,13 @@ class KumoMtaEmailDeliveryGatewayTest {
                 new DeliveryCommand(
                         UUID.randomUUID(),
                         UUID.randomUUID(),
+                        DELIVERY_KEY,
+                        1,
                         CommunicationChannel.SMS,
                         "+77010000000",
                         null,
-                        "body");
+                        "body",
+                        List.of());
 
         assertThat(((DeliveryResult.Rejected) gateway.deliver(sms)).code())
                 .isEqualTo("UNSUPPORTED_CHANNEL");
@@ -120,10 +144,13 @@ class KumoMtaEmailDeliveryGatewayTest {
         return new DeliveryCommand(
                 UUID.randomUUID(),
                 UUID.randomUUID(),
+                DELIVERY_KEY,
+                1,
                 CommunicationChannel.EMAIL,
                 destination,
                 subject,
-                body);
+                body,
+                List.of());
     }
 
     private KumoMtaProperties properties() {

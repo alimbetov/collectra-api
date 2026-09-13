@@ -15,4 +15,13 @@ public sealed interface DeliveryResult {
             code = code.trim();
         }
     }
+
+    record Unknown(String code, String message) implements DeliveryResult {
+        public Unknown {
+            if (code == null || code.isBlank()) {
+                throw new IllegalArgumentException("code is required");
+            }
+            code = code.trim();
+        }
+    }
 }
