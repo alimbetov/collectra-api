@@ -102,6 +102,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
       if (refreshToken) {
         await logoutRequest(refreshToken);
       }
+    } catch {
+      // Browser session cleanup must succeed even if server-side revocation is temporarily unavailable.
     } finally {
       clearSession();
     }
