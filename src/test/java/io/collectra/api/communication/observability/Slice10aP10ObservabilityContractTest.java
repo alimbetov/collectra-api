@@ -78,6 +78,58 @@ class Slice10aP10ObservabilityContractTest {
     }
 
     @Test
+    void unknownOutcomeIsExposedAsBoundedMetricAndStructuredLogEvent() {
+        var registry = new SimpleMeterRegistry();
+        var metrics = new MessageDeliveryMetrics(registry, new DeliveryErrorSummary());
+        UUID tenantId = UUID.randomUUID();
+        UUID campaignId = UUID.randomUUID();
+        UUID runId = UUID.randomUUID();
+        UUID messageId = UUID.randomUUID();
+        DeliveryOutcomeEvent event =
+                new DeliveryOutcomeEvent(
+                        tenantId,
+                        campaignId,
+                        runId,
+                        messageId,
+                        CommunicationChannel.EMAIL,
+                        1,
+                        DeliveryOutcomeEvent.Outcome.UNKNOWN,
+                        "provider accepted then timeout recipient=secret@example.test",
+                        Instant.parse("2026-09-12T18:00:00Z"),
+                        Instant.parse("2026-09-12T18:00:02Z"));
+
+        metrics.onOutcome(event);
+
+        assertThat(
+                        registry.get("collectra_message_delivery_total")
+                                .tag("channel", "email")
+                                .tag("result", "unknown")
+                                .counter()
+                                .count())
+                .isEqualTo(1.0d);
+        assertThat(registry.find("collectra_message_retry_total").counter()).isNull();
+
+        Logger logger = (Logger) LoggerFactory.getLogger(DeliveryOutcomeLogger.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        Level originalLevel = logger.getLevel();
+        logger.setLevel(Level.INFO);
+        try {
+            new DeliveryOutcomeLogger(new DeliveryErrorSummary()).onOutcome(event);
+            assertThat(appender.list).hasSize(1);
+            assertThat(appender.list.get(0).getFormattedMessage())
+                    .contains("event=message_delivery_unknown")
+                    .contains(messageId.toString())
+                    .doesNotContain("secret@example.test");
+        } finally {
+            logger.detachAppender(appender);
+            logger.setLevel(originalLevel);
+            appender.stop();
+        }
+    }
+
+    @Test
     void deliveryOutcomeLoggerEmitsOnlyStructuredIdentifiersAndNormalizedFailureCode() {
         Logger logger = (Logger) LoggerFactory.getLogger(DeliveryOutcomeLogger.class);
         ListAppender<ILoggingEvent> appender = new ListAppender<>();
