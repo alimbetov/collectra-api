@@ -86,7 +86,7 @@ class MessageProcessingIntegrationTest extends AbstractIntegrationTest {
 
         var claimed = states.begin(fixture.tenantId(), fixture.messageId()).orElseThrow();
 
-        assertThat(claimed.attemptCount()).isOne();
+        assertThat(claimed.attemptCount()).isZero();
         assertThat(claimed.body()).isEqualTo("<p>Please pay your invoice</p>");
         assertThat(states.begin(fixture.tenantId(), fixture.messageId())).isEmpty();
         org.assertj.core.api.Assertions.assertThatThrownBy(
@@ -97,7 +97,8 @@ class MessageProcessingIntegrationTest extends AbstractIntegrationTest {
         assertThat(states.markSent(fixture.tenantId(), fixture.messageId(), "provider-1")).isTrue();
         Message sent = messages.findById(fixture.messageId()).orElseThrow();
         assertThat(sent.getStatus()).isEqualTo(MessageStatus.SENT);
-        assertThat(sent.getAttemptCount()).isOne();
+        assertThat(sent.getAttemptCount()).isZero();
+        assertThat(sent.getProcessingAttemptCount()).isOne();
         assertThat(sent.getProviderMessageId()).isEqualTo("provider-1");
         assertThat(sent.getSentAt()).isEqualTo(NOW);
         assertThat(states.begin(fixture.tenantId(), fixture.messageId())).isEmpty();
@@ -149,7 +150,8 @@ class MessageProcessingIntegrationTest extends AbstractIntegrationTest {
 
         Message claimed = messages.findById(fixture.messageId()).orElseThrow();
         assertThat(claimed.getStatus()).isEqualTo(MessageStatus.PROCESSING);
-        assertThat(claimed.getAttemptCount()).isOne();
+        assertThat(claimed.getAttemptCount()).isZero();
+        assertThat(claimed.getProcessingAttemptCount()).isOne();
     }
 
     @Test
@@ -165,7 +167,7 @@ class MessageProcessingIntegrationTest extends AbstractIntegrationTest {
                 Timestamp.from(NOW.minusSeconds(360)),
                 retryable.messageId());
         jdbc.update(
-                "UPDATE messages SET processing_started_at = ?, attempt_count = 4 WHERE id = ?",
+                "UPDATE messages SET processing_started_at = ?, processing_attempt_count = 4 WHERE id = ?",
                 Timestamp.from(NOW.minusSeconds(360)),
                 exhausted.messageId());
 
