@@ -55,6 +55,7 @@ public class MessageDeliveryMetrics {
             case SENT -> "sent";
             case FAILED -> "failed";
             case RETRY_SCHEDULED -> "retry_scheduled";
+            case UNKNOWN -> "unknown";
         };
     }
 }
