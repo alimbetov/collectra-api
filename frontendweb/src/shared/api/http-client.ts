@@ -1,4 +1,12 @@
 import type { ProblemDetailDto } from './contracts';
+import { emitSessionLost } from '../auth/auth-events';
+import {
+  clearTokens,
+  getAccessToken,
+  getRefreshToken,
+  setTokens,
+  type AuthTokens,
+} from '../auth/token-storage';
 
 export class ApiError extends Error {
   readonly status: number;
@@ -14,6 +22,8 @@ export class ApiError extends Error {
 
 export interface ApiRequestOptions extends Omit<RequestInit, 'body'> {
   body?: unknown;
+  auth?: boolean;
+  retryOnUnauthorized?: boolean;
 }
 
 const isBodyAllowed = (method?: string) => {
@@ -34,30 +44,91 @@ async function readProblem(response: Response): Promise<ProblemDetailDto | null>
   }
 }
 
-export async function apiRequest<T>(
-  path: string,
-  options: ApiRequestOptions = {},
-): Promise<T> {
+function prepareRequest(options: ApiRequestOptions): RequestInit {
+  const { body: requestBody, auth = true, retryOnUnauthorized: _retry, ...requestInit } = options;
   const headers = new Headers(options.headers);
   const bodyAllowed = isBodyAllowed(options.method);
   let body: BodyInit | undefined;
 
-  if (bodyAllowed && options.body !== undefined) {
-    if (options.body instanceof FormData) {
-      body = options.body;
+  if (bodyAllowed && requestBody !== undefined) {
+    if (requestBody instanceof FormData) {
+      body = requestBody;
     } else {
       headers.set('Content-Type', 'application/json');
-      body = JSON.stringify(options.body);
+      body = JSON.stringify(requestBody);
     }
   }
 
   headers.set('Accept', 'application/json');
 
-  const response = await fetch(path, {
-    ...options,
+  const accessToken = getAccessToken();
+  if (auth && accessToken && !headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${accessToken}`);
+  }
+
+  return {
+    ...requestInit,
     headers,
     body,
+  };
+}
+
+async function execute(path: string, options: ApiRequestOptions): Promise<Response> {
+  return fetch(path, prepareRequest(options));
+}
+
+let refreshPromise: Promise<boolean> | null = null;
+
+async function performRefresh(refreshToken: string): Promise<boolean> {
+  const response = await fetch('/api/v1/auth/refresh', {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ refreshToken }),
   });
+
+  if (!response.ok) {
+    clearTokens();
+    emitSessionLost();
+    return false;
+  }
+
+  const tokens = (await response.json()) as AuthTokens;
+  setTokens(tokens);
+  return true;
+}
+
+export function refreshAccessToken(): Promise<boolean> {
+  const refreshToken = getRefreshToken();
+  if (!refreshToken) {
+    return Promise.resolve(false);
+  }
+
+  if (!refreshPromise) {
+    refreshPromise = performRefresh(refreshToken).finally(() => {
+      refreshPromise = null;
+    });
+  }
+
+  return refreshPromise;
+}
+
+export async function apiRequest<T>(
+  path: string,
+  options: ApiRequestOptions = {},
+): Promise<T> {
+  const auth = options.auth ?? true;
+  const retryOnUnauthorized = options.retryOnUnauthorized ?? true;
+  let response = await execute(path, options);
+
+  if (response.status === 401 && auth && retryOnUnauthorized && getRefreshToken()) {
+    const refreshed = await refreshAccessToken();
+    if (refreshed) {
+      response = await execute(path, { ...options, retryOnUnauthorized: false });
+    }
+  }
 
   if (!response.ok) {
     throw new ApiError(response.status, await readProblem(response));
