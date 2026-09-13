@@ -9,8 +9,8 @@ import io.collectra.api.collection.infrastructure.CollectionActionRepository;
 import io.collectra.api.collection.infrastructure.CollectionCaseRepository;
 import io.collectra.api.customer.application.CustomerService;
 import io.collectra.api.customer.domain.Customer;
-import io.collectra.api.identity.domain.UserAccount;
-import io.collectra.api.identity.infrastructure.UserAccountRepository;
+import io.collectra.api.identity.application.IdentityDirectoryService;
+import io.collectra.api.identity.application.IdentityDirectoryService.UserSummary;
 import io.collectra.api.receivable.application.ReceivableService;
 import io.collectra.api.receivable.domain.Invoice;
 import io.collectra.api.shared.error.InvalidRequestException;
@@ -43,7 +43,7 @@ public class CollectionQueryService {
     private final CollectionActionRepository actions;
     private final ReceivableService receivables;
     private final CustomerService customers;
-    private final UserAccountRepository users;
+    private final IdentityDirectoryService identityDirectory;
     private final Clock clock;
 
     public CollectionQueryService(
@@ -51,13 +51,13 @@ public class CollectionQueryService {
             CollectionActionRepository actions,
             ReceivableService receivables,
             CustomerService customers,
-            UserAccountRepository users,
+            IdentityDirectoryService identityDirectory,
             Clock clock) {
         this.cases = cases;
         this.actions = actions;
         this.receivables = receivables;
         this.customers = customers;
-        this.users = users;
+        this.identityDirectory = identityDirectory;
         this.clock = clock;
     }
 
@@ -93,10 +93,8 @@ public class CollectionQueryService {
                 .collect(Collectors.toMap(Customer::getId, Function.identity()));
         Map<UUID, Invoice> invoicesById = receivables.invoicesByIds(tenantId, invoiceIds).stream()
                 .collect(Collectors.toMap(Invoice::getId, Function.identity()));
-        Map<UUID, UserAccount> assigneesById = assigneeIds.isEmpty()
-                ? Map.of()
-                : users.findAllByTenantIdAndIdIn(tenantId, assigneeIds).stream()
-                        .collect(Collectors.toMap(UserAccount::getId, Function.identity()));
+        Map<UUID, UserSummary> assigneesById = identityDirectory.users(tenantId, assigneeIds).stream()
+                .collect(Collectors.toMap(UserSummary::id, Function.identity()));
 
         Map<UUID, CollectionAction> nextActionByCase = new java.util.LinkedHashMap<>();
         if (!caseIds.isEmpty()) {
@@ -122,19 +120,13 @@ public class CollectionQueryService {
             CollectionCase value,
             Map<UUID, Customer> customersById,
             Map<UUID, Invoice> invoicesById,
-            Map<UUID, UserAccount> assigneesById,
+            Map<UUID, UserSummary> assigneesById,
             Map<UUID, CollectionAction> nextActionByCase,
             Instant asOf) {
         Invoice invoice = invoicesById.get(value.getInvoiceId());
         Customer customer = customersById.get(value.getCustomerId());
-        UserAccount assignee = assigneesById.get(value.getAssignedTo());
+        UserSummary assignee = assigneesById.get(value.getAssignedTo());
         CollectionAction nextAction = nextActionByCase.get(value.getId());
-
-        String assigneeDisplayName = assignee == null
-                ? null
-                : assignee.getDisplayName() == null || assignee.getDisplayName().isBlank()
-                        ? assignee.getEmail()
-                        : assignee.getDisplayName();
 
         return new CaseItem(
                 value.getId(),
@@ -145,7 +137,7 @@ public class CollectionQueryService {
                 value.getStatus(),
                 value.getPriority(),
                 value.getAssignedTo(),
-                assigneeDisplayName,
+                assignee == null ? null : assignee.label(),
                 invoice == null ? null : invoice.getCurrency(),
                 invoice == null ? null : invoice.getOutstandingAmount(),
                 invoice == null ? null : invoice.getPaymentStatus().name(),
