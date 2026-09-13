@@ -26,6 +26,7 @@ public class DeliveryOutcomeLogger {
                     case SENT -> "message_delivery_sent";
                     case FAILED -> "message_delivery_failed";
                     case RETRY_SCHEDULED -> "message_delivery_retry_scheduled";
+                    case UNKNOWN -> "message_delivery_unknown";
                 };
 
         log.info(
