@@ -23,6 +23,15 @@ textarea {
   font: inherit;
 }
 
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 .app-shell {
   min-height: 100vh;
   display: grid;
@@ -80,10 +89,34 @@ textarea {
 }
 
 .environment,
-.user-placeholder,
 .eyebrow {
   color: #6b7280;
   font-size: 13px;
+}
+
+.session-summary {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.session-summary > div {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+}
+
+.session-summary span {
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.secondary-button {
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #fff;
+  padding: 8px 12px;
+  color: #111827;
 }
 
 .page-content {
@@ -109,6 +142,80 @@ textarea {
   line-height: 1.6;
 }
 
+.login-page,
+.auth-loading {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.login-card {
+  width: min(100%, 440px);
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  background: #fff;
+  padding: 32px;
+  box-shadow: 0 12px 32px rgb(17 24 39 / 8%);
+}
+
+.login-card .brand {
+  padding: 0 0 24px;
+}
+
+.login-card h1 {
+  margin: 6px 0 8px;
+}
+
+.login-help {
+  margin: 0 0 24px;
+  color: #6b7280;
+}
+
+.login-form {
+  display: grid;
+  gap: 16px;
+}
+
+.login-form label {
+  display: grid;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.login-form input {
+  min-height: 42px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 8px 10px;
+  color: #111827;
+  background: #fff;
+}
+
+.login-form input:focus {
+  outline: 2px solid #111827;
+  outline-offset: 2px;
+}
+
+.login-form button[type='submit'] {
+  min-height: 42px;
+  border: 0;
+  border-radius: 8px;
+  background: #111827;
+  color: #fff;
+  font-weight: 700;
+}
+
+.form-error {
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  background: #fef2f2;
+  color: #991b1b;
+  padding: 10px 12px;
+  font-size: 14px;
+}
+
 @media (max-width: 800px) {
   .app-shell {
     grid-template-columns: 1fr;
@@ -126,5 +233,18 @@ textarea {
   .page-content {
     padding-left: 20px;
     padding-right: 20px;
+  }
+
+  .topbar,
+  .session-summary {
+    align-items: flex-start;
+  }
+
+  .topbar {
+    flex-direction: column;
+  }
+
+  .session-summary > div {
+    justify-items: start;
   }
 }
