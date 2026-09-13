@@ -12,8 +12,8 @@ import io.collectra.api.customer.infrastructure.CustomerPhoneRepository;
 import io.collectra.api.customer.infrastructure.CustomerRepository;
 import io.collectra.api.customer.infrastructure.CustomerSegmentMemberRepository;
 import io.collectra.api.customer.infrastructure.CustomerSegmentRepository;
-import io.collectra.api.identity.domain.UserAccount;
-import io.collectra.api.identity.infrastructure.UserAccountRepository;
+import io.collectra.api.identity.application.IdentityDirectoryService;
+import io.collectra.api.identity.application.IdentityDirectoryService.UserSummary;
 import io.collectra.api.shared.error.InvalidRequestException;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
@@ -50,7 +50,7 @@ public class CustomerQueryService {
     private final CustomerSegmentMemberRepository members;
     private final CustomerEmailRepository emails;
     private final CustomerPhoneRepository phones;
-    private final UserAccountRepository users;
+    private final IdentityDirectoryService identityDirectory;
 
     public CustomerQueryService(
             CustomerRepository customers,
@@ -58,13 +58,13 @@ public class CustomerQueryService {
             CustomerSegmentMemberRepository members,
             CustomerEmailRepository emails,
             CustomerPhoneRepository phones,
-            UserAccountRepository users) {
+            IdentityDirectoryService identityDirectory) {
         this.customers = customers;
         this.segments = segments;
         this.members = members;
         this.emails = emails;
         this.phones = phones;
-        this.users = users;
+        this.identityDirectory = identityDirectory;
     }
 
     @Transactional(readOnly = true)
@@ -160,21 +160,14 @@ public class CustomerQueryService {
                 .map(Customer::getManagerUserId)
                 .filter(java.util.Objects::nonNull)
                 .collect(Collectors.toSet());
-        Map<UUID, UserAccount> managersById = managerIds.isEmpty()
-                ? Map.of()
-                : users.findAllByTenantIdAndIdIn(tenantId, managerIds).stream()
-                        .collect(Collectors.toMap(UserAccount::getId, Function.identity()));
+        Map<UUID, UserSummary> managersById = identityDirectory.users(tenantId, managerIds).stream()
+                .collect(Collectors.toMap(UserSummary::id, Function.identity()));
 
         List<CustomerListItem> items =
                 result.getContent().stream()
                         .map(
                                 value -> {
-                                    UserAccount manager = managersById.get(value.getManagerUserId());
-                                    String managerDisplayName = manager == null
-                                            ? null
-                                            : manager.getDisplayName() == null || manager.getDisplayName().isBlank()
-                                                    ? manager.getEmail()
-                                                    : manager.getDisplayName();
+                                    UserSummary manager = managersById.get(value.getManagerUserId());
                                     return new CustomerListItem(
                                             value.getId(),
                                             value.getExternalId(),
@@ -187,7 +180,7 @@ public class CustomerQueryService {
                                             List.copyOf(segmentIdsByCustomer.getOrDefault(value.getId(), List.of())),
                                             primaryEmails.get(value.getId()),
                                             primaryPhones.get(value.getId()),
-                                            managerDisplayName,
+                                            manager == null ? null : manager.label(),
                                             List.copyOf(segmentSummariesByCustomer.getOrDefault(value.getId(), List.of())),
                                             value.getCreatedAt(),
                                             value.getUpdatedAt());
