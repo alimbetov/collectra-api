@@ -1,6 +1,6 @@
 # FrontendWeb — User Processes
 
-Status: PROPOSED BUSINESS/SYSTEM ANALYSIS BASELINE
+Status: REVIEWED / API-ALIGNED BUSINESS-SYSTEM BASELINE
 
 ## 1. Purpose
 
@@ -99,10 +99,15 @@ After successful bootstrap, frontend must never ask ordinary tenant user to type
 
 ## 5. Process P2 — Login/session lifecycle
 
+Web login uses stable human-readable tenant slug, not tenant UUID:
+
 ```text
-Login
+Login form
+  tenant slug
+  email
+  password
   ↓
-POST /api/v1/auth/login
+POST /api/v1/auth/login/by-slug
   ↓
 access + refresh token
   ↓
@@ -112,6 +117,10 @@ load permissions/navigation
   ↓
 workspace
 ```
+
+`POST /api/v1/auth/login` with `tenantId` remains a backward-compatible API for existing clients/tests and is not the normal `frontendweb` login flow.
+
+Unknown slug and invalid credentials must be externally indistinguishable (`401 UNAUTHORIZED`) to avoid tenant enumeration.
 
 Token expiry:
 
@@ -234,6 +243,8 @@ created business records become visible in Customers/Receivables
 
 UI must not maintain a second import-only representation of financial truth after persistence. The created Invoice is authoritative.
 
+Import configuration (Source Schema / Mapping Profile) is a Data Manager/Admin flow; import execution is an Operator flow. They are separate screens and permission surfaces.
+
 ## 9. Process P6 — Daily receivables monitoring
 
 Business goal: identify what requires attention.
@@ -354,6 +365,8 @@ IN_PROGRESS
   └─ close
 ```
 
+The collection list is a server-side work-queue projection and already supplies customer/invoice labels, financial context, assignee label and the earliest pending next action. React must not fan out row-by-row lookups.
+
 ### Promise-to-Pay
 
 ```text
@@ -404,7 +417,7 @@ create version
     ↓
 locale + channel + subject + content + stylesheet
     ↓
-insert placeholders using field catalogue
+insert placeholders using builder catalogue
     ↓
 Validate
     ↓
@@ -412,6 +425,8 @@ Preview with sample payload
     ↓
 Publish
 ```
+
+The existing Template Builder API supplies fields, assets, channels, syntax and builder schema version, plus draft/document validation and preview.
 
 Revision process:
 
@@ -427,7 +442,7 @@ validate/preview
 publish
 ```
 
-Campaign creation should select a publishable/published compatible template version rather than free-form content.
+Campaign creation should select a published compatible template version rather than free-form content.
 
 ## 13. Process P10 — Campaign creation and execution
 
@@ -459,24 +474,18 @@ mock delivery worker processes messages
 operator monitors run/messages
 ```
 
-Existing API actions:
+Audience selection contract is explicit:
 
 ```text
-create campaign
-activate campaign
-create/prepare run
-list runs
-list recipients
-eligibility recheck
-list message slice
-message detail
+customerIds
+segmentIds
+daysOverdueFrom / daysOverdueTo
+amountFrom / amountTo
 ```
 
 The user sees `channel`, delivery status and business-safe errors. The UI does not care whether delivery used mock, KumoMTA or a future real SMS/Telegram/WhatsApp provider.
 
 ## 14. Process P11 — Eligibility change after campaign preparation
-
-Important business case:
 
 ```text
 Campaign prepared
@@ -520,21 +529,15 @@ What safe reason is visible?
 Are required attachments ready?
 ```
 
-Provider credentials/raw response bodies are not user-facing diagnostics.
-
-Mock outcomes must produce the same frontend-visible status machine as later real adapters.
+Provider credentials/raw response bodies are not user-facing diagnostics. Mock outcomes must produce the same frontend-visible status machine as later real adapters.
 
 ## 16. Process P13 — File/document interaction
 
 Files are embedded into business workflows.
 
-### Invoice document
-
 ```text
 Invoice detail -> linked document -> download/open
 ```
-
-### Template/assets/attachments
 
 ```text
 Upload file
@@ -548,13 +551,12 @@ Download may use direct content endpoint or presigned URL. UI should prefer back
 
 ## 17. Process P14 — Tenant administration
 
-Tenant administrator flow:
-
 ```text
 Administration
     ├─ invite member
-    ├─ view members
-    ├─ assign/update role
+    ├─ view members (email/display name/status)
+    ├─ read current member roles
+    ├─ assign/update roles
     ├─ manage custom roles
     └─ review permissions
 ```
@@ -582,8 +584,6 @@ User can:
 Changing locale/timezone should invalidate/re-render frontend formatting context without changing business dates already returned by backend.
 
 ## 19. Cross-process navigation
-
-The product should feel like one operational workspace, not disconnected CRUD pages.
 
 Mandatory deep links:
 
@@ -624,7 +624,7 @@ Frontend may pre-disable obviously impossible actions for UX, but backend respon
 
 ### 400
 
-Show field/filter validation mapped from ProblemDetail/errors.
+Show field/filter validation mapped from `ProblemDetail.errors` / `code`.
 
 ### 401
 
@@ -643,18 +643,32 @@ Show not found. Do not reveal whether foreign-tenant object exists.
 Map business `code` to specific next action:
 
 ```text
-VERSION_CONFLICT             -> reload and review changes
-IDEMPOTENCY_CONFLICT         -> stop replay, show conflict
-ALLOCATION_EXCEEDS_PAYMENT   -> reload payment balance
-ALLOCATION_EXCEEDS_INVOICE   -> reload invoice balance
-CURRENCY_MISMATCH            -> choose compatible invoice/payment
-CUSTOMER_MISMATCH            -> choose same-customer resource
+VERSION_CONFLICT               -> reload and review changes
+IDEMPOTENCY_CONFLICT           -> stop replay, show conflict
+ALLOCATION_EXCEEDS_PAYMENT     -> reload payment balance
+ALLOCATION_EXCEEDS_INVOICE     -> reload invoice balance
+CURRENCY_MISMATCH              -> choose compatible invoice/payment
+CUSTOMER_MISMATCH              -> choose same-customer resource
 COLLECTION_CASE_ALREADY_ACTIVE -> open existing case if discoverable through list/filter
 ```
 
-## 22. React boundary derived from processes
+Every ProblemDetail may include `traceId` and `correlationId` for support diagnostics; frontend does not expose sensitive server details.
 
-When DTO/API layer is designed next, it should be grouped by product feature:
+## 22. Async process policy
+
+For import batches, campaign runs/messages and generated documents:
+
+```text
+non-terminal -> bounded polling
+terminal     -> stop polling
+window hidden/background -> slow down or pause
+mutation success -> immediate targeted refetch
+route unmount -> stop polling
+```
+
+Never use an unbounded global `setInterval` loop.
+
+## 23. React boundary derived from processes
 
 ```text
 features/auth
@@ -683,7 +697,7 @@ components/
 pages/
 ```
 
-Shared transport concerns stay outside features:
+Shared transport concerns:
 
 ```text
 shared/api/http-client
@@ -693,15 +707,15 @@ shared/ui
 shared/utils
 ```
 
-## 23. Next analysis step
+## 24. Next analysis step
 
-After approval of these processes, produce `frontend-react-api-contract.md` with:
+Produce `frontend-react-api-contract.md` with:
 
 1. exact TypeScript DTOs derived from backend responses;
 2. query parameter types;
 3. mutation request types;
-4. common `PageResponse` / `SliceResponse` / `ProblemDetail` types;
-5. React Query keys;
+4. normalized `PageResponse` / `SliceResponse` / `ProblemDetail` types;
+5. TanStack Query keys;
 6. API functions;
 7. cache invalidation graph after mutations;
 8. auth refresh interceptor behavior;
