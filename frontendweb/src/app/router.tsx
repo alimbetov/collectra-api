@@ -1,10 +1,12 @@
 import { createBrowserRouter } from 'react-router-dom';
 import { App } from './App';
+import { RequireAuth } from '../features/auth/ui/RequireAuth';
+import { LoginPage } from '../pages/auth/LoginPage';
 
 function PlaceholderPage({ title }: { title: string }) {
   return (
     <div className="placeholder-page">
-      <p className="eyebrow">FW0 application shell</p>
+      <p className="eyebrow">Frontend work slice</p>
       <h1>{title}</h1>
       <p>
         Route boundary is ready. Business queries and mutations are intentionally deferred to their
@@ -16,8 +18,16 @@ function PlaceholderPage({ title }: { title: string }) {
 
 export const router = createBrowserRouter([
   {
+    path: '/login',
+    element: <LoginPage />,
+  },
+  {
     path: '/',
-    element: <App />,
+    element: (
+      <RequireAuth>
+        <App />
+      </RequireAuth>
+    ),
     children: [
       { index: true, element: <PlaceholderPage title="Dashboard" /> },
       { path: 'customers', element: <PlaceholderPage title="Customers" /> },
