@@ -62,11 +62,13 @@ class OpenApiCompatibilityIntegrationTest extends AbstractIntegrationTest {
         ObjectNode document = (ObjectNode) objectMapper.readTree(raw);
         ObjectNode paths = document.withObject("/paths");
         List<String> nonPublicPaths = new ArrayList<>();
-        paths.fieldNames().forEachRemaining(path -> {
-            if (!path.startsWith("/api/v1")) {
-                nonPublicPaths.add(path);
-            }
-        });
+        paths.fieldNames()
+                .forEachRemaining(
+                        path -> {
+                            if (!path.startsWith("/api/v1")) {
+                                nonPublicPaths.add(path);
+                            }
+                        });
         nonPublicPaths.forEach(paths::remove);
         document.remove("servers");
         sortRecursively(document);
