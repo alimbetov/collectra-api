@@ -1,7 +1,10 @@
 import { createBrowserRouter } from 'react-router-dom';
 import { App } from './App';
 import { RequireAuth } from '../features/auth/ui/RequireAuth';
+import { RequirePermission } from '../features/auth/ui/RequirePermission';
 import { LoginPage } from '../pages/auth/LoginPage';
+import { ForbiddenPage } from '../pages/system/ForbiddenPage';
+import { NotFoundPage } from '../pages/system/NotFoundPage';
 
 function PlaceholderPage({ title }: { title: string }) {
   return (
@@ -33,10 +36,40 @@ export const router = createBrowserRouter([
       { path: 'customers', element: <PlaceholderPage title="Customers" /> },
       { path: 'receivables', element: <PlaceholderPage title="Receivables" /> },
       { path: 'collections', element: <PlaceholderPage title="Collections" /> },
-      { path: 'campaigns', element: <PlaceholderPage title="Campaigns" /> },
-      { path: 'templates', element: <PlaceholderPage title="Templates" /> },
-      { path: 'imports', element: <PlaceholderPage title="Imports" /> },
-      { path: 'files', element: <PlaceholderPage title="Files" /> },
+      {
+        path: 'campaigns',
+        element: (
+          <RequirePermission permission="CAMPAIGN_READ">
+            <PlaceholderPage title="Campaigns" />
+          </RequirePermission>
+        ),
+      },
+      {
+        path: 'templates',
+        element: (
+          <RequirePermission permission="TEMPLATE_READ">
+            <PlaceholderPage title="Templates" />
+          </RequirePermission>
+        ),
+      },
+      {
+        path: 'imports',
+        element: (
+          <RequirePermission permission="DOCUMENT_READ">
+            <PlaceholderPage title="Imports" />
+          </RequirePermission>
+        ),
+      },
+      {
+        path: 'files',
+        element: (
+          <RequirePermission permission="FILE_READ">
+            <PlaceholderPage title="Files" />
+          </RequirePermission>
+        ),
+      },
+      { path: 'forbidden', element: <ForbiddenPage /> },
+      { path: '*', element: <NotFoundPage /> },
     ],
   },
 ]);
