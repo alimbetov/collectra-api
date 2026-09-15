@@ -1,7 +1,9 @@
 # Backend and Frontend Delivery Roadmap
 
-Status: **AUDITED / READY FOR TECHNICAL SPECIFICATION**  
-Audit baseline: `main@2b6b112` (`2026-09-15`)  
+Status: **AUDITED / READY FOR TECHNICAL SPECIFICATION**
+
+Audit baseline: `main@2b6b112` (`2026-09-15`)
+
 Purpose: единый порядок доработки backend под пользовательские сценарии и последовательной реализации `frontendweb`.
 
 ## 1. Решение по итогам аудита
