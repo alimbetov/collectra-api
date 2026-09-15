@@ -33,6 +33,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
 class MessageStateServiceTest {
@@ -104,6 +105,72 @@ class MessageStateServiceTest {
         verify(deliveryAttempts).save(attempt.capture());
         assertThat(attempt.getValue().getStatus()).isEqualTo(DeliveryAttemptStatus.STARTED);
         assertThat(attempt.getValue().getDeliveryKey()).isEqualTo(message.getDeliveryKey());
+    }
+
+    @Test
+    void beginProviderAttemptIgnoresNonProcessingMessage() {
+        CampaignRun run = runningRun(1);
+        Message message = queued(run);
+        stubMessage(message);
+
+        assertThat(service.beginProviderAttempt(TENANT, message.getId())).isEmpty();
+        verify(deliveryAttempts, never()).save(any());
+    }
+
+    @Test
+    void unknownWithoutMatchingAttemptCannotBeReconciled() {
+        CampaignRun run = runningRun(1);
+        Message message = processing(run, NOW.minusSeconds(5));
+        message.markUnknown("TIMEOUT", "unknown");
+        stubMessage(message);
+
+        assertThat(service.markSent(TENANT, message.getId(), "late-provider-id")).isFalse();
+        verify(runs, never()).findLockedByIdAndTenantId(any(), any());
+    }
+
+    @Test
+    void staleFailureAndUnknownCallbacksAreNoOps() {
+        CampaignRun run = runningRun(1);
+        Message message = queued(run);
+        stubMessage(message);
+
+        assertThat(service.markFailed(TENANT, message.getId(), "LATE", "late")).isFalse();
+        assertThat(service.markUnknown(TENANT, message.getId(), "LATE", "late")).isFalse();
+        verify(runs, never()).findLockedByIdAndTenantId(any(), any());
+    }
+
+    @Test
+    void startedAttemptReceivesRetryableAndPermanentOutcomes() {
+        CampaignRun retryRun = runningRun(1);
+        Message retryMessage = processing(retryRun, NOW.minusSeconds(5));
+        startProviderAttempt(retryMessage);
+        MessageDeliveryAttempt retryAttempt = startedAttempt(retryMessage);
+        stubMessageAndRun(retryMessage, retryRun);
+        when(deliveryAttempts.findLockedByMessageIdAndAttemptNo(retryMessage.getId(), 1))
+                .thenReturn(Optional.of(retryAttempt));
+        service.scheduleRetry(TENANT, retryMessage.getId(), NOW.plusSeconds(60), "TEMP", "retry");
+        assertThat(retryAttempt.getStatus()).isEqualTo(DeliveryAttemptStatus.RETRYABLE_FAILURE);
+
+        CampaignRun failedRun = runningRun(1);
+        Message failedMessage = processing(failedRun, NOW.minusSeconds(5));
+        startProviderAttempt(failedMessage);
+        MessageDeliveryAttempt failedAttempt = startedAttempt(failedMessage);
+        stubMessageAndRun(failedMessage, failedRun);
+        when(deliveryAttempts.findLockedByMessageIdAndAttemptNo(failedMessage.getId(), 1))
+                .thenReturn(Optional.of(failedAttempt));
+        service.markFailed(TENANT, failedMessage.getId(), "PERM", "failed");
+        assertThat(failedAttempt.getStatus()).isEqualTo(DeliveryAttemptStatus.PERMANENT_FAILURE);
+    }
+
+    @Test
+    void recoveryRejectsProcessingMessageWithoutStartTime() {
+        CampaignRun run = runningRun(1);
+        Message message = processing(run, NOW.minusSeconds(600));
+        ReflectionTestUtils.setField(message, "processingStartedAt", null);
+        stubMessage(message);
+
+        assertThat(service.recoverStale(TENANT, message.getId(), NOW.minusSeconds(300), NOW))
+                .isFalse();
     }
 
     @Test
