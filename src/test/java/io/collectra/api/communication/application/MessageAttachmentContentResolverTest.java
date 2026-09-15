@@ -219,20 +219,16 @@ class MessageAttachmentContentResolverTest {
         UUID messageId = UUID.randomUUID();
         MessageAttachment first = ready(tenantId, messageId, true, UUID.randomUUID());
         MessageAttachment second = ready(tenantId, messageId, true, UUID.randomUUID());
+        GeneratedDocument firstDocument =
+                generated(tenantId, first, first.getGeneratedDocumentId(), Long.MAX_VALUE);
+        GeneratedDocument secondDocument =
+                generated(tenantId, second, second.getGeneratedDocumentId(), 1);
         when(attachments.findAllByTenantIdAndMessageIdOrderByCreatedAtAsc(tenantId, messageId))
                 .thenReturn(List.of(first, second));
         when(documents.findByIdAndTenantId(first.getGeneratedDocumentId(), tenantId))
-                .thenReturn(
-                        Optional.of(
-                                generated(
-                                        tenantId,
-                                        first,
-                                        first.getGeneratedDocumentId(),
-                                        Long.MAX_VALUE)));
+                .thenReturn(Optional.of(firstDocument));
         when(documents.findByIdAndTenantId(second.getGeneratedDocumentId(), tenantId))
-                .thenReturn(
-                        Optional.of(
-                                generated(tenantId, second, second.getGeneratedDocumentId(), 1)));
+                .thenReturn(Optional.of(secondDocument));
 
         assertResolutionFailure(
                 () -> resolver.resolve(tenantId, messageId),
