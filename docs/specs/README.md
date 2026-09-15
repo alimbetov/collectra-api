@@ -4,6 +4,9 @@
 
 Главный roadmap: [`../roadmap/backend-mvp-roadmap.md`](../roadmap/backend-mvp-roadmap.md).
 
+Следующий frontend implementation contract:
+[`frontendweb-fw1-auth-closure.md`](frontendweb-fw1-auth-closure.md).
+
 Последнее cross-review документации, актуального `main` и полного build log:
 [`review-2026-09-11.md`](review-2026-09-11.md).
 
