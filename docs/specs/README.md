@@ -4,6 +4,9 @@
 
 Главный roadmap: [`../roadmap/backend-mvp-roadmap.md`](../roadmap/backend-mvp-roadmap.md).
 
+Единый audited план доработки backend для UI и полной реализации frontend:
+[`backend-frontend-delivery-roadmap.md`](backend-frontend-delivery-roadmap.md).
+
 Последнее cross-review документации, актуального `main` и полного build log:
 [`review-2026-09-11.md`](review-2026-09-11.md).
 
