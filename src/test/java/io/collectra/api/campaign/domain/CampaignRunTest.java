@@ -86,13 +86,15 @@ class CampaignRunTest {
     void failRejectsReadyAndTerminalRuns() {
         CampaignRun ready = new CampaignRun(UUID.randomUUID(), UUID.randomUUID());
         ready.ready(1, PREPARED_AT);
-        assertThatThrownBy(() -> ready.fail(COMPLETED_AT)).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> ready.fail(COMPLETED_AT))
+                .isInstanceOf(IllegalStateException.class);
 
         CampaignRun completed = new CampaignRun(UUID.randomUUID(), UUID.randomUUID());
         completed.ready(0, PREPARED_AT);
         completed.start(STARTED_AT);
         completed.complete(COMPLETED_AT);
-        assertThatThrownBy(() -> completed.fail(COMPLETED_AT)).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> completed.fail(COMPLETED_AT))
+                .isInstanceOf(IllegalStateException.class);
     }
 
     @ParameterizedTest
