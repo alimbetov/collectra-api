@@ -30,6 +30,13 @@ jobs:
         run: bash scripts/test-slice-07.sh unit
       - name: Verify with PostgreSQL Testcontainers and critical-core coverage
         run: mvn --batch-mode --no-transfer-progress clean verify -Pslice10a-coverage
+      - name: Upload current OpenAPI contract
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: collectra-api-v1-openapi
+          path: target/openapi/collectra-api-v1-current.json
+          if-no-files-found: ignore
       - name: Upload critical-core coverage report
         if: always()
         uses: actions/upload-artifact@v4
