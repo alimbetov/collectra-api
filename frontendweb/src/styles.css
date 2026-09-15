@@ -142,6 +142,27 @@ button:disabled {
   line-height: 1.6;
 }
 
+.system-page {
+  max-width: 640px;
+  padding: 32px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.system-page h1 {
+  margin: 6px 0 12px;
+}
+
+.system-page p {
+  color: #4b5563;
+}
+
+.system-page a {
+  color: #1d4ed8;
+  font-weight: 600;
+}
+
 .login-page,
 .auth-loading {
   min-height: 100vh;
