@@ -493,7 +493,11 @@ class MessageStateServiceTest {
 
     private MessageDeliveryAttempt startedAttempt(Message message) {
         return MessageDeliveryAttempt.started(
-                TENANT, message.getId(), message.getAttemptCount(), message.getDeliveryKey(), NOW.minusSeconds(4));
+                TENANT,
+                message.getId(),
+                message.getAttemptCount(),
+                message.getDeliveryKey(),
+                NOW.minusSeconds(4));
     }
 
     private Message processingAtAttempt(
