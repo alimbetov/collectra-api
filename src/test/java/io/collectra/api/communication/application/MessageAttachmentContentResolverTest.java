@@ -20,6 +20,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.util.unit.DataSize;
 
 class MessageAttachmentContentResolverTest {
@@ -163,6 +166,136 @@ class MessageAttachmentContentResolverTest {
         assertThat(result.get(0).filename()).isEqualTo("invoice.pdf");
         assertThat(result.get(0).contentType()).isEqualTo("application/pdf");
         assertThat(result.get(0).content()).containsExactly(1, 2, 3);
+    }
+
+    @Test
+    void rejectsAttachmentCountBeforeMetadataRead() {
+        properties.setMaxCount(1);
+        UUID tenantId = UUID.randomUUID();
+        UUID messageId = UUID.randomUUID();
+        when(attachments.findAllByTenantIdAndMessageIdOrderByCreatedAtAsc(tenantId, messageId))
+                .thenReturn(
+                        List.of(
+                                ready(tenantId, messageId, true, UUID.randomUUID()),
+                                ready(tenantId, messageId, true, UUID.randomUUID())));
+
+        assertResolutionFailure(
+                () -> resolver.resolve(tenantId, messageId),
+                "ATTACHMENT_COUNT_EXCEEDED",
+                DeliveryFailureKind.PERMANENT);
+        verify(documents, never()).findByIdAndTenantId(any(), any());
+    }
+
+    @Test
+    void rejectsNegativeMetadataSizeAndContentSizeMismatch() {
+        UUID tenantId = UUID.randomUUID();
+        UUID messageId = UUID.randomUUID();
+        UUID documentId = UUID.randomUUID();
+        MessageAttachment ready = ready(tenantId, messageId, true, documentId);
+        GeneratedDocument negative = generated(tenantId, ready, documentId, -1);
+        when(attachments.findAllByTenantIdAndMessageIdOrderByCreatedAtAsc(tenantId, messageId))
+                .thenReturn(List.of(ready));
+        when(documents.findByIdAndTenantId(documentId, tenantId)).thenReturn(Optional.of(negative));
+        assertResolutionFailure(
+                () -> resolver.resolve(tenantId, messageId),
+                "ATTACHMENT_TOO_LARGE",
+                DeliveryFailureKind.PERMANENT);
+
+        GeneratedDocument expectedThree = generated(tenantId, ready, documentId, 3);
+        when(documents.findByIdAndTenantId(documentId, tenantId))
+                .thenReturn(Optional.of(expectedThree));
+        when(outputs.read(expectedThree)).thenReturn(new byte[] {1, 2});
+        assertResolutionFailure(
+                () -> resolver.resolve(tenantId, messageId),
+                "ATTACHMENT_SIZE_MISMATCH",
+                DeliveryFailureKind.PERMANENT);
+    }
+
+    @Test
+    void rejectsTotalSizeOverflow() {
+        properties.setMaxFileSize(DataSize.ofBytes(Long.MAX_VALUE));
+        properties.setMaxTotalSize(DataSize.ofBytes(Long.MAX_VALUE));
+        UUID tenantId = UUID.randomUUID();
+        UUID messageId = UUID.randomUUID();
+        MessageAttachment first = ready(tenantId, messageId, true, UUID.randomUUID());
+        MessageAttachment second = ready(tenantId, messageId, true, UUID.randomUUID());
+        when(attachments.findAllByTenantIdAndMessageIdOrderByCreatedAtAsc(tenantId, messageId))
+                .thenReturn(List.of(first, second));
+        when(documents.findByIdAndTenantId(first.getGeneratedDocumentId(), tenantId))
+                .thenReturn(
+                        Optional.of(
+                                generated(
+                                        tenantId,
+                                        first,
+                                        first.getGeneratedDocumentId(),
+                                        Long.MAX_VALUE)));
+        when(documents.findByIdAndTenantId(second.getGeneratedDocumentId(), tenantId))
+                .thenReturn(
+                        Optional.of(
+                                generated(tenantId, second, second.getGeneratedDocumentId(), 1)));
+
+        assertResolutionFailure(
+                () -> resolver.resolve(tenantId, messageId),
+                "ATTACHMENT_TOTAL_SIZE_EXCEEDED",
+                DeliveryFailureKind.PERMANENT);
+    }
+
+    @Test
+    void rejectsMissingAndMismatchedGeneratedDocumentMetadata() {
+        UUID tenantId = UUID.randomUUID();
+        UUID messageId = UUID.randomUUID();
+        UUID documentId = UUID.randomUUID();
+        MessageAttachment ready = ready(tenantId, messageId, true, documentId);
+        when(attachments.findAllByTenantIdAndMessageIdOrderByCreatedAtAsc(tenantId, messageId))
+                .thenReturn(List.of(ready));
+        when(documents.findByIdAndTenantId(documentId, tenantId)).thenReturn(Optional.empty());
+        assertResolutionFailure(
+                () -> resolver.resolve(tenantId, messageId),
+                "ATTACHMENT_NOT_FOUND",
+                DeliveryFailureKind.PERMANENT);
+
+        GeneratedDocument wrongJob = generated(tenantId, ready, documentId, 1);
+        when(wrongJob.getGenerationJobId()).thenReturn(UUID.randomUUID());
+        when(documents.findByIdAndTenantId(documentId, tenantId)).thenReturn(Optional.of(wrongJob));
+        assertResolutionFailure(
+                () -> resolver.resolve(tenantId, messageId),
+                "ATTACHMENT_METADATA_MISMATCH",
+                DeliveryFailureKind.PERMANENT);
+
+        GeneratedDocument wrongFormat = generated(tenantId, ready, documentId, 1);
+        when(wrongFormat.getFormat()).thenReturn(OutputFormat.HTML);
+        when(documents.findByIdAndTenantId(documentId, tenantId))
+                .thenReturn(Optional.of(wrongFormat));
+        assertResolutionFailure(
+                () -> resolver.resolve(tenantId, messageId),
+                "ATTACHMENT_METADATA_MISMATCH",
+                DeliveryFailureKind.PERMANENT);
+
+        ReflectionTestUtils.setField(ready, "generatedDocumentId", null);
+        assertResolutionFailure(
+                () -> resolver.resolve(tenantId, messageId),
+                "ATTACHMENT_METADATA_MISSING",
+                DeliveryFailureKind.PERMANENT);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {" ", "bad\r.pdf", "bad\n.pdf", "dir/file.pdf", "dir\\file.pdf"})
+    void rejectsBlankOrUnsafeFilename(String filename) {
+        UUID tenantId = UUID.randomUUID();
+        UUID messageId = UUID.randomUUID();
+        UUID documentId = UUID.randomUUID();
+        MessageAttachment ready = ready(tenantId, messageId, true, documentId);
+        ReflectionTestUtils.setField(ready, "filename", filename);
+        GeneratedDocument document = generated(tenantId, ready, documentId, 1);
+        when(attachments.findAllByTenantIdAndMessageIdOrderByCreatedAtAsc(tenantId, messageId))
+                .thenReturn(List.of(ready));
+        when(documents.findByIdAndTenantId(documentId, tenantId)).thenReturn(Optional.of(document));
+        when(outputs.read(document)).thenReturn(new byte[] {1});
+
+        assertResolutionFailure(
+                () -> resolver.resolve(tenantId, messageId),
+                "INVALID_ATTACHMENT_FILENAME",
+                DeliveryFailureKind.PERMANENT);
     }
 
     private void assertResolutionFailure(
