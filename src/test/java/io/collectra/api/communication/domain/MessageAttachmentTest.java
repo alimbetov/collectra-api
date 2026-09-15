@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.collectra.api.document.domain.OutputFormat;
+import java.lang.reflect.Constructor;
 import java.time.Instant;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -100,6 +101,58 @@ class MessageAttachmentTest {
         assertThatThrownBy(() -> attachment.markFailed("X".repeat(81), "failure", READY_AT))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("failureCode");
+    }
+
+    @Test
+    void coversOptionalValuesIdentityAndPersistenceConstructor() {
+        MessageAttachment empty = new MessageAttachment();
+        assertThat(empty.getTenantId()).isNull();
+        assertThat(empty.getCreatedAt()).isNull();
+
+        MessageAttachment attachment = pending(false);
+        assertThat(attachment.getTenantId()).isNotNull();
+        assertThat(attachment.getCreatedAt()).isEqualTo(CREATED_AT);
+        assertThat(attachment.markFailed("FAIL", " ", READY_AT)).isTrue();
+        assertThat(attachment.getFailureMessage()).isNull();
+
+        assertThatThrownBy(
+                        () ->
+                                MessageAttachment.pendingPdf(
+                                        UUID.randomUUID(),
+                                        UUID.randomUUID(),
+                                        UUID.randomUUID(),
+                                        null,
+                                        true,
+                                        CREATED_AT))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void constructorRejectsNonPdfFormat() throws Exception {
+        Constructor<MessageAttachment> constructor =
+                MessageAttachment.class.getDeclaredConstructor(
+                        UUID.class,
+                        UUID.class,
+                        UUID.class,
+                        OutputFormat.class,
+                        String.class,
+                        String.class,
+                        boolean.class,
+                        Instant.class);
+        constructor.setAccessible(true);
+
+        assertThatThrownBy(
+                        () ->
+                                constructor.newInstance(
+                                        UUID.randomUUID(),
+                                        UUID.randomUUID(),
+                                        UUID.randomUUID(),
+                                        OutputFormat.HTML,
+                                        "invoice.html",
+                                        "text/html",
+                                        true,
+                                        CREATED_AT))
+                .hasRootCauseInstanceOf(IllegalArgumentException.class);
     }
 
     private MessageAttachment pending(boolean required) {
