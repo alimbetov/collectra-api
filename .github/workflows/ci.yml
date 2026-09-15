@@ -41,7 +41,7 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v4
         with:
-          node-version: "22.20.0"
+          node-version: "22.22.2"
           cache: npm
           cache-dependency-path: frontendweb/package-lock.json
       - name: Install frontend dependencies
