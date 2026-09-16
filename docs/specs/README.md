@@ -7,6 +7,23 @@
 Следующий frontend implementation contract:
 [`frontendweb-fw1-auth-closure.md`](frontendweb-fw1-auth-closure.md).
 
+Business frontend implementation plan:
+[`frontendweb-fw03-fw12-plan.md`](frontendweb-fw03-fw12-plan.md). Он индексирует
+implementation contracts FW3–FW12 и их backend prerequisites.
+
+| Frontend slice | Specification | Readiness |
+|---|---|---|
+| FW3 | [Dashboard](frontendweb-fw03-dashboard.md) | API READY after FW2 closure |
+| FW4 | [Customers](frontendweb-fw04-customers.md) | API READY |
+| FW5 | [Receivables](frontendweb-fw05-receivables.md) | API READY |
+| FW6 | [Collections](frontendweb-fw06-collections.md) | API READY |
+| FW7 | [Campaigns](frontendweb-fw07-campaigns.md) | requires campaign-run detail API |
+| FW8 | [Message monitoring](frontendweb-fw08-message-monitoring.md) | API READY after FW7 |
+| FW9 | [Templates](frontendweb-fw09-templates.md) | API READY |
+| FW10 | [Imports](frontendweb-fw10-imports.md) | requires durable record diagnostics |
+| FW11 | [Files](frontendweb-fw11-files.md) | requires paged files registry API |
+| FW12 | [Administration](frontendweb-fw12-administration.md) | requires member/invitation paging hardening |
+
 Последнее cross-review документации, актуального `main` и полного build log:
 [`review-2026-09-11.md`](review-2026-09-11.md).
 
