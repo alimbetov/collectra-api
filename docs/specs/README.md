@@ -13,9 +13,12 @@ implementation contracts FW3–FW12 и их backend prerequisites.
 Detailed current-code review:
 [`frontendweb-fw03-fw12-review.md`](frontendweb-fw03-fw12-review.md).
 
+Approved public money wire contract:
+[`public-money-decimal-string-contract.md`](public-money-decimal-string-contract.md).
+
 | Frontend slice | Specification | Readiness |
 |---|---|---|
-| FW3 | [Dashboard](frontendweb-fw03-dashboard.md) | FW2 + money contract gate |
+| FW3 | [Dashboard](frontendweb-fw03-dashboard.md) | FW2 recovery + money contract implementation gate |
 | FW4 | [Customers/contracts](frontendweb-fw04-customers.md) | concurrency/selector hardening |
 | FW5 | [Receivables](frontendweb-fw05-receivables.md) | money/projection/paging gate |
 | FW6 | [Collections](frontendweb-fw06-collections.md) | filters/history paging gate |

@@ -26,10 +26,11 @@ Detailed audit and corrections:
 FW2C/FW2D нельзя считать доставленными только потому, что их stacked PR закрыт: код
 должен присутствовать именно в `main`.
 
-До финансовых экранов также должен быть утверждён public money transport contract.
-Текущий `Decimal = number` не обеспечивает требуемую точность Java `BigDecimal` в
-JavaScript. Предпочтительный контракт — canonical decimal string с явно заданными
-precision/scale и осознанным обновлением OpenAPI baseline.
+Public money transport decision утверждён в
+[`public-money-decimal-string-contract.md`](public-money-decimal-string-contract.md).
+До финансовых экранов его ещё нужно реализовать на backend/frontend boundary: canonical
+decimal string, precision 19, scale 4, без JavaScript `number`, с осознанным решением по
+breaking change и обновлению OpenAPI baseline.
 
 ## Dependency graph
 
@@ -115,7 +116,7 @@ cross-feature imports and direct page-to-page imports are forbidden by architect
 
 | Frontend slice | Missing backend contract | Required result |
 |---|---|---|
-| FW3/FW5 | safe monetary transport | canonical decimal string or reviewed equivalent with precision/scale |
+| FW3/FW5 | safe monetary transport | implement approved canonical decimal string, precision 19 / scale 4 |
 | FW4 | stale-write protection and bounded manager selector | expected version/ETag; permission-aware paged user lookup |
 | FW6 | bounded assignee selector | permission-aware paged user lookup for assignment UX |
 | FW5 | receivable row labels and bounded allocations | batch-resolved labels; paged history or enforced hard bound |

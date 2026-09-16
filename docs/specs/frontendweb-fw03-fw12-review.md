@@ -25,7 +25,7 @@ readiness from a binary label to explicit backend gates and removes frontend wor
 | ID | Severity | Slice | Evidence in current code | Decision |
 |---|---|---|---|---|
 | R-01 | BLOCKER | all | `main` contains FW2A/B but not FW2C/D | recover FW2C/D and close FW2E before FW3 |
-| R-02 | BLOCKER | FW3/FW5 | public `BigDecimal` becomes JS `number`; `Decimal = number` | approve a money transport ADR; prefer decimal strings before financial UI |
+| R-02 | BLOCKER | FW3/FW5 | public `BigDecimal` becomes JS `number`; `Decimal = number` | decision approved; implement `public-money-decimal-string-contract.md` before financial UI |
 | R-03 | HIGH | FW3 | summary has no overdue KPI; overdue exists only as per-currency aging buckets | do not invent cross-currency KPI; allow presentation-only per-currency bucket sum |
 | R-04 | HIGH | FW3/FW6 | collection list has no overdue-action filter/sort | no dead filtered link; add fixed operational filter API in FW6 prerequisite |
 | R-05 | BLOCKER | FW4 | Contracts are in user process/API but absent from FW3–FW12 delivery slices | add FW4D contract list/detail/lifecycle |
@@ -68,15 +68,17 @@ readiness from a binary label to explicit backend gates and removes frontend wor
 
 ### Money
 
-Before FW3/FW5, add a reviewed API decision for monetary decimals. Preferred contract:
+The reviewed decision is
+[`public-money-decimal-string-contract.md`](public-money-decimal-string-contract.md):
 
 ```ts
 type DecimalString = string; // canonical plain decimal, no exponent
 ```
 
-Backend serializes monetary `BigDecimal` as strings and accepts the same request shape,
-with documented precision/scale. The intentional OpenAPI baseline change must be reviewed.
-Until then React MUST NOT perform arithmetic on parsed JS numbers.
+Backend serializes public monetary `BigDecimal` as canonical strings with precision 19 and
+scale 4. The decision is complete, but its coordinated backend/frontend implementation and
+intentional OpenAPI compatibility outcome remain a P0 gate. Until then React MUST NOT
+implement financial screens on parsed JS numbers.
 
 ### Detail routes
 
@@ -140,7 +142,7 @@ OpenAPI/public API and must not be inferred from persistence fields.
 
 ```text
 P0 FW2C/D recovery + FW2E
-P0 money decimal ADR/API contract
+P0 implement approved money Decimal String API contract
 FW3 Dashboard
 FW4A Customers list -> FW4B detail/contacts -> FW4C segments -> FW4D contracts
 FW5 backend projections/allocation paging -> FW5 UI

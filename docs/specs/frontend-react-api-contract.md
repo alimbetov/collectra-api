@@ -24,17 +24,20 @@ export type Instant = string;   // ISO-8601 UTC/offset timestamp
 export type LocalDate = string; // YYYY-MM-DD
 export type CurrencyCode = string; // ISO-4217, e.g. KZT
 
-// CURRENT wire format only; blocked for financial UI pending the money contract ADR.
-// Prefer canonical decimal strings with documented precision/scale.
-export type Decimal = number;
+// Approved target wire format; implementation is a FW3/FW5 readiness gate.
+// Canonical plain decimal string, public money precision <= 19 and scale <= 4.
+// See public-money-decimal-string-contract.md.
+export type DecimalString = string;
+export type Decimal = DecimalString;
 ```
 
 Rules:
 
 - React MUST NOT derive `paidAmount`, `outstandingAmount`, `paymentStatus`, `daysOverdue`, allocation validity or collection eligibility.
 - All money arithmetic that changes business truth stays on backend.
-- Decimal-string transport is now a Definition of Ready decision for FW3/FW5/FW6 and is
-  an explicit reviewed OpenAPI migration, not a silent TypeScript reinterpretation.
+- Decimal-string transport is the approved target for FW3/FW5/FW6. Its backend/frontend
+  implementation and explicit OpenAPI compatibility decision remain Definition of Ready;
+  this type declaration is not a silent reinterpretation of the current JSON-number wire.
 
 ## 2. Common transport contracts
 
