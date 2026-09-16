@@ -1,8 +1,8 @@
 # FW6 — Collection work queue
 
-Status: DRAFT / API READY
+Status: REVIEWED / OPERATIONAL FILTER AND HISTORY PAGING GATE
 
-Depends on: FW4 customers, FW5 receivables
+Depends on: FW4 customers, FW5 receivables, approved decimal transport
 
 Suggested branches: `feat/frontendweb-fw6a-collection-queue`,
 `feat/frontendweb-fw6b-collection-case-workflows`
@@ -26,6 +26,16 @@ disputes, actions и timeline, сохраняя разделение collection 
 List item already contains customer/invoice/assignee labels, financial context and earliest
 pending next action. No row fan-out is permitted.
 
+### Required backend closure
+
+- add fixed queue filters `nextActionOverdue`, `nextActionDueFrom/To` and allow-listed
+  `nextActionDueAt` sort; current API supports only customer/invoice/status/priority/assignee;
+- provide a bounded permission-aware assignee lookup instead of downloading the unpaged
+  tenant user list;
+- promises, disputes, actions and timeline currently return unbounded lists: page them or
+  enforce documented hard per-case limits before production acceptance;
+- apply the approved decimal transport to promise amounts and projected outstanding money.
+
 ## Routes
 
 ```text
@@ -33,7 +43,8 @@ pending next action. No row fan-out is permitted.
 /collections/:caseId/{overview|promises|disputes|actions|timeline}
 ```
 
-Queue URL owns page/size/sort/status/priority/assignee/overdue-action/customer filters.
+Queue URL owns page/size/sort/status/priority/assignee/customer/invoice and next-action due
+filters that exist in the hardened backend contract.
 
 ## Queue contract
 
@@ -49,6 +60,8 @@ Queue URL owns page/size/sort/status/priority/assignee/overdue-action/customer f
 - successful command replaces/invalidates authoritative detail and queue row;
 - promise/dispute/action panels have independent loading/error states;
 - timeline is read-only and sorted according to backend contract;
+- child panels use their own page/cursor state; opening a long-lived case does not load its
+  entire history;
 - collection status never changes invoice payment status in frontend state.
 
 ## Conflict semantics
@@ -65,6 +78,7 @@ On `409`:
 
 - queue projection test proves no customer/invoice/assignee row requests;
 - URL filter round-trip and overdue navigation;
+- child history paging/limit boundary tests;
 - lifecycle action availability matrix;
 - version and 409 reconciliation tests;
 - promise/dispute/action terminal-state tests;
@@ -73,11 +87,12 @@ On `409`:
 
 ## Implementation order
 
-1. Case DTO/API/query keys/filter codec.
-2. FW6A work queue and links.
-3. Detail shell and lifecycle commands.
-4. Promises, disputes, actions and timeline.
-5. Concurrency and cross-domain invalidation scenarios.
+1. Backend operational filters, assignee lookup and child-history bounds.
+2. Case DTO/API/query keys/filter codec.
+3. FW6A work queue and links.
+4. Detail shell and lifecycle commands.
+5. Promises, disputes, actions and timeline.
+6. Concurrency and cross-domain invalidation scenarios.
 
 ## Не входит
 

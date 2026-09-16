@@ -1,6 +1,6 @@
 # FrontendWeb — React API Contract
 
-Status: DTO CONTRACT FROZEN FOR FRONTEND SCAFFOLD
+Status: BASELINE AUDITED / FW3–FW12 CORRECTIONS REQUIRED
 
 Purpose: зафиксировать TypeScript DTO, API client rules, TanStack Query keys, mutation invalidation и auth/session behavior на базе фактического backend API текущей ветки.
 
@@ -12,6 +12,10 @@ This document is downstream from:
 
 The backend remains authoritative for business state. React is a projection/client orchestration layer, not a second domain engine.
 
+FW3–FW12 review and required contract migrations are recorded in
+[`frontendweb-fw03-fw12-review.md`](frontendweb-fw03-fw12-review.md). A DTO shown here is
+not implementation-ready when that review marks its backend projection as gated.
+
 ## 1. Transport primitives
 
 ```ts
@@ -20,8 +24,8 @@ export type Instant = string;   // ISO-8601 UTC/offset timestamp
 export type LocalDate = string; // YYYY-MM-DD
 export type CurrencyCode = string; // ISO-4217, e.g. KZT
 
-// Current backend wire format for Java BigDecimal is JSON number.
-// Do not use JS floating-point arithmetic for authoritative financial state.
+// CURRENT wire format only; blocked for financial UI pending the money contract ADR.
+// Prefer canonical decimal strings with documented precision/scale.
 export type Decimal = number;
 ```
 
@@ -29,7 +33,8 @@ Rules:
 
 - React MUST NOT derive `paidAmount`, `outstandingAmount`, `paymentStatus`, `daysOverdue`, allocation validity or collection eligibility.
 - All money arithmetic that changes business truth stays on backend.
-- If decimal-string transport is introduced later, that is an explicit API migration, not a silent frontend reinterpretation.
+- Decimal-string transport is now a Definition of Ready decision for FW3/FW5/FW6 and is
+  an explicit reviewed OpenAPI migration, not a silent TypeScript reinterpretation.
 
 ## 2. Common transport contracts
 
@@ -733,7 +738,7 @@ React never constructs RustFS/object-storage URLs. Download/open behavior uses o
 
 ```ts
 export interface TenantMemberDto {
-  membershipId: UUID;
+  id: UUID; // current backend JSON; boundary adapter normalizes this to membershipId
   userId: UUID;
   email: string;
   displayName: string | null;
@@ -755,6 +760,8 @@ GET   /api/v1/identity/permissions
 ```
 
 Role picker loads current roles only when a member is opened; the member list does not fan out one role request per row.
+FW12 backend hardening migrates the public field to explicit `membershipId` and pages
+members/invitations. Features use only the normalized name.
 
 ## 15. HTTP client boundary
 
@@ -802,13 +809,20 @@ export const qk = {
   campaigns: (filters: unknown) => ['campaigns', filters] as const,
   campaign: (id: UUID) => ['campaign', id] as const,
   campaignRuns: (campaignId: UUID, filters?: unknown) => ['campaign-runs', campaignId, filters] as const,
+  campaignRun: (campaignId: UUID, runId: UUID) => ['campaign-run', campaignId, runId] as const,
   recipients: (campaignId: UUID, runId: UUID, filters?: unknown) => ['campaign-recipients', campaignId, runId, filters] as const,
   messages: (campaignId: UUID, runId: UUID, filters?: unknown) => ['messages', campaignId, runId, filters] as const,
   message: (campaignId: UUID, runId: UUID, messageId: UUID) => ['message', campaignId, runId, messageId] as const,
   importBatch: (id: UUID) => ['import-batch', id] as const,
+  imports: (filters: unknown) => ['imports', filters] as const,
+  importErrors: (id: UUID, filters: unknown) => ['import-errors', id, filters] as const,
   templates: (filters: unknown) => ['templates', filters] as const,
+  template: (id: UUID) => ['template', id] as const,
+  templateVersions: (id: UUID, filters: unknown) => ['template-versions', id, filters] as const,
+  files: (filters: unknown) => ['files', filters] as const,
   file: (id: UUID) => ['file', id] as const,
-  tenantMembers: () => ['tenant-members'] as const,
+  tenantMembers: (filters: unknown) => ['tenant-members', filters] as const,
+  invitations: (filters: unknown) => ['tenant-invitations', filters] as const,
   memberRoles: (membershipId: UUID) => ['tenant-member-roles', membershipId] as const,
 };
 ```
@@ -834,7 +848,10 @@ Do not call `queryClient.clear()` for normal business mutations. Clear tenant-bo
 
 ## 18. Polling policy
 
-Async resources include import batches, campaign runs/messages and generated documents.
+Async resources may include import batches, campaign runs/messages and generated documents.
+Polling begins only when the response status is explicitly non-terminal. Current import
+create performs processing synchronously despite returning `202`, so a terminal response
+must not start polling.
 
 ```text
 non-terminal -> poll with bounded interval
@@ -887,32 +904,18 @@ features/admin
 features/profile
 ```
 
-Each feature owns:
+Route composition and business modules follow the implemented dependency direction:
 
 ```text
-api.ts
-contracts.ts
-queries.ts
-mutations.ts
-components/
-pages/
+app -> pages -> features -> entities -> shared
 ```
 
-Shared code owns transport/session/UI primitives only, not feature business logic.
+Entities own transport DTO/API/query keys for a domain; features own user intents/forms;
+pages compose routes; shared owns transport/session/UI primitives only. Reverse and
+cross-feature imports are architecture-test failures.
 
 ## 21. Frontend scaffold gate
 
-`frontendweb/` may be created after this contract is accepted together with the already green backend gate.
-
-Current backend validation on this branch:
-
-```text
-mvn clean verify
-Tests run: 571
-Failures: 0
-Errors: 0
-Skipped: 0
-BUILD SUCCESS
-```
-
-Next implementation slice: `FW0 — frontendweb project shell/tooling`, followed by `FW1 — authentication/session`.
+`frontendweb/` and FW0–FW2 already exist. Before FW3, recover FW2C/FW2D into `main`, close
+FW2E and approve the money transport decision. Historical test counts are not readiness
+evidence; use current required CI checks for the exact commit.

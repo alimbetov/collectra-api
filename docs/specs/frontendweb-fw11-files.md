@@ -1,6 +1,6 @@
 # FW11 — Files registry
 
-Status: DRAFT / BACKEND LIST API BLOCKER
+Status: REVIEWED / BACKEND REGISTRY AND PUBLIC DTO BLOCKER
 
 Depends on: backend tenant-scoped files registry API
 
@@ -21,6 +21,8 @@ delete around existing FileService without exposing RustFS/object-storage detail
 - metadata has category/project/status/filename/contentType/size/checksum/timestamps.
 
 There is no `GET /api/v1/files` list and repository exposes no tenant-paged registry query.
+Existing detail/upload responses reuse application `FileMetadata` and expose `tenantId`;
+public frontend DTO must not reuse that internal application record.
 
 ## Required backend closure
 
@@ -31,8 +33,9 @@ GET /api/v1/files
   ?category&status&projectId&filename&createdFrom&createdTo&page&size&sort
 ```
 
-Response is a screen DTO and MUST NOT expose storage key/bucket/internal URL or arbitrary
-tenantId. Query applies tenant predicate in PostgreSQL, bounded size and allow-listed sort.
+List and detail responses are dedicated public screen DTOs and MUST NOT expose tenantId,
+storage key/bucket/internal URL or deletion implementation fields. Query applies tenant
+predicate in PostgreSQL, bounded size and allow-listed sort.
 Indexes must follow measured query shape, initially `(tenant_id, created_at desc, id)` and
 selective category/status variants only when justified. Add tenant isolation, paging,
 authorization and query-count tests.
@@ -64,6 +67,7 @@ authorization and query-count tests.
 ## Tests
 
 - backend PostgreSQL tenant/paging/filter/sort/index-path tests;
+- serialization test proves tenantId/storage internals are absent from public list/detail;
 - frontend URL codec/list/empty/error states;
 - upload validation and backend-error mapping;
 - expiring URL is requested on intent and not cached as durable server state;
@@ -72,7 +76,7 @@ authorization and query-count tests.
 
 ## Implementation order
 
-1. Backend list DTO/query/controller/OpenAPI/tests.
+1. Backend public list/detail DTO, query/controller/OpenAPI/tests.
 2. Frontend file DTO/API/query keys/filter codec.
 3. Registry/detail.
 4. Upload/download/delete.

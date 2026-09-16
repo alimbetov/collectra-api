@@ -10,19 +10,21 @@
 Business frontend implementation plan:
 [`frontendweb-fw03-fw12-plan.md`](frontendweb-fw03-fw12-plan.md). Он индексирует
 implementation contracts FW3–FW12 и их backend prerequisites.
+Detailed current-code review:
+[`frontendweb-fw03-fw12-review.md`](frontendweb-fw03-fw12-review.md).
 
 | Frontend slice | Specification | Readiness |
 |---|---|---|
-| FW3 | [Dashboard](frontendweb-fw03-dashboard.md) | API READY after FW2 closure |
-| FW4 | [Customers](frontendweb-fw04-customers.md) | API READY |
-| FW5 | [Receivables](frontendweb-fw05-receivables.md) | API READY |
-| FW6 | [Collections](frontendweb-fw06-collections.md) | API READY |
-| FW7 | [Campaigns](frontendweb-fw07-campaigns.md) | requires campaign-run detail API |
+| FW3 | [Dashboard](frontendweb-fw03-dashboard.md) | FW2 + money contract gate |
+| FW4 | [Customers/contracts](frontendweb-fw04-customers.md) | concurrency/selector hardening |
+| FW5 | [Receivables](frontendweb-fw05-receivables.md) | money/projection/paging gate |
+| FW6 | [Collections](frontendweb-fw06-collections.md) | filters/history paging gate |
+| FW7 | [Campaigns](frontendweb-fw07-campaigns.md) | detail/idempotency gate |
 | FW8 | [Message monitoring](frontendweb-fw08-message-monitoring.md) | API READY after FW7 |
-| FW9 | [Templates](frontendweb-fw09-templates.md) | API READY |
-| FW10 | [Imports](frontendweb-fw10-imports.md) | requires durable record diagnostics |
-| FW11 | [Files](frontendweb-fw11-files.md) | requires paged files registry API |
-| FW12 | [Administration](frontendweb-fw12-administration.md) | requires member/invitation paging hardening |
+| FW9 | [Templates](frontendweb-fw09-templates.md) | detail/revision/bounds gate |
+| FW10 | [Imports](frontendweb-fw10-imports.md) | diagnostics/config bounds gate |
+| FW11 | [Files](frontendweb-fw11-files.md) | registry/public DTO gate |
+| FW12 | [Administration](frontendweb-fw12-administration.md) | paging/DTO/revision gate |
 
 Последнее cross-review документации, актуального `main` и полного build log:
 [`review-2026-09-11.md`](review-2026-09-11.md).

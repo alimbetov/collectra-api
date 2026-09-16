@@ -1,8 +1,11 @@
 # FrontendWeb FW3–FW12 — implementation plan
 
-Status: DRAFT FOR REVIEW
+Status: REVIEWED / IMPLEMENTATION GATES IDENTIFIED
 
 Baseline: `main@02515d0`
+
+Detailed audit and corrections:
+[`frontendweb-fw03-fw12-review.md`](frontendweb-fw03-fw12-review.md).
 
 ## Цель
 
@@ -23,11 +26,16 @@ Baseline: `main@02515d0`
 FW2C/FW2D нельзя считать доставленными только потому, что их stacked PR закрыт: код
 должен присутствовать именно в `main`.
 
+До финансовых экранов также должен быть утверждён public money transport contract.
+Текущий `Decimal = number` не обеспечивает требуемую точность Java `BigDecimal` в
+JavaScript. Предпочтительный контракт — canonical decimal string с явно заданными
+precision/scale и осознанным обновлением OpenAPI baseline.
+
 ## Dependency graph
 
 ```text
-FW2 closure
-  ├─> FW3 Dashboard ─> FW4 Customers ─> FW5 Receivables ─> FW6 Collections
+FW2 closure + money contract
+  ├─> FW3 Dashboard ─> FW4 Customers/Contracts ─> FW5 Receivables ─> FW6 Collections
   │                                                └───────> FW7 Campaigns ─> FW8 Messages
   ├─> FW9 Templates ───────────────────────────────────────> FW7 Campaigns
   ├─> Backend import diagnostics ──────────────────────────> FW10 Imports
@@ -107,10 +115,16 @@ cross-feature imports and direct page-to-page imports are forbidden by architect
 
 | Frontend slice | Missing backend contract | Required result |
 |---|---|---|
-| FW7 | direct campaign-run detail projection | tenant-scoped `GET /campaigns/{campaignId}/runs/{runId}` with counters/timestamps |
-| FW10 | durable record/field import diagnostics | tenant-scoped paged errors with masking, retention and stable ordering |
-| FW11 | files registry list | tenant-scoped paged/filterable `GET /api/v1/files` projection |
-| FW12 | unbounded tenant member/invitation lists | paged fixed-filter projections before large-tenant production acceptance |
+| FW3/FW5 | safe monetary transport | canonical decimal string or reviewed equivalent with precision/scale |
+| FW4 | stale-write protection and bounded manager selector | expected version/ETag; permission-aware paged user lookup |
+| FW6 | bounded assignee selector | permission-aware paged user lookup for assignment UX |
+| FW5 | receivable row labels and bounded allocations | batch-resolved labels; paged history or enforced hard bound |
+| FW6 | operational work-queue filters | `nextActionOverdue`/due range and allow-listed due sort |
+| FW7 | details and idempotent preparation | campaign/run detail plus stable prepare command ID |
+| FW9 | template detail, revision and builder bounds | reloadable detail, stale-write protection and limits |
+| FW10 | diagnostics and configuration details | paged errors plus direct revision-safe schema/profile details |
+| FW11 | files registry list and safe public DTO | paged/filterable list; omit tenantId/storage internals |
+| FW12 | lists/detail/ID naming drift | paged lists, direct member/role detail, explicit `membershipId` |
 
 No frontend slice may work around these gaps using unbounded downloads, local joins or
 client-side scanning.
@@ -120,7 +134,7 @@ client-side scanning.
 | Order | Specification | Suggested code branch |
 |---|---|---|
 | 1 | [FW3 Dashboard](frontendweb-fw03-dashboard.md) | `feat/frontendweb-fw3-dashboard` |
-| 2 | [FW4 Customers](frontendweb-fw04-customers.md) | split FW4A/FW4B/FW4C |
+| 2 | [FW4 Customers and contracts](frontendweb-fw04-customers.md) | split FW4A/FW4B/FW4C/FW4D |
 | 3 | [FW5 Receivables](frontendweb-fw05-receivables.md) | split list/detail and payments |
 | 4 | [FW6 Collections](frontendweb-fw06-collections.md) | split queue/detail workflows |
 | 5 | [FW7 Campaigns](frontendweb-fw07-campaigns.md) | split list/detail and run execution |
@@ -134,6 +148,7 @@ client-side scanning.
 
 - prerequisite branches merged in `main`;
 - referenced endpoint and DTO confirmed against current OpenAPI artifact;
+- monetary DTO uses the approved decimal transport contract;
 - permission names confirmed against backend annotations;
 - route, query keys, URL state and invalidation graph written in the slice spec;
 - backend blocker is closed rather than emulated on frontend;

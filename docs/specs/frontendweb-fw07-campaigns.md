@@ -1,11 +1,11 @@
 # FW7 — Campaigns and runs
 
-Status: DRAFT / BACKEND DETAIL GAP
+Status: REVIEWED / BACKEND DETAIL AND IDEMPOTENCY GATE
 
 Depends on: FW4 customers/segments, FW5 receivables, published templates from FW9 or
 equivalent template selection flow
 
-Suggested branches: `feat/campaign-run-detail-api`,
+Suggested branches: `feat/campaign-frontend-detail-idempotency`,
 `feat/frontendweb-fw7a-campaigns`, `feat/frontendweb-fw7b-campaign-runs`
 
 ## Цель
@@ -25,18 +25,25 @@ eligibility recheck и delivery counters без provider-specific UI.
 
 ### Required backend closure
 
-Добавить tenant-scoped:
+Добавить tenant-scoped screen projections:
 
 ```text
+GET /api/v1/campaigns/{campaignId}                 // selection + metadata + version
 GET /api/v1/campaigns/{campaignId}/runs/{runId}
 ```
 
-Он возвращает `CampaignRunDto` с counters/timestamps/version и проверяет принадлежность
-run указанной campaign. Иначе direct/deep link run page не может надёжно восстановиться
-после reload, а сканирование paged run list недопустимо.
+Current campaign detail returns only id/name/status/templateVersionId/channel/scheduledAt;
+it omits selection, timestamps and version. The corrected detail returns them. Run detail
+returns counters/timestamps/version and verifies that the run belongs to the path campaign.
+Otherwise reload would require scanning paged lists.
 
-Если campaign detail должен показывать selection, backend response также расширяется
-screen-oriented selection projection; React не восстанавливает selection из recipients.
+`POST /{campaignId}/runs` currently creates a new run on every call. Add a stable command/
+idempotency key persisted with a tenant+campaign uniqueness constraint and return the same
+prepare result for a replay of the same intent. UI double-submit prevention alone does not
+resolve a lost HTTP response.
+
+Activation should accept expected campaign version/ETag so stale detail does not execute a
+lifecycle command against silently newer state.
 
 ## Routes
 
@@ -54,6 +61,7 @@ screen-oriented selection projection; React не восстанавливает 
   `CampaignSelection` (customerIds/segmentIds/overdue/amount ranges);
 - template/channel compatibility comes from backend/catalogue, not hardcoded UI guesses;
 - activation and run preparation require confirmation and `CAMPAIGN_MANAGE`;
+- activation sends expected version; preparation creates one stable command ID per intent;
 - selection summary uses bounded counts/projections only.
 
 ## Run workflow
@@ -62,7 +70,7 @@ screen-oriented selection projection; React не восстанавливает 
 create draft -> activate -> prepare run -> eligibility recheck -> delivery monitoring
 ```
 
-- prepare is single-submit and response navigates to returned run;
+- prepare is single-submit and safe replay returns the same run;
 - recipient list is server-paged and destinations are already masked;
 - recheck result shows eligible/skipped changes and invalidates run/recipients/messages;
 - counters are backend-owned and never derived by scanning recipients/messages;
@@ -83,6 +91,8 @@ create draft -> activate -> prepare run -> eligibility recheck -> delivery monit
 - create selection serialization and template/channel compatibility;
 - permission/action-state matrix;
 - prepare double-submit and navigation;
+- ambiguous prepare response replay proves one run/recipient set;
+- stale activation version returns mapped `409`;
 - direct run URL reload through new detail endpoint;
 - eligibility invalidation graph;
 - bounded polling start/pause/stop tests;
@@ -90,7 +100,7 @@ create draft -> activate -> prepare run -> eligibility recheck -> delivery monit
 
 ## Implementation order
 
-1. Backend run detail endpoint + OpenAPI/tenant/security tests.
+1. Backend campaign/run details, expected-version activation and idempotent prepare.
 2. Campaign DTO/API/query keys and list.
 3. Create/detail/lifecycle commands.
 4. Run summary/recipients/recheck.
@@ -104,6 +114,7 @@ materialization and arbitrary audience query DSL.
 ## Definition of Done
 
 - deep-linked run is independently loadable;
+- lost-response replay cannot create a second run;
 - counters and eligibility remain backend authoritative;
 - permission/lifecycle gating and polling are deterministic;
 - frontend and backend required CI checks are green.

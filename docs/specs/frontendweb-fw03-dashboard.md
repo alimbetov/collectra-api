@@ -1,8 +1,8 @@
 # FW3 — Dashboard
 
-Status: DRAFT / API READY
+Status: REVIEWED / READY AFTER FW2 AND MONEY CONTRACT
 
-Depends on: FW2 closure
+Depends on: FW2 closure, approved public decimal transport contract
 
 Suggested branch: `feat/frontendweb-fw3-dashboard`
 
@@ -25,6 +25,16 @@ DTO остаются определёнными разделом Dashboard в
 [`frontend-react-api-contract.md`](frontend-react-api-contract.md). `asOf` и
 `businessDate` отображаются как freshness context.
 
+Фактическая семантика текущего кода:
+
+- summary: customers, active contracts, open collection cases, active campaigns and
+  outstanding amounts grouped by currency;
+- receivables: per-currency outstanding, due today/next 7 days and aging buckets;
+- delivery: cumulative counters across all tenant campaign runs, без временного фильтра;
+- collections: active cases, overdue actions, promises and disputes;
+- каждый endpoint создаёт собственный snapshot, поэтому четыре ответа не являются одной
+  атомарной фотографией и их `asOf` могут отличаться.
+
 ## Route и модули
 
 ```text
@@ -41,12 +51,16 @@ Query keys: `dashboard.summary()`, `dashboard.receivables()`, `dashboard.deliver
 
 ## UI contract
 
-- KPI: customers, outstanding, overdue, active collection cases;
+- KPI: customers, active contracts, open collection cases, active campaigns;
 - receivables: outstanding, overdue, aging, due today/soon;
 - delivery: recipients, sent, retry, failed, skipped;
 - collections: active, overdue actions, promises due/overdue/broken;
 - each card fails independently; one failed projection does not hide successful cards;
-- card links preserve documented filters, for example overdue -> `/receivables?overdue=true`;
+- outstanding/overdue amounts remain grouped by currency;
+- overdue presentation may sum already projected aging buckets only inside one currency;
+- card links are enabled only when the target route and server filter already exist;
+- receivables overdue link is `/receivables?view=invoices&overdue=true`;
+- overdue-actions card MUST NOT emit a fake filter until FW6 adds it;
 - currency-separated values are never summed across currencies in React.
 
 ## Invariants
@@ -56,6 +70,10 @@ Query keys: `dashboard.summary()`, `dashboard.receivables()`, `dashboard.deliver
 - A card is empty only after a successful response with zero values, not while loading.
 - Response freshness is visible when data can be operationally stale.
 - Dashboard navigation never invents filters unsupported by target list APIs.
+- Delivery labels explicitly describe cumulative tenant counters; UI does not imply
+  "today" or "current run" without a backend time/run filter.
+- Dashboard money is not implemented on top of lossy `Decimal = number`; the approved
+  decimal-string (or reviewed equivalent) contract is a Definition of Ready gate.
 
 ## Error semantics
 
@@ -70,6 +88,8 @@ Query keys: `dashboard.summary()`, `dashboard.receivables()`, `dashboard.deliver
 - query-key and independent failure tests;
 - currency and LocalDate/Instant formatting tests;
 - navigation preserves target URL filters;
+- independent `asOf` values are rendered without claiming atomic cross-card consistency;
+- delivery cumulative-label and per-currency overdue aggregation tests;
 - loading -> success, empty and partial error component tests;
 - architecture test: dashboard feature imports only entities/shared.
 

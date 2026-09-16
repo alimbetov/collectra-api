@@ -1,6 +1,6 @@
 # FW8 — Message delivery monitoring
 
-Status: DRAFT / API READY
+Status: REVIEWED / API READY AFTER FW7
 
 Depends on: FW7 campaign run route
 
@@ -9,7 +9,8 @@ Suggested branch: `feat/frontendweb-fw8-message-monitoring`
 ## Цель
 
 Создать read-only operational view сообщений конкретного campaign run с фильтрами,
-деталями попыток/ошибок/вложений и строгим PII/provider boundary.
+текущим delivery state, счётчиком попыток, ошибкой/вложениями и строгим PII/provider
+boundary. Current API does not expose an attempt history, so UI must not claim it does.
 
 ## Backend contract
 
@@ -44,12 +45,14 @@ src/pages/messages/*
 
 ## Detail contract
 
-- displays status, attempts, processing/retry/sent timestamps, safe error and attachments;
+- displays status, attempt count, processing/retry/sent timestamps, safe error and attachments;
+- it does not synthesize individual attempt rows or an audit timeline from `attemptCount`;
 - providerMessageId is diagnostic text, not a provider URL;
 - error code is mapped to localized text; safe backend summary may be shown, raw exception
   and provider body may not;
-- attachment filename/content type/size/readiness only; download uses File API when an
-  authorized file reference is provided by the contract;
+- attachment filename/content type/size/readiness only. Current DTO exposes no `fileId`, so
+  FW8 has no attachment download action; a future download requires an explicit authorized
+  backend reference, never inference from attachment ID;
 - copy actions have explicit feedback and validated bounded values.
 
 ## Security and operations invariants
@@ -67,6 +70,7 @@ src/pages/messages/*
 - masked PII and safe-error rendering fixtures;
 - unknown status/channel forward-compatibility;
 - attachments readiness display;
+- attempt count is not rendered as fabricated attempt history;
 - polling stop/pause tests;
 - assertion that no manual mutation controls exist.
 

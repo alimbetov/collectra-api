@@ -1,6 +1,6 @@
 # FW12 — Tenant administration and profile
 
-Status: DRAFT / PAGING HARDENING REQUIRED
+Status: REVIEWED / PAGING, DTO AND REVISION HARDENING REQUIRED
 
 Depends on: FW2 RBAC/i18n/error foundation
 
@@ -37,6 +37,19 @@ Tenant predicate, stable ordering, bounded size, safe email projection and Postg
 query-count/security tests are mandatory. Permissions catalogue/role list may remain
 bounded configuration lists with documented upper limits.
 
+Normalize the member response field. Current backend JSON returns `id`, while
+`frontend-react-api-contract.md` calls it `membershipId`. Preferred public DTO uses explicit
+`membershipId`; if migration is staged, a boundary adapter maps `id` once and no feature
+uses both names.
+
+Role responses expose no JPA revision and update accepts no expected version. Add
+`revision`/ETag precondition for role update/delete (and preferably membership role
+replacement) before claiming conflict-safe concurrent administration. Bound tenant role
+count or page the list.
+
+Add tenant-scoped direct member detail and role detail endpoints for the routed
+`/:membershipId` and `/:roleId` pages. Reload must not scan an arbitrary member/role list.
+
 ## Routes
 
 ```text
@@ -53,7 +66,10 @@ bounded configuration lists with documented upper limits.
 ## FW12A — profile and security
 
 - edit display/locale/timezone through current-user API;
-- locale/timezone change updates I18n/Intl context after authoritative response;
+- extend auth/session model with one controlled `replaceUser`/`refreshMe` path; the current
+  AuthContext has no profile refresh method;
+- locale/timezone change updates AuthContext and I18n/Intl context from the authoritative
+  response without requiring logout/login;
 - password change clears sensitive form state;
 - current sessions identify current/active/revoked state safely;
 - revoke one/all sessions requires confirmation and handles current-session logout.
@@ -74,6 +90,8 @@ bounded configuration lists with documented upper limits.
 ## RBAC invariants
 
 - route visibility uses exact backend permission codes;
+- administration root is visible when at least one child capability is available; each
+  child route checks its exact permission (`USER_READ`, `USER_INVITE`, `ROLE_READ`, etc.);
 - action permission checks are centralized and testable;
 - user cannot grant permissions merely because UI has stale role catalogue;
 - role/membership mutations invalidate current `me` when they may affect the current user;
@@ -85,14 +103,17 @@ bounded configuration lists with documented upper limits.
 - password form secret clearing;
 - session revoke/current-session logout;
 - paged member/invitation filters and no role N+1;
+- direct member/role URL reload uses one detail request, not list scanning;
+- `id` -> `membershipId` boundary normalization contract;
 - exact permission/action matrix;
 - role protection, duplicate invite, self-lockout and 409 cases;
+- concurrent role revision conflict and bounded role-catalogue test;
 - current-user permission cache refresh after role mutation;
 - tenant/platform route isolation architecture test.
 
 ## Implementation order
 
-1. Backend member/invitation paging hardening.
+1. Backend member/invitation paging, membership DTO naming and role revision hardening.
 2. Profile/security/session UI.
 3. Member directory/detail/roles/status/sessions.
 4. Invitations.

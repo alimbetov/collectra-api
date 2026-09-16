@@ -707,19 +707,10 @@ shared/ui
 shared/utils
 ```
 
-## 24. Next analysis step
+## 24. Implementation handoff
 
-Produce `frontend-react-api-contract.md` with:
-
-1. exact TypeScript DTOs derived from backend responses;
-2. query parameter types;
-3. mutation request types;
-4. normalized `PageResponse` / `SliceResponse` / `ProblemDetail` types;
-5. TanStack Query keys;
-6. API functions;
-7. cache invalidation graph after mutations;
-8. auth refresh interceptor behavior;
-9. permission guards;
-10. screen-to-query mapping.
-
-This DTO/client contract must derive from this process model and the factual backend API, not from JPA entities.
+The DTO/client baseline exists in `frontend-react-api-contract.md`. Business implementation
+must now follow the reviewed FW3–FW12 contracts indexed by
+`frontendweb-fw03-fw12-plan.md`. Where the current API lacks a bounded projection, direct
+detail endpoint, idempotency or stale-write precondition, the backend gate is implemented
+first; React must not compensate by scanning lists, joining rows or retrying blindly.

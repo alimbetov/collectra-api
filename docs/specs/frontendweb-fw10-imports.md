@@ -1,6 +1,6 @@
 # FW10 — Imports and mapping configuration
 
-Status: DRAFT / RECORD-DIAGNOSTICS GAP
+Status: REVIEWED / DIAGNOSTICS AND CONFIG BOUNDS GATE
 
 Depends on: FW2 closure, backend durable import diagnostics
 
@@ -24,6 +24,10 @@ configuration workspace for source schemas and mapping profiles.
 Current `/imports/{id}/errors` synthesizes at most one generic batch failure from
 `import_batches.error_code`. It is not record/field diagnostics.
 
+Although create returns HTTP `202`, current `ImportBatchService.create()` calls processing
+synchronously before returning. Frontend must inspect returned status rather than assuming
+that `202` means a background worker is running.
+
 ## Required backend closure
 
 Implement durable, tenant-scoped paged diagnostics:
@@ -38,6 +42,14 @@ Requirements: bounded text, PII masking, stable `(record_number, field_key, id)`
 index `(tenant_id, import_id, id)`, retention tied to import/source file, atomic/batched
 persistence semantics and PostgreSQL/security/paging tests. The current batch-level error
 remains a summary, not a replacement.
+
+Source-schema and mapping-profile definition/version/rule endpoints currently return lists.
+Before scale acceptance, document hard per-tenant/per-version limits or introduce paging.
+Mutable schema/profile versions also need an explicit revision/ETag precondition before the
+UI claims stale-write-safe multi-editor behavior.
+Add direct tenant-scoped definition/version detail projections for any routed editor;
+restoring a deep link may not scan definition/version lists to reconstruct its header and
+revision.
 
 ## Routes
 
@@ -57,7 +69,8 @@ Execution and configuration are separate feature modules and query-key namespace
 - choose source type and published mapping/template versions;
 - upload file or submit bounded JSON/XML payload;
 - generate one `Idempotency-Key` per logical submission and reuse it on replay;
-- progress page polls only pending states and stops on terminal state/hidden tab;
+- progress page polls only when the returned status is explicitly non-terminal and stops on
+  terminal state/hidden tab; current synchronous responses normally require no polling;
 - reload/deep link restores state through batch/history APIs;
 - generated document links use backend IDs/routes;
 - error table is server-paged and never parses/scans the source file in browser.
@@ -84,6 +97,7 @@ Execution and configuration are separate feature modules and query-key namespace
 - idempotency-key stability and changed-intent regeneration;
 - multipart/JSON/XML API contract tests;
 - polling start/pause/terminal tests;
+- terminal `202` response proves that polling is not started;
 - reload/deep-link recovery;
 - paged durable record/field diagnostics and masking;
 - source/mapping lifecycle and published immutability;
@@ -91,7 +105,7 @@ Execution and configuration are separate feature modules and query-key namespace
 
 ## Implementation order
 
-1. Durable backend diagnostics and OpenAPI update.
+1. Durable backend diagnostics, direct configuration details, bounds/revisions and OpenAPI update.
 2. Import execution DTO/API/query keys and submission.
 3. History/progress/errors/generated outputs.
 4. Source schema configuration.

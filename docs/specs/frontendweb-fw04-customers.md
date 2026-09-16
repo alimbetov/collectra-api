@@ -1,11 +1,12 @@
 # FW4 — Customers
 
-Status: DRAFT / API READY
+Status: REVIEWED / API HARDENING REQUIRED FOR SAFE EDITING
 
 Depends on: FW2 closure, FW3 shared query conventions
 
-Suggested branches: `feat/frontendweb-fw4a-customer-list`,
-`feat/frontendweb-fw4b-customer-detail`, `feat/frontendweb-fw4c-customer-segments`
+Suggested branches: `feat/customer-expected-version-api`,
+`feat/frontendweb-fw4a-customer-list`, `feat/frontendweb-fw4b-customer-detail`,
+`feat/frontendweb-fw4c-customer-segments`, `feat/frontendweb-fw4d-contracts`
 
 ## Цель
 
@@ -26,15 +27,25 @@ List projection already includes manager, primary contacts and segment summaries
 MUST NOT request these values per row. Exact DTO/filters come from
 [`frontend-react-api-contract.md`](frontend-react-api-contract.md).
 
+`CustomerResponse`, contact responses and segment responses expose `version`, but customer
+update/status/contact patch requests do not carry an expected version. JPA `@Version` alone
+does not detect a stale browser form loaded before another already committed update.
+
+Before declaring safe concurrent editing, add expected `version` or `If-Match` to customer,
+status and contact patch commands with stable `409` mapping. Segment update already accepts
+an optional version; make it required for updates.
+
 ## Routes и модули
 
 ```text
 /customers
 /customers/new
 /customers/:customerId
-/customers/:customerId/{overview|contacts|contracts|invoices|payments|collections|activity}
+/customers/:customerId/{overview|contacts|contracts|invoices|payments|collections}
 /customers/segments
 /customers/segments/:segmentId
+/contracts
+/contracts/:contractId
 ```
 
 Entities: `customer`, `customer-segment`. Features: customer filters/form/status,
@@ -52,10 +63,14 @@ contact editor, segment membership.
 
 - tabs use nested routes and deep links;
 - overview edit form keeps server DTO separate from form DTO;
+- expected version/ETag is captured when the form opens and sent on mutation;
 - status change uses confirmation and invalidates detail/list/dashboard;
 - contact mutations invalidate customer detail, contact list and customer lists because
   primary contact projection may change;
 - `404` remains foreign-tenant safe.
+- manager filter/editor requires a bounded user selector and `USER_READ`; without that
+  permission, UI preserves an existing manager ID but does not download the tenant directory
+  or expose a broken selector.
 
 ## FW4C — segments
 
@@ -64,9 +79,21 @@ contact editor, segment membership.
 - duplicate membership response is mapped by ProblemDetail code;
 - segment labels are never joined by client row fan-out.
 
+## FW4D — contracts
+
+Contracts were present in the user process and API matrix but missing from the original
+delivery sequence. Implement:
+
+- paged `/contracts` with search/customer/status/externalId/validity/date filters;
+- contract detail and customer-scoped contract tab;
+- create/update and suspend/activate/close/cancel commands;
+- required `version` for update/lifecycle commands and explicit `409` reconciliation;
+- invalidation of contract lists/detail, customer contract tab and dependent invoice
+  selectors.
+
 ## Concurrency and mutation rules
 
-- no optimistic customer status/contact/membership change without rollback contract;
+- no optimistic customer/status/contact/contract change without rollback contract;
 - submit is disabled per intent, not for unrelated page actions;
 - server validation maps `errors` to fields, unknown errors to form alert;
 - unsaved form navigation requires confirmation;
@@ -78,6 +105,7 @@ contact editor, segment membership.
 - MSW list confirms one customer request and no per-row requests;
 - form DTO mapping and field-error tests;
 - mutation invalidation matrix tests;
+- stale customer/contact/segment and contract version conflict tests;
 - direct URL, forbidden/not-found and unsaved-change scenarios;
 - ru/kk labels and accessible tab/form tests.
 
@@ -87,16 +115,18 @@ contact editor, segment membership.
 2. FW4A list/read projection.
 3. FW4B detail/contacts/status commands.
 4. FW4C segments/membership.
-5. Cross-tab invalidation and scenario tests.
+5. FW4D contracts list/detail/lifecycle.
+6. Cross-tab invalidation and scenario tests.
 
 ## Не входит
 
 Bulk edit/delete, arbitrary query DSL, frontend manager/segment joins and activity feed not
-backed by the current API.
+backed by the current API. The unsupported activity tab is not routed.
 
 ## Definition of Done
 
 - list remains one paged server request for any page;
 - deep links and browser navigation restore filters/tabs;
 - mutations refresh all affected projections without global cache clear;
+- stale customer/contract forms cannot silently overwrite newer committed state;
 - tenant/RBAC/error contracts and frontend CI are green.
