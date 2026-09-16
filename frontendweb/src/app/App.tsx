@@ -1,26 +1,19 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '../features/auth/model/auth-context';
-
-const navigation = [
-  ['Dashboard', '/'],
-  ['Customers', '/customers'],
-  ['Receivables', '/receivables'],
-  ['Collections', '/collections'],
-  ['Campaigns', '/campaigns'],
-  ['Templates', '/templates'],
-  ['Imports', '/imports'],
-  ['Files', '/files'],
-] as const;
+import { canAccessNavigationItem, navigation } from './navigation';
 
 export function App() {
-  const { user, logout } = useAuth();
+  const { user, logout, hasPermission } = useAuth();
+  const visibleNavigation = navigation.filter((item) =>
+    canAccessNavigationItem(item, hasPermission),
+  );
 
   return (
     <div className="app-shell">
       <aside className="sidebar">
         <div className="brand">Collectra</div>
         <nav aria-label="Primary navigation">
-          {navigation.map(([label, path]) => (
+          {visibleNavigation.map(({ label, path }) => (
             <NavLink
               key={path}
               to={path}
