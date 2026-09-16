@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { ApiError } from '../../shared/api/http-client';
 import { useAuth } from '../../features/auth/model/auth-context';
+import { useI18n } from '../../shared/i18n/i18n-context';
 
 interface LoginLocationState {
   from?: string;
@@ -14,6 +15,7 @@ function safePostLoginPath(state: LoginLocationState | null): string {
 
 export function LoginPage() {
   const { login, status } = useAuth();
+  const { t } = useI18n();
   const navigate = useNavigate();
   const location = useLocation();
   const [tenantSlug, setTenantSlug] = useState('');
@@ -37,9 +39,9 @@ export function LoginPage() {
       navigate(safePostLoginPath(state), { replace: true });
     } catch (error) {
       if (error instanceof ApiError) {
-        setErrorMessage(error.problem?.detail ?? error.problem?.title ?? 'Unable to sign in');
+        setErrorMessage(error.problem?.detail ?? error.problem?.title ?? t('auth.failed'));
       } else {
-        setErrorMessage('Unable to sign in');
+        setErrorMessage(t('auth.failed'));
       }
     } finally {
       setSubmitting(false);
@@ -50,13 +52,13 @@ export function LoginPage() {
     <main className="login-page">
       <section className="login-card" aria-labelledby="login-title">
         <div className="brand">Collectra</div>
-        <p className="eyebrow">Tenant workspace</p>
-        <h1 id="login-title">Sign in</h1>
-        <p className="login-help">Use your workspace slug and account credentials.</p>
+        <p className="eyebrow">{t('auth.workspace')}</p>
+        <h1 id="login-title">{t('auth.signIn')}</h1>
+        <p className="login-help">{t('auth.help')}</p>
 
         <form className="login-form" onSubmit={handleSubmit}>
           <label>
-            Workspace slug
+            {t('auth.tenantSlug')}
             <input
               name="tenantSlug"
               autoComplete="organization"
@@ -68,7 +70,7 @@ export function LoginPage() {
           </label>
 
           <label>
-            Email
+            {t('auth.email')}
             <input
               type="email"
               name="email"
@@ -80,7 +82,7 @@ export function LoginPage() {
           </label>
 
           <label>
-            Password
+            {t('auth.password')}
             <input
               type="password"
               name="password"
@@ -98,7 +100,7 @@ export function LoginPage() {
           ) : null}
 
           <button type="submit" disabled={submitting || status === 'loading'}>
-            {submitting ? 'Signing in…' : 'Sign in'}
+            {submitting ? t('auth.signingIn') : t('auth.signIn')}
           </button>
         </form>
       </section>

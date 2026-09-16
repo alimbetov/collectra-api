@@ -1,18 +1,26 @@
 export interface NavigationItem {
-  label: string;
+  labelKey:
+    | 'navigation.dashboard'
+    | 'navigation.customers'
+    | 'navigation.receivables'
+    | 'navigation.collections'
+    | 'navigation.campaigns'
+    | 'navigation.templates'
+    | 'navigation.imports'
+    | 'navigation.files';
   path: string;
   permission?: string;
 }
 
 export const navigation: readonly NavigationItem[] = [
-  { label: 'Dashboard', path: '/' },
-  { label: 'Customers', path: '/customers' },
-  { label: 'Receivables', path: '/receivables' },
-  { label: 'Collections', path: '/collections' },
-  { label: 'Campaigns', path: '/campaigns', permission: 'CAMPAIGN_READ' },
-  { label: 'Templates', path: '/templates', permission: 'TEMPLATE_READ' },
-  { label: 'Imports', path: '/imports', permission: 'DOCUMENT_READ' },
-  { label: 'Files', path: '/files', permission: 'FILE_READ' },
+  { labelKey: 'navigation.dashboard', path: '/' },
+  { labelKey: 'navigation.customers', path: '/customers' },
+  { labelKey: 'navigation.receivables', path: '/receivables' },
+  { labelKey: 'navigation.collections', path: '/collections' },
+  { labelKey: 'navigation.campaigns', path: '/campaigns', permission: 'CAMPAIGN_READ' },
+  { labelKey: 'navigation.templates', path: '/templates', permission: 'TEMPLATE_READ' },
+  { labelKey: 'navigation.imports', path: '/imports', permission: 'DOCUMENT_READ' },
+  { labelKey: 'navigation.files', path: '/files', permission: 'FILE_READ' },
 ] as const;
 
 export function canAccessNavigationItem(
