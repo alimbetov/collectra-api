@@ -28,6 +28,14 @@ export const ruMessages = {
   'system.notFound': 'Страница не найдена',
   'system.notFoundDescription': 'Запрошенная страница рабочего пространства не существует.',
   'system.returnHome': 'Вернуться к обзору',
+  'error.title': 'Не удалось выполнить действие',
+  'error.unexpected': 'Произошла непредвиденная ошибка. Попробуйте ещё раз.',
+  'error.server': 'Сервис временно недоступен. Повторите попытку позже.',
+  'error.supportId': 'Код для поддержки',
+  'error.copyId': 'Копировать код',
+  'error.copied': 'Код скопирован',
+  'error.retry': 'Попробовать снова',
+  'error.reload': 'Перезагрузить страницу',
 } as const;
 
 export type MessageKey = keyof typeof ruMessages;
@@ -62,4 +70,12 @@ export const kkMessages: Record<MessageKey, string> = {
   'system.notFound': 'Бет табылмады',
   'system.notFoundDescription': 'Сұралған жұмыс кеңістігінің беті жоқ.',
   'system.returnHome': 'Шолуға оралу',
+  'error.title': 'Әрекетті орындау мүмкін болмады',
+  'error.unexpected': 'Күтпеген қате орын алды. Қайталап көріңіз.',
+  'error.server': 'Қызмет уақытша қолжетімсіз. Кейінірек қайталап көріңіз.',
+  'error.supportId': 'Қолдау қызметіне арналған код',
+  'error.copyId': 'Кодты көшіру',
+  'error.copied': 'Код көшірілді',
+  'error.retry': 'Қайталап көру',
+  'error.reload': 'Бетті қайта жүктеу',
 };
