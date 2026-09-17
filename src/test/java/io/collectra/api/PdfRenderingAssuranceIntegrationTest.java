@@ -45,10 +45,9 @@ class PdfRenderingAssuranceIntegrationTest extends AbstractIntegrationTest {
         assertThat(new String(pdf, 0, 5, StandardCharsets.ISO_8859_1)).isEqualTo("%PDF-");
 
         try (PDDocument document = PDDocument.load(pdf)) {
+            String extracted = normalizePdfText(new PDFTextStripper().getText(document));
             assertThat(document.getNumberOfPages()).isGreaterThanOrEqualTo(1);
-            assertThat(new PDFTextStripper().getText(document))
-                    .contains("Collectra")
-                    .contains(sample);
+            assertThat(extracted).contains("Collectra").contains(sample);
             assertAllReferencedFontsAreEmbedded(document);
         }
     }
@@ -72,7 +71,7 @@ class PdfRenderingAssuranceIntegrationTest extends AbstractIntegrationTest {
         byte[] pdf = pdfRenderer.render(html.toString(), "en");
 
         try (PDDocument document = PDDocument.load(pdf)) {
-            String extracted = new PDFTextStripper().getText(document);
+            String extracted = normalizePdfText(new PDFTextStripper().getText(document));
             assertThat(document.getNumberOfPages()).isGreaterThan(1);
             assertThat(extracted).contains("Row 1").contains("Row 150").contains("15000 KZT");
             assertAllReferencedFontsAreEmbedded(document);
@@ -85,6 +84,10 @@ class PdfRenderingAssuranceIntegrationTest extends AbstractIntegrationTest {
                 Arguments.of("ru", "Счёт на оплату 125000.50 KZT"),
                 Arguments.of("kk", "Төлем сомасы 125000.50 KZT"),
                 Arguments.of("zh-CN", "应付金额 125000.50 KZT"));
+    }
+
+    private static String normalizePdfText(String text) {
+        return text.replace('\u00A0', ' ');
     }
 
     private void assertAllReferencedFontsAreEmbedded(PDDocument document) throws IOException {
