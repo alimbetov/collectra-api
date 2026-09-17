@@ -5,6 +5,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -123,10 +124,136 @@ class CustomerFrontendApiIntegrationTest extends AbstractIntegrationTest {
                                         second.get("id").asText())
                                 .header("Authorization", bearer(token))
                                 .contentType(MediaType.APPLICATION_JSON)
-                                .content("{\"status\":\"INACTIVE\"}"))
+                                .content(
+                                        "{\"status\":\"INACTIVE\",\"version\":"
+                                                + second.get("version").asLong()
+                                                + "}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("INACTIVE"))
                 .andExpect(jsonPath("$.primary").value(false));
+    }
+
+    @Test
+    void staleCustomerContactAndSegmentCommandsFailWithoutSideEffects() throws Exception {
+        String token = register("customer-version");
+        JsonNode customer = createCustomer(token, "EXT-VERSION", "Version Company");
+        String customerId = customer.get("id").asText();
+
+        JsonNode updated =
+                read(
+                        put("/api/v1/customers/{id}", customerId)
+                                .header("Authorization", bearer(token))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        "{\"displayName\":\"Updated Company\",\"companyName\":\"Updated Company\",\"version\":0}"),
+                        200);
+
+        mockMvc.perform(
+                        put("/api/v1/customers/{id}", customerId)
+                                .header("Authorization", bearer(token))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        "{\"displayName\":\"Stale Company\",\"companyName\":\"Stale Company\",\"version\":0}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("VERSION_CONFLICT"));
+
+        mockMvc.perform(
+                        patch("/api/v1/customers/{id}/status", customerId)
+                                .header("Authorization", bearer(token))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"status\":\"BLOCKED\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+                .andExpect(jsonPath("$.errors.version").exists());
+
+        read(
+                patch("/api/v1/customers/{id}/status", customerId)
+                        .header("Authorization", bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(
+                                "{\"status\":\"BLOCKED\",\"version\":"
+                                        + updated.get("version").asLong()
+                                        + "}"),
+                200);
+
+        JsonNode first =
+                read(
+                        post("/api/v1/customers/{id}/emails", customerId)
+                                .header("Authorization", bearer(token))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        "{\"email\":\"version-first@example.test\",\"primary\":true}"),
+                        201);
+        JsonNode second =
+                read(
+                        post("/api/v1/customers/{id}/emails", customerId)
+                                .header("Authorization", bearer(token))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        "{\"email\":\"version-second@example.test\",\"primary\":true}"),
+                        201);
+
+        mockMvc.perform(
+                        patch(
+                                        "/api/v1/customers/{id}/emails/{emailId}",
+                                        customerId,
+                                        first.get("id").asText())
+                                .header("Authorization", bearer(token))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"primary\":true,\"version\":0}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("VERSION_CONFLICT"));
+
+        JsonNode emails =
+                read(
+                        get("/api/v1/customers/{id}/emails", customerId)
+                                .header("Authorization", bearer(token)),
+                        200);
+        assertThat(primary(emails, first.get("id").asText())).isFalse();
+        assertThat(primary(emails, second.get("id").asText())).isTrue();
+
+        JsonNode phone =
+                read(
+                        post("/api/v1/customers/{id}/phones", customerId)
+                                .header("Authorization", bearer(token))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"phone\":\"+77010000001\",\"primary\":true}"),
+                        201);
+        read(
+                patch(
+                                "/api/v1/customers/{id}/phones/{phoneId}",
+                                customerId,
+                                phone.get("id").asText())
+                        .header("Authorization", bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"INACTIVE\",\"version\":0}"),
+                200);
+        mockMvc.perform(
+                        patch(
+                                        "/api/v1/customers/{id}/phones/{phoneId}",
+                                        customerId,
+                                        phone.get("id").asText())
+                                .header("Authorization", bearer(token))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"status\":\"ACTIVE\",\"version\":0}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("VERSION_CONFLICT"));
+
+        JsonNode segment = createSegment(token, "VERSIONED", "Versioned Segment");
+        String segmentId = segment.get("id").asText();
+        read(
+                patch("/api/v1/customer-segments/{id}", segmentId)
+                        .header("Authorization", bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Updated Segment\",\"version\":0}"),
+                200);
+        mockMvc.perform(
+                        patch("/api/v1/customer-segments/{id}", segmentId)
+                                .header("Authorization", bearer(token))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"name\":\"Stale Segment\",\"version\":0}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("VERSION_CONFLICT"));
     }
 
     @Test

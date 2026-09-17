@@ -96,6 +96,52 @@ class OpenApiCompatibilityIntegrationTest extends AbstractIntegrationTest {
         assertDecimalQueryParameters(document, "/api/v1/payments", 2);
     }
 
+    @Test
+    void mutableCustomerContractsRequireExplicitVersion() throws Exception {
+        JsonNode document = objectMapper.readTree(currentPublicApi());
+        JsonNode schemas = document.path("components").path("schemas");
+
+        assertRequiredVersion(schemas, "CustomerUpdateRequest");
+        assertRequiredVersion(schemas, "CustomerStatusRequest");
+        assertRequiredVersion(schemas, "ContactPatchRequest");
+        assertRequiredVersion(schemas, "CustomerSegmentUpdateRequest");
+
+        assertThat(
+                        document
+                                .path("paths")
+                                .path("/api/v1/customers/{id}/status")
+                                .path("patch")
+                                .path("requestBody")
+                                .path("content")
+                                .path("application/json")
+                                .path("schema")
+                                .path("$ref")
+                                .asText())
+                .endsWith("/CustomerStatusRequest");
+        assertThat(
+                        document
+                                .path("paths")
+                                .path("/api/v1/customer-segments/{segmentId}")
+                                .path("patch")
+                                .path("requestBody")
+                                .path("content")
+                                .path("application/json")
+                                .path("schema")
+                                .path("$ref")
+                                .asText())
+                .endsWith("/CustomerSegmentUpdateRequest");
+    }
+
+    private void assertRequiredVersion(JsonNode schemas, String schemaName) {
+        JsonNode schema = schemas.path(schemaName);
+        assertThat(schema.path("properties").path("version").path("type").asText())
+                .as(schemaName)
+                .isEqualTo("integer");
+        List<String> required = new ArrayList<>();
+        schema.path("required").forEach(value -> required.add(value.asText()));
+        assertThat(required).as(schemaName).contains("version");
+    }
+
     private void assertDecimalQueryParameters(JsonNode document, String path, int expected) {
         long count =
                 document

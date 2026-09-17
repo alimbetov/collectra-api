@@ -9,6 +9,7 @@ import io.collectra.api.customer.domain.CustomerPhone;
 import io.collectra.api.customer.domain.CustomerStatus;
 import io.collectra.api.customer.domain.CustomerType;
 import io.collectra.api.shared.tenant.TenantContext;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Max;
@@ -123,7 +124,8 @@ public class CustomerController {
                         request.managerUserId(),
                         request.preferredLocale(),
                         request.timezone(),
-                        request.customFields());
+                        request.customFields(),
+                        request.version());
         return response(tenantId, value);
     }
 
@@ -131,7 +133,9 @@ public class CustomerController {
     public CustomerResponse status(
             @PathVariable UUID id, @Valid @RequestBody StatusRequest request) {
         UUID tenantId = tenant();
-        return response(tenantId, service.changeStatus(tenantId, id, request.status()));
+        return response(
+                tenantId,
+                service.changeStatus(tenantId, id, request.status(), request.version()));
     }
 
     @PostMapping("/{id}/emails")
@@ -160,7 +164,8 @@ public class CustomerController {
                         emailId,
                         request.type(),
                         request.primary(),
-                        request.status()));
+                        request.status(),
+                        request.version()));
     }
 
     @PostMapping("/{id}/phones")
@@ -189,7 +194,8 @@ public class CustomerController {
                         phoneId,
                         request.type(),
                         request.primary(),
-                        request.status()));
+                        request.status(),
+                        request.version()));
     }
 
     @PostMapping("/{id}/segments/{segmentId}")
@@ -251,9 +257,11 @@ public class CustomerController {
             UUID managerUserId,
             @Size(max = 35) String preferredLocale,
             @Size(max = 60) String timezone,
-            JsonNode customFields) {}
+            JsonNode customFields,
+            @NotNull @Min(0) Long version) {}
 
-    public record StatusRequest(@NotNull CustomerStatus status) {}
+    @Schema(name = "CustomerStatusRequest")
+    public record StatusRequest(@NotNull CustomerStatus status, @NotNull @Min(0) Long version) {}
 
     public record EmailCreateRequest(
             @NotBlank @Email @Size(max = 320) String email,
@@ -266,7 +274,8 @@ public class CustomerController {
     public record ContactPatchRequest(
             @Size(max = 20) String type,
             Boolean primary,
-            @Pattern(regexp = "(?i)ACTIVE|INACTIVE") String status) {}
+            @Pattern(regexp = "(?i)ACTIVE|INACTIVE") String status,
+            @NotNull @Min(0) Long version) {}
 
     public record CustomerResponse(
             UUID id,

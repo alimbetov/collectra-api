@@ -121,8 +121,10 @@ public class CustomerService {
             UUID managerUserId,
             String locale,
             String timezone,
-            JsonNode customFields) {
+            JsonNode customFields,
+            long version) {
         Customer value = get(tenantId, id);
+        requireVersion(value.getVersion(), version, "Customer");
         value.update(
                 displayName,
                 firstName,
@@ -137,8 +139,9 @@ public class CustomerService {
     }
 
     @Transactional
-    public Customer changeStatus(UUID tenantId, UUID id, CustomerStatus status) {
+    public Customer changeStatus(UUID tenantId, UUID id, CustomerStatus status, long version) {
         Customer value = get(tenantId, id);
+        requireVersion(value.getVersion(), version, "Customer");
         value.changeStatus(status);
         return value;
     }
@@ -169,11 +172,13 @@ public class CustomerService {
             UUID emailId,
             String type,
             Boolean primary,
-            String status) {
+            String status,
+            long version) {
         get(tenantId, customerId);
         CustomerEmail value =
                 emails.findByIdAndTenantIdAndCustomerId(emailId, tenantId, customerId)
                         .orElseThrow(() -> new NoSuchElementException("Customer email not found"));
+        requireVersion(value.getVersion(), version, "Customer email");
         validatePrimaryState(primary, status, "email");
         if (Boolean.TRUE.equals(primary)) {
             demoteEmailPrimaries(tenantId, customerId, emailId);
@@ -209,11 +214,13 @@ public class CustomerService {
             UUID phoneId,
             String type,
             Boolean primary,
-            String status) {
+            String status,
+            long version) {
         get(tenantId, customerId);
         CustomerPhone value =
                 phones.findByIdAndTenantIdAndCustomerId(phoneId, tenantId, customerId)
                         .orElseThrow(() -> new NoSuchElementException("Customer phone not found"));
+        requireVersion(value.getVersion(), version, "Customer phone");
         validatePrimaryState(primary, status, "phone");
         if (Boolean.TRUE.equals(primary)) {
             demotePhonePrimaries(tenantId, customerId, phoneId);
@@ -269,11 +276,9 @@ public class CustomerService {
             String name,
             String description,
             Boolean active,
-            Long version) {
+            long version) {
         CustomerSegment value = segment(tenantId, segmentId);
-        if (version != null && value.getVersion() != version) {
-            throw new BusinessConflictException("VERSION_CONFLICT", "Segment version conflict");
-        }
+        requireVersion(value.getVersion(), version, "Segment");
         value.update(name, description, active);
         return value;
     }
@@ -341,6 +346,13 @@ public class CustomerService {
                 && "INACTIVE".equals(status.trim().toUpperCase(Locale.ROOT))) {
             throw new BusinessConflictException(
                     "INVALID_STATE_TRANSITION", "Inactive " + resource + " cannot be primary");
+        }
+    }
+
+    private static void requireVersion(long actual, long expected, String resource) {
+        if (actual != expected) {
+            throw new BusinessConflictException(
+                    "VERSION_CONFLICT", resource + " version conflict");
         }
     }
 }
