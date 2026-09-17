@@ -180,13 +180,11 @@ class FrontendBlockerClosureIntegrationTest extends AbstractIntegrationTest {
                                 .header("Authorization", bearer(token))
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(
-                                        """
-                                        {
-                                          "amount":"1000.0000",
-                                          "currency":"KZT",
-                                          "promisedDate":"2030-01-01"
-                                        }
-                                        """))
+                                        json.writeValueAsString(
+                                                java.util.Map.of(
+                                                        "amount", "1000.0000",
+                                                        "currency", "KZT",
+                                                        "promisedDate", "2030-01-01"))))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.amount").value("1000"));
     }

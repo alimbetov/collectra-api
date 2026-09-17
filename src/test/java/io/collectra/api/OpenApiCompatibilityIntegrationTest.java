@@ -98,7 +98,12 @@ class OpenApiCompatibilityIntegrationTest extends AbstractIntegrationTest {
 
     private void assertDecimalQueryParameters(JsonNode document, String path, int expected) {
         long count =
-                document.path("paths").path(path).path("get").path("parameters").findValues("name")
+                document
+                        .path("paths")
+                        .path(path)
+                        .path("get")
+                        .path("parameters")
+                        .findValues("name")
                         .stream()
                         .filter(JsonNode::isTextual)
                         .map(JsonNode::asText)
@@ -111,21 +116,26 @@ class OpenApiCompatibilityIntegrationTest extends AbstractIntegrationTest {
                         .count();
         assertThat(count).isEqualTo(expected);
 
-        document.path("paths").path(path).path("get").path("parameters").forEach(
-                parameter -> {
-                    String name = parameter.path("name").asText();
-                    if (name.equals("amountMin")
-                            || name.equals("amountMax")
-                            || name.equals("outstandingMin")
-                            || name.equals("outstandingMax")) {
-                        assertThat(parameter.path("schema").path("type").asText())
-                                .as(path + " " + name)
-                                .isEqualTo("string");
-                        assertThat(parameter.path("schema").path("pattern").asText())
-                                .as(path + " " + name)
-                                .isNotBlank();
-                    }
-                });
+        document
+                .path("paths")
+                .path(path)
+                .path("get")
+                .path("parameters")
+                .forEach(
+                        parameter -> {
+                            String name = parameter.path("name").asText();
+                            if (name.equals("amountMin")
+                                    || name.equals("amountMax")
+                                    || name.equals("outstandingMin")
+                                    || name.equals("outstandingMax")) {
+                                assertThat(parameter.path("schema").path("type").asText())
+                                        .as(path + " " + name)
+                                        .isEqualTo("string");
+                                assertThat(parameter.path("schema").path("pattern").asText())
+                                        .as(path + " " + name)
+                                        .isNotBlank();
+                            }
+                        });
     }
 
     private String currentPublicApi() throws Exception {

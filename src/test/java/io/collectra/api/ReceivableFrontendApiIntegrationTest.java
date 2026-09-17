@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.math.BigDecimal;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -295,17 +296,14 @@ class ReceivableFrontendApiIntegrationTest extends AbstractIntegrationTest {
                                 .header("Authorization", bearer(token))
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(
-                                        """
-                                        {
-                                          "customerId":"%s",
-                                          "externalId":"INV-NUMERIC-JSON",
-                                          "invoiceNumber":"INV-NUMERIC-JSON",
-                                          "dueDate":"2026-12-31",
-                                          "originalAmount":100.25,
-                                          "currency":"KZT"
-                                        }
-                                        """
-                                                .formatted(customer.get("id").asText())))
+                                        json.writeValueAsString(
+                                                java.util.Map.of(
+                                                        "customerId", customer.get("id").asText(),
+                                                        "externalId", "INV-NUMERIC-JSON",
+                                                        "invoiceNumber", "INV-NUMERIC-JSON",
+                                                        "dueDate", "2026-12-31",
+                                                        "originalAmount", new BigDecimal("100.25"),
+                                                        "currency", "KZT"))))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("INVALID_DECIMAL"))
                 .andExpect(jsonPath("$.errors.originalAmount").value("Invalid decimal value"));

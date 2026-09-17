@@ -275,8 +275,7 @@ public class CollectionController {
     public record CloseRequest(@Min(0) long version, @NotNull CollectionCloseReason reason) {}
 
     public record PromiseCreateRequest(
-            @NotNull @Schema(type = "string", pattern = DecimalString.PATTERN)
-                    DecimalString amount,
+            @NotNull @Schema(type = "string", pattern = DecimalString.PATTERN) DecimalString amount,
             @NotBlank @Size(min = 3, max = 3) String currency,
             @NotNull LocalDate promisedDate) {}
 
