@@ -266,8 +266,7 @@ public class ReceivableController {
             @NotNull UUID customerId,
             @NotBlank @Size(max = 120) String externalId,
             @NotNull LocalDate paymentDate,
-            @NotNull @Schema(type = "string", pattern = DecimalString.PATTERN)
-                    DecimalString amount,
+            @NotNull @Schema(type = "string", pattern = DecimalString.PATTERN) DecimalString amount,
             @NotBlank @Size(min = 3, max = 3) String currency,
             @Size(max = 200) String paymentReference,
             @Size(max = 80) String source,
@@ -290,8 +289,7 @@ public class ReceivableController {
             String invoiceNumber,
             LocalDate invoiceDate,
             LocalDate dueDate,
-            @Schema(type = "string", pattern = DecimalString.PATTERN)
-                    DecimalString originalAmount,
+            @Schema(type = "string", pattern = DecimalString.PATTERN) DecimalString originalAmount,
             @Schema(type = "string", pattern = DecimalString.PATTERN) DecimalString paidAmount,
             @Schema(type = "string", pattern = DecimalString.PATTERN)
                     DecimalString outstandingAmount,
@@ -398,8 +396,7 @@ public class ReceivableController {
             String invoiceNumber,
             LocalDate invoiceDate,
             LocalDate dueDate,
-            @Schema(type = "string", pattern = DecimalString.PATTERN)
-                    DecimalString originalAmount,
+            @Schema(type = "string", pattern = DecimalString.PATTERN) DecimalString originalAmount,
             @Schema(type = "string", pattern = DecimalString.PATTERN) DecimalString paidAmount,
             @Schema(type = "string", pattern = DecimalString.PATTERN)
                     DecimalString outstandingAmount,

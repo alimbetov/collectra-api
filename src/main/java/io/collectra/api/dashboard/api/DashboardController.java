@@ -88,8 +88,7 @@ public class DashboardController {
 
     public record CurrencyReceivables(
             String currency,
-            @Schema(type = "string", pattern = DecimalString.PATTERN)
-                    DecimalString outstanding,
+            @Schema(type = "string", pattern = DecimalString.PATTERN) DecimalString outstanding,
             long dueToday,
             long dueSoon,
             Aging aging) {
@@ -104,9 +103,7 @@ public class DashboardController {
     }
 
     public record Receivables(
-            Instant asOf,
-            LocalDate businessDate,
-            List<CurrencyReceivables> currencies) {
+            Instant asOf, LocalDate businessDate, List<CurrencyReceivables> currencies) {
         static Receivables from(DashboardQueryService.Receivables value) {
             return new Receivables(
                     value.asOf(),
