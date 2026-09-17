@@ -184,8 +184,8 @@ class CustomerFrontendApiIntegrationTest extends AbstractIntegrationTest {
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(
                                         "{\"displayName\":\"Updated"
-                                            + " Company\",\"companyName\":\"Updated"
-                                            + " Company\",\"version\":0}"),
+                                                + " Company\",\"companyName\":\"Updated"
+                                                + " Company\",\"version\":0}"),
                         200);
 
         mockMvc.perform(
@@ -194,7 +194,7 @@ class CustomerFrontendApiIntegrationTest extends AbstractIntegrationTest {
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(
                                         "{\"displayName\":\"Stale Company\",\"companyName\":\"Stale"
-                                            + " Company\",\"version\":0}"))
+                                                + " Company\",\"version\":0}"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("VERSION_CONFLICT"));
 
