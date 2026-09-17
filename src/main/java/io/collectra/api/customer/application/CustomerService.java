@@ -13,11 +13,13 @@ import io.collectra.api.customer.infrastructure.CustomerPhoneRepository;
 import io.collectra.api.customer.infrastructure.CustomerRepository;
 import io.collectra.api.customer.infrastructure.CustomerSegmentMemberRepository;
 import io.collectra.api.customer.infrastructure.CustomerSegmentRepository;
+import io.collectra.api.identity.infrastructure.TenantMembershipRepository;
 import io.collectra.api.shared.error.BusinessConflictException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -30,18 +32,21 @@ public class CustomerService {
     private final CustomerPhoneRepository phones;
     private final CustomerSegmentRepository segments;
     private final CustomerSegmentMemberRepository members;
+    private final TenantMembershipRepository memberships;
 
     public CustomerService(
             CustomerRepository customers,
             CustomerEmailRepository emails,
             CustomerPhoneRepository phones,
             CustomerSegmentRepository segments,
-            CustomerSegmentMemberRepository members) {
+            CustomerSegmentMemberRepository members,
+            TenantMembershipRepository memberships) {
         this.customers = customers;
         this.emails = emails;
         this.phones = phones;
         this.segments = segments;
         this.members = members;
+        this.memberships = memberships;
     }
 
     @Transactional
@@ -65,6 +70,7 @@ public class CustomerService {
                             throw new BusinessConflictException(
                                     "DUPLICATE_EXTERNAL_ID", "Customer externalId already exists");
                         });
+        requireActiveManager(tenantId, managerUserId);
         return customers.save(
                 new Customer(
                         tenantId,
@@ -125,6 +131,9 @@ public class CustomerService {
             long version) {
         Customer value = get(tenantId, id);
         requireVersion(value.getVersion(), version, "Customer");
+        if (!Objects.equals(value.getManagerUserId(), managerUserId)) {
+            requireActiveManager(tenantId, managerUserId);
+        }
         value.update(
                 displayName,
                 firstName,
@@ -136,6 +145,16 @@ public class CustomerService {
                 timezone,
                 customFields);
         return value;
+    }
+
+    private void requireActiveManager(UUID tenantId, UUID managerUserId) {
+        if (managerUserId == null) {
+            return;
+        }
+        if (!memberships.existsByTenantIdAndUserIdAndStatus(tenantId, managerUserId, "ACTIVE")) {
+            throw new BusinessConflictException(
+                    "INVALID_MANAGER", "Manager must be an active tenant member");
+        }
     }
 
     @Transactional

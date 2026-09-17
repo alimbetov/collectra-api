@@ -327,6 +327,16 @@ PATCH  /api/v1/customer-segments/{segmentId}
 
 Customer list MUST use the enriched read projection and MUST NOT issue per-row contact/manager/segment lookups.
 
+Manager and assignee controls use the shared bounded directory endpoint:
+
+```http
+GET /api/v1/identity/user-options?search=ann&status=ACTIVE&page=0&size=20
+```
+
+It requires `USER_READ`, performs tenant-scoped case-insensitive prefix search, has stable
+label/email/ID ordering and rejects `size > 50`. A client without `USER_READ` keeps an existing
+assigned ID read-only and does not fall back to the unpaged identity registry.
+
 ## 6. Contracts
 
 ```ts

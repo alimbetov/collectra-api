@@ -7,7 +7,11 @@ import io.collectra.api.identity.application.SessionAdministrationService;
 import io.collectra.api.identity.domain.RefreshSession;
 import io.collectra.api.shared.tenant.TenantContext;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -16,6 +20,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -23,12 +28,14 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/identity")
 @PreAuthorize("hasAuthority('ROLE_HUMAN')")
+@Validated
 public class TenantMembershipController {
     private final RbacService rbac;
     private final SessionAdministrationService sessionAdministration;
@@ -49,9 +56,8 @@ public class TenantMembershipController {
         UUID tenantId = TenantContext.requireTenantId();
         var memberships = rbac.memberships(tenantId);
         Map<UUID, UserSummary> usersById =
-                identityDirectory.users(
-                                tenantId,
-                                memberships.stream().map(m -> m.getUserId()).toList())
+                identityDirectory
+                        .users(tenantId, memberships.stream().map(m -> m.getUserId()).toList())
                         .stream()
                         .collect(Collectors.toMap(UserSummary::id, Function.identity()));
         return memberships.stream()
@@ -66,6 +72,21 @@ public class TenantMembershipController {
                                     membership.getStatus());
                         })
                 .toList();
+    }
+
+    @GetMapping("/user-options")
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('USER_READ')")
+    IdentityDirectoryService.UserOptionPage userOptions(
+            @RequestParam(required = false) @Size(max = 200) String search,
+            @RequestParam(defaultValue = "ACTIVE") @Pattern(regexp = "ACTIVE|BLOCKED")
+                    String status,
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "20")
+                    @Min(1)
+                    @Max(IdentityDirectoryService.MAX_OPTION_PAGE_SIZE)
+                    int size) {
+        return identityDirectory.userOptions(
+                TenantContext.requireTenantId(), search, status, page, size);
     }
 
     @GetMapping("/memberships/{id}/roles")

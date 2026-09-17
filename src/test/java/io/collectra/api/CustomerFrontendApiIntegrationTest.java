@@ -87,6 +87,44 @@ class CustomerFrontendApiIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void customerManagerMustBeAnActiveMemberOfTheSameTenant() throws Exception {
+        String token = register("customer-manager");
+        String foreignToken = register("customer-manager-foreign");
+        JsonNode currentUser =
+                read(get("/api/v1/identity/me").header("Authorization", bearer(token)), 200);
+        JsonNode foreignUser =
+                read(get("/api/v1/identity/me").header("Authorization", bearer(foreignToken)), 200);
+
+        mockMvc.perform(
+                        post("/api/v1/customers")
+                                .header("Authorization", bearer(token))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        "{\"externalId\":\"EXT-FOREIGN-MANAGER\","
+                                                + "\"customerType\":\"COMPANY\","
+                                                + "\"displayName\":\"Foreign manager\","
+                                                + "\"managerUserId\":\""
+                                                + foreignUser.get("id").asText()
+                                                + "\"}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("INVALID_MANAGER"));
+
+        mockMvc.perform(
+                        post("/api/v1/customers")
+                                .header("Authorization", bearer(token))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        "{\"externalId\":\"EXT-LOCAL-MANAGER\","
+                                                + "\"customerType\":\"COMPANY\","
+                                                + "\"displayName\":\"Local manager\","
+                                                + "\"managerUserId\":\""
+                                                + currentUser.get("id").asText()
+                                                + "\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.managerUserId").value(currentUser.get("id").asText()));
+    }
+
+    @Test
     void primaryContactsAreSwitchedAtomicallyAndCanBeDeactivated() throws Exception {
         String token = register("customer-primary");
         JsonNode customer = createCustomer(token, "EXT-CONTACT", "Contact Company");
@@ -145,7 +183,9 @@ class CustomerFrontendApiIntegrationTest extends AbstractIntegrationTest {
                                 .header("Authorization", bearer(token))
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(
-                                        "{\"displayName\":\"Updated Company\",\"companyName\":\"Updated Company\",\"version\":0}"),
+                                        "{\"displayName\":\"Updated"
+                                                + " Company\",\"companyName\":\"Updated"
+                                                + " Company\",\"version\":0}"),
                         200);
 
         mockMvc.perform(
@@ -153,7 +193,8 @@ class CustomerFrontendApiIntegrationTest extends AbstractIntegrationTest {
                                 .header("Authorization", bearer(token))
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(
-                                        "{\"displayName\":\"Stale Company\",\"companyName\":\"Stale Company\",\"version\":0}"))
+                                        "{\"displayName\":\"Stale Company\",\"companyName\":\"Stale"
+                                                + " Company\",\"version\":0}"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("VERSION_CONFLICT"));
 

@@ -65,3 +65,5 @@ databaseChangeLog:
       file: db/changelog/changes/035-message-processing-attempt-count.sql
   - include:
       file: db/changelog/changes/036-message-attempt-status-constraint.sql
+  - include:
+      file: db/changelog/changes/037-identity-user-option-indexes.sql

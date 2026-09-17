@@ -71,6 +71,15 @@ contact editor, segment membership.
 - manager filter/editor requires a bounded user selector and `USER_READ`; without that
   permission, UI preserves an existing manager ID but does not download the tenant directory
   or expose a broken selector.
+- selector contract: `GET /api/v1/identity/user-options?search=&status=ACTIVE&page=0&size=20`;
+  prefix search is case-insensitive across email/display name, ordering is stable, `size` is
+  capped at 50 and results never cross the authenticated tenant boundary;
+- the selector response uses `userId`, `label`, `email`, `displayName`, `status` plus standard
+  page metadata. React must debounce search and must not call the legacy unpaged
+  `/api/v1/identity/users` for customer or collection selectors.
+- customer create/update rejects a newly assigned user that is not an active membership of the
+  current tenant with `409 INVALID_MANAGER`; an unchanged historical manager remains preservable
+  so an unrelated edit does not fail after that membership is blocked.
 
 ## FW4C — segments
 
