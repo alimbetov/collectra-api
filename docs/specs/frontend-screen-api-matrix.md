@@ -1,6 +1,6 @@
 # FrontendWeb — Screen to API Matrix
 
-Status: FRONTEND CONTRACT READY / DTO FREEZE NEXT
+Status: BASELINE MATRIX / FW3–FW12 GATES APPLY
 
 Purpose: связать UX с фактическим backend API до проектирования TypeScript DTO и React query/mutation layer.
 
@@ -9,6 +9,11 @@ Purpose: связать UX с фактическим backend API до проек
 - `READY` — текущий API достаточен для проектирования React DTO/hooks.
 - `READY+` — API дополнительно усилен в этой ветке под frontend projection.
 - `LATER` — сознательно не блокирует первый frontend release.
+- `GATED` — endpoint family exists, but a bounded/detail/concurrency contract must be added
+  before the referenced business slice.
+
+The detailed current-code review supersedes optimistic readiness labels for FW3–FW12:
+[`frontendweb-fw03-fw12-review.md`](frontendweb-fw03-fw12-review.md).
 
 ## Authentication / bootstrap
 
@@ -218,7 +223,9 @@ Status: **READY** for Data Manager / configuration UI.
 | Roles | `/api/v1/identity/roles...` | READY |
 | Permissions | `GET /api/v1/identity/permissions` | READY |
 
-Member list now exposes `membershipId`, `userId`, `email`, `displayName`, `status`. Role editing loads current role ids only when the selected member is opened.
+Current member JSON exposes `id`, `userId`, `email`, `displayName`, `status`; the frontend
+boundary normalizes `id` to `membershipId` until FW12 makes the public name explicit. Role
+editing loads current role ids only when the selected member is opened.
 
 Platform administrator endpoints remain a separate route tree and are not part of tenant frontend MVP.
 
@@ -259,9 +266,10 @@ batchId?       // import failure
 
 401/403/404/409 behavior remains defined in `frontend-user-processes.md`.
 
-## Blocker closure
+## Original blocker closure
 
-The previous pre-DTO audit items are now resolved:
+The previous pre-DTO audit items were resolved for scaffold start, but they do not prove
+that every business screen is implementation-ready:
 
 | ID | Item | Result |
 |---|---|---|
@@ -276,4 +284,19 @@ The previous pre-DTO audit items are now resolved:
 | G-UI-09 | MessageSlice/MessageDetail | CLOSED — exact shape audited |
 | G-UI-10 | Page/Slice/ProblemDetail | CLOSED — transport normalization rule fixed |
 
-Next artifact: `frontend-react-api-contract.md` with exact TypeScript DTOs, API functions, TanStack Query keys and invalidation graph.
+## Post-freeze implementation gates
+
+| Slice | Gate |
+|---|---|
+| FW3/FW5/FW6 | lossless money transport decision |
+| FW4 | contracts included; expected-version customer/contact updates; bounded manager selector |
+| FW5 | customer/contract labels in list projections and bounded allocation history |
+| FW6 | next-action filters/sort and bounded child history |
+| FW7 | direct campaign/run details and idempotent run preparation |
+| FW9 | direct template detail, optimistic revision and builder limits |
+| FW10 | durable record/field import errors |
+| FW11 | paged files registry and safe public DTO |
+| FW12 | paged identity lists, explicit membershipId and role revision |
+
+Implementation contracts and query/invalidation detail are indexed by
+[`frontendweb-fw03-fw12-plan.md`](frontendweb-fw03-fw12-plan.md).
