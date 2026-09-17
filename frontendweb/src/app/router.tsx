@@ -7,6 +7,7 @@ import { ForbiddenPage } from '../pages/system/ForbiddenPage';
 import { NotFoundPage } from '../pages/system/NotFoundPage';
 import { useI18n } from '../shared/i18n/i18n-context';
 import type { MessageKey } from '../shared/i18n/messages';
+import { RouteErrorPage } from '../pages/system/RouteErrorPage';
 
 function PlaceholderPage({ titleKey }: { titleKey: MessageKey }) {
   const { t } = useI18n();
@@ -23,9 +24,11 @@ export const router = createBrowserRouter([
   {
     path: '/login',
     element: <LoginPage />,
+    errorElement: <RouteErrorPage />,
   },
   {
     path: '/',
+    errorElement: <RouteErrorPage />,
     element: (
       <RequireAuth>
         <App />

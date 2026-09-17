@@ -3,6 +3,7 @@ import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { ApiError } from '../../shared/api/http-client';
 import { useAuth } from '../../features/auth/model/auth-context';
 import { useI18n } from '../../shared/i18n/i18n-context';
+import { toProblemViewModel } from '../../shared/errors/problem-detail';
 
 interface LoginLocationState {
   from?: string;
@@ -39,7 +40,8 @@ export function LoginPage() {
       navigate(safePostLoginPath(state), { replace: true });
     } catch (error) {
       if (error instanceof ApiError) {
-        setErrorMessage(error.problem?.detail ?? error.problem?.title ?? t('auth.failed'));
+        const problem = toProblemViewModel(error);
+        setErrorMessage(problem.detail ?? (problem.status !== null && problem.status >= 500 ? t('error.server') : t('auth.failed')));
       } else {
         setErrorMessage(t('auth.failed'));
       }
