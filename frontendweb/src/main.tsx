@@ -5,8 +5,9 @@ import { RouterProvider } from 'react-router-dom';
 import { queryClient } from './app/query-client';
 import { router } from './app/router';
 import { AuthProvider } from './features/auth/model/auth-context';
-import { I18nProvider } from './shared/i18n/i18n-context';
 import { ErrorBoundary } from './shared/errors/ErrorBoundary';
+import { FeedbackProvider } from './app/FeedbackProvider';
+import { AppI18nProvider } from './app/AppI18nProvider';
 import './styles.css';
 
 const rootElement = document.getElementById('root');
@@ -18,11 +19,13 @@ createRoot(rootElement).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <I18nProvider>
-          <ErrorBoundary>
-            <RouterProvider router={router} />
-          </ErrorBoundary>
-        </I18nProvider>
+        <AppI18nProvider>
+          <FeedbackProvider>
+            <ErrorBoundary>
+              <RouterProvider router={router} />
+            </ErrorBoundary>
+          </FeedbackProvider>
+        </AppI18nProvider>
       </AuthProvider>
     </QueryClientProvider>
   </StrictMode>,

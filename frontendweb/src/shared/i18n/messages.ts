@@ -36,6 +36,7 @@ export const ruMessages = {
   'error.copied': 'Код скопирован',
   'error.retry': 'Попробовать снова',
   'error.reload': 'Перезагрузить страницу',
+  'toast.close': 'Закрыть уведомление',
 } as const;
 
 export type MessageKey = keyof typeof ruMessages;
@@ -78,4 +79,5 @@ export const kkMessages: Record<MessageKey, string> = {
   'error.copied': 'Код көшірілді',
   'error.retry': 'Қайталап көру',
   'error.reload': 'Бетті қайта жүктеу',
+  'toast.close': 'Хабарландыруды жабу',
 };
