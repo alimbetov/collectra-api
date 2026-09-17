@@ -71,6 +71,49 @@ class TenantSecurityManagementIntegrationTest extends AbstractIntegrationTest {
                 .andExpect(status().isUnauthorized());
     }
 
+    @Test
+    void userOptionsArePermissionAwareTenantScopedAndBounded() throws Exception {
+        Auth admin = register("user-options");
+        JsonNode readerRole =
+                createRole(admin.accessToken(), "USER_OPTIONS_" + randomCode(), "USER_READ");
+        User manager = invite(admin, readerRole.get("id").asText());
+
+        JsonNode result =
+                read(
+                        get("/api/v1/identity/user-options")
+                                .header("Authorization", bearer(admin.accessToken()))
+                                .param("search", manager.email().substring(0, 8).toUpperCase())
+                                .param("size", "1"));
+        assertThat(result.get("items")).hasSize(1);
+        assertThat(result.at("/items/0/email").asText()).isEqualTo(manager.email());
+        assertThat(result.at("/items/0/label").asText()).isEqualTo("User");
+        assertThat(result.get("totalElements").asLong()).isEqualTo(1);
+        assertThat(result.get("hasNext").asBoolean()).isFalse();
+
+        Auth foreignTenant = register("foreign-user-options");
+        JsonNode isolated =
+                read(
+                        get("/api/v1/identity/user-options")
+                                .header("Authorization", bearer(admin.accessToken()))
+                                .param("search", foreignTenant.email()));
+        assertThat(isolated.get("items")).isEmpty();
+        assertThat(isolated.get("totalElements").asLong()).isZero();
+
+        mockMvc.perform(
+                        get("/api/v1/identity/user-options")
+                                .header("Authorization", bearer(admin.accessToken()))
+                                .param("size", "51"))
+                .andExpect(status().isBadRequest());
+
+        JsonNode roleWithoutUserRead =
+                createRole(admin.accessToken(), "NO_USER_READ_" + randomCode(), "ROLE_READ");
+        User restricted = invite(admin, roleWithoutUserRead.get("id").asText());
+        mockMvc.perform(
+                        get("/api/v1/identity/user-options")
+                                .header("Authorization", bearer(restricted.accessToken())))
+                .andExpect(status().isForbidden());
+    }
+
     private JsonNode createRole(String token, String code, String permission) throws Exception {
         return read(post("/api/v1/identity/roles")
                 .header("Authorization", bearer(token))
@@ -92,12 +135,16 @@ class TenantSecurityManagementIntegrationTest extends AbstractIntegrationTest {
     }
 
     private Auth register(String prefix) throws Exception {
+        String email = UUID.randomUUID() + "@example.test";
         JsonNode response = read(post("/api/v1/auth/tenants/register")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"slug\":\"" + prefix + "-" + UUID.randomUUID()
-                        + "\",\"companyName\":\"Company\",\"email\":\"" + UUID.randomUUID()
-                        + "@example.test\",\"password\":\"StrongPassword123!\"}"));
-        return new Auth(response.get("accessToken").asText(), response.get("refreshToken").asText());
+                        + "\",\"companyName\":\"Company\",\"email\":\"" + email
+                        + "\",\"password\":\"StrongPassword123!\"}"));
+        return new Auth(
+                response.get("accessToken").asText(),
+                response.get("refreshToken").asText(),
+                email);
     }
 
     private JsonNode read(
@@ -110,7 +157,7 @@ class TenantSecurityManagementIntegrationTest extends AbstractIntegrationTest {
 
     private String bearer(String token) { return "Bearer " + token; }
     private String randomCode() { return UUID.randomUUID().toString().replace("-", "").toUpperCase(); }
-    private record Auth(String accessToken, String refreshToken) {}
+    private record Auth(String accessToken, String refreshToken, String email) {}
     private record User(String email, String accessToken) {}
     private record Token(String refreshToken) {}
 }

@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import io.collectra.api.identity.application.IdentityDirectoryService;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -128,6 +129,33 @@ class OpenApiCompatibilityIntegrationTest extends AbstractIntegrationTest {
                                 .path("$ref")
                                 .asText())
                 .endsWith("/CustomerSegmentUpdateRequest");
+    }
+
+    @Test
+    void identityUserSelectorIsPagedAndBounded() throws Exception {
+        JsonNode document = objectMapper.readTree(currentPublicApi());
+        JsonNode parameters =
+                document.path("paths")
+                        .path("/api/v1/identity/user-options")
+                        .path("get")
+                        .path("parameters");
+
+        assertThat(parameters.isArray()).isTrue();
+        JsonNode sizeParameter = findParameter(parameters, "size");
+        assertThat(sizeParameter.path("schema").path("default").asInt()).isEqualTo(20);
+        assertThat(sizeParameter.path("schema").path("maximum").asInt())
+                .isEqualTo(IdentityDirectoryService.MAX_OPTION_PAGE_SIZE);
+        assertThat(findParameter(parameters, "page").path("schema").path("minimum").asInt())
+                .isZero();
+    }
+
+    private JsonNode findParameter(JsonNode parameters, String name) {
+        for (JsonNode parameter : parameters) {
+            if (name.equals(parameter.path("name").asText())) {
+                return parameter;
+            }
+        }
+        throw new AssertionError("Missing OpenAPI parameter: " + name);
     }
 
     private void assertRequiredVersion(JsonNode schemas, String schemaName) {
