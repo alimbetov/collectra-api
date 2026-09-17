@@ -29,10 +29,10 @@ class TemplateRenderingAssuranceTest {
                 objectMapper.readTree(
                         """
                         {
-                          "customer": {"displayName": "ТОО Астана Трейд"},
+                          "customer": {"displayname": "ТОО Астана Трейд"},
                           "invoice": {
-                            "invoiceNumber": "INV-2026-001",
-                            "outstandingAmount": 125000.50,
+                            "invoicenumber": "INV-2026-001",
+                            "outstandingamount": 125000.50,
                             "currency": "KZT"
                           },
                           "items": [
@@ -46,9 +46,9 @@ class TemplateRenderingAssuranceTest {
                 compiler.compileBody(
                         UUID.randomUUID(),
                         """
-                        <h1>Уважаемый {{customer.displayName}}</h1>
-                        <p>Счет {{invoice.invoiceNumber}}</p>
-                        <p>Сумма: {{invoice.outstandingAmount}} {{invoice.currency}}</p>
+                        <h1>Уважаемый {{customer.displayname}}</h1>
+                        <p>Счет {{invoice.invoicenumber}}</p>
+                        <p>Сумма: {{invoice.outstandingamount}} {{invoice.currency}}</p>
                         <table>{{#each items}}<tr><td>{{item.name}}</td><td>{{item.amount}}</td></tr>{{/each}}</table>
                         """,
                         "table { border-collapse: collapse; }");
@@ -62,8 +62,8 @@ class TemplateRenderingAssuranceTest {
                 .contains("KZT")
                 .contains("Service A")
                 .contains("Service B")
-                .doesNotContain("{{customer.displayName}}")
-                .doesNotContain("{{invoice.invoiceNumber}}")
+                .doesNotContain("{{customer.displayname}}")
+                .doesNotContain("{{invoice.invoicenumber}}")
                 .doesNotContain("{{item.name}}")
                 .doesNotContain("{{#each");
     }
@@ -72,9 +72,9 @@ class TemplateRenderingAssuranceTest {
     void escapesPlaceholderValuesInsertedIntoHtml() throws Exception {
         JsonNode payload =
                 objectMapper.readTree(
-                        "{\"customer\":{\"displayName\":\"<script>alert('x')</script>\"}}");
+                        "{\"customer\":{\"displayname\":\"<script>alert('x')</script>\"}}");
         CompiledTemplate template =
-                compiler.compileBody(UUID.randomUUID(), "<p>{{customer.displayName}}</p>", null);
+                compiler.compileBody(UUID.randomUUID(), "<p>{{customer.displayname}}</p>", null);
 
         String html = renderer.render(template, payload).html();
 
@@ -85,16 +85,16 @@ class TemplateRenderingAssuranceTest {
 
     @Test
     void failsClosedWhenRequiredPlaceholderValueIsMissing() throws Exception {
-        JsonNode payload = objectMapper.readTree("{\"customer\":{\"displayName\":\"ACME\"}}");
+        JsonNode payload = objectMapper.readTree("{\"customer\":{\"displayname\":\"ACME\"}}");
         CompiledTemplate template =
                 compiler.compileBody(
                         UUID.randomUUID(),
-                        "<p>{{customer.displayName}} {{invoice.invoiceNumber}}</p>",
+                        "<p>{{customer.displayname}} {{invoice.invoicenumber}}</p>",
                         null);
 
         assertThatThrownBy(() -> renderer.render(template, payload))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("invoice.invoiceNumber");
+                .hasMessageContaining("invoice.invoicenumber");
     }
 
     @Test
@@ -102,7 +102,7 @@ class TemplateRenderingAssuranceTest {
         assertThatThrownBy(
                         () ->
                                 compiler.compileBody(
-                                        UUID.randomUUID(), "{{customer.displayName", null))
+                                        UUID.randomUUID(), "{{customer.displayname", null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Unclosed placeholder");
 
