@@ -33,7 +33,7 @@ class DecimalStringTest {
     @Test
     void rejectsNonStringAndNonCanonicalLexicalForms() {
         assertThatThrownBy(() -> json.readValue("1.25", DecimalString.class))
-                .hasRootCauseInstanceOf(InvalidRequestException.class);
+                .isInstanceOf(InvalidRequestException.class);
         assertInvalid("01", "INVALID_DECIMAL");
         assertInvalid("1e3", "INVALID_DECIMAL");
         assertInvalid("+1", "INVALID_DECIMAL");
