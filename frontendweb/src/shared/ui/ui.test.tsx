@@ -1,7 +1,17 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import { Button, DataTable, Dialog, FormField, Pagination } from '.';
+import { useState } from 'react';
+import {
+  Button,
+  ConfirmDialog,
+  DataTable,
+  Dialog,
+  FormField,
+  Pagination,
+  ToastProvider,
+  useToast,
+} from '.';
 
 describe('shared UI foundation', () => {
   it('makes a loading button inert and exposes busy state', () => {
@@ -40,5 +50,63 @@ describe('shared UI foundation', () => {
     expect(screen.getByRole('dialog')).toHaveAccessibleName('Подтверждение');
     await userEvent.keyboard('{Escape}');
     expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it('traps focus inside a dialog and restores the trigger focus', async () => {
+    const user = userEvent.setup();
+    function Harness() {
+      const [open, setOpen] = useState(false);
+      return (
+        <>
+          <button type="button" onClick={() => setOpen(true)}>Открыть</button>
+          <Dialog open={open} title="Диалог" closeLabel="Закрыть" onClose={() => setOpen(false)} actions={<button type="button">Сохранить</button>}>
+            Текст
+          </Dialog>
+        </>
+      );
+    }
+    render(<Harness />);
+    const trigger = screen.getByRole('button', { name: 'Открыть' });
+    await user.click(trigger);
+    const close = screen.getByRole('button', { name: 'Закрыть' });
+    const save = screen.getByRole('button', { name: 'Сохранить' });
+    expect(close).toHaveFocus();
+    save.focus();
+    await user.tab();
+    expect(close).toHaveFocus();
+    await user.keyboard('{Escape}');
+    expect(trigger).toHaveFocus();
+  });
+
+  it('blocks confirmation controls while a command is pending', () => {
+    render(
+      <ConfirmDialog
+        open
+        pending
+        title="Удалить запись"
+        confirmLabel="Удалить"
+        cancelLabel="Отмена"
+        closeLabel="Закрыть"
+        onConfirm={vi.fn()}
+        onCancel={vi.fn()}
+      >
+        Действие нельзя отменить.
+      </ConfirmDialog>,
+    );
+    expect(screen.getByRole('button', { name: 'Удалить' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Отмена' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Закрыть' })).toBeDisabled();
+  });
+
+  it('announces and dismisses toast feedback', async () => {
+    function Trigger() {
+      const { showToast } = useToast();
+      return <button type="button" onClick={() => showToast({ title: 'Сохранено', tone: 'success', durationMs: 0 })}>Показать</button>;
+    }
+    render(<ToastProvider closeLabel="Закрыть"><Trigger /></ToastProvider>);
+    await userEvent.click(screen.getByRole('button', { name: 'Показать' }));
+    expect(screen.getByRole('status')).toHaveTextContent('Сохранено');
+    await userEvent.click(screen.getByRole('button', { name: 'Закрыть' }));
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 });

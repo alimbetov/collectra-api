@@ -1,5 +1,4 @@
 import { createContext, useContext, useMemo, type PropsWithChildren } from 'react';
-import { useAuth } from '../../features/auth/model/auth-context';
 import { kkMessages, ruMessages, type MessageKey } from './messages';
 import { resolveLocale, resolveTimeZone, type AppLocale } from './formatters';
 
@@ -11,10 +10,14 @@ interface I18nContextValue {
 
 const I18nContext = createContext<I18nContextValue | null>(null);
 
-export function I18nProvider({ children }: PropsWithChildren) {
-  const { user } = useAuth();
-  const locale = resolveLocale(user?.locale);
-  const timeZone = resolveTimeZone(user?.timezone);
+interface I18nProviderProps extends PropsWithChildren {
+  requestedLocale?: string | null;
+  requestedTimeZone?: string | null;
+}
+
+export function I18nProvider({ children, requestedLocale, requestedTimeZone }: I18nProviderProps) {
+  const locale = resolveLocale(requestedLocale);
+  const timeZone = resolveTimeZone(requestedTimeZone);
 
   const value = useMemo<I18nContextValue>(() => {
     const messages = locale === 'kk' ? kkMessages : ruMessages;
