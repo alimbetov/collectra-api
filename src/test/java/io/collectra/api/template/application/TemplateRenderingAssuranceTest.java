@@ -70,10 +70,11 @@ class TemplateRenderingAssuranceTest {
 
     @Test
     void escapesPlaceholderValuesInsertedIntoHtml() throws Exception {
-        JsonNode payload = objectMapper.readTree("{\"customer\":{\"displayName\":\"<script>alert('x')</script>\"}}");
+        JsonNode payload =
+                objectMapper.readTree(
+                        "{\"customer\":{\"displayName\":\"<script>alert('x')</script>\"}}");
         CompiledTemplate template =
-                compiler.compileBody(
-                        UUID.randomUUID(), "<p>{{customer.displayName}}</p>", null);
+                compiler.compileBody(UUID.randomUUID(), "<p>{{customer.displayName}}</p>", null);
 
         String html = renderer.render(template, payload).html();
 
@@ -114,8 +115,7 @@ class TemplateRenderingAssuranceTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Nested each blocks are not supported");
 
-        assertThatThrownBy(
-                        () -> compiler.compileBody(UUID.randomUUID(), "{{/each}}", null))
+        assertThatThrownBy(() -> compiler.compileBody(UUID.randomUUID(), "{{/each}}", null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Unexpected {{/each}}");
     }
@@ -149,8 +149,7 @@ class TemplateRenderingAssuranceTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Stylesheet cannot load external resources");
 
-        assertThatThrownBy(
-                        () -> htmlPolicy.validateStylesheet("@import 'https://x/style.css';"))
+        assertThatThrownBy(() -> htmlPolicy.validateStylesheet("@import 'https://x/style.css';"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Stylesheet cannot load external resources");
     }
