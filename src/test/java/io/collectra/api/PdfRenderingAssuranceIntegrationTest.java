@@ -46,7 +46,9 @@ class PdfRenderingAssuranceIntegrationTest extends AbstractIntegrationTest {
 
         try (PDDocument document = PDDocument.load(pdf)) {
             assertThat(document.getNumberOfPages()).isGreaterThanOrEqualTo(1);
-            assertThat(new PDFTextStripper().getText(document)).contains("Collectra").contains(sample);
+            assertThat(new PDFTextStripper().getText(document))
+                    .contains("Collectra")
+                    .contains(sample);
             assertAllReferencedFontsAreEmbedded(document);
         }
     }
@@ -59,7 +61,11 @@ class PdfRenderingAssuranceIntegrationTest extends AbstractIntegrationTest {
                                 + "table{width:100%;border-collapse:collapse}td{padding:4px;border:1px solid #333}"
                                 + "</style></head><body><h1>Large invoice</h1><table>");
         for (int i = 1; i <= 150; i++) {
-            html.append("<tr><td>Row ").append(i).append("</td><td>").append(i * 100).append(" KZT</td></tr>");
+            html.append("<tr><td>Row ")
+                    .append(i)
+                    .append("</td><td>")
+                    .append(i * 100)
+                    .append(" KZT</td></tr>");
         }
         html.append("</table></body></html>");
 
