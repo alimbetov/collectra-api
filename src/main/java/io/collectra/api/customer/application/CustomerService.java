@@ -1,6 +1,7 @@
 package io.collectra.api.customer.application;
 
 import com.fasterxml.jackson.databind.JsonNode;
+
 import io.collectra.api.customer.domain.Customer;
 import io.collectra.api.customer.domain.CustomerEmail;
 import io.collectra.api.customer.domain.CustomerPhone;
@@ -15,6 +16,10 @@ import io.collectra.api.customer.infrastructure.CustomerSegmentMemberRepository;
 import io.collectra.api.customer.infrastructure.CustomerSegmentRepository;
 import io.collectra.api.identity.infrastructure.TenantMembershipRepository;
 import io.collectra.api.shared.error.BusinessConflictException;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
@@ -22,8 +27,6 @@ import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class CustomerService {
@@ -151,8 +154,7 @@ public class CustomerService {
         if (managerUserId == null) {
             return;
         }
-        if (!memberships.existsByTenantIdAndUserIdAndStatus(
-                tenantId, managerUserId, "ACTIVE")) {
+        if (!memberships.existsByTenantIdAndUserIdAndStatus(tenantId, managerUserId, "ACTIVE")) {
             throw new BusinessConflictException(
                     "INVALID_MANAGER", "Manager must be an active tenant member");
         }

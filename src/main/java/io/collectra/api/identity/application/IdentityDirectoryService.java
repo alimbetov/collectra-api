@@ -2,15 +2,17 @@ package io.collectra.api.identity.application;
 
 import io.collectra.api.identity.domain.UserAccount;
 import io.collectra.api.identity.infrastructure.UserAccountRepository;
+
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
-import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class IdentityDirectoryService {
@@ -19,8 +21,7 @@ public class IdentityDirectoryService {
     private final UserAccountRepository users;
     private final NamedParameterJdbcTemplate jdbc;
 
-    public IdentityDirectoryService(
-            UserAccountRepository users, NamedParameterJdbcTemplate jdbc) {
+    public IdentityDirectoryService(UserAccountRepository users, NamedParameterJdbcTemplate jdbc) {
         this.users = users;
         this.jdbc = jdbc;
     }
@@ -55,11 +56,11 @@ public class IdentityDirectoryService {
         if (normalizedSearch != null) {
             where.append(
                     """
-                      AND (
-                        lower(account.email) LIKE :searchPattern ESCAPE '\\'
-                        OR lower(coalesce(account.display_name, '')) LIKE :searchPattern ESCAPE '\\'
-                      )
-                    """);
+  AND (
+    lower(account.email) LIKE :searchPattern ESCAPE '\\'
+    OR lower(coalesce(account.display_name, '')) LIKE :searchPattern ESCAPE '\\'
+  )
+""");
             parameters.put("searchPattern", escapeLike(normalizedSearch) + "%");
         }
         List<UserOption> items =
@@ -69,10 +70,10 @@ public class IdentityDirectoryService {
                         """
                                 + where
                                 + """
-                                ORDER BY lower(coalesce(nullif(account.display_name, ''), account.email)),
-                                         lower(account.email), account.id
-                                LIMIT :limit OFFSET :offset
-                                """,
+ORDER BY lower(coalesce(nullif(account.display_name, ''), account.email)),
+         lower(account.email), account.id
+LIMIT :limit OFFSET :offset
+""",
                         parameters,
                         (result, row) -> {
                             String displayName = result.getString("display_name");

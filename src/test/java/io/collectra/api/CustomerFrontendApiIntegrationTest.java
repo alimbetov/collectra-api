@@ -11,12 +11,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import java.util.UUID;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+
+import java.util.UUID;
 
 @AutoConfigureMockMvc
 class CustomerFrontendApiIntegrationTest extends AbstractIntegrationTest {
@@ -91,15 +93,9 @@ class CustomerFrontendApiIntegrationTest extends AbstractIntegrationTest {
         String token = register("customer-manager");
         String foreignToken = register("customer-manager-foreign");
         JsonNode currentUser =
-                read(
-                        get("/api/v1/identity/me")
-                                .header("Authorization", bearer(token)),
-                        200);
+                read(get("/api/v1/identity/me").header("Authorization", bearer(token)), 200);
         JsonNode foreignUser =
-                read(
-                        get("/api/v1/identity/me")
-                                .header("Authorization", bearer(foreignToken)),
-                        200);
+                read(get("/api/v1/identity/me").header("Authorization", bearer(foreignToken)), 200);
 
         mockMvc.perform(
                         post("/api/v1/customers")
@@ -189,7 +185,9 @@ class CustomerFrontendApiIntegrationTest extends AbstractIntegrationTest {
                                 .header("Authorization", bearer(token))
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(
-                                        "{\"displayName\":\"Updated Company\",\"companyName\":\"Updated Company\",\"version\":0}"),
+                                        "{\"displayName\":\"Updated"
+                                            + " Company\",\"companyName\":\"Updated"
+                                            + " Company\",\"version\":0}"),
                         200);
 
         mockMvc.perform(
@@ -197,7 +195,8 @@ class CustomerFrontendApiIntegrationTest extends AbstractIntegrationTest {
                                 .header("Authorization", bearer(token))
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(
-                                        "{\"displayName\":\"Stale Company\",\"companyName\":\"Stale Company\",\"version\":0}"))
+                                        "{\"displayName\":\"Stale Company\",\"companyName\":\"Stale"
+                                            + " Company\",\"version\":0}"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("VERSION_CONFLICT"));
 
