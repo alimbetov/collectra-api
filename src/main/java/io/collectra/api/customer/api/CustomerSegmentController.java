@@ -4,10 +4,12 @@ import io.collectra.api.customer.application.CustomerQueryService;
 import io.collectra.api.customer.application.CustomerService;
 import io.collectra.api.customer.domain.CustomerSegment;
 import io.collectra.api.shared.tenant.TenantContext;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.time.Instant;
 import java.util.UUID;
@@ -82,11 +84,12 @@ public class CustomerSegmentController {
             @NotBlank @Size(max = 200) String name,
             @Size(max = 1000) String description) {}
 
+    @Schema(name = "CustomerSegmentUpdateRequest")
     public record UpdateRequest(
             @Size(max = 200) String name,
             @Size(max = 1000) String description,
             Boolean active,
-            Long version) {}
+            @NotNull @Min(0) Long version) {}
 
     public record Response(
             UUID id,

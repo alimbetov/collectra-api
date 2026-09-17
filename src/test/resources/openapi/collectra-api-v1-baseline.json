@@ -5496,7 +5496,7 @@
           "content" : {
             "application/json" : {
               "schema" : {
-                "$ref" : "#/components/schemas/StatusRequest"
+                "$ref" : "#/components/schemas/CustomerStatusRequest"
               }
             }
           },
@@ -5648,7 +5648,7 @@
           "content" : {
             "application/json" : {
               "schema" : {
-                "$ref" : "#/components/schemas/UpdateRequest"
+                "$ref" : "#/components/schemas/CustomerSegmentUpdateRequest"
               }
             }
           },
@@ -7413,9 +7413,53 @@
           },
           "customFields" : {
             "$ref" : "#/components/schemas/JsonNode"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64",
+            "minimum" : 0
           }
         },
-        "required" : [ "displayName" ]
+        "required" : [ "displayName", "version" ]
+      },
+      "CustomerStatusRequest" : {
+        "type" : "object",
+        "properties" : {
+          "status" : {
+            "type" : "string",
+            "enum" : [ "ACTIVE", "INACTIVE", "BLOCKED", "ARCHIVED" ]
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64",
+            "minimum" : 0
+          }
+        },
+        "required" : [ "status", "version" ]
+      },
+      "CustomerSegmentUpdateRequest" : {
+        "type" : "object",
+        "properties" : {
+          "name" : {
+            "type" : "string",
+            "maxLength" : 200,
+            "minLength" : 0
+          },
+          "description" : {
+            "type" : "string",
+            "maxLength" : 1000,
+            "minLength" : 0
+          },
+          "active" : {
+            "type" : "boolean"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64",
+            "minimum" : 0
+          }
+        },
+        "required" : [ "version" ]
       },
       "CustomerResponse" : {
         "type" : "object",
@@ -9525,8 +9569,14 @@
           "status" : {
             "type" : "string",
             "pattern" : "(?i)ACTIVE|INACTIVE"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64",
+            "minimum" : 0
           }
-        }
+        },
+        "required" : [ "version" ]
       },
       "PageResponseTemplateItem" : {
         "type" : "object",

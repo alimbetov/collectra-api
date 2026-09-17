@@ -18,6 +18,7 @@ import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -118,6 +119,14 @@ public class ApiExceptionHandler {
     @ExceptionHandler(BusinessConflictException.class)
     ProblemDetail businessConflict(BusinessConflictException ex, HttpServletRequest request) {
         return withCode(base(HttpStatus.CONFLICT, ex.getMessage(), request), ex.getCode());
+    }
+
+    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    ProblemDetail optimisticConflict(
+            ObjectOptimisticLockingFailureException ex, HttpServletRequest request) {
+        return withCode(
+                base(HttpStatus.CONFLICT, "Resource version conflict", request),
+                "VERSION_CONFLICT");
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
