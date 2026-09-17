@@ -268,21 +268,15 @@ class ReceivableFrontendApiIntegrationTest extends AbstractIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items[0].originalAmount").value("999999999999999.9999"));
 
-        mockMvc.perform(
-                        get("/api/v1/dashboard/summary")
-                                .header("Authorization", bearer(token)))
+        mockMvc.perform(get("/api/v1/dashboard/summary").header("Authorization", bearer(token)))
                 .andExpect(status().isOk())
                 .andExpect(
                         jsonPath("$.outstandingByCurrency[0].amount")
                                 .value("999999999999999.9999"));
 
-        mockMvc.perform(
-                        get("/api/v1/dashboard/receivables")
-                                .header("Authorization", bearer(token)))
+        mockMvc.perform(get("/api/v1/dashboard/receivables").header("Authorization", bearer(token)))
                 .andExpect(status().isOk())
-                .andExpect(
-                        jsonPath("$.currencies[0].outstanding")
-                                .value("999999999999999.9999"));
+                .andExpect(jsonPath("$.currencies[0].outstanding").value("999999999999999.9999"));
 
         mockMvc.perform(
                         get("/api/v1/invoices")

@@ -48,7 +48,10 @@ public class CollectionController {
     private final ZoneId businessZone;
 
     public CollectionController(
-            CollectionService service, CollectionQueryService queries, Clock clock, ZoneId businessZone) {
+            CollectionService service,
+            CollectionQueryService queries,
+            Clock clock,
+            ZoneId businessZone) {
         this.service = service;
         this.queries = queries;
         this.clock = clock;
@@ -63,7 +66,8 @@ public class CollectionController {
             @RequestParam(required = false) CollectionPriority priority,
             @RequestParam(required = false) UUID assignedTo,
             @RequestParam(defaultValue = "0") @Min(0) int page,
-            @RequestParam(defaultValue = "50") @Min(1) @Max(CollectionQueryService.MAX_SIZE) int size,
+            @RequestParam(defaultValue = "50") @Min(1) @Max(CollectionQueryService.MAX_SIZE)
+                    int size,
             @RequestParam(defaultValue = "createdAt,desc") String sort) {
         return CasePageResponse.from(
                 queries.list(
@@ -110,18 +114,19 @@ public class CollectionController {
     }
 
     @PostMapping("/{caseId}/start")
-    public CaseResponse start(@PathVariable UUID caseId, @Valid @RequestBody VersionRequest request) {
+    public CaseResponse start(
+            @PathVariable UUID caseId, @Valid @RequestBody VersionRequest request) {
         return CaseResponse.from(service.start(tenant(), caseId, request.version(), actor()));
     }
 
     @PostMapping("/{caseId}/hold")
-    public CaseResponse hold(@PathVariable UUID caseId, @Valid @RequestBody VersionRequest request) {
+    public CaseResponse hold(
+            @PathVariable UUID caseId, @Valid @RequestBody VersionRequest request) {
         return CaseResponse.from(service.hold(tenant(), caseId, request.version(), actor()));
     }
 
     @PostMapping("/{caseId}/close")
-    public CaseResponse close(
-            @PathVariable UUID caseId, @Valid @RequestBody CloseRequest request) {
+    public CaseResponse close(@PathVariable UUID caseId, @Valid @RequestBody CloseRequest request) {
         return CaseResponse.from(
                 service.close(tenant(), caseId, request.version(), request.reason(), actor()));
     }
@@ -150,7 +155,8 @@ public class CollectionController {
             @PathVariable UUID caseId,
             @PathVariable UUID promiseId,
             @Valid @RequestBody VersionRequest request) {
-        return promise(service.fulfillPromise(tenant(), caseId, promiseId, request.version(), actor()));
+        return promise(
+                service.fulfillPromise(tenant(), caseId, promiseId, request.version(), actor()));
     }
 
     @PostMapping("/{caseId}/promises/{promiseId}/break")
@@ -158,7 +164,8 @@ public class CollectionController {
             @PathVariable UUID caseId,
             @PathVariable UUID promiseId,
             @Valid @RequestBody VersionRequest request) {
-        return promise(service.breakPromise(tenant(), caseId, promiseId, request.version(), actor()));
+        return promise(
+                service.breakPromise(tenant(), caseId, promiseId, request.version(), actor()));
     }
 
     @PostMapping("/{caseId}/promises/{promiseId}/cancel")
@@ -166,7 +173,8 @@ public class CollectionController {
             @PathVariable UUID caseId,
             @PathVariable UUID promiseId,
             @Valid @RequestBody VersionRequest request) {
-        return promise(service.cancelPromise(tenant(), caseId, promiseId, request.version(), actor()));
+        return promise(
+                service.cancelPromise(tenant(), caseId, promiseId, request.version(), actor()));
     }
 
     @PostMapping("/{caseId}/disputes")
@@ -233,7 +241,8 @@ public class CollectionController {
             @PathVariable UUID caseId,
             @PathVariable UUID actionId,
             @Valid @RequestBody VersionRequest request) {
-        return action(service.completeAction(tenant(), caseId, actionId, request.version(), actor()));
+        return action(
+                service.completeAction(tenant(), caseId, actionId, request.version(), actor()));
     }
 
     @PostMapping("/{caseId}/actions/{actionId}/cancel")
@@ -259,8 +268,13 @@ public class CollectionController {
         return ActionResponse.from(value, value.isOverdue(now), now);
     }
 
-    private UUID tenant() { return TenantContext.requireTenantId(); }
-    private String actor() { return SecurityContextHolder.getContext().getAuthentication().getName(); }
+    private UUID tenant() {
+        return TenantContext.requireTenantId();
+    }
+
+    private String actor() {
+        return SecurityContextHolder.getContext().getAuthentication().getName();
+    }
 
     public record CaseCreateRequest(
             @NotNull UUID customerId,
@@ -272,6 +286,7 @@ public class CollectionController {
             @Min(0) long version, CollectionPriority priority, UUID assignedTo) {}
 
     public record VersionRequest(@Min(0) long version) {}
+
     public record CloseRequest(@Min(0) long version, @NotNull CollectionCloseReason reason) {}
 
     public record PromiseCreateRequest(

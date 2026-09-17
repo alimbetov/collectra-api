@@ -116,8 +116,7 @@ class OpenApiCompatibilityIntegrationTest extends AbstractIntegrationTest {
                         .count();
         assertThat(count).isEqualTo(expected);
 
-        document
-                .path("paths")
+        document.path("paths")
                 .path(path)
                 .path("get")
                 .path("parameters")

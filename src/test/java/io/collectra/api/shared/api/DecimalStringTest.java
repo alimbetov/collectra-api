@@ -15,8 +15,7 @@ class DecimalStringTest {
     void roundTripsCanonicalPlainStringsWithoutPrecisionLoss() throws Exception {
         DecimalString boundary = DecimalString.parse("999999999999999.9999");
 
-        assertThat(boundary.value())
-                .isEqualByComparingTo(new BigDecimal("999999999999999.9999"));
+        assertThat(boundary.value()).isEqualByComparingTo(new BigDecimal("999999999999999.9999"));
         assertThat(json.writeValueAsString(boundary)).isEqualTo("\"999999999999999.9999\"");
         assertThat(json.readValue("\"999999999999999.9999\"", DecimalString.class))
                 .isEqualTo(boundary);
@@ -28,8 +27,7 @@ class DecimalStringTest {
         assertThat(DecimalString.parse("-0.0000").canonical()).isEqualTo("0");
         assertThat(DecimalString.of(new BigDecimal("100000000000000")).canonical())
                 .isEqualTo("100000000000000");
-        assertThat(json.writeValueAsString(DecimalString.parse("0.0001")))
-                .isEqualTo("\"0.0001\"");
+        assertThat(json.writeValueAsString(DecimalString.parse("0.0001"))).isEqualTo("\"0.0001\"");
     }
 
     @Test
