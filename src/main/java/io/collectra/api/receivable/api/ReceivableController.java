@@ -8,15 +8,16 @@ import io.collectra.api.receivable.domain.Invoice;
 import io.collectra.api.receivable.domain.Payment;
 import io.collectra.api.receivable.domain.PaymentAllocation;
 import io.collectra.api.receivable.domain.PaymentStatus;
+import io.collectra.api.shared.api.DecimalString;
 import io.collectra.api.shared.tenant.TenantContext;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -66,14 +67,14 @@ public class ReceivableController {
                         request.invoiceNumber(),
                         request.invoiceDate(),
                         request.dueDate(),
-                        request.originalAmount(),
+                        request.originalAmount().positiveValue("originalAmount"),
                         request.currency(),
                         request.documentFileId(),
                         request.customFields()));
     }
 
     @GetMapping("/api/v1/invoices")
-    public ReceivableQueryService.InvoicePage invoices(
+    public InvoicePageResponse invoices(
             @RequestParam(required = false) UUID customerId,
             @RequestParam(required = false) UUID contractId,
             @RequestParam(required = false) PaymentStatus paymentStatus,
@@ -86,35 +87,44 @@ public class ReceivableController {
             @RequestParam(required = false) LocalDate dueFrom,
             @RequestParam(required = false) LocalDate dueTo,
             @RequestParam(required = false) Boolean overdue,
-            @RequestParam(required = false) BigDecimal amountMin,
-            @RequestParam(required = false) BigDecimal amountMax,
-            @RequestParam(required = false) BigDecimal outstandingMin,
-            @RequestParam(required = false) BigDecimal outstandingMax,
+            @Parameter(schema = @Schema(type = "string", pattern = DecimalString.PATTERN))
+                    @RequestParam(required = false)
+                    String amountMin,
+            @Parameter(schema = @Schema(type = "string", pattern = DecimalString.PATTERN))
+                    @RequestParam(required = false)
+                    String amountMax,
+            @Parameter(schema = @Schema(type = "string", pattern = DecimalString.PATTERN))
+                    @RequestParam(required = false)
+                    String outstandingMin,
+            @Parameter(schema = @Schema(type = "string", pattern = DecimalString.PATTERN))
+                    @RequestParam(required = false)
+                    String outstandingMax,
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "50") @Min(1) @Max(ReceivableQueryService.MAX_SIZE)
                     int size,
             @RequestParam(defaultValue = "createdAt,desc") String sort) {
-        return queries.invoices(
-                tenant(),
-                customerId,
-                contractId,
-                paymentStatus,
-                currency,
-                invoiceNumber,
-                externalId,
-                search,
-                issuedFrom,
-                issuedTo,
-                dueFrom,
-                dueTo,
-                overdue,
-                amountMin,
-                amountMax,
-                outstandingMin,
-                outstandingMax,
-                page,
-                size,
-                sort);
+        return InvoicePageResponse.from(
+                queries.invoices(
+                        tenant(),
+                        customerId,
+                        contractId,
+                        paymentStatus,
+                        currency,
+                        invoiceNumber,
+                        externalId,
+                        search,
+                        issuedFrom,
+                        issuedTo,
+                        dueFrom,
+                        dueTo,
+                        overdue,
+                        DecimalString.parseNullable(amountMin),
+                        DecimalString.parseNullable(amountMax),
+                        DecimalString.parseNullable(outstandingMin),
+                        DecimalString.parseNullable(outstandingMax),
+                        page,
+                        size,
+                        sort));
     }
 
     @GetMapping("/api/v1/invoices/{id}")
@@ -131,7 +141,7 @@ public class ReceivableController {
                         request.customerId(),
                         request.externalId(),
                         request.paymentDate(),
-                        request.amount(),
+                        request.amount().positiveValue("amount"),
                         request.currency(),
                         request.paymentReference(),
                         request.source(),
@@ -139,7 +149,7 @@ public class ReceivableController {
     }
 
     @GetMapping("/api/v1/payments")
-    public ReceivableQueryService.PaymentPage payments(
+    public PaymentPageResponse payments(
             @RequestParam(required = false) UUID customerId,
             @RequestParam(required = false) UUID invoiceId,
             @RequestParam(required = false) String currency,
@@ -147,30 +157,35 @@ public class ReceivableController {
             @RequestParam(required = false) String externalId,
             @RequestParam(required = false) LocalDate paymentFrom,
             @RequestParam(required = false) LocalDate paymentTo,
-            @RequestParam(required = false) BigDecimal amountMin,
-            @RequestParam(required = false) BigDecimal amountMax,
+            @Parameter(schema = @Schema(type = "string", pattern = DecimalString.PATTERN))
+                    @RequestParam(required = false)
+                    String amountMin,
+            @Parameter(schema = @Schema(type = "string", pattern = DecimalString.PATTERN))
+                    @RequestParam(required = false)
+                    String amountMax,
             @RequestParam(required = false) Boolean unallocatedOnly,
             @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "50") @Min(1) @Max(ReceivableQueryService.MAX_SIZE)
                     int size,
             @RequestParam(defaultValue = "createdAt,desc") String sort) {
-        return queries.payments(
-                tenant(),
-                customerId,
-                invoiceId,
-                currency,
-                paymentReference,
-                externalId,
-                paymentFrom,
-                paymentTo,
-                amountMin,
-                amountMax,
-                unallocatedOnly,
-                search,
-                page,
-                size,
-                sort);
+        return PaymentPageResponse.from(
+                queries.payments(
+                        tenant(),
+                        customerId,
+                        invoiceId,
+                        currency,
+                        paymentReference,
+                        externalId,
+                        paymentFrom,
+                        paymentTo,
+                        DecimalString.parseNullable(amountMin),
+                        DecimalString.parseNullable(amountMax),
+                        unallocatedOnly,
+                        search,
+                        page,
+                        size,
+                        sort));
     }
 
     @GetMapping("/api/v1/payments/{id}")
@@ -184,7 +199,11 @@ public class ReceivableController {
             @PathVariable UUID id, @Valid @RequestBody AllocationRequest request) {
         PaymentAllocation value =
                 service.allocate(
-                        tenant(), id, request.commandId(), request.invoiceId(), request.amount());
+                        tenant(),
+                        id,
+                        request.commandId(),
+                        request.invoiceId(),
+                        request.amount().positiveValue("amount"));
         return AllocationResponse.from(value);
     }
 
@@ -237,7 +256,8 @@ public class ReceivableController {
             @NotBlank @Size(max = 120) String invoiceNumber,
             LocalDate invoiceDate,
             @NotNull LocalDate dueDate,
-            @NotNull @DecimalMin("0.0001") BigDecimal originalAmount,
+            @NotNull @Schema(type = "string", pattern = DecimalString.PATTERN)
+                    DecimalString originalAmount,
             @NotBlank @Size(min = 3, max = 3) String currency,
             UUID documentFileId,
             JsonNode customFields) {}
@@ -246,7 +266,8 @@ public class ReceivableController {
             @NotNull UUID customerId,
             @NotBlank @Size(max = 120) String externalId,
             @NotNull LocalDate paymentDate,
-            @NotNull @DecimalMin("0.0001") BigDecimal amount,
+            @NotNull @Schema(type = "string", pattern = DecimalString.PATTERN)
+                    DecimalString amount,
             @NotBlank @Size(min = 3, max = 3) String currency,
             @Size(max = 200) String paymentReference,
             @Size(max = 80) String source,
@@ -255,7 +276,8 @@ public class ReceivableController {
     public record AllocationRequest(
             @NotNull UUID commandId,
             @NotNull UUID invoiceId,
-            @NotNull @DecimalMin("0.0001") BigDecimal amount) {}
+            @NotNull @Schema(type = "string", pattern = DecimalString.PATTERN)
+                    DecimalString amount) {}
 
     public record AllocationReversalRequest(
             @Min(0) long version, @NotBlank @Size(max = 200) String reason) {}
@@ -268,9 +290,11 @@ public class ReceivableController {
             String invoiceNumber,
             LocalDate invoiceDate,
             LocalDate dueDate,
-            BigDecimal originalAmount,
-            BigDecimal paidAmount,
-            BigDecimal outstandingAmount,
+            @Schema(type = "string", pattern = DecimalString.PATTERN)
+                    DecimalString originalAmount,
+            @Schema(type = "string", pattern = DecimalString.PATTERN) DecimalString paidAmount,
+            @Schema(type = "string", pattern = DecimalString.PATTERN)
+                    DecimalString outstandingAmount,
             String currency,
             PaymentStatus paymentStatus,
             boolean overdue,
@@ -291,9 +315,9 @@ public class ReceivableController {
                     value.getInvoiceNumber(),
                     value.getInvoiceDate(),
                     value.getDueDate(),
-                    value.getOriginalAmount(),
-                    value.getPaidAmount(),
-                    value.getOutstandingAmount(),
+                    DecimalString.of(value.getOriginalAmount()),
+                    DecimalString.of(value.getPaidAmount()),
+                    DecimalString.of(value.getOutstandingAmount()),
                     value.getCurrency(),
                     value.getPaymentStatus(),
                     overdue,
@@ -312,7 +336,7 @@ public class ReceivableController {
             UUID customerId,
             String externalId,
             LocalDate paymentDate,
-            BigDecimal amount,
+            @Schema(type = "string", pattern = DecimalString.PATTERN) DecimalString amount,
             String currency,
             String paymentReference,
             String source,
@@ -326,7 +350,7 @@ public class ReceivableController {
                     value.getCustomerId(),
                     value.getExternalId(),
                     value.getPaymentDate(),
-                    value.getAmount(),
+                    DecimalString.of(value.getAmount()),
                     value.getCurrency(),
                     value.getPaymentReference(),
                     value.getSource(),
@@ -342,7 +366,7 @@ public class ReceivableController {
             UUID paymentId,
             UUID invoiceId,
             UUID commandId,
-            BigDecimal amount,
+            @Schema(type = "string", pattern = DecimalString.PATTERN) DecimalString amount,
             AllocationStatus status,
             Instant reversedAt,
             String reversedBy,
@@ -355,13 +379,113 @@ public class ReceivableController {
                     value.getPaymentId(),
                     value.getInvoiceId(),
                     value.getCommandId(),
-                    value.getAmount(),
+                    DecimalString.of(value.getAmount()),
                     value.getStatus(),
                     value.getReversedAt(),
                     value.getReversedBy(),
                     value.getReversalReason(),
                     value.getCreatedAt(),
                     value.getVersion());
+        }
+    }
+
+    @Schema(name = "InvoiceItem")
+    public record InvoiceItemResponse(
+            UUID id,
+            UUID customerId,
+            UUID contractId,
+            String externalId,
+            String invoiceNumber,
+            LocalDate invoiceDate,
+            LocalDate dueDate,
+            @Schema(type = "string", pattern = DecimalString.PATTERN)
+                    DecimalString originalAmount,
+            @Schema(type = "string", pattern = DecimalString.PATTERN) DecimalString paidAmount,
+            @Schema(type = "string", pattern = DecimalString.PATTERN)
+                    DecimalString outstandingAmount,
+            String currency,
+            PaymentStatus paymentStatus,
+            boolean overdue,
+            long daysOverdue) {
+        static InvoiceItemResponse from(ReceivableQueryService.InvoiceItem value) {
+            return new InvoiceItemResponse(
+                    value.id(),
+                    value.customerId(),
+                    value.contractId(),
+                    value.externalId(),
+                    value.invoiceNumber(),
+                    value.invoiceDate(),
+                    value.dueDate(),
+                    DecimalString.of(value.originalAmount()),
+                    DecimalString.of(value.paidAmount()),
+                    DecimalString.of(value.outstandingAmount()),
+                    value.currency(),
+                    value.paymentStatus(),
+                    value.overdue(),
+                    value.daysOverdue());
+        }
+    }
+
+    @Schema(name = "InvoicePage")
+    public record InvoicePageResponse(
+            List<InvoiceItemResponse> items,
+            int page,
+            int size,
+            long totalElements,
+            int totalPages,
+            boolean hasNext,
+            LocalDate businessDate) {
+        static InvoicePageResponse from(ReceivableQueryService.InvoicePage value) {
+            return new InvoicePageResponse(
+                    value.items().stream().map(InvoiceItemResponse::from).toList(),
+                    value.page(),
+                    value.size(),
+                    value.totalElements(),
+                    value.totalPages(),
+                    value.hasNext(),
+                    value.businessDate());
+        }
+    }
+
+    @Schema(name = "PaymentItem")
+    public record PaymentItemResponse(
+            UUID id,
+            UUID customerId,
+            String externalId,
+            LocalDate paymentDate,
+            @Schema(type = "string", pattern = DecimalString.PATTERN) DecimalString amount,
+            String currency,
+            String paymentReference,
+            String source) {
+        static PaymentItemResponse from(ReceivableQueryService.PaymentItem value) {
+            return new PaymentItemResponse(
+                    value.id(),
+                    value.customerId(),
+                    value.externalId(),
+                    value.paymentDate(),
+                    DecimalString.of(value.amount()),
+                    value.currency(),
+                    value.paymentReference(),
+                    value.source());
+        }
+    }
+
+    @Schema(name = "PaymentPage")
+    public record PaymentPageResponse(
+            List<PaymentItemResponse> items,
+            int page,
+            int size,
+            long totalElements,
+            int totalPages,
+            boolean hasNext) {
+        static PaymentPageResponse from(ReceivableQueryService.PaymentPage value) {
+            return new PaymentPageResponse(
+                    value.items().stream().map(PaymentItemResponse::from).toList(),
+                    value.page(),
+                    value.size(),
+                    value.totalElements(),
+                    value.totalPages(),
+                    value.hasNext());
         }
     }
 }

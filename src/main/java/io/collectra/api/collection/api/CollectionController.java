@@ -10,15 +10,15 @@ import io.collectra.api.collection.domain.CollectionEvent;
 import io.collectra.api.collection.domain.CollectionPriority;
 import io.collectra.api.collection.domain.Dispute;
 import io.collectra.api.collection.domain.PromiseToPay;
+import io.collectra.api.shared.api.DecimalString;
 import io.collectra.api.shared.tenant.TenantContext;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -56,7 +56,7 @@ public class CollectionController {
     }
 
     @GetMapping
-    public CollectionQueryService.CasePage list(
+    public CasePageResponse list(
             @RequestParam(required = false) UUID customerId,
             @RequestParam(required = false) UUID invoiceId,
             @RequestParam(required = false) CollectionCaseStatus status,
@@ -65,7 +65,17 @@ public class CollectionController {
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "50") @Min(1) @Max(CollectionQueryService.MAX_SIZE) int size,
             @RequestParam(defaultValue = "createdAt,desc") String sort) {
-        return queries.list(tenant(), customerId, invoiceId, status, priority, assignedTo, page, size, sort);
+        return CasePageResponse.from(
+                queries.list(
+                        tenant(),
+                        customerId,
+                        invoiceId,
+                        status,
+                        priority,
+                        assignedTo,
+                        page,
+                        size,
+                        sort));
     }
 
     @GetMapping("/{caseId}")
@@ -124,7 +134,7 @@ public class CollectionController {
                 service.createPromise(
                         tenant(),
                         caseId,
-                        request.amount(),
+                        request.amount().positiveValue("amount"),
                         request.currency(),
                         request.promisedDate(),
                         actor()));
@@ -265,7 +275,8 @@ public class CollectionController {
     public record CloseRequest(@Min(0) long version, @NotNull CollectionCloseReason reason) {}
 
     public record PromiseCreateRequest(
-            @NotNull @DecimalMin("0.0001") BigDecimal amount,
+            @NotNull @Schema(type = "string", pattern = DecimalString.PATTERN)
+                    DecimalString amount,
             @NotBlank @Size(min = 3, max = 3) String currency,
             @NotNull LocalDate promisedDate) {}
 
@@ -311,7 +322,7 @@ public class CollectionController {
 
     public record PromiseResponse(
             UUID id,
-            BigDecimal amount,
+            @Schema(type = "string", pattern = DecimalString.PATTERN) DecimalString amount,
             String currency,
             LocalDate promisedDate,
             String status,
@@ -322,7 +333,7 @@ public class CollectionController {
         static PromiseResponse from(PromiseToPay value, boolean overdue, LocalDate businessDate) {
             return new PromiseResponse(
                     value.getId(),
-                    value.getAmount(),
+                    DecimalString.of(value.getAmount()),
                     value.getCurrency(),
                     value.getPromisedDate(),
                     value.getStatus().name(),
@@ -330,6 +341,73 @@ public class CollectionController {
                     businessDate,
                     value.getResolvedAt(),
                     value.getVersion());
+        }
+    }
+
+    @Schema(name = "CaseItem")
+    public record CaseItemResponse(
+            UUID id,
+            UUID customerId,
+            String customerDisplayName,
+            UUID invoiceId,
+            String invoiceNumber,
+            CollectionCaseStatus status,
+            CollectionPriority priority,
+            UUID assignedTo,
+            String assigneeDisplayName,
+            String currency,
+            @Schema(type = "string", pattern = DecimalString.PATTERN)
+                    DecimalString outstandingAmount,
+            String paymentStatus,
+            String nextActionType,
+            Instant nextActionDueAt,
+            boolean nextActionOverdue,
+            Instant openedAt,
+            Instant closedAt,
+            CollectionCloseReason closeReason,
+            long version) {
+        static CaseItemResponse from(CollectionQueryService.CaseItem value) {
+            return new CaseItemResponse(
+                    value.id(),
+                    value.customerId(),
+                    value.customerDisplayName(),
+                    value.invoiceId(),
+                    value.invoiceNumber(),
+                    value.status(),
+                    value.priority(),
+                    value.assignedTo(),
+                    value.assigneeDisplayName(),
+                    value.currency(),
+                    value.outstandingAmount() == null
+                            ? null
+                            : DecimalString.of(value.outstandingAmount()),
+                    value.paymentStatus(),
+                    value.nextActionType(),
+                    value.nextActionDueAt(),
+                    value.nextActionOverdue(),
+                    value.openedAt(),
+                    value.closedAt(),
+                    value.closeReason(),
+                    value.version());
+        }
+    }
+
+    @Schema(name = "CasePage")
+    public record CasePageResponse(
+            List<CaseItemResponse> items,
+            int page,
+            int size,
+            long totalElements,
+            int totalPages,
+            boolean hasNext) {
+        static CasePageResponse from(CollectionQueryService.CasePage value) {
+            return new CasePageResponse(
+                    value.items().stream().map(CaseItemResponse::from).toList(),
+                    value.page(),
+                    value.size(),
+                    value.totalElements(),
+                    value.totalPages(),
+                    value.hasNext());
         }
     }
 

@@ -128,7 +128,7 @@ class FrontendBlockerClosureIntegrationTest extends AbstractIntegrationTest {
                                                         "invoiceNumber", "INV-001",
                                                         "invoiceDate", LocalDate.now().minusDays(40).toString(),
                                                         "dueDate", LocalDate.now().minusDays(10).toString(),
-                                                        "originalAmount", 150000,
+                                                        "originalAmount", "150000",
                                                         "currency", "KZT"))),
                         201);
 
@@ -169,9 +169,26 @@ class FrontendBlockerClosureIntegrationTest extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$.items[0].customerDisplayName").value("Collection Customer"))
                 .andExpect(jsonPath("$.items[0].invoiceNumber").value("INV-001"))
                 .andExpect(jsonPath("$.items[0].currency").value("KZT"))
-                .andExpect(jsonPath("$.items[0].outstandingAmount").value(150000))
+                .andExpect(jsonPath("$.items[0].outstandingAmount").value("150000"))
                 .andExpect(jsonPath("$.items[0].nextActionType").value("CALL_CUSTOMER"))
                 .andExpect(jsonPath("$.items[0].nextActionOverdue").value(true));
+
+        mockMvc.perform(
+                        post(
+                                        "/api/v1/collection-cases/{caseId}/promises",
+                                        collectionCase.get("id").asText())
+                                .header("Authorization", bearer(token))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                                        {
+                                          "amount":"1000.0000",
+                                          "currency":"KZT",
+                                          "promisedDate":"2030-01-01"
+                                        }
+                                        """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.amount").value("1000"));
     }
 
     @Test
