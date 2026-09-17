@@ -8,6 +8,7 @@ import { NotFoundPage } from '../pages/system/NotFoundPage';
 import { useI18n } from '../shared/i18n/i18n-context';
 import type { MessageKey } from '../shared/i18n/messages';
 import { RouteErrorPage } from '../pages/system/RouteErrorPage';
+import { DashboardPage } from '../pages/dashboard/DashboardPage';
 
 function PlaceholderPage({ titleKey }: { titleKey: MessageKey }) {
   const { t } = useI18n();
@@ -35,7 +36,7 @@ export const router = createBrowserRouter([
       </RequireAuth>
     ),
     children: [
-      { index: true, element: <PlaceholderPage titleKey="navigation.dashboard" /> },
+      { index: true, element: <DashboardPage /> },
       { path: 'customers', element: <PlaceholderPage titleKey="navigation.customers" /> },
       { path: 'receivables', element: <PlaceholderPage titleKey="navigation.receivables" /> },
       { path: 'collections', element: <PlaceholderPage titleKey="navigation.collections" /> },
