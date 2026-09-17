@@ -2053,14 +2053,16 @@
           "in" : "query",
           "required" : false,
           "schema" : {
-            "type" : "number"
+            "type" : "string",
+            "pattern" : "^-?(0|[1-9][0-9]{0,14})(\\.[0-9]{1,4})?$"
           }
         }, {
           "name" : "amountMax",
           "in" : "query",
           "required" : false,
           "schema" : {
-            "type" : "number"
+            "type" : "string",
+            "pattern" : "^-?(0|[1-9][0-9]{0,14})(\\.[0-9]{1,4})?$"
           }
         }, {
           "name" : "unallocatedOnly",
@@ -2682,28 +2684,32 @@
           "in" : "query",
           "required" : false,
           "schema" : {
-            "type" : "number"
+            "type" : "string",
+            "pattern" : "^-?(0|[1-9][0-9]{0,14})(\\.[0-9]{1,4})?$"
           }
         }, {
           "name" : "amountMax",
           "in" : "query",
           "required" : false,
           "schema" : {
-            "type" : "number"
+            "type" : "string",
+            "pattern" : "^-?(0|[1-9][0-9]{0,14})(\\.[0-9]{1,4})?$"
           }
         }, {
           "name" : "outstandingMin",
           "in" : "query",
           "required" : false,
           "schema" : {
-            "type" : "number"
+            "type" : "string",
+            "pattern" : "^-?(0|[1-9][0-9]{0,14})(\\.[0-9]{1,4})?$"
           }
         }, {
           "name" : "outstandingMax",
           "in" : "query",
           "required" : false,
           "schema" : {
-            "type" : "number"
+            "type" : "string",
+            "pattern" : "^-?(0|[1-9][0-9]{0,14})(\\.[0-9]{1,4})?$"
           }
         }, {
           "name" : "page",
@@ -8141,8 +8147,8 @@
             "format" : "date"
           },
           "amount" : {
-            "type" : "number",
-            "minimum" : 1.0E-4
+            "type" : "string",
+            "pattern" : "^-?(0|[1-9][0-9]{0,14})(\\.[0-9]{1,4})?$"
           },
           "currency" : {
             "type" : "string",
@@ -8184,7 +8190,8 @@
             "format" : "date"
           },
           "amount" : {
-            "type" : "number"
+            "type" : "string",
+            "pattern" : "^-?(0|[1-9][0-9]{0,14})(\\.[0-9]{1,4})?$"
           },
           "currency" : {
             "type" : "string"
@@ -8248,7 +8255,8 @@
             "format" : "uuid"
           },
           "amount" : {
-            "type" : "number"
+            "type" : "string",
+            "pattern" : "^-?(0|[1-9][0-9]{0,14})(\\.[0-9]{1,4})?$"
           },
           "status" : {
             "type" : "string",
@@ -8286,8 +8294,8 @@
             "format" : "uuid"
           },
           "amount" : {
-            "type" : "number",
-            "minimum" : 1.0E-4
+            "type" : "string",
+            "pattern" : "^-?(0|[1-9][0-9]{0,14})(\\.[0-9]{1,4})?$"
           }
         },
         "required" : [ "amount", "commandId", "invoiceId" ]
@@ -8383,8 +8391,8 @@
             "format" : "date"
           },
           "originalAmount" : {
-            "type" : "number",
-            "minimum" : 1.0E-4
+            "type" : "string",
+            "pattern" : "^-?(0|[1-9][0-9]{0,14})(\\.[0-9]{1,4})?$"
           },
           "currency" : {
             "type" : "string",
@@ -8431,13 +8439,16 @@
             "format" : "date"
           },
           "originalAmount" : {
-            "type" : "number"
+            "type" : "string",
+            "pattern" : "^-?(0|[1-9][0-9]{0,14})(\\.[0-9]{1,4})?$"
           },
           "paidAmount" : {
-            "type" : "number"
+            "type" : "string",
+            "pattern" : "^-?(0|[1-9][0-9]{0,14})(\\.[0-9]{1,4})?$"
           },
           "outstandingAmount" : {
-            "type" : "number"
+            "type" : "string",
+            "pattern" : "^-?(0|[1-9][0-9]{0,14})(\\.[0-9]{1,4})?$"
           },
           "currency" : {
             "type" : "string"
@@ -8908,8 +8919,8 @@
         "type" : "object",
         "properties" : {
           "amount" : {
-            "type" : "number",
-            "minimum" : 1.0E-4
+            "type" : "string",
+            "pattern" : "^-?(0|[1-9][0-9]{0,14})(\\.[0-9]{1,4})?$"
           },
           "currency" : {
             "type" : "string",
@@ -8931,7 +8942,8 @@
             "format" : "uuid"
           },
           "amount" : {
-            "type" : "number"
+            "type" : "string",
+            "pattern" : "^-?(0|[1-9][0-9]{0,14})(\\.[0-9]{1,4})?$"
           },
           "currency" : {
             "type" : "string"
@@ -9136,10 +9148,12 @@
             "format" : "int32"
           },
           "amountFrom" : {
-            "type" : "number"
+            "type" : "string",
+            "pattern" : "^-?(0|[1-9][0-9]{0,14})(\\.[0-9]{1,4})?$"
           },
           "amountTo" : {
-            "type" : "number"
+            "type" : "string",
+            "pattern" : "^-?(0|[1-9][0-9]{0,14})(\\.[0-9]{1,4})?$"
           }
         }
       },
@@ -9869,7 +9883,8 @@
             "format" : "date"
           },
           "amount" : {
-            "type" : "number"
+            "type" : "string",
+            "pattern" : "^-?(0|[1-9][0-9]{0,14})(\\.[0-9]{1,4})?$"
           },
           "currency" : {
             "type" : "string"
@@ -9942,13 +9957,16 @@
             "format" : "date"
           },
           "originalAmount" : {
-            "type" : "number"
+            "type" : "string",
+            "pattern" : "^-?(0|[1-9][0-9]{0,14})(\\.[0-9]{1,4})?$"
           },
           "paidAmount" : {
-            "type" : "number"
+            "type" : "string",
+            "pattern" : "^-?(0|[1-9][0-9]{0,14})(\\.[0-9]{1,4})?$"
           },
           "outstandingAmount" : {
-            "type" : "number"
+            "type" : "string",
+            "pattern" : "^-?(0|[1-9][0-9]{0,14})(\\.[0-9]{1,4})?$"
           },
           "currency" : {
             "type" : "string"
@@ -10318,7 +10336,8 @@
             "type" : "string"
           },
           "amount" : {
-            "type" : "number"
+            "type" : "string",
+            "pattern" : "^-?(0|[1-9][0-9]{0,14})(\\.[0-9]{1,4})?$"
           }
         }
       },
@@ -10361,19 +10380,24 @@
         "type" : "object",
         "properties" : {
           "current" : {
-            "type" : "number"
+            "type" : "string",
+            "pattern" : "^-?(0|[1-9][0-9]{0,14})(\\.[0-9]{1,4})?$"
           },
           "days1To30" : {
-            "type" : "number"
+            "type" : "string",
+            "pattern" : "^-?(0|[1-9][0-9]{0,14})(\\.[0-9]{1,4})?$"
           },
           "days31To60" : {
-            "type" : "number"
+            "type" : "string",
+            "pattern" : "^-?(0|[1-9][0-9]{0,14})(\\.[0-9]{1,4})?$"
           },
           "days61To90" : {
-            "type" : "number"
+            "type" : "string",
+            "pattern" : "^-?(0|[1-9][0-9]{0,14})(\\.[0-9]{1,4})?$"
           },
           "days90Plus" : {
-            "type" : "number"
+            "type" : "string",
+            "pattern" : "^-?(0|[1-9][0-9]{0,14})(\\.[0-9]{1,4})?$"
           }
         }
       },
@@ -10384,7 +10408,8 @@
             "type" : "string"
           },
           "outstanding" : {
-            "type" : "number"
+            "type" : "string",
+            "pattern" : "^-?(0|[1-9][0-9]{0,14})(\\.[0-9]{1,4})?$"
           },
           "dueToday" : {
             "type" : "integer",
@@ -10776,7 +10801,8 @@
             "type" : "string"
           },
           "outstandingAmount" : {
-            "type" : "number"
+            "type" : "string",
+            "pattern" : "^-?(0|[1-9][0-9]{0,14})(\\.[0-9]{1,4})?$"
           },
           "paymentStatus" : {
             "type" : "string"

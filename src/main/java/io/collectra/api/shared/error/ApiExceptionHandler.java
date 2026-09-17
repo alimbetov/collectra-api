@@ -1,5 +1,6 @@
 package io.collectra.api.shared.error;
 
+import com.fasterxml.jackson.databind.JsonMappingException;
 import io.collectra.api.file.application.FileNotFoundException;
 import io.collectra.api.file.application.FileNotReadyException;
 import io.collectra.api.file.application.FileTooLargeException;
@@ -16,6 +17,7 @@ import java.util.Map;
 import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -52,6 +54,27 @@ public class ApiExceptionHandler {
     @ExceptionHandler(InvalidRequestException.class)
     ProblemDetail invalidRequest(InvalidRequestException ex, HttpServletRequest request) {
         return withCode(base(HttpStatus.BAD_REQUEST, ex.getMessage(), request), ex.getCode());
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    ProblemDetail unreadableBody(HttpMessageNotReadableException ex, HttpServletRequest request) {
+        InvalidRequestException invalidDecimal = findCause(ex, InvalidRequestException.class);
+        if (invalidDecimal != null) {
+            ProblemDetail problem =
+                    withCode(
+                            base(HttpStatus.BAD_REQUEST, invalidDecimal.getMessage(), request),
+                            invalidDecimal.getCode());
+            JsonMappingException mapping = findCause(ex, JsonMappingException.class);
+            if (mapping != null && !mapping.getPath().isEmpty()) {
+                String field = mapping.getPath().get(mapping.getPath().size() - 1).getFieldName();
+                if (field != null && !field.isBlank()) {
+                    problem.setProperty("errors", Map.of(field, invalidDecimal.getMessage()));
+                }
+            }
+            return problem;
+        }
+        return withCode(
+                base(HttpStatus.BAD_REQUEST, "Invalid request body", request), "INVALID_REQUEST");
     }
 
     @ExceptionHandler({BadCredentialsException.class, InvalidRefreshTokenException.class})
@@ -132,6 +155,17 @@ public class ApiExceptionHandler {
     private ProblemDetail withCode(ProblemDetail problem, String code) {
         problem.setProperty("code", code);
         return problem;
+    }
+
+    private <T extends Throwable> T findCause(Throwable error, Class<T> type) {
+        Throwable current = error;
+        while (current != null) {
+            if (type.isInstance(current)) {
+                return type.cast(current);
+            }
+            current = current.getCause();
+        }
+        return null;
     }
 
     private ProblemDetail base(HttpStatus status, String detail, HttpServletRequest request) {

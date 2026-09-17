@@ -1,6 +1,9 @@
+import type { DecimalString } from '../api/contracts';
+
 export type AppLocale = 'ru' | 'kk';
 
 const intlLocales: Record<AppLocale, string> = { ru: 'ru-KZ', kk: 'kk-KZ' };
+const decimalPattern = /^(-?)(0|[1-9][0-9]{0,14})(?:\.([0-9]{1,4}))?$/;
 
 export function resolveLocale(value: string | null | undefined): AppLocale {
   const language = value?.trim().toLowerCase().split(/[-_]/)[0];
@@ -39,10 +42,31 @@ export function formatNumber(value: number, locale: AppLocale): string {
   return Number.isFinite(value) ? new Intl.NumberFormat(intlLocales[locale]).format(value) : '—';
 }
 
-export function formatMoney(value: number, currency: string, locale: AppLocale): string {
-  if (!Number.isFinite(value) || !/^[A-Z]{3}$/.test(currency)) return '—';
+export function formatMoney(value: DecimalString, currency: string, locale: AppLocale): string {
+  const match = decimalPattern.exec(value);
+  if (!match || !/^[A-Z]{3}$/.test(currency)) return '—';
   try {
-    return new Intl.NumberFormat(intlLocales[locale], { style: 'currency', currency }).format(value);
+    const defaultFormatter = new Intl.NumberFormat(intlLocales[locale], {
+      style: 'currency',
+      currency,
+    });
+    const fraction = match[3] ?? '';
+    const scale = Math.max(
+      defaultFormatter.resolvedOptions().minimumFractionDigits ?? 0,
+      fraction.length,
+    );
+    const formatter = new Intl.NumberFormat(intlLocales[locale], {
+      style: 'currency',
+      currency,
+      minimumFractionDigits: scale,
+      maximumFractionDigits: scale,
+    });
+    const integer = BigInt(`${match[1]}${match[2]}`);
+    const paddedFraction = fraction.padEnd(scale, '0');
+    return formatter
+      .formatToParts(integer)
+      .map((part) => (part.type === 'fraction' ? paddedFraction : part.value))
+      .join('');
   } catch {
     return '—';
   }

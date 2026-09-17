@@ -2,7 +2,8 @@ export type UUID = string;
 export type Instant = string;
 export type LocalDate = string;
 export type CurrencyCode = string;
-export type Decimal = number;
+export type DecimalString = string;
+export type Decimal = DecimalString;
 
 export interface PageDto<T> {
   items: T[];

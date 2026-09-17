@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.math.BigDecimal;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -165,8 +166,8 @@ class ReceivableFrontendApiIntegrationTest extends AbstractIntegrationTest {
                         get("/api/v1/invoices/{id}", invoiceId)
                                 .header("Authorization", bearer(token)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.paidAmount").value(400.0))
-                .andExpect(jsonPath("$.outstandingAmount").value(600.0))
+                .andExpect(jsonPath("$.paidAmount").value("400"))
+                .andExpect(jsonPath("$.outstandingAmount").value("600"))
                 .andExpect(jsonPath("$.paymentStatus").value("PARTIALLY_PAID"));
 
         JsonNode reversed =
@@ -188,8 +189,8 @@ class ReceivableFrontendApiIntegrationTest extends AbstractIntegrationTest {
                         get("/api/v1/invoices/{id}", invoiceId)
                                 .header("Authorization", bearer(token)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.paidAmount").value(0.0))
-                .andExpect(jsonPath("$.outstandingAmount").value(1000.0))
+                .andExpect(jsonPath("$.paidAmount").value("0"))
+                .andExpect(jsonPath("$.outstandingAmount").value("1000"))
                 .andExpect(jsonPath("$.paymentStatus").value("OPEN"));
 
         mockMvc.perform(
@@ -240,6 +241,73 @@ class ReceivableFrontendApiIntegrationTest extends AbstractIntegrationTest {
                                                 "250.0000")))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("ALLOCATION_EXCEEDS_PAYMENT"));
+    }
+
+    @Test
+    void moneyContractUsesStringsAndRejectsUnsafeDecimalForms() throws Exception {
+        String token = register("receivable-decimal-contract");
+        JsonNode customer = createCustomer(token, "CUST-DECIMAL", "Decimal Customer");
+
+        JsonNode invoice =
+                createInvoice(
+                        token,
+                        customer.get("id").asText(),
+                        null,
+                        "INV-DECIMAL",
+                        "INV-DECIMAL",
+                        "999999999999999.9999",
+                        "KZT");
+        assertThat(invoice.get("originalAmount").isTextual()).isTrue();
+        assertThat(invoice.get("originalAmount").asText()).isEqualTo("999999999999999.9999");
+        assertThat(invoice.get("paidAmount").asText()).isEqualTo("0");
+
+        mockMvc.perform(
+                        get("/api/v1/invoices")
+                                .header("Authorization", bearer(token))
+                                .param("amountMin", "999999999999999.9999"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].originalAmount").value("999999999999999.9999"));
+
+        mockMvc.perform(get("/api/v1/dashboard/summary").header("Authorization", bearer(token)))
+                .andExpect(status().isOk())
+                .andExpect(
+                        jsonPath("$.outstandingByCurrency[0].amount")
+                                .value("999999999999999.9999"));
+
+        mockMvc.perform(get("/api/v1/dashboard/receivables").header("Authorization", bearer(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.currencies[0].outstanding").value("999999999999999.9999"));
+
+        mockMvc.perform(
+                        get("/api/v1/invoices")
+                                .header("Authorization", bearer(token))
+                                .param("amountMin", "1e3"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_DECIMAL"));
+
+        mockMvc.perform(
+                        post("/api/v1/invoices")
+                                .header("Authorization", bearer(token))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        json.writeValueAsString(
+                                                java.util.Map.of(
+                                                        "customerId", customer.get("id").asText(),
+                                                        "externalId", "INV-NUMERIC-JSON",
+                                                        "invoiceNumber", "INV-NUMERIC-JSON",
+                                                        "dueDate", "2026-12-31",
+                                                        "originalAmount", new BigDecimal("100.25"),
+                                                        "currency", "KZT"))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_DECIMAL"))
+                .andExpect(jsonPath("$.errors.originalAmount").value("Invalid decimal value"));
+
+        mockMvc.perform(
+                        get("/api/v1/invoices")
+                                .header("Authorization", bearer(token))
+                                .param("amountMin", "1000000000000000"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("DECIMAL_OUT_OF_RANGE"));
     }
 
     private JsonNode allocate(

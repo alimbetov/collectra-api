@@ -77,22 +77,20 @@ public class DashboardQueryService {
                 ORDER BY currency
                 """,
                 rs -> {
-                    while (rs.next()) {
-                        String currency = rs.getString("currency");
-                        byCurrency.put(
-                                currency,
-                                new CurrencyReceivables(
-                                        currency,
-                                        rs.getBigDecimal("outstanding"),
-                                        rs.getLong("due_today"),
-                                        rs.getLong("due_soon"),
-                                        new Aging(
-                                                rs.getBigDecimal("current_amount"),
-                                                rs.getBigDecimal("days_1_30"),
-                                                rs.getBigDecimal("days_31_60"),
-                                                rs.getBigDecimal("days_61_90"),
-                                                rs.getBigDecimal("days_90_plus"))));
-                    }
+                    String currency = rs.getString("currency");
+                    byCurrency.put(
+                            currency,
+                            new CurrencyReceivables(
+                                    currency,
+                                    rs.getBigDecimal("outstanding"),
+                                    rs.getLong("due_today"),
+                                    rs.getLong("due_soon"),
+                                    new Aging(
+                                            rs.getBigDecimal("current_amount"),
+                                            rs.getBigDecimal("days_1_30"),
+                                            rs.getBigDecimal("days_31_60"),
+                                            rs.getBigDecimal("days_61_90"),
+                                            rs.getBigDecimal("days_90_plus"))));
                 },
                 businessDate,
                 businessDate,

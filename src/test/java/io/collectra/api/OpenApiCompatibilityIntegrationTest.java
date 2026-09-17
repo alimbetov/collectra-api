@@ -12,6 +12,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.openapitools.openapidiff.core.OpenApiCompare;
 import org.openapitools.openapidiff.core.model.ChangedOpenApi;
@@ -21,6 +22,33 @@ import org.springframework.test.web.servlet.MockMvc;
 
 @AutoConfigureMockMvc
 class OpenApiCompatibilityIntegrationTest extends AbstractIntegrationTest {
+
+    private static final Set<String> MONEY_PROPERTIES =
+            Set.of(
+                    "PaymentRequest.amount",
+                    "PaymentResponse.amount",
+                    "AllocationResponse.amount",
+                    "AllocationRequest.amount",
+                    "InvoiceRequest.originalAmount",
+                    "InvoiceResponse.originalAmount",
+                    "InvoiceResponse.paidAmount",
+                    "InvoiceResponse.outstandingAmount",
+                    "PromiseCreateRequest.amount",
+                    "PromiseResponse.amount",
+                    "CampaignSelection.amountFrom",
+                    "CampaignSelection.amountTo",
+                    "PaymentItem.amount",
+                    "InvoiceItem.originalAmount",
+                    "InvoiceItem.paidAmount",
+                    "InvoiceItem.outstandingAmount",
+                    "CurrencyTotal.amount",
+                    "Aging.current",
+                    "Aging.days1To30",
+                    "Aging.days31To60",
+                    "Aging.days61To90",
+                    "Aging.days90Plus",
+                    "CurrencyReceivables.outstanding",
+                    "CaseItem.outstandingAmount");
 
     private static final Path BASELINE =
             Path.of("src/test/resources/openapi/collectra-api-v1-baseline.json");
@@ -50,6 +78,63 @@ class OpenApiCompatibilityIntegrationTest extends AbstractIntegrationTest {
         assertThat(changes.isCompatible())
                 .as("Breaking /api/v1 change detected:%n%s", changes)
                 .isTrue();
+    }
+
+    @Test
+    void everyPublicMoneyPropertyAndFilterUsesDecimalStringSchema() throws Exception {
+        JsonNode document = objectMapper.readTree(currentPublicApi());
+        JsonNode schemas = document.path("components").path("schemas");
+
+        for (String field : MONEY_PROPERTIES) {
+            String[] parts = field.split("\\.", 2);
+            JsonNode schema = schemas.path(parts[0]).path("properties").path(parts[1]);
+            assertThat(schema.path("type").asText()).as(field).isEqualTo("string");
+            assertThat(schema.path("pattern").asText()).as(field).isNotBlank();
+        }
+
+        assertDecimalQueryParameters(document, "/api/v1/invoices", 4);
+        assertDecimalQueryParameters(document, "/api/v1/payments", 2);
+    }
+
+    private void assertDecimalQueryParameters(JsonNode document, String path, int expected) {
+        long count =
+                document
+                        .path("paths")
+                        .path(path)
+                        .path("get")
+                        .path("parameters")
+                        .findValues("name")
+                        .stream()
+                        .filter(JsonNode::isTextual)
+                        .map(JsonNode::asText)
+                        .filter(
+                                name ->
+                                        name.equals("amountMin")
+                                                || name.equals("amountMax")
+                                                || name.equals("outstandingMin")
+                                                || name.equals("outstandingMax"))
+                        .count();
+        assertThat(count).isEqualTo(expected);
+
+        document.path("paths")
+                .path(path)
+                .path("get")
+                .path("parameters")
+                .forEach(
+                        parameter -> {
+                            String name = parameter.path("name").asText();
+                            if (name.equals("amountMin")
+                                    || name.equals("amountMax")
+                                    || name.equals("outstandingMin")
+                                    || name.equals("outstandingMax")) {
+                                assertThat(parameter.path("schema").path("type").asText())
+                                        .as(path + " " + name)
+                                        .isEqualTo("string");
+                                assertThat(parameter.path("schema").path("pattern").asText())
+                                        .as(path + " " + name)
+                                        .isNotBlank();
+                            }
+                        });
     }
 
     private String currentPublicApi() throws Exception {

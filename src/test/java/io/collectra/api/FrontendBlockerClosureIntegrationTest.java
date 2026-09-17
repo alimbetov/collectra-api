@@ -67,8 +67,13 @@ class FrontendBlockerClosureIntegrationTest extends AbstractIntegrationTest {
                                 .content(
                                         json.writeValueAsString(
                                                 java.util.Map.of(
-                                                        "code", "VIP-" + UUID.randomUUID().toString().substring(0, 8),
-                                                        "name", "VIP Customers"))),
+                                                        "code",
+                                                        "VIP-"
+                                                                + UUID.randomUUID()
+                                                                        .toString()
+                                                                        .substring(0, 8),
+                                                        "name",
+                                                        "VIP Customers"))),
                         201);
 
         mockMvc.perform(
@@ -123,13 +128,20 @@ class FrontendBlockerClosureIntegrationTest extends AbstractIntegrationTest {
                                 .content(
                                         json.writeValueAsString(
                                                 java.util.Map.of(
-                                                        "customerId", customerId,
-                                                        "externalId", "INV-EXT-" + UUID.randomUUID(),
-                                                        "invoiceNumber", "INV-001",
-                                                        "invoiceDate", LocalDate.now().minusDays(40).toString(),
-                                                        "dueDate", LocalDate.now().minusDays(10).toString(),
-                                                        "originalAmount", 150000,
-                                                        "currency", "KZT"))),
+                                                        "customerId",
+                                                        customerId,
+                                                        "externalId",
+                                                        "INV-EXT-" + UUID.randomUUID(),
+                                                        "invoiceNumber",
+                                                        "INV-001",
+                                                        "invoiceDate",
+                                                        LocalDate.now().minusDays(40).toString(),
+                                                        "dueDate",
+                                                        LocalDate.now().minusDays(10).toString(),
+                                                        "originalAmount",
+                                                        "150000",
+                                                        "currency",
+                                                        "KZT"))),
                         201);
 
         JsonNode collectionCase =
@@ -140,9 +152,12 @@ class FrontendBlockerClosureIntegrationTest extends AbstractIntegrationTest {
                                 .content(
                                         json.writeValueAsString(
                                                 java.util.Map.of(
-                                                        "customerId", customerId,
-                                                        "invoiceId", invoice.get("id").asText(),
-                                                        "priority", "HIGH"))),
+                                                        "customerId",
+                                                        customerId,
+                                                        "invoiceId",
+                                                        invoice.get("id").asText(),
+                                                        "priority",
+                                                        "HIGH"))),
                         201);
 
         mockMvc.perform(
@@ -156,7 +171,10 @@ class FrontendBlockerClosureIntegrationTest extends AbstractIntegrationTest {
                                                 java.util.Map.of(
                                                         "actionType", "CALL_CUSTOMER",
                                                         "description", "Call customer",
-                                                        "dueAt", Instant.parse("2020-01-01T00:00:00Z").toString(),
+                                                        "dueAt",
+                                                                Instant.parse(
+                                                                                "2020-01-01T00:00:00Z")
+                                                                        .toString(),
                                                         "priority", "HIGH"))))
                 .andExpect(status().isCreated());
 
@@ -169,9 +187,24 @@ class FrontendBlockerClosureIntegrationTest extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$.items[0].customerDisplayName").value("Collection Customer"))
                 .andExpect(jsonPath("$.items[0].invoiceNumber").value("INV-001"))
                 .andExpect(jsonPath("$.items[0].currency").value("KZT"))
-                .andExpect(jsonPath("$.items[0].outstandingAmount").value(150000))
+                .andExpect(jsonPath("$.items[0].outstandingAmount").value("150000"))
                 .andExpect(jsonPath("$.items[0].nextActionType").value("CALL_CUSTOMER"))
                 .andExpect(jsonPath("$.items[0].nextActionOverdue").value(true));
+
+        mockMvc.perform(
+                        post(
+                                        "/api/v1/collection-cases/{caseId}/promises",
+                                        collectionCase.get("id").asText())
+                                .header("Authorization", bearer(token))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        json.writeValueAsString(
+                                                java.util.Map.of(
+                                                        "amount", "1000.0000",
+                                                        "currency", "KZT",
+                                                        "promisedDate", "2030-01-01"))))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.amount").value("1000"));
     }
 
     @Test
@@ -180,10 +213,7 @@ class FrontendBlockerClosureIntegrationTest extends AbstractIntegrationTest {
         String token = session.accessToken();
 
         JsonNode users =
-                read(
-                        get("/api/v1/identity/users")
-                                .header("Authorization", bearer(token)),
-                        200);
+                read(get("/api/v1/identity/users").header("Authorization", bearer(token)), 200);
 
         String membershipId = users.get(0).get("id").asText();
         mockMvc.perform(get("/api/v1/identity/users").header("Authorization", bearer(token)))

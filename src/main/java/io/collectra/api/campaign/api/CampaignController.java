@@ -10,12 +10,15 @@ import io.collectra.api.campaign.application.CampaignSelection;
 import io.collectra.api.campaign.application.CampaignService;
 import io.collectra.api.campaign.domain.Campaign;
 import io.collectra.api.campaign.domain.CampaignStatus;
+import io.collectra.api.shared.api.DecimalString;
 import io.collectra.api.shared.tenant.TenantContext;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.time.Instant;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
@@ -57,7 +60,7 @@ public class CampaignController {
                         request.templateVersionId(),
                         request.channel(),
                         request.scheduledAt(),
-                        request.selection(),
+                        request.selection() == null ? null : request.selection().toApplication(),
                         null));
     }
 
@@ -151,7 +154,26 @@ public class CampaignController {
             @NotNull UUID templateVersionId,
             @NotBlank @Size(max = 30) String channel,
             Instant scheduledAt,
-            CampaignSelection selection) {}
+            CampaignSelectionRequest selection) {}
+
+    @Schema(name = "CampaignSelection")
+    record CampaignSelectionRequest(
+            Set<UUID> customerIds,
+            Set<UUID> segmentIds,
+            Integer daysOverdueFrom,
+            Integer daysOverdueTo,
+            @Schema(type = "string", pattern = DecimalString.PATTERN) DecimalString amountFrom,
+            @Schema(type = "string", pattern = DecimalString.PATTERN) DecimalString amountTo) {
+        CampaignSelection toApplication() {
+            return new CampaignSelection(
+                    customerIds,
+                    segmentIds,
+                    daysOverdueFrom,
+                    daysOverdueTo,
+                    amountFrom == null ? null : amountFrom.value(),
+                    amountTo == null ? null : amountTo.value());
+        }
+    }
 
     record CampaignResponse(
             UUID id,

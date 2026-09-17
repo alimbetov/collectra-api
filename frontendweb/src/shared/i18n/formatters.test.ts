@@ -33,8 +33,26 @@ describe('Intl formatters', () => {
   });
 
   it('rejects invalid monetary inputs', () => {
-    expect(formatMoney(1200, 'KZT', 'kk')).not.toBe('—');
-    expect(formatMoney(Number.NaN, 'KZT', 'kk')).toBe('—');
-    expect(formatMoney(1200, 'tenge', 'kk')).toBe('—');
+    expect(formatMoney('1200', 'KZT', 'kk')).not.toBe('—');
+    expect(formatMoney('NaN', 'KZT', 'kk')).toBe('—');
+    expect(formatMoney('1200', 'tenge', 'kk')).toBe('—');
+  });
+
+  it('formats NUMERIC(19,4) boundaries without converting money to number', () => {
+    const value = '999999999999999.9999';
+    const ru = formatMoney(value, 'KZT', 'ru');
+    const kk = formatMoney(value, 'KZT', 'kk');
+
+    expect(ru).not.toBe('—');
+    expect(kk).not.toBe('—');
+    expect(ru.replace(/[^0-9]/g, '')).toContain('9999999999999999999');
+    expect(kk.replace(/[^0-9]/g, '')).toContain('9999999999999999999');
+  });
+
+  it('rejects exponent, localized, over-scale and over-precision money', () => {
+    expect(formatMoney('1e3', 'KZT', 'ru')).toBe('—');
+    expect(formatMoney('1,25', 'KZT', 'ru')).toBe('—');
+    expect(formatMoney('1.00001', 'KZT', 'ru')).toBe('—');
+    expect(formatMoney('1000000000000000', 'KZT', 'ru')).toBe('—');
   });
 });

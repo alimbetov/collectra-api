@@ -49,9 +49,10 @@ introduce incompatible parsing and formatting workarounds.
 A money string MUST satisfy all of the following:
 
 - ASCII digits with an optional leading `-` and optional decimal fraction;
-- regular expression `^-?(0|[1-9][0-9]{0,18})(\.[0-9]{1,4})?$`;
+- regular expression `^-?(0|[1-9][0-9]{0,14})(\.[0-9]{1,4})?$`;
 - no exponent, leading `+`, whitespace, grouping separator or locale decimal comma;
 - precision at most 19 and scale at most 4 after parsing;
+- at most 15 digits before the decimal point, matching `NUMERIC(19,4)`;
 - no leading zeroes except the single integer digit `0`;
 - endpoint business validation remains authoritative for sign and range.
 
@@ -64,8 +65,9 @@ A money string MUST satisfy all of the following:
 | `"0.00001"` | rejected: scale exceeds 4 |
 | `"1000000000000000.0000"` | rejected: precision exceeds 19 |
 
-The lexical pattern alone is not enough to enforce precision. Backend validation MUST
-also check `BigDecimal.precision() <= 19` and `max(scale(), 0) <= 4` after parsing.
+The lexical pattern alone is not enough to enforce the database range. Backend validation
+MUST also check `BigDecimal.precision() <= 19`, `max(scale(), 0) <= 4` and at most 15
+integer digits after parsing.
 
 ### 3.2 Canonical response form
 
@@ -167,7 +169,7 @@ All inventoried properties and query parameters are described as:
 
 ```yaml
 type: string
-pattern: '^-?(0|[1-9][0-9]{0,18})(\.[0-9]{1,4})?$'
+pattern: '^-?(0|[1-9][0-9]{0,14})(\.[0-9]{1,4})?$'
 example: '150000.25'
 description: Canonical plain decimal; precision <= 19, scale <= 4; no exponent.
 ```
@@ -185,6 +187,11 @@ precision bound. An overflow is a server-side invariant failure, never silent tr
 
 Changing a response property from JSON number to string is breaking for `/api/v1` and
 the existing OpenAPI compatibility gate must reject it by default.
+
+Implementation decision, 2026-09-17: use the MVP hard cut. The only known first-party
+consumer is `frontendweb` in this repository, it is migrated in the same PR, and no
+released external `/api/v1` consumer is recorded. If that inventory is found to be wrong,
+this PR must not be deployed; a versioned API is required instead.
 
 Before implementation, record one of these outcomes in the code PR:
 
