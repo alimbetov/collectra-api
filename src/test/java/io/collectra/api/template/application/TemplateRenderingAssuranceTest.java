@@ -79,7 +79,7 @@ class TemplateRenderingAssuranceTest {
         String html = renderer.render(template, payload).html();
 
         assertThat(html)
-                .contains("&lt;script&gt;alert('x')&lt;/script&gt;")
+                .contains("&lt;script&gt;alert(&#39;x&#39;)&lt;/script&gt;")
                 .doesNotContain("<script>alert('x')</script>");
     }
 
