@@ -134,8 +134,7 @@ public class CustomerController {
             @PathVariable UUID id, @Valid @RequestBody StatusRequest request) {
         UUID tenantId = tenant();
         return response(
-                tenantId,
-                service.changeStatus(tenantId, id, request.status(), request.version()));
+                tenantId, service.changeStatus(tenantId, id, request.status(), request.version()));
     }
 
     @PostMapping("/{id}/emails")

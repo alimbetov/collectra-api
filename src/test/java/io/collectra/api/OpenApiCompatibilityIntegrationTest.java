@@ -107,8 +107,7 @@ class OpenApiCompatibilityIntegrationTest extends AbstractIntegrationTest {
         assertRequiredVersion(schemas, "CustomerSegmentUpdateRequest");
 
         assertThat(
-                        document
-                                .path("paths")
+                        document.path("paths")
                                 .path("/api/v1/customers/{id}/status")
                                 .path("patch")
                                 .path("requestBody")
@@ -119,8 +118,7 @@ class OpenApiCompatibilityIntegrationTest extends AbstractIntegrationTest {
                                 .asText())
                 .endsWith("/CustomerStatusRequest");
         assertThat(
-                        document
-                                .path("paths")
+                        document.path("paths")
                                 .path("/api/v1/customer-segments/{segmentId}")
                                 .path("patch")
                                 .path("requestBody")

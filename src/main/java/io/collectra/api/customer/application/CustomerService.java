@@ -351,8 +351,7 @@ public class CustomerService {
 
     private static void requireVersion(long actual, long expected, String resource) {
         if (actual != expected) {
-            throw new BusinessConflictException(
-                    "VERSION_CONFLICT", resource + " version conflict");
+            throw new BusinessConflictException("VERSION_CONFLICT", resource + " version conflict");
         }
     }
 }
