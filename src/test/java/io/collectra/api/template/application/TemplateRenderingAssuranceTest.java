@@ -141,8 +141,7 @@ class TemplateRenderingAssuranceTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("External image URLs are forbidden");
 
-        assertThat(htmlPolicy.sanitize("<img src=\"{{asset.logo}}\">"))
-                .contains("{{asset.logo}}");
+        assertThat(htmlPolicy.sanitize("<img src=\"{{asset.logo}}\">")) .contains("{{asset.logo}}");
 
         assertThatThrownBy(
                         () -> htmlPolicy.validateStylesheet("body { background: url(https://x); }"))
