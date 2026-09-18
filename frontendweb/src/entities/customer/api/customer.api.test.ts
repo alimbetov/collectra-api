@@ -1,0 +1,83 @@
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { HttpResponse, http } from 'msw';
+import { setupServer } from 'msw/node';
+import { customerListPath, getCustomers, getManagerOptions, getSegmentOptions } from './customer.api';
+
+const server = setupServer();
+
+beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
+afterEach(() => server.resetHandlers());
+afterAll(() => server.close());
+
+describe('customer API', () => {
+  it('serializes only the fixed supported filters and safely encodes values', () => {
+    expect(
+      customerListPath({
+        search: 'A&B + C',
+        status: 'ACTIVE',
+        page: 2,
+        size: 25,
+        sort: 'displayName,asc',
+      }),
+    ).toBe(
+      '/api/v1/customers?search=A%26B+%2B+C&status=ACTIVE&page=2&size=25&sort=displayName%2Casc',
+    );
+  });
+
+  it('reads the enriched list projection with a single customer request', async () => {
+    let calls = 0;
+    server.use(
+      http.get('*/api/v1/customers', ({ request }) => {
+        calls += 1;
+        expect(new URL(request.url).searchParams.get('status')).toBe('ACTIVE');
+        return HttpResponse.json({
+          items: [{
+            id: '11111111-1111-4111-8111-111111111111',
+            externalId: 'EXT-1',
+            customerType: 'COMPANY',
+            displayName: 'Acme',
+            status: 'ACTIVE',
+            managerUserId: null,
+            preferredLocale: null,
+            timezone: null,
+            segmentIds: [],
+            primaryEmail: 'billing@acme.test',
+            primaryPhone: '+77010000000',
+            managerDisplayName: 'A. Manager',
+            segments: [{ id: '22222222-2222-4222-8222-222222222222', code: 'vip', name: 'VIP' }],
+            createdAt: '2026-09-17T10:00:00Z',
+            updatedAt: '2026-09-18T10:00:00Z',
+          }],
+          page: 0,
+          size: 50,
+          totalElements: 1,
+          totalPages: 1,
+          hasNext: false,
+        });
+      }),
+    );
+
+    const result = await getCustomers({ status: 'ACTIVE' });
+    expect(result.items[0]).toMatchObject({ primaryEmail: 'billing@acme.test', managerDisplayName: 'A. Manager' });
+    expect(calls).toBe(1);
+  });
+
+  it('keeps reference searches bounded and tenant-derived', async () => {
+    const urls: string[] = [];
+    server.use(
+      http.get('*/api/v1/identity/user-options', ({ request }) => {
+        urls.push(request.url);
+        return HttpResponse.json({ items: [], page: 0, size: 20, totalElements: 0, totalPages: 0, hasNext: false });
+      }),
+      http.get('*/api/v1/customer-segments', ({ request }) => {
+        urls.push(request.url);
+        return HttpResponse.json({ items: [], page: 0, size: 20, totalElements: 0, totalPages: 0, hasNext: false });
+      }),
+    );
+
+    await Promise.all([getManagerOptions('  Ivan  '), getSegmentOptions(' VIP ')]);
+    expect(urls.join('\n')).not.toContain('tenantId');
+    expect(urls[0]).toContain('status=ACTIVE&page=0&size=20&search=Ivan');
+    expect(urls[1]).toContain('active=true&page=0&size=20&sort=name%2Casc&search=VIP');
+  });
+});

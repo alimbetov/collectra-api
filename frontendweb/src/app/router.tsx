@@ -9,6 +9,7 @@ import { useI18n } from '../shared/i18n/i18n-context';
 import type { MessageKey } from '../shared/i18n/messages';
 import { RouteErrorPage } from '../pages/system/RouteErrorPage';
 import { DashboardPage } from '../pages/dashboard/DashboardPage';
+import { CustomersPage } from '../pages/customers/CustomersPage';
 
 function PlaceholderPage({ titleKey }: { titleKey: MessageKey }) {
   const { t } = useI18n();
@@ -37,7 +38,7 @@ export const router = createBrowserRouter([
     ),
     children: [
       { index: true, element: <DashboardPage /> },
-      { path: 'customers', element: <PlaceholderPage titleKey="navigation.customers" /> },
+      { path: 'customers', element: <CustomersPage /> },
       { path: 'receivables', element: <PlaceholderPage titleKey="navigation.receivables" /> },
       { path: 'collections', element: <PlaceholderPage titleKey="navigation.collections" /> },
       {
