@@ -28,7 +28,7 @@ readiness from a binary label to explicit backend gates and removes frontend wor
 | R-02 | BLOCKER | FW3/FW5 | public `BigDecimal` becomes JS `number`; `Decimal = number` | decision approved; implement `public-money-decimal-string-contract.md` before financial UI |
 | R-03 | HIGH | FW3 | summary has no overdue KPI; overdue exists only as per-currency aging buckets | do not invent cross-currency KPI; allow presentation-only per-currency bucket sum |
 | R-04 | HIGH | FW3/FW6 | collection list has no overdue-action filter/sort | no dead filtered link; add fixed operational filter API in FW6 prerequisite |
-| R-05 | BLOCKER | FW4 | Contracts are in user process/API but absent from FW3–FW12 delivery slices | add FW4D contract list/detail/lifecycle |
+| R-05 | BLOCKER | FW4 | Contracts are in user process/API but absent from FW3–FW12 delivery slices | add FW4E contract list/detail/lifecycle |
 | R-06 | HIGH | FW4/FW6 | manager/assignee IDs need a selector; directory requires `USER_READ` and is unpaged | add bounded identity lookup or permission-aware deferment; never load unbounded directory |
 | R-07 | BLOCKER | FW5 | invoice/payment rows have customer/contract UUIDs but no labels | add bounded batch labels to list projections; forbid row lookups |
 | R-08 | HIGH | FW5 | allocation list endpoints return unbounded `List` | page allocation history or document/enforce a hard domain limit |
@@ -54,7 +54,7 @@ readiness from a binary label to explicit backend gates and removes frontend wor
 | Slice | Readiness after review | Required closure |
 |---|---|---|
 | FW3 | READY AFTER P0 | FW2 closure and money transport decision |
-| FW4 | READY WITH SPLIT | add FW4D contracts; bounded manager lookup is conditional |
+| FW4 | READY WITH SPLIT | add FW4E contracts; bounded manager lookup is conditional |
 | FW5 | BACKEND PROJECTION GATE | list labels, allocation bound, money contract |
 | FW6 | API HARDENING GATE | operational next-action filters and bounded assignee lookup |
 | FW7 | BACKEND DETAIL GATE | campaign and run detail projections |
@@ -144,7 +144,7 @@ OpenAPI/public API and must not be inferred from persistence fields.
 P0 FW2C/D recovery + FW2E
 P0 implement approved money Decimal String API contract
 FW3 Dashboard
-FW4A Customers list -> FW4B detail/contacts -> FW4C segments -> FW4D contracts
+FW4A Customers list -> FW4B read-only detail/contacts -> FW4C optimistic editing -> FW4D segments -> FW4E contracts
 FW5 backend projections/allocation paging -> FW5 UI
 FW6 operational filters/assignee lookup -> FW6 UI
 FW9 template detail/bounds -> FW9 UI

@@ -135,7 +135,7 @@ client-side scanning.
 | Order | Specification | Suggested code branch |
 |---|---|---|
 | 1 | [FW3 Dashboard](frontendweb-fw03-dashboard.md) | `feat/frontendweb-fw3-dashboard` |
-| 2 | [FW4 Customers and contracts](frontendweb-fw04-customers.md) | split FW4A/FW4B/FW4C/FW4D |
+| 2 | [FW4 Customers and contracts](frontendweb-fw04-customers.md) | split FW4A/FW4B/FW4C/FW4D/FW4E |
 | 3 | [FW5 Receivables](frontendweb-fw05-receivables.md) | split list/detail and payments |
 | 4 | [FW6 Collections](frontendweb-fw06-collections.md) | split queue/detail workflows |
 | 5 | [FW7 Campaigns](frontendweb-fw07-campaigns.md) | split list/detail and run execution |

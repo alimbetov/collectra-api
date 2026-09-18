@@ -13,7 +13,7 @@ The page owns its complete query state in the URL, performs exactly one customer
 per settled filter state and renders only the enriched projection returned by the backend.
 
 FW4A is read-only. Customer creation, detail, contact/status mutations and segment management
-belong to FW4B/FW4C. The list must not introduce temporary write behaviour or client-side joins.
+belong to FW4B–FW4E. The list must not introduce temporary write behaviour or client-side joins.
 
 ## 2. Verified backend contract
 
@@ -235,4 +235,4 @@ the last page, the page canonically navigates to the last existing page once, wi
 - tenant/session/RBAC/error boundaries reuse shared infrastructure;
 - ru/kk, accessibility and responsive states are present;
 - unit, API/MSW, page, typecheck, build and repository CI are green;
-- implementation PR is limited to FW4A and may merge independently of FW4B–FW4D.
+- implementation PR is limited to FW4A and may merge independently of FW4B–FW4E.
