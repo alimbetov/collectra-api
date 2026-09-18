@@ -3,7 +3,10 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
-import { changeCustomerStatus, getCustomer, getCustomerEmails, getCustomerPhones, updateCustomer } from '../../entities/customer/api/customer.api';
+import {
+  addCustomerEmail, addCustomerPhone, changeCustomerStatus, getCustomer, getCustomerEmails,
+  getCustomerPhones, updateCustomer, updateCustomerEmail, updateCustomerPhone,
+} from '../../entities/customer/api/customer.api';
 import { ApiError } from '../../shared/api/http-client';
 import { I18nProvider } from '../../shared/i18n/i18n-context';
 import { ToastProvider } from '../../shared/ui';
@@ -15,6 +18,10 @@ vi.mock('../../entities/customer/api/customer.api', () => ({
   getCustomerPhones: vi.fn(),
   updateCustomer: vi.fn(),
   changeCustomerStatus: vi.fn(),
+  addCustomerEmail: vi.fn(),
+  addCustomerPhone: vi.fn(),
+  updateCustomerEmail: vi.fn(),
+  updateCustomerPhone: vi.fn(),
 }));
 
 vi.mock('../../features/auth/model/auth-context', () => ({
@@ -77,6 +84,10 @@ beforeEach(() => {
   ]);
   vi.mocked(updateCustomer).mockResolvedValue({ ...detail, displayName: 'Acme Updated', version: 8 });
   vi.mocked(changeCustomerStatus).mockResolvedValue({ ...detail, status: 'BLOCKED', version: 8 });
+  vi.mocked(addCustomerEmail).mockResolvedValue({ id: 'e2', email: 'new@acme.test', type: 'WORK', primary: false, verified: false, status: 'ACTIVE', version: 0 });
+  vi.mocked(addCustomerPhone).mockResolvedValue({ id: 'p2', phone: '+7702', normalizedPhone: '+7702', type: 'MOBILE', primary: false, verified: false, status: 'ACTIVE', version: 0 });
+  vi.mocked(updateCustomerEmail).mockResolvedValue({ id: 'e1', email: 'billing@acme.test', type: 'HOME', primary: false, verified: false, status: 'ACTIVE', version: 3 });
+  vi.mocked(updateCustomerPhone).mockResolvedValue({ id: 'p1', phone: '+7 701 000 00 00', normalizedPhone: '+77010000000', type: 'MOBILE', primary: false, verified: true, status: 'INACTIVE', version: 4 });
 });
 
 describe('CustomerDetailPage', () => {
@@ -168,5 +179,40 @@ describe('CustomerDetailPage', () => {
 
     await waitFor(() => expect(changeCustomerStatus).toHaveBeenCalledTimes(1));
     expect(changeCustomerStatus).toHaveBeenCalledWith(id, { status: 'BLOCKED', version: 7 });
+  });
+
+  it('creates an email without tenant or version fields and refreshes the contacts view', async () => {
+    const user = userEvent.setup();
+    renderPage(`/customers/${id}/contacts`);
+    await screen.findByText('billing@acme.test');
+
+    await user.click(screen.getByRole('button', { name: 'Добавить email' }));
+    await user.type(screen.getByLabelText(/Основной email/), 'new@acme.test');
+    await user.selectOptions(screen.getByLabelText('Тип'), 'WORK');
+    await user.click(screen.getByLabelText('Основной контакт'));
+    await user.click(within(screen.getByRole('dialog', { name: 'Добавить email' })).getByRole('button', { name: 'Сохранить' }));
+
+    await waitFor(() => expect(addCustomerEmail).toHaveBeenCalledWith(id, {
+      email: 'new@acme.test', type: 'WORK', primary: true,
+    }));
+    expect(JSON.stringify(vi.mocked(addCustomerEmail).mock.calls)).not.toContain('tenantId');
+  });
+
+  it('patches email metadata with the contact version and clears primary when inactive', async () => {
+    const user = userEvent.setup();
+    renderPage(`/customers/${id}/contacts`);
+    const email = await screen.findByText('billing@acme.test');
+    const section = email.closest('section');
+    expect(section).not.toBeNull();
+
+    await user.click(within(section!).getByRole('button', { name: 'Изменить' }));
+    await user.selectOptions(screen.getByLabelText('Статус'), 'INACTIVE');
+    expect(screen.getByLabelText('Основной контакт')).not.toBeChecked();
+    expect(screen.getByLabelText('Основной контакт')).toBeDisabled();
+    await user.click(within(screen.getByRole('dialog', { name: 'Редактирование email' })).getByRole('button', { name: 'Сохранить' }));
+
+    await waitFor(() => expect(updateCustomerEmail).toHaveBeenCalledWith(id, 'e1', {
+      type: 'WORK', primary: false, status: 'INACTIVE', version: 2,
+    }));
   });
 });

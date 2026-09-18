@@ -14,6 +14,10 @@ import {
   getManagerOptions,
   getSegmentOptions,
   updateCustomer,
+  addCustomerEmail,
+  addCustomerPhone,
+  updateCustomerEmail,
+  updateCustomerPhone,
 } from './customer.api';
 
 const server = setupServer();
@@ -157,6 +161,32 @@ describe('customer API', () => {
       { method: 'PUT', path: `/api/v1/customers/${id}`, body: expect.objectContaining({ displayName: 'Updated', version: 7 }) },
       { method: 'PATCH', path: `/api/v1/customers/${id}/status`, body: { status: 'BLOCKED', version: 8 } },
     ]);
+    expect(JSON.stringify(requests)).not.toContain('tenantId');
+  });
+
+  it('sends create and versioned patch commands to encoded nested contact paths', async () => {
+    const id = '11111111-1111-4111-8111-111111111111';
+    const requests: Array<{ method: string; path: string; body: unknown }> = [];
+    server.use(
+      http.all('*/api/v1/customers/*', async ({ request }) => {
+        requests.push({ method: request.method, path: new URL(request.url).pathname, body: await request.json() });
+        return HttpResponse.json({ id: 'contact', version: 4 });
+      }),
+    );
+
+    await addCustomerEmail(id, { email: 'a@b.kz', type: 'WORK', primary: true });
+    await updateCustomerEmail(id, 'email/id', { type: 'HOME', primary: false, status: 'ACTIVE', version: 2 });
+    await addCustomerPhone(id, { phone: '+7701', type: 'MOBILE', primary: false });
+    await updateCustomerPhone(id, 'phone/id', { type: 'WORK', primary: false, status: 'INACTIVE', version: 3 });
+
+    expect(requests.map(({ method, path }) => `${method} ${path}`)).toEqual([
+      `POST /api/v1/customers/${id}/emails`,
+      `PATCH /api/v1/customers/${id}/emails/email%2Fid`,
+      `POST /api/v1/customers/${id}/phones`,
+      `PATCH /api/v1/customers/${id}/phones/phone%2Fid`,
+    ]);
+    expect(requests[1].body).toEqual(expect.objectContaining({ version: 2 }));
+    expect(requests[3].body).toEqual(expect.objectContaining({ version: 3 }));
     expect(JSON.stringify(requests)).not.toContain('tenantId');
   });
 });

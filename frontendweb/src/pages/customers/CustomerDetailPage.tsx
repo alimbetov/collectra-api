@@ -2,7 +2,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, Navigate, useBlocker, useParams } from 'react-router-dom';
 import { customerQueries } from '../../entities/customer/api/customer.queries';
-import { changeCustomerStatus, updateCustomer } from '../../entities/customer/api/customer.api';
+import {
+  addCustomerEmail, addCustomerPhone, changeCustomerStatus, updateCustomer,
+  updateCustomerEmail, updateCustomerPhone,
+} from '../../entities/customer/api/customer.api';
+import type {
+  ContactPatchCommand, CustomerEmailDto, CustomerPhoneDto, EmailCreateCommand, PhoneCreateCommand,
+} from '../../entities/customer/model/customer.types';
 import { useAuth } from '../../features/auth/model/auth-context';
 import { isCustomerId } from '../../features/customer-detail/model/customer-detail';
 import { CustomerEmails, CustomerPhones } from '../../features/customer-detail/ui/CustomerContacts';
@@ -12,12 +18,20 @@ import { CustomerOverview } from '../../features/customer-detail/ui/CustomerOver
 import { applyCustomerMutation } from '../../features/customer-edit/model/customer-mutations';
 import { CustomerEditDialog } from '../../features/customer-edit/ui/CustomerEditDialog';
 import { CustomerStatusDialog } from '../../features/customer-edit/ui/CustomerStatusDialog';
+import { refreshContactMutation } from '../../features/customer-contact-edit/model/contact-mutations';
+import type { ContactKind, CustomerContact } from '../../features/customer-contact-edit/model/customer-contact-edit';
+import { CustomerContactDialog } from '../../features/customer-contact-edit/ui/CustomerContactDialog';
 import { ApiError } from '../../shared/api/http-client';
 import { ProblemDetailPanel } from '../../shared/errors/ProblemDetailPanel';
 import { useI18n } from '../../shared/i18n/i18n-context';
 import { ConfirmDialog, EmptyState, Spinner, useToast } from '../../shared/ui';
 
 export type CustomerDetailTab = 'overview' | 'contacts';
+
+type ContactIntent =
+  | { kind: 'email'; mode: 'create'; command: EmailCreateCommand }
+  | { kind: 'phone'; mode: 'create'; command: PhoneCreateCommand }
+  | { kind: ContactKind; mode: 'patch'; contactId: string; command: ContactPatchCommand };
 
 function status(error: unknown): number | null {
   return error instanceof ApiError ? error.status : null;
@@ -32,6 +46,7 @@ export function CustomerDetailPage({ tab }: { tab: CustomerDetailTab }) {
   const [editOpen, setEditOpen] = useState(false);
   const [statusOpen, setStatusOpen] = useState(false);
   const [editDirty, setEditDirty] = useState(false);
+  const [contactEditor, setContactEditor] = useState<{ kind: ContactKind; contact?: CustomerContact } | null>(null);
   const blocker = useBlocker(editDirty);
   const validId = isCustomerId(customerId);
   const id = validId ? customerId : '';
@@ -56,6 +71,25 @@ export function CustomerDetailPage({ tab }: { tab: CustomerDetailTab }) {
       showToast({ title: t('customerStatus.saved'), tone: 'success' });
     },
   });
+  const contactMutation = useMutation<CustomerContact, unknown, ContactIntent>({
+    mutationFn: async (intent) => {
+      if (intent.mode === 'create' && intent.kind === 'email') return await addCustomerEmail(id, intent.command);
+      if (intent.mode === 'create' && intent.kind === 'phone') return await addCustomerPhone(id, intent.command);
+      if (intent.mode === 'patch' && intent.kind === 'email') return await updateCustomerEmail(id, intent.contactId, intent.command);
+      if (intent.mode === 'patch') return await updateCustomerPhone(id, intent.contactId, intent.command);
+      throw new Error('Unsupported contact intent');
+    },
+    onSuccess: async (_contact, intent) => {
+      await refreshContactMutation(queryClient, id, intent.kind);
+      setEditDirty(false);
+      setContactEditor(null);
+      showToast({ title: t('contactEdit.saved'), tone: 'success' });
+    },
+  });
+  const openContact = (kind: ContactKind, contact?: CustomerContact) => {
+    contactMutation.reset();
+    setContactEditor({ kind, contact });
+  };
   const errors = [detail.error, emails.error, phones.error];
 
   if (errors.some((error) => status(error) === 403)) return <Navigate to="/forbidden" replace />;
@@ -87,10 +121,10 @@ export function CustomerDetailPage({ tab }: { tab: CustomerDetailTab }) {
         <div className="customer-detail-grid">
           {emails.isLoading ? <div className="customer-detail-card"><Spinner label={t('customerDetail.loadingEmails')} /></div> : null}
           {emails.error ? <ProblemDetailPanel error={emails.error} onRetry={() => void emails.refetch()} /> : null}
-          {emails.data ? <CustomerEmails values={emails.data} /> : null}
+          {emails.data ? <CustomerEmails values={emails.data} onAdd={() => openContact('email')} onEdit={(contact: CustomerEmailDto) => openContact('email', contact)} /> : null}
           {phones.isLoading ? <div className="customer-detail-card"><Spinner label={t('customerDetail.loadingPhones')} /></div> : null}
           {phones.error ? <ProblemDetailPanel error={phones.error} onRetry={() => void phones.refetch()} /> : null}
-          {phones.data ? <CustomerPhones values={phones.data} /> : null}
+          {phones.data ? <CustomerPhones values={phones.data} onAdd={() => openContact('phone')} onEdit={(contact: CustomerPhoneDto) => openContact('phone', contact)} /> : null}
         </div>
       )}
       <CustomerEditDialog
@@ -113,6 +147,27 @@ export function CustomerDetailPage({ tab }: { tab: CustomerDetailTab }) {
         onReload={async () => { statusMutation.reset(); return detail.refetch(); }}
         onClose={() => { statusMutation.reset(); setStatusOpen(false); }}
       />
+      {contactEditor ? <CustomerContactDialog
+        open
+        kind={contactEditor.kind}
+        contact={contactEditor.contact}
+        pending={contactMutation.isPending}
+        error={contactMutation.error}
+        onCreateEmail={(command) => contactMutation.mutate({ kind: 'email', mode: 'create', command })}
+        onCreatePhone={(command) => contactMutation.mutate({ kind: 'phone', mode: 'create', command })}
+        onPatch={(command) => contactMutation.mutate({
+          kind: contactEditor.kind,
+          mode: 'patch',
+          contactId: contactEditor.contact?.id ?? '',
+          command,
+        })}
+        onReload={async () => {
+          contactMutation.reset();
+          return contactEditor.kind === 'email' ? emails.refetch() : phones.refetch();
+        }}
+        onClose={() => { contactMutation.reset(); setContactEditor(null); }}
+        onDirtyChange={setEditDirty}
+      /> : null}
       <ConfirmDialog
         open={blocker.state === 'blocked'}
         title={t('customerEdit.unsavedTitle')}
