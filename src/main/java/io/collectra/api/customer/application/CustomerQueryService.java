@@ -1,5 +1,7 @@
 package io.collectra.api.customer.application;
 
+import com.fasterxml.jackson.databind.JsonNode;
+
 import io.collectra.api.customer.domain.Customer;
 import io.collectra.api.customer.domain.CustomerEmail;
 import io.collectra.api.customer.domain.CustomerPhone;
@@ -15,26 +17,31 @@ import io.collectra.api.customer.infrastructure.CustomerSegmentRepository;
 import io.collectra.api.identity.application.IdentityDirectoryService;
 import io.collectra.api.identity.application.IdentityDirectoryService.UserSummary;
 import io.collectra.api.shared.error.InvalidRequestException;
+
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
 import jakarta.persistence.criteria.Subquery;
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
-import java.util.function.Function;
-import java.util.stream.Collectors;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.Set;
+import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 public class CustomerQueryService {
@@ -44,6 +51,9 @@ public class CustomerQueryService {
             Set.of("createdAt", "updatedAt", "displayName", "externalId");
     private static final Set<String> SEGMENT_SORTS =
             Set.of("createdAt", "updatedAt", "name", "code");
+    private static final Comparator<SegmentSummary> SEGMENT_SUMMARY_ORDER =
+            Comparator.comparing(SegmentSummary::name, String.CASE_INSENSITIVE_ORDER)
+                    .thenComparing(SegmentSummary::id);
 
     private final CustomerRepository customers;
     private final CustomerSegmentRepository segments;
@@ -111,17 +121,22 @@ public class CustomerQueryService {
                                 parseSort(sort, CUSTOMER_SORTS, "createdAt", Sort.Direction.DESC)));
 
         List<UUID> customerIds = result.getContent().stream().map(Customer::getId).toList();
-        List<CustomerSegmentMember> memberships = customerIds.isEmpty()
-                ? List.of()
-                : members.findAllByTenantIdAndCustomerIdIn(tenantId, customerIds);
+        List<CustomerSegmentMember> memberships =
+                customerIds.isEmpty()
+                        ? List.of()
+                        : members.findAllByTenantIdAndCustomerIdIn(tenantId, customerIds);
 
-        Set<UUID> segmentIds = memberships.stream()
-                .map(CustomerSegmentMember::getSegmentId)
-                .collect(Collectors.toCollection(LinkedHashSet::new));
-        Map<UUID, CustomerSegment> segmentsById = segmentIds.isEmpty()
-                ? Map.of()
-                : segments.findAllByTenantIdAndIdIn(tenantId, segmentIds).stream()
-                        .collect(Collectors.toMap(CustomerSegment::getId, Function.identity()));
+        Set<UUID> segmentIds =
+                memberships.stream()
+                        .map(CustomerSegmentMember::getSegmentId)
+                        .collect(Collectors.toCollection(LinkedHashSet::new));
+        Map<UUID, CustomerSegment> segmentsById =
+                segmentIds.isEmpty()
+                        ? Map.of()
+                        : segments.findAllByTenantIdAndIdIn(tenantId, segmentIds).stream()
+                                .collect(
+                                        Collectors.toMap(
+                                                CustomerSegment::getId, Function.identity()));
 
         Map<UUID, List<SegmentSummary>> segmentSummariesByCustomer = new LinkedHashMap<>();
         Map<UUID, List<UUID>> segmentIdsByCustomer = new LinkedHashMap<>();
@@ -133,19 +148,27 @@ public class CustomerQueryService {
             if (segment != null) {
                 segmentSummariesByCustomer
                         .computeIfAbsent(membership.getCustomerId(), ignored -> new ArrayList<>())
-                        .add(new SegmentSummary(segment.getId(), segment.getCode(), segment.getName()));
+                        .add(
+                                new SegmentSummary(
+                                        segment.getId(), segment.getCode(), segment.getName()));
             }
         }
         segmentIdsByCustomer.values().forEach(values -> values.sort(UUID::compareTo));
-        segmentSummariesByCustomer.values().forEach(
-                values -> values.sort(java.util.Comparator.comparing(SegmentSummary::name)));
+        segmentSummariesByCustomer
+                .values()
+                .forEach(
+                        values ->
+                                values.sort(java.util.Comparator.comparing(SegmentSummary::name)));
 
         Map<UUID, String> primaryEmails = new LinkedHashMap<>();
         if (!customerIds.isEmpty()) {
             emails.findAllByTenantIdAndCustomerIdIn(tenantId, customerIds).stream()
                     .filter(CustomerEmail::isActive)
                     .filter(CustomerEmail::isPrimary)
-                    .forEach(value -> primaryEmails.putIfAbsent(value.getCustomerId(), value.getEmail()));
+                    .forEach(
+                            value ->
+                                    primaryEmails.putIfAbsent(
+                                            value.getCustomerId(), value.getEmail()));
         }
 
         Map<UUID, String> primaryPhones = new LinkedHashMap<>();
@@ -153,21 +176,27 @@ public class CustomerQueryService {
             phones.findAllByTenantIdAndCustomerIdIn(tenantId, customerIds).stream()
                     .filter(CustomerPhone::isActive)
                     .filter(CustomerPhone::isPrimary)
-                    .forEach(value -> primaryPhones.putIfAbsent(value.getCustomerId(), value.getPhone()));
+                    .forEach(
+                            value ->
+                                    primaryPhones.putIfAbsent(
+                                            value.getCustomerId(), value.getPhone()));
         }
 
-        Set<UUID> managerIds = result.getContent().stream()
-                .map(Customer::getManagerUserId)
-                .filter(java.util.Objects::nonNull)
-                .collect(Collectors.toSet());
-        Map<UUID, UserSummary> managersById = identityDirectory.users(tenantId, managerIds).stream()
-                .collect(Collectors.toMap(UserSummary::id, Function.identity()));
+        Set<UUID> managerIds =
+                result.getContent().stream()
+                        .map(Customer::getManagerUserId)
+                        .filter(java.util.Objects::nonNull)
+                        .collect(Collectors.toSet());
+        Map<UUID, UserSummary> managersById =
+                identityDirectory.users(tenantId, managerIds).stream()
+                        .collect(Collectors.toMap(UserSummary::id, Function.identity()));
 
         List<CustomerListItem> items =
                 result.getContent().stream()
                         .map(
                                 value -> {
-                                    UserSummary manager = managersById.get(value.getManagerUserId());
+                                    UserSummary manager =
+                                            managersById.get(value.getManagerUserId());
                                     return new CustomerListItem(
                                             value.getId(),
                                             value.getExternalId(),
@@ -177,11 +206,15 @@ public class CustomerQueryService {
                                             value.getManagerUserId(),
                                             value.getPreferredLocale(),
                                             value.getTimezone(),
-                                            List.copyOf(segmentIdsByCustomer.getOrDefault(value.getId(), List.of())),
+                                            List.copyOf(
+                                                    segmentIdsByCustomer.getOrDefault(
+                                                            value.getId(), List.of())),
                                             primaryEmails.get(value.getId()),
                                             primaryPhones.get(value.getId()),
                                             manager == null ? null : manager.label(),
-                                            List.copyOf(segmentSummariesByCustomer.getOrDefault(value.getId(), List.of())),
+                                            List.copyOf(
+                                                    segmentSummariesByCustomer.getOrDefault(
+                                                            value.getId(), List.of())),
                                             value.getCreatedAt(),
                                             value.getUpdatedAt());
                                 })
@@ -193,6 +226,63 @@ public class CustomerQueryService {
                 result.getTotalElements(),
                 result.getTotalPages(),
                 result.hasNext());
+    }
+
+    @Transactional(readOnly = true)
+    public CustomerDetail customer(UUID tenantId, UUID customerId) {
+        Customer value =
+                customers
+                        .findByIdAndTenantId(customerId, tenantId)
+                        .orElseThrow(() -> new NoSuchElementException("Customer not found"));
+
+        List<UUID> segmentIds =
+                members.findAllByTenantIdAndCustomerId(tenantId, customerId).stream()
+                        .map(CustomerSegmentMember::getSegmentId)
+                        .sorted()
+                        .toList();
+        List<SegmentSummary> segmentSummaries =
+                (segmentIds.isEmpty()
+                                ? List.<CustomerSegment>of()
+                                : segments.findAllByTenantIdAndIdIn(tenantId, segmentIds))
+                        .stream()
+                                .map(
+                                        segment ->
+                                                new SegmentSummary(
+                                                        segment.getId(),
+                                                        segment.getCode(),
+                                                        segment.getName()))
+                                .sorted(SEGMENT_SUMMARY_ORDER)
+                                .toList();
+
+        String managerDisplayName = null;
+        if (value.getManagerUserId() != null) {
+            managerDisplayName =
+                    identityDirectory.users(tenantId, List.of(value.getManagerUserId())).stream()
+                            .findFirst()
+                            .map(UserSummary::label)
+                            .orElse(null);
+        }
+
+        return new CustomerDetail(
+                value.getId(),
+                value.getExternalId(),
+                value.getCustomerType(),
+                value.getDisplayName(),
+                value.getFirstName(),
+                value.getLastName(),
+                value.getMiddleName(),
+                value.getCompanyName(),
+                value.getStatus(),
+                value.getManagerUserId(),
+                managerDisplayName,
+                value.getPreferredLocale(),
+                value.getTimezone(),
+                value.getCustomFields(),
+                segmentIds,
+                segmentSummaries,
+                value.getCreatedAt(),
+                value.getUpdatedAt(),
+                value.getVersion());
     }
 
     @Transactional(readOnly = true)
@@ -234,15 +324,20 @@ public class CustomerQueryService {
             predicates.add(cb.equal(root.get("tenantId"), tenantId));
 
             if (status != null) predicates.add(cb.equal(root.get("status"), status));
-            if (customerType != null) predicates.add(cb.equal(root.get("customerType"), customerType));
+            if (customerType != null)
+                predicates.add(cb.equal(root.get("customerType"), customerType));
             if (managerId != null) predicates.add(cb.equal(root.get("managerUserId"), managerId));
             if (externalId != null) predicates.add(cb.equal(root.get("externalId"), externalId));
-            if (createdFrom != null) predicates.add(cb.greaterThanOrEqualTo(root.get("createdAt"), createdFrom));
-            if (createdTo != null) predicates.add(cb.lessThanOrEqualTo(root.get("createdAt"), createdTo));
+            if (createdFrom != null)
+                predicates.add(cb.greaterThanOrEqualTo(root.get("createdAt"), createdFrom));
+            if (createdTo != null)
+                predicates.add(cb.lessThanOrEqualTo(root.get("createdAt"), createdTo));
             if (search != null) {
                 predicates.add(
                         cb.or(
-                                cb.like(cb.lower(root.<String>get("displayName")), "%" + search + "%"),
+                                cb.like(
+                                        cb.lower(root.<String>get("displayName")),
+                                        "%" + search + "%"),
                                 cb.like(cb.lower(root.<String>get("externalId")), search + "%")));
             }
             if (segmentId != null) {
@@ -304,7 +399,8 @@ public class CustomerQueryService {
 
     private static void validateRange(Instant from, Instant to) {
         if (from != null && to != null && from.isAfter(to)) {
-            throw new InvalidRequestException("INVALID_RANGE", "createdFrom must not be after createdTo");
+            throw new InvalidRequestException(
+                    "INVALID_RANGE", "createdFrom must not be after createdTo");
         }
     }
 
@@ -388,6 +484,27 @@ public class CustomerQueryService {
             long totalElements,
             int totalPages,
             boolean hasNext) {}
+
+    public record CustomerDetail(
+            UUID id,
+            String externalId,
+            CustomerType customerType,
+            String displayName,
+            String firstName,
+            String lastName,
+            String middleName,
+            String companyName,
+            CustomerStatus status,
+            UUID managerUserId,
+            String managerDisplayName,
+            String preferredLocale,
+            String timezone,
+            JsonNode customFields,
+            List<UUID> segmentIds,
+            List<SegmentSummary> segments,
+            Instant createdAt,
+            Instant updatedAt,
+            long version) {}
 
     public record SegmentItem(
             UUID id,

@@ -11,17 +11,74 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import java.util.UUID;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.util.UUID;
+
 @AutoConfigureMockMvc
 class CustomerFrontendApiIntegrationTest extends AbstractIntegrationTest {
     @Autowired MockMvc mockMvc;
     @Autowired ObjectMapper json;
+
+    @Test
+    void customerDetailResolvesTenantScopedManagerAndSortedSegmentSummaries() throws Exception {
+        String token = register("customer-detail");
+        String foreignToken = register("customer-detail-foreign");
+        JsonNode currentUser =
+                read(get("/api/v1/identity/me").header("Authorization", bearer(token)), 200);
+        JsonNode foreignCustomer =
+                createCustomer(foreignToken, "EXT-FOREIGN-DETAIL", "Foreign detail");
+        JsonNode customer =
+                read(
+                        post("/api/v1/customers")
+                                .header("Authorization", bearer(token))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        "{\"externalId\":\"EXT-DETAIL\","
+                                                + "\"customerType\":\"COMPANY\","
+                                                + "\"displayName\":\"Detail Company\","
+                                                + "\"companyName\":\"Detail Company\","
+                                                + "\"managerUserId\":\""
+                                                + currentUser.get("id").asText()
+                                                + "\"}"),
+                        201);
+        JsonNode zeta = createSegment(token, "ZETA", "zeta");
+        JsonNode alpha = createSegment(token, "ALPHA", "Alpha");
+        for (JsonNode segment : java.util.List.of(zeta, alpha)) {
+            mockMvc.perform(
+                            post(
+                                            "/api/v1/customers/{customerId}/segments/{segmentId}",
+                                            customer.get("id").asText(),
+                                            segment.get("id").asText())
+                                    .header("Authorization", bearer(token)))
+                    .andExpect(status().isNoContent());
+        }
+
+        String managerLabel =
+                currentUser.hasNonNull("displayName")
+                        ? currentUser.get("displayName").asText()
+                        : currentUser.get("email").asText();
+        mockMvc.perform(
+                        get("/api/v1/customers/{id}", customer.get("id").asText())
+                                .header("Authorization", bearer(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.managerDisplayName").value(managerLabel))
+                .andExpect(jsonPath("$.segmentIds.length()").value(2))
+                .andExpect(jsonPath("$.segments.length()").value(2))
+                .andExpect(jsonPath("$.segments[0].name").value("Alpha"))
+                .andExpect(jsonPath("$.segments[1].name").value("zeta"));
+
+        mockMvc.perform(
+                        get("/api/v1/customers/{id}", foreignCustomer.get("id").asText())
+                                .header("Authorization", bearer(token)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("NOT_FOUND"));
+    }
 
     @Test
     void customerListIsPagedFilteredAndTenantScoped() throws Exception {

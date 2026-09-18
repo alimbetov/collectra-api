@@ -1,7 +1,18 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
-import { customerListPath, getCustomers, getManagerOptions, getSegmentOptions } from './customer.api';
+import {
+  customerDetailPath,
+  customerEmailsPath,
+  customerListPath,
+  customerPhonesPath,
+  getCustomer,
+  getCustomerEmails,
+  getCustomerPhones,
+  getCustomers,
+  getManagerOptions,
+  getSegmentOptions,
+} from './customer.api';
 
 const server = setupServer();
 
@@ -22,6 +33,44 @@ describe('customer API', () => {
     ).toBe(
       '/api/v1/customers?search=A%26B+%2B+C&status=ACTIVE&page=2&size=25&sort=displayName%2Casc',
     );
+  });
+
+  it('builds tenant-derived detail and contact paths without query parameters', () => {
+    const id = '11111111-1111-4111-8111-111111111111';
+    expect(customerDetailPath(id)).toBe(`/api/v1/customers/${id}`);
+    expect(customerEmailsPath(id)).toBe(`/api/v1/customers/${id}/emails`);
+    expect(customerPhonesPath(id)).toBe(`/api/v1/customers/${id}/phones`);
+    expect(customerDetailPath('unsafe/id')).toBe('/api/v1/customers/unsafe%2Fid');
+  });
+
+  it('loads enriched detail and both contact resources with three exact requests', async () => {
+    const id = '11111111-1111-4111-8111-111111111111';
+    const paths: string[] = [];
+    server.use(
+      http.get(`*/api/v1/customers/${id}`, ({ request }) => {
+        paths.push(new URL(request.url).pathname);
+        return HttpResponse.json({ id, displayName: 'Acme', managerDisplayName: 'Manager', segments: [{ id: 's', code: 'VIP', name: 'VIP' }] });
+      }),
+      http.get(`*/api/v1/customers/${id}/emails`, ({ request }) => {
+        paths.push(new URL(request.url).pathname);
+        return HttpResponse.json([{ id: 'e', email: 'a@b.kz', type: 'WORK', primary: true, verified: false, status: 'ACTIVE', version: 0 }]);
+      }),
+      http.get(`*/api/v1/customers/${id}/phones`, ({ request }) => {
+        paths.push(new URL(request.url).pathname);
+        return HttpResponse.json([{ id: 'p', phone: '+7701', normalizedPhone: '+7701', type: 'MOBILE', primary: true, verified: false, status: 'ACTIVE', version: 0 }]);
+      }),
+    );
+
+    const [detail, emails, phones] = await Promise.all([
+      getCustomer(id),
+      getCustomerEmails(id),
+      getCustomerPhones(id),
+    ]);
+    expect(detail).toMatchObject({ managerDisplayName: 'Manager', segments: [{ name: 'VIP' }] });
+    expect(emails).toHaveLength(1);
+    expect(phones).toHaveLength(1);
+    expect(paths).toHaveLength(3);
+    expect(paths.join('\n')).not.toContain('tenantId');
   });
 
   it('reads the enriched list projection with a single customer request', async () => {

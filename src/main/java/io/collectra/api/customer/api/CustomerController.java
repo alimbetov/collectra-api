@@ -1,7 +1,9 @@
 package io.collectra.api.customer.api;
 
 import com.fasterxml.jackson.databind.JsonNode;
+
 import io.collectra.api.customer.application.CustomerQueryService;
+import io.collectra.api.customer.application.CustomerQueryService.CustomerDetail;
 import io.collectra.api.customer.application.CustomerService;
 import io.collectra.api.customer.domain.Customer;
 import io.collectra.api.customer.domain.CustomerEmail;
@@ -10,6 +12,7 @@ import io.collectra.api.customer.domain.CustomerStatus;
 import io.collectra.api.customer.domain.CustomerType;
 import io.collectra.api.shared.tenant.TenantContext;
 import io.swagger.v3.oas.annotations.media.Schema;
+
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Max;
@@ -18,9 +21,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
-import java.time.Instant;
-import java.util.List;
-import java.util.UUID;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
@@ -35,6 +36,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
 
 @RestController
 @Validated
@@ -83,8 +88,7 @@ public class CustomerController {
 
     @GetMapping("/{id}")
     public CustomerResponse get(@PathVariable UUID id) {
-        UUID tenantId = tenant();
-        return response(tenantId, service.get(tenantId, id));
+        return response(queries.customer(tenant(), id));
     }
 
     @PostMapping
@@ -210,24 +214,30 @@ public class CustomerController {
     }
 
     private CustomerResponse response(UUID tenantId, Customer value) {
+        return response(queries.customer(tenantId, value.getId()));
+    }
+
+    private CustomerResponse response(CustomerDetail value) {
         return new CustomerResponse(
-                value.getId(),
-                value.getExternalId(),
-                value.getCustomerType(),
-                value.getDisplayName(),
-                value.getFirstName(),
-                value.getLastName(),
-                value.getMiddleName(),
-                value.getCompanyName(),
-                value.getStatus(),
-                value.getManagerUserId(),
-                value.getPreferredLocale(),
-                value.getTimezone(),
-                value.getCustomFields(),
-                service.segmentIds(tenantId, value.getId()),
-                value.getCreatedAt(),
-                value.getUpdatedAt(),
-                value.getVersion());
+                value.id(),
+                value.externalId(),
+                value.customerType(),
+                value.displayName(),
+                value.firstName(),
+                value.lastName(),
+                value.middleName(),
+                value.companyName(),
+                value.status(),
+                value.managerUserId(),
+                value.managerDisplayName(),
+                value.preferredLocale(),
+                value.timezone(),
+                value.customFields(),
+                value.segmentIds(),
+                value.segments(),
+                value.createdAt(),
+                value.updatedAt(),
+                value.version());
     }
 
     private UUID tenant() {
@@ -287,10 +297,12 @@ public class CustomerController {
             String companyName,
             CustomerStatus status,
             UUID managerUserId,
+            String managerDisplayName,
             String preferredLocale,
             String timezone,
             JsonNode customFields,
             List<UUID> segmentIds,
+            List<CustomerQueryService.SegmentSummary> segments,
             Instant createdAt,
             Instant updatedAt,
             long version) {}

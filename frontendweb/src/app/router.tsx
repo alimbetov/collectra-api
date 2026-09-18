@@ -1,4 +1,4 @@
-import { createBrowserRouter } from 'react-router-dom';
+import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { App } from './App';
 import { RequireAuth } from '../features/auth/ui/RequireAuth';
 import { RequirePermission } from '../features/auth/ui/RequirePermission';
@@ -10,6 +10,7 @@ import type { MessageKey } from '../shared/i18n/messages';
 import { RouteErrorPage } from '../pages/system/RouteErrorPage';
 import { DashboardPage } from '../pages/dashboard/DashboardPage';
 import { CustomersPage } from '../pages/customers/CustomersPage';
+import { CustomerDetailPage } from '../pages/customers/CustomerDetailPage';
 
 function PlaceholderPage({ titleKey }: { titleKey: MessageKey }) {
   const { t } = useI18n();
@@ -39,6 +40,9 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <DashboardPage /> },
       { path: 'customers', element: <CustomersPage /> },
+      { path: 'customers/:customerId', element: <CustomerDetailPage tab="overview" /> },
+      { path: 'customers/:customerId/contacts', element: <CustomerDetailPage tab="contacts" /> },
+      { path: 'customers/:customerId/overview', element: <Navigate to=".." relative="path" replace /> },
       { path: 'receivables', element: <PlaceholderPage titleKey="navigation.receivables" /> },
       { path: 'collections', element: <PlaceholderPage titleKey="navigation.collections" /> },
       {

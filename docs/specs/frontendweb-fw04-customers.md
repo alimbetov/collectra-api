@@ -1,6 +1,6 @@
 # FW4 — Customers
 
-Status: FW4A IMPLEMENTED / FW4B IMPLEMENTATION READY
+Status: FW4A–FW4B IMPLEMENTED / FW4C NEXT
 
 Depends on: FW2 closure, FW3 shared query conventions
 

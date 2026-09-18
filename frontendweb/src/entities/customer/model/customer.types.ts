@@ -30,6 +30,51 @@ export interface CustomerListItemDto {
   updatedAt: Instant;
 }
 
+export interface CustomerDetailDto {
+  id: UUID;
+  externalId: string;
+  customerType: CustomerType;
+  displayName: string;
+  firstName: string | null;
+  lastName: string | null;
+  middleName: string | null;
+  companyName: string | null;
+  status: CustomerStatus;
+  managerUserId: UUID | null;
+  managerDisplayName: string | null;
+  preferredLocale: string | null;
+  timezone: string | null;
+  customFields: unknown | null;
+  segmentIds: UUID[];
+  segments: SegmentSummaryDto[];
+  createdAt: Instant;
+  updatedAt: Instant;
+  version: number;
+}
+
+export type CustomerContactStatus = 'ACTIVE' | 'INACTIVE';
+
+export interface CustomerEmailDto {
+  id: UUID;
+  email: string;
+  type: string;
+  primary: boolean;
+  verified: boolean;
+  status: CustomerContactStatus;
+  version: number;
+}
+
+export interface CustomerPhoneDto {
+  id: UUID;
+  phone: string;
+  normalizedPhone: string;
+  type: string;
+  primary: boolean;
+  verified: boolean;
+  status: CustomerContactStatus;
+  version: number;
+}
+
 export type CustomerPageDto = PageDto<CustomerListItemDto>;
 
 export interface CustomerListQuery {

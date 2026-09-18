@@ -1,4 +1,5 @@
 import type { CustomerListItemDto, CustomerStatus } from '../../../entities/customer/model/customer.types';
+import { Link } from 'react-router-dom';
 import { formatInstant } from '../../../shared/i18n/formatters';
 import { useI18n } from '../../../shared/i18n/i18n-context';
 import { DataTable, StatusBadge, type DataTableColumn } from '../../../shared/ui';
@@ -24,7 +25,7 @@ export function CustomerTable({ rows, filtered }: CustomerTableProps) {
       header: t('customers.columns.customer'),
       render: (row) => (
         <div className="customer-name-cell">
-          <strong>{row.displayName}</strong>
+          <strong><Link to={`/customers/${row.id}`}>{row.displayName}</Link></strong>
           <span>{row.externalId}</span>
         </div>
       ),

@@ -7,19 +7,22 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+
 import io.collectra.api.identity.application.IdentityDirectoryService;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
+
 import org.junit.jupiter.api.Test;
 import org.openapitools.openapidiff.core.OpenApiCompare;
 import org.openapitools.openapidiff.core.model.ChangedOpenApi;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.test.web.servlet.MockMvc;
+
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
 
 @AutoConfigureMockMvc
 class OpenApiCompatibilityIntegrationTest extends AbstractIntegrationTest {
@@ -129,6 +132,18 @@ class OpenApiCompatibilityIntegrationTest extends AbstractIntegrationTest {
                                 .path("$ref")
                                 .asText())
                 .endsWith("/CustomerSegmentUpdateRequest");
+    }
+
+    @Test
+    void customerDetailExposesResolvedManagerAndSegments() throws Exception {
+        JsonNode schemas =
+                objectMapper.readTree(currentPublicApi()).path("components").path("schemas");
+        JsonNode properties = schemas.path("CustomerResponse").path("properties");
+
+        assertThat(properties.has("managerDisplayName")).isTrue();
+        assertThat(properties.path("segments").path("type").asText()).isEqualTo("array");
+        assertThat(properties.path("segments").path("items").path("$ref").asText())
+                .endsWith("/SegmentSummary");
     }
 
     @Test
