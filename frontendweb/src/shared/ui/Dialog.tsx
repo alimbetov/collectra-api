@@ -21,6 +21,8 @@ interface DialogProps {
 export function Dialog({ open, title, onClose, actions, closeLabel = 'Закрыть', closeDisabled = false, children }: PropsWithChildren<DialogProps>) {
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
     if (!open) return;
@@ -34,7 +36,7 @@ export function Dialog({ open, title, onClose, actions, closeLabel = 'Закры
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault();
-        if (!closeDisabled) onClose();
+        if (!closeDisabled) onCloseRef.current();
         return;
       }
       if (event.key !== 'Tab') return;
@@ -59,7 +61,7 @@ export function Dialog({ open, title, onClose, actions, closeLabel = 'Закры
       document.removeEventListener('keydown', handleKeyDown);
       previousFocus?.focus();
     };
-  }, [closeDisabled, open, onClose]);
+  }, [closeDisabled, open]);
 
   if (!open) return null;
   return (

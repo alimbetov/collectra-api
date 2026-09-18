@@ -11,7 +11,8 @@ import type { CustomerListQuery } from '../model/customer.types';
 
 export const customerKeys = {
   all: ['customers'] as const,
-  list: (query: CustomerListQuery) => [...customerKeys.all, 'list', query] as const,
+  lists: () => [...customerKeys.all, 'list'] as const,
+  list: (query: CustomerListQuery) => [...customerKeys.lists(), query] as const,
   detail: (customerId: string) => [...customerKeys.all, 'detail', customerId] as const,
   emails: (customerId: string) => [...customerKeys.detail(customerId), 'emails'] as const,
   phones: (customerId: string) => [...customerKeys.detail(customerId), 'phones'] as const,

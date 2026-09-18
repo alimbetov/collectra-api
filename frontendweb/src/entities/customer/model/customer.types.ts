@@ -52,6 +52,24 @@ export interface CustomerDetailDto {
   version: number;
 }
 
+export interface CustomerUpdateCommand {
+  displayName: string;
+  firstName: string | null;
+  lastName: string | null;
+  middleName: string | null;
+  companyName: string | null;
+  managerUserId: UUID | null;
+  preferredLocale: string | null;
+  timezone: string | null;
+  customFields: unknown | null;
+  version: number;
+}
+
+export interface CustomerStatusCommand {
+  status: CustomerStatus;
+  version: number;
+}
+
 export type CustomerContactStatus = 'ACTIVE' | 'INACTIVE';
 
 export interface CustomerEmailDto {

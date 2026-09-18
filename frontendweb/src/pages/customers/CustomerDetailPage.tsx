@@ -1,15 +1,21 @@
-import { useQuery } from '@tanstack/react-query';
-import { Link, Navigate, useParams } from 'react-router-dom';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
+import { Link, Navigate, useBlocker, useParams } from 'react-router-dom';
 import { customerQueries } from '../../entities/customer/api/customer.queries';
+import { changeCustomerStatus, updateCustomer } from '../../entities/customer/api/customer.api';
+import { useAuth } from '../../features/auth/model/auth-context';
 import { isCustomerId } from '../../features/customer-detail/model/customer-detail';
 import { CustomerEmails, CustomerPhones } from '../../features/customer-detail/ui/CustomerContacts';
 import { CustomerDetailHeader } from '../../features/customer-detail/ui/CustomerDetailHeader';
 import { CustomerDetailTabs } from '../../features/customer-detail/ui/CustomerDetailTabs';
 import { CustomerOverview } from '../../features/customer-detail/ui/CustomerOverview';
+import { applyCustomerMutation } from '../../features/customer-edit/model/customer-mutations';
+import { CustomerEditDialog } from '../../features/customer-edit/ui/CustomerEditDialog';
+import { CustomerStatusDialog } from '../../features/customer-edit/ui/CustomerStatusDialog';
 import { ApiError } from '../../shared/api/http-client';
 import { ProblemDetailPanel } from '../../shared/errors/ProblemDetailPanel';
 import { useI18n } from '../../shared/i18n/i18n-context';
-import { EmptyState, Spinner } from '../../shared/ui';
+import { ConfirmDialog, EmptyState, Spinner, useToast } from '../../shared/ui';
 
 export type CustomerDetailTab = 'overview' | 'contacts';
 
@@ -20,11 +26,36 @@ function status(error: unknown): number | null {
 export function CustomerDetailPage({ tab }: { tab: CustomerDetailTab }) {
   const { customerId } = useParams();
   const { t } = useI18n();
+  const { hasPermission } = useAuth();
+  const { showToast } = useToast();
+  const queryClient = useQueryClient();
+  const [editOpen, setEditOpen] = useState(false);
+  const [statusOpen, setStatusOpen] = useState(false);
+  const [editDirty, setEditDirty] = useState(false);
+  const blocker = useBlocker(editDirty);
   const validId = isCustomerId(customerId);
   const id = validId ? customerId : '';
   const detail = useQuery({ ...customerQueries.detail(id), enabled: validId });
   const emails = useQuery({ ...customerQueries.emails(id), enabled: validId && tab === 'contacts' });
   const phones = useQuery({ ...customerQueries.phones(id), enabled: validId && tab === 'contacts' });
+  const profileMutation = useMutation({
+    mutationFn: (command: Parameters<typeof updateCustomer>[1]) => updateCustomer(id, command),
+    onSuccess: async (customer) => {
+      await applyCustomerMutation(queryClient, customer);
+      setEditDirty(false);
+      setEditOpen(false);
+      showToast({ title: t('customerEdit.saved'), tone: 'success' });
+    },
+  });
+  const statusMutation = useMutation({
+    mutationFn: ({ status, version }: Parameters<typeof changeCustomerStatus>[1]) =>
+      changeCustomerStatus(id, { status, version }),
+    onSuccess: async (customer) => {
+      await applyCustomerMutation(queryClient, customer);
+      setStatusOpen(false);
+      showToast({ title: t('customerStatus.saved'), tone: 'success' });
+    },
+  });
   const errors = [detail.error, emails.error, phones.error];
 
   if (errors.some((error) => status(error) === 403)) return <Navigate to="/forbidden" replace />;
@@ -46,7 +77,11 @@ export function CustomerDetailPage({ tab }: { tab: CustomerDetailTab }) {
 
   return (
     <div className="customer-detail">
-      <CustomerDetailHeader customer={detail.data} />
+      <CustomerDetailHeader
+        customer={detail.data}
+        onEdit={() => { statusMutation.reset(); profileMutation.reset(); setEditOpen(true); }}
+        onChangeStatus={() => { profileMutation.reset(); statusMutation.reset(); setStatusOpen(true); }}
+      />
       <CustomerDetailTabs customerId={id} />
       {tab === 'overview' ? <CustomerOverview customer={detail.data} /> : (
         <div className="customer-detail-grid">
@@ -58,6 +93,36 @@ export function CustomerDetailPage({ tab }: { tab: CustomerDetailTab }) {
           {phones.data ? <CustomerPhones values={phones.data} /> : null}
         </div>
       )}
+      <CustomerEditDialog
+        open={editOpen}
+        customer={detail.data}
+        canReadUsers={hasPermission('USER_READ')}
+        pending={profileMutation.isPending}
+        error={profileMutation.error}
+        onSave={(command) => profileMutation.mutate(command)}
+        onReload={async () => { profileMutation.reset(); return detail.refetch(); }}
+        onClose={() => { profileMutation.reset(); setEditOpen(false); }}
+        onDirtyChange={setEditDirty}
+      />
+      <CustomerStatusDialog
+        open={statusOpen}
+        customer={detail.data}
+        pending={statusMutation.isPending}
+        error={statusMutation.error}
+        onConfirm={(status, version) => statusMutation.mutate({ status, version })}
+        onReload={async () => { statusMutation.reset(); return detail.refetch(); }}
+        onClose={() => { statusMutation.reset(); setStatusOpen(false); }}
+      />
+      <ConfirmDialog
+        open={blocker.state === 'blocked'}
+        title={t('customerEdit.unsavedTitle')}
+        confirmLabel={t('customerEdit.discard')}
+        cancelLabel={t('customerEdit.continue')}
+        closeLabel={t('customerEdit.close')}
+        destructive
+        onConfirm={() => { setEditDirty(false); blocker.proceed?.(); }}
+        onCancel={() => blocker.reset?.()}
+      >{t('customerEdit.unsavedDescription')}</ConfirmDialog>
     </div>
   );
 }
