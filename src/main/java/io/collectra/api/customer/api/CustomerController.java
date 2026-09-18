@@ -1,7 +1,6 @@
 package io.collectra.api.customer.api;
 
 import com.fasterxml.jackson.databind.JsonNode;
-
 import io.collectra.api.customer.application.CustomerQueryService;
 import io.collectra.api.customer.application.CustomerQueryService.CustomerDetail;
 import io.collectra.api.customer.application.CustomerService;
@@ -12,7 +11,6 @@ import io.collectra.api.customer.domain.CustomerStatus;
 import io.collectra.api.customer.domain.CustomerType;
 import io.collectra.api.shared.tenant.TenantContext;
 import io.swagger.v3.oas.annotations.media.Schema;
-
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Max;
@@ -21,7 +19,9 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
-
+import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
@@ -36,10 +36,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.time.Instant;
-import java.util.List;
-import java.util.UUID;
 
 @RestController
 @Validated

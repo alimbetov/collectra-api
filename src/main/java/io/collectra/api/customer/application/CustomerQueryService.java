@@ -1,7 +1,6 @@
 package io.collectra.api.customer.application;
 
 import com.fasterxml.jackson.databind.JsonNode;
-
 import io.collectra.api.customer.domain.Customer;
 import io.collectra.api.customer.domain.CustomerEmail;
 import io.collectra.api.customer.domain.CustomerPhone;
@@ -17,18 +16,9 @@ import io.collectra.api.customer.infrastructure.CustomerSegmentRepository;
 import io.collectra.api.identity.application.IdentityDirectoryService;
 import io.collectra.api.identity.application.IdentityDirectoryService.UserSummary;
 import io.collectra.api.shared.error.InvalidRequestException;
-
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
 import jakarta.persistence.criteria.Subquery;
-
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
-import org.springframework.data.jpa.domain.Specification;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -42,6 +32,12 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class CustomerQueryService {
