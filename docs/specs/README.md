@@ -19,8 +19,9 @@ Approved public money wire contract:
 | Frontend slice | Specification | Readiness |
 |---|---|---|
 | FW3 | [Dashboard](frontendweb-fw03-dashboard.md) | IMPLEMENTED |
-| FW4A | [Customer list](frontendweb-fw04a-customer-list.md) | IMPLEMENTATION READY |
-| FW4B–D | [Customer detail/segments/contracts](frontendweb-fw04-customers.md) | after FW4A |
+| FW4A | [Customer list](frontendweb-fw04a-customer-list.md) | IMPLEMENTED |
+| FW4B | [Customer read-only detail](frontendweb-fw04b-customer-detail.md) | IMPLEMENTATION READY |
+| FW4C–E | [Customer editing/segments/contracts](frontendweb-fw04-customers.md) | after FW4B |
 | FW5 | [Receivables](frontendweb-fw05-receivables.md) | money/projection/paging gate |
 | FW6 | [Collections](frontendweb-fw06-collections.md) | filters/history paging gate |
 | FW7 | [Campaigns](frontendweb-fw07-campaigns.md) | detail/idempotency gate |
