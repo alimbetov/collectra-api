@@ -5,6 +5,8 @@ import type {
   CustomerListQuery,
   CustomerPageDto,
   CustomerPhoneDto,
+  CustomerStatusCommand,
+  CustomerUpdateCommand,
   SegmentOptionPageDto,
   UserOptionPageDto,
 } from '../model/customer.types';
@@ -49,6 +51,15 @@ export const getCustomers = (query: CustomerListQuery) =>
 
 export const getCustomer = (customerId: string) =>
   apiRequest<CustomerDetailDto>(customerDetailPath(customerId));
+
+export const updateCustomer = (customerId: string, command: CustomerUpdateCommand) =>
+  apiRequest<CustomerDetailDto>(customerDetailPath(customerId), { method: 'PUT', body: command });
+
+export const changeCustomerStatus = (customerId: string, command: CustomerStatusCommand) =>
+  apiRequest<CustomerDetailDto>(`${customerDetailPath(customerId)}/status`, {
+    method: 'PATCH',
+    body: command,
+  });
 
 export const getCustomerEmails = (customerId: string) =>
   apiRequest<CustomerEmailDto[]>(customerEmailsPath(customerId));

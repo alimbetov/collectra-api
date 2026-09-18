@@ -21,7 +21,7 @@ Approved public money wire contract:
 | FW3 | [Dashboard](frontendweb-fw03-dashboard.md) | IMPLEMENTED |
 | FW4A | [Customer list](frontendweb-fw04a-customer-list.md) | IMPLEMENTED |
 | FW4B | [Customer read-only detail](frontendweb-fw04b-customer-detail.md) | IMPLEMENTED |
-| FW4C | [Customer editing](frontendweb-fw04c-customer-editing.md) | READY; split into C1/C2 |
+| FW4C | [Customer editing](frontendweb-fw04c-customer-editing.md) | C1 IMPLEMENTED; C2 NEXT |
 | FW4D–E | [Customer segments/contracts](frontendweb-fw04-customers.md) | after FW4C |
 | FW5 | [Receivables](frontendweb-fw05-receivables.md) | money/projection/paging gate |
 | FW6 | [Collections](frontendweb-fw06-collections.md) | filters/history paging gate |

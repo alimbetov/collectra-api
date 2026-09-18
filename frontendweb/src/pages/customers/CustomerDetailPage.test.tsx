@@ -1,16 +1,24 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
+import { render, screen, waitFor, within } from '@testing-library/react';
+import { createMemoryRouter, RouterProvider, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getCustomer, getCustomerEmails, getCustomerPhones } from '../../entities/customer/api/customer.api';
+import userEvent from '@testing-library/user-event';
+import { changeCustomerStatus, getCustomer, getCustomerEmails, getCustomerPhones, updateCustomer } from '../../entities/customer/api/customer.api';
 import { ApiError } from '../../shared/api/http-client';
 import { I18nProvider } from '../../shared/i18n/i18n-context';
+import { ToastProvider } from '../../shared/ui';
 import { CustomerDetailPage } from './CustomerDetailPage';
 
 vi.mock('../../entities/customer/api/customer.api', () => ({
   getCustomer: vi.fn(),
   getCustomerEmails: vi.fn(),
   getCustomerPhones: vi.fn(),
+  updateCustomer: vi.fn(),
+  changeCustomerStatus: vi.fn(),
+}));
+
+vi.mock('../../features/auth/model/auth-context', () => ({
+  useAuth: () => ({ hasPermission: () => false }),
 }));
 
 const id = '11111111-1111-4111-8111-111111111111';
@@ -43,17 +51,17 @@ function LocationProbe() {
 
 function renderPage(entry: string) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const router = createMemoryRouter([
+    { path: '/customers/:customerId', element: <><CustomerDetailPage tab="overview" /><LocationProbe /></> },
+    { path: '/customers/:customerId/contacts', element: <><CustomerDetailPage tab="contacts" /><LocationProbe /></> },
+    { path: '/forbidden', element: <><div>Forbidden</div><LocationProbe /></> },
+  ], { initialEntries: [entry] });
   return render(
     <QueryClientProvider client={client}>
       <I18nProvider requestedLocale="ru" requestedTimeZone="Asia/Almaty">
-        <MemoryRouter initialEntries={[entry]}>
-          <Routes>
-            <Route path="/customers/:customerId" element={<CustomerDetailPage tab="overview" />} />
-            <Route path="/customers/:customerId/contacts" element={<CustomerDetailPage tab="contacts" />} />
-            <Route path="/forbidden" element={<div>Forbidden</div>} />
-          </Routes>
-          <LocationProbe />
-        </MemoryRouter>
+        <ToastProvider closeLabel="Закрыть">
+          <RouterProvider router={router} />
+        </ToastProvider>
       </I18nProvider>
     </QueryClientProvider>,
   );
@@ -67,6 +75,8 @@ beforeEach(() => {
   vi.mocked(getCustomerPhones).mockResolvedValue([
     { id: 'p1', phone: '+7 701 000 00 00', normalizedPhone: '+77010000000', type: 'MOBILE', primary: true, verified: true, status: 'ACTIVE', version: 3 },
   ]);
+  vi.mocked(updateCustomer).mockResolvedValue({ ...detail, displayName: 'Acme Updated', version: 8 });
+  vi.mocked(changeCustomerStatus).mockResolvedValue({ ...detail, status: 'BLOCKED', version: 8 });
 });
 
 describe('CustomerDetailPage', () => {
@@ -127,5 +137,36 @@ describe('CustomerDetailPage', () => {
     renderPage(`/customers/${id}`);
 
     await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('/forbidden'));
+  });
+
+  it('edits the full profile with the captured version and preserves manager without USER_READ', async () => {
+    const user = userEvent.setup();
+    renderPage(`/customers/${id}`);
+    await screen.findByRole('heading', { name: 'Acme Kazakhstan' });
+
+    await user.click(screen.getByRole('button', { name: 'Редактировать' }));
+    expect(screen.getByText('Изменение менеджера недоступно для вашей роли.')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Поиск менеджера')).not.toBeInTheDocument();
+    const name = screen.getByLabelText(/Отображаемое имя/);
+    await user.clear(name);
+    await user.type(name, 'Acme Updated');
+    await user.click(screen.getByRole('button', { name: 'Сохранить' }));
+
+    await waitFor(() => expect(updateCustomer).toHaveBeenCalledWith(id, expect.objectContaining({
+      displayName: 'Acme Updated', managerUserId: detail.managerUserId, version: 7,
+    })));
+  });
+
+  it('confirms a status change once with the current customer version', async () => {
+    const user = userEvent.setup();
+    renderPage(`/customers/${id}`);
+    await screen.findByRole('heading', { name: 'Acme Kazakhstan' });
+
+    await user.click(screen.getByRole('button', { name: 'Изменить статус' }));
+    await user.selectOptions(screen.getByLabelText('Новый статус'), 'BLOCKED');
+    await user.click(within(screen.getByRole('dialog', { name: 'Изменение статуса клиента' })).getByRole('button', { name: 'Изменить статус' }));
+
+    await waitFor(() => expect(changeCustomerStatus).toHaveBeenCalledTimes(1));
+    expect(changeCustomerStatus).toHaveBeenCalledWith(id, { status: 'BLOCKED', version: 7 });
   });
 });

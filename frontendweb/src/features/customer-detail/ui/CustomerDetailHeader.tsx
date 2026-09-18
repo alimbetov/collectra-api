@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import type { CustomerDetailDto, CustomerStatus } from '../../../entities/customer/model/customer.types';
 import { useI18n } from '../../../shared/i18n/i18n-context';
 import { StatusBadge } from '../../../shared/ui';
+import { Button } from '../../../shared/ui';
 
 const statusTones: Record<CustomerStatus, 'success' | 'neutral' | 'warning' | 'danger'> = {
   ACTIVE: 'success',
@@ -10,7 +11,13 @@ const statusTones: Record<CustomerStatus, 'success' | 'neutral' | 'warning' | 'd
   ARCHIVED: 'warning',
 };
 
-export function CustomerDetailHeader({ customer }: { customer: CustomerDetailDto }) {
+interface Props {
+  customer: CustomerDetailDto;
+  onEdit: () => void;
+  onChangeStatus: () => void;
+}
+
+export function CustomerDetailHeader({ customer, onEdit, onChangeStatus }: Props) {
   const { t } = useI18n();
   return (
     <header className="customer-detail__header">
@@ -26,6 +33,8 @@ export function CustomerDetailHeader({ customer }: { customer: CustomerDetailDto
         <StatusBadge tone={statusTones[customer.status]}>
           {t(`customers.status.${customer.status}`)}
         </StatusBadge>
+        <Button type="button" variant="secondary" onClick={onEdit}>{t('customerEdit.action')}</Button>
+        <Button type="button" variant="secondary" onClick={onChangeStatus}>{t('customerStatus.action')}</Button>
       </div>
     </header>
   );

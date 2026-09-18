@@ -6,12 +6,14 @@ import {
   customerEmailsPath,
   customerListPath,
   customerPhonesPath,
+  changeCustomerStatus,
   getCustomer,
   getCustomerEmails,
   getCustomerPhones,
   getCustomers,
   getManagerOptions,
   getSegmentOptions,
+  updateCustomer,
 } from './customer.api';
 
 const server = setupServer();
@@ -128,5 +130,33 @@ describe('customer API', () => {
     expect(urls.join('\n')).not.toContain('tenantId');
     expect(urls[0]).toContain('status=ACTIVE&page=0&size=20&search=Ivan');
     expect(urls[1]).toContain('active=true&page=0&size=20&sort=name%2Casc&search=VIP');
+  });
+
+  it('sends profile and status commands with the captured version and no tenant id', async () => {
+    const id = '11111111-1111-4111-8111-111111111111';
+    const requests: Array<{ method: string; path: string; body: unknown }> = [];
+    server.use(
+      http.put(`*/api/v1/customers/${id}`, async ({ request }) => {
+        requests.push({ method: request.method, path: new URL(request.url).pathname, body: await request.json() });
+        return HttpResponse.json({ id, displayName: 'Updated', version: 8 });
+      }),
+      http.patch(`*/api/v1/customers/${id}/status`, async ({ request }) => {
+        requests.push({ method: request.method, path: new URL(request.url).pathname, body: await request.json() });
+        return HttpResponse.json({ id, displayName: 'Updated', status: 'BLOCKED', version: 9 });
+      }),
+    );
+
+    await updateCustomer(id, {
+      displayName: 'Updated', firstName: null, lastName: null, middleName: null,
+      companyName: null, managerUserId: null, preferredLocale: null, timezone: null,
+      customFields: null, version: 7,
+    });
+    await changeCustomerStatus(id, { status: 'BLOCKED', version: 8 });
+
+    expect(requests).toEqual([
+      { method: 'PUT', path: `/api/v1/customers/${id}`, body: expect.objectContaining({ displayName: 'Updated', version: 7 }) },
+      { method: 'PATCH', path: `/api/v1/customers/${id}/status`, body: { status: 'BLOCKED', version: 8 } },
+    ]);
+    expect(JSON.stringify(requests)).not.toContain('tenantId');
   });
 });
