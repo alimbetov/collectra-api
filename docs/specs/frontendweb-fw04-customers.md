@@ -1,6 +1,6 @@
 # FW4 — Customers
 
-Status: REVIEWED / API HARDENING REQUIRED FOR SAFE EDITING
+Status: REVIEWED / FW4A READY FOR IMPLEMENTATION
 
 Depends on: FW2 closure, FW3 shared query conventions
 
@@ -53,6 +53,7 @@ contact editor, segment membership.
 
 ## FW4A — list
 
+- implementation contract: [`frontendweb-fw04a-customer-list.md`](frontendweb-fw04a-customer-list.md);
 - URL-owned page/size/sort/search/status/type/manager/segment/contact/date filters;
 - debounced search updates URL and resets page;
 - DataTable uses server projection and stable row IDs;
