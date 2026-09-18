@@ -1,10 +1,25 @@
 import { apiRequest } from '../../../shared/api/http-client';
 import type {
+  CustomerDetailDto,
+  CustomerEmailDto,
   CustomerListQuery,
   CustomerPageDto,
+  CustomerPhoneDto,
   SegmentOptionPageDto,
   UserOptionPageDto,
 } from '../model/customer.types';
+
+export function customerDetailPath(customerId: string): string {
+  return `/api/v1/customers/${encodeURIComponent(customerId)}`;
+}
+
+export function customerEmailsPath(customerId: string): string {
+  return `${customerDetailPath(customerId)}/emails`;
+}
+
+export function customerPhonesPath(customerId: string): string {
+  return `${customerDetailPath(customerId)}/phones`;
+}
 
 function append(params: URLSearchParams, name: string, value: string | number | undefined) {
   if (value !== undefined && value !== '') params.set(name, String(value));
@@ -31,6 +46,15 @@ export function customerListPath(query: CustomerListQuery): string {
 
 export const getCustomers = (query: CustomerListQuery) =>
   apiRequest<CustomerPageDto>(customerListPath(query));
+
+export const getCustomer = (customerId: string) =>
+  apiRequest<CustomerDetailDto>(customerDetailPath(customerId));
+
+export const getCustomerEmails = (customerId: string) =>
+  apiRequest<CustomerEmailDto[]>(customerEmailsPath(customerId));
+
+export const getCustomerPhones = (customerId: string) =>
+  apiRequest<CustomerPhoneDto[]>(customerPhonesPath(customerId));
 
 export const getManagerOptions = (search: string, page = 0) => {
   const params = new URLSearchParams({ status: 'ACTIVE', page: String(page), size: '20' });

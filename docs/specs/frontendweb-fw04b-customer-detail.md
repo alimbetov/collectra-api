@@ -1,6 +1,6 @@
 # FW4B — Customer read-only detail implementation contract
 
-Status: IMPLEMENTATION READY
+Status: IMPLEMENTED
 
 Depends on: FW2 foundation, FW3 query conventions, FW4A merged in `main` as PR #91.
 

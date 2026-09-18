@@ -77,6 +77,10 @@ describe('CustomersPage', () => {
     expect(screen.getByText('billing@acme.test')).toBeInTheDocument();
     expect(screen.getByText('Иван Менеджер')).toBeInTheDocument();
     expect(screen.getByText('VIP')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Acme Kazakhstan' })).toHaveAttribute(
+      'href',
+      `/customers/${row.id}`,
+    );
     expect(getCustomers).toHaveBeenCalledWith({ status: 'ACTIVE', size: 25 });
     expect(getCustomers).toHaveBeenCalledTimes(1);
   });

@@ -132,6 +132,18 @@ class OpenApiCompatibilityIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void customerDetailExposesResolvedManagerAndSegments() throws Exception {
+        JsonNode schemas =
+                objectMapper.readTree(currentPublicApi()).path("components").path("schemas");
+        JsonNode properties = schemas.path("CustomerResponse").path("properties");
+
+        assertThat(properties.has("managerDisplayName")).isTrue();
+        assertThat(properties.path("segments").path("type").asText()).isEqualTo("array");
+        assertThat(properties.path("segments").path("items").path("$ref").asText())
+                .endsWith("/SegmentSummary");
+    }
+
+    @Test
     void identityUserSelectorIsPagedAndBounded() throws Exception {
         JsonNode document = objectMapper.readTree(currentPublicApi());
         JsonNode parameters =
