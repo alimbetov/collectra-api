@@ -7,6 +7,9 @@ import type {
   CustomerPhoneDto,
   CustomerStatusCommand,
   CustomerUpdateCommand,
+  ContactPatchCommand,
+  EmailCreateCommand,
+  PhoneCreateCommand,
   SegmentOptionPageDto,
   UserOptionPageDto,
 } from '../model/customer.types';
@@ -66,6 +69,22 @@ export const getCustomerEmails = (customerId: string) =>
 
 export const getCustomerPhones = (customerId: string) =>
   apiRequest<CustomerPhoneDto[]>(customerPhonesPath(customerId));
+
+export const addCustomerEmail = (customerId: string, command: EmailCreateCommand) =>
+  apiRequest<CustomerEmailDto>(customerEmailsPath(customerId), { method: 'POST', body: command });
+
+export const updateCustomerEmail = (customerId: string, emailId: string, command: ContactPatchCommand) =>
+  apiRequest<CustomerEmailDto>(`${customerEmailsPath(customerId)}/${encodeURIComponent(emailId)}`, {
+    method: 'PATCH', body: command,
+  });
+
+export const addCustomerPhone = (customerId: string, command: PhoneCreateCommand) =>
+  apiRequest<CustomerPhoneDto>(customerPhonesPath(customerId), { method: 'POST', body: command });
+
+export const updateCustomerPhone = (customerId: string, phoneId: string, command: ContactPatchCommand) =>
+  apiRequest<CustomerPhoneDto>(`${customerPhonesPath(customerId)}/${encodeURIComponent(phoneId)}`, {
+    method: 'PATCH', body: command,
+  });
 
 export const getManagerOptions = (search: string, page = 0) => {
   const params = new URLSearchParams({ status: 'ACTIVE', page: String(page), size: '20' });

@@ -1,6 +1,6 @@
 # FW4C — Customer editing and optimistic concurrency
 
-Status: FW4C1 IMPLEMENTED / FW4C2 NEXT
+Status: IMPLEMENTED
 
 Depends on: FW4A and FW4B (IMPLEMENTED), backend customer concurrency contract (PR #87)
 

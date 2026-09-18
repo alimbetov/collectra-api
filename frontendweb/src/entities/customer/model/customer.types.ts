@@ -72,6 +72,25 @@ export interface CustomerStatusCommand {
 
 export type CustomerContactStatus = 'ACTIVE' | 'INACTIVE';
 
+export interface EmailCreateCommand {
+  email: string;
+  type: string | null;
+  primary: boolean;
+}
+
+export interface PhoneCreateCommand {
+  phone: string;
+  type: string | null;
+  primary: boolean;
+}
+
+export interface ContactPatchCommand {
+  type: string | null;
+  primary: boolean;
+  status: CustomerContactStatus;
+  version: number;
+}
+
 export interface CustomerEmailDto {
   id: UUID;
   email: string;
