@@ -68,6 +68,8 @@ contact editor, segment membership.
 
 ## FW4C — optimistic customer editing
 
+- implementation contract: [`frontendweb-fw04c-customer-editing.md`](frontendweb-fw04c-customer-editing.md);
+- implementation is split into FW4C1 profile/status and FW4C2 contacts;
 - overview edit form keeps server DTO separate from form DTO;
 - expected version is captured when the form opens and sent on mutation;
 - status change uses confirmation and invalidates detail/list/dashboard;
