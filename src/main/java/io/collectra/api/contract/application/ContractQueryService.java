@@ -93,7 +93,10 @@ public class ContractQueryService {
 
         return new ContractPage(
                 result.getContent().stream()
-                        .map(value -> ContractItem.from(value, customersById.get(value.getCustomerId())))
+                        .map(
+                                value ->
+                                        ContractItem.from(
+                                                value, customersById.get(value.getCustomerId())))
                         .toList(),
                 result.getNumber(),
                 result.getSize(),
