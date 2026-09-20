@@ -24,12 +24,13 @@ import { CustomerContactDialog } from '../../features/customer-contact-edit/ui/C
 import { applyMembershipMutation } from '../../features/customer-segments/model/segment-mutations';
 import type { MembershipDelta } from '../../features/customer-segments/model/segment-membership';
 import { CustomerSegmentsDialog } from '../../features/customer-segments/ui/CustomerSegmentsDialog';
+import { CustomerContractsPanel } from '../../features/contracts/ui/CustomerContractsPanel';
 import { ApiError } from '../../shared/api/http-client';
 import { ProblemDetailPanel } from '../../shared/errors/ProblemDetailPanel';
 import { useI18n } from '../../shared/i18n/i18n-context';
 import { ConfirmDialog, EmptyState, Spinner, useToast } from '../../shared/ui';
 
-export type CustomerDetailTab = 'overview' | 'contacts';
+export type CustomerDetailTab = 'overview' | 'contacts' | 'contracts';
 
 type ContactIntent =
   | { kind: 'email'; mode: 'create'; command: EmailCreateCommand }
@@ -138,7 +139,7 @@ export function CustomerDetailPage({ tab }: { tab: CustomerDetailTab }) {
         onChangeStatus={() => { profileMutation.reset(); statusMutation.reset(); setStatusOpen(true); }}
       />
       <CustomerDetailTabs customerId={id} />
-      {tab === 'overview' ? <CustomerOverview customer={detail.data} onManageSegments={() => { membershipMutation.reset(); setSegmentsOpen(true); }} /> : (
+      {tab === 'overview' ? <CustomerOverview customer={detail.data} onManageSegments={() => { membershipMutation.reset(); setSegmentsOpen(true); }} /> : tab === 'contacts' ? (
         <div className="customer-detail-grid">
           {emails.isLoading ? <div className="customer-detail-card"><Spinner label={t('customerDetail.loadingEmails')} /></div> : null}
           {emails.error ? <ProblemDetailPanel error={emails.error} onRetry={() => void emails.refetch()} /> : null}
@@ -147,7 +148,7 @@ export function CustomerDetailPage({ tab }: { tab: CustomerDetailTab }) {
           {phones.error ? <ProblemDetailPanel error={phones.error} onRetry={() => void phones.refetch()} /> : null}
           {phones.data ? <CustomerPhones values={phones.data} onAdd={() => openContact('phone')} onEdit={(contact: CustomerPhoneDto) => openContact('phone', contact)} /> : null}
         </div>
-      )}
+      ) : <CustomerContractsPanel customer={detail.data} onDirtyChange={setEditDirty} />}
       <CustomerEditDialog
         open={editOpen}
         customer={detail.data}

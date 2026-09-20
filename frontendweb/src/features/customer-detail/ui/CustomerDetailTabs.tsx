@@ -11,6 +11,9 @@ export function CustomerDetailTabs({ customerId }: { customerId: string }) {
       <NavLink to={`/customers/${customerId}/contacts`}>
         {t('customerDetail.tabs.contacts')}
       </NavLink>
+      <NavLink to={`/customers/${customerId}/contracts`}>
+        {t('customerDetail.tabs.contracts')}
+      </NavLink>
     </nav>
   );
 }

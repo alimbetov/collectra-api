@@ -49,7 +49,16 @@ class ContractFrontendApiIntegrationTest extends AbstractIntegrationTest {
                                 .param("customerId", customer.get("id").asText()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(1))
-                .andExpect(jsonPath("$.items[0].externalId").value("EXT-CONTRACT-1"));
+                .andExpect(jsonPath("$.items[0].externalId").value("EXT-CONTRACT-1"))
+                .andExpect(jsonPath("$.items[0].customerExternalId").value("CUST-CONTRACT"))
+                .andExpect(jsonPath("$.items[0].customerDisplayName").value("Contract Customer"));
+
+        mockMvc.perform(
+                        get("/api/v1/contracts/{id}", contract.get("id").asText())
+                                .header("Authorization", bearer(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.customerExternalId").value("CUST-CONTRACT"))
+                .andExpect(jsonPath("$.customerDisplayName").value("Contract Customer"));
 
         mockMvc.perform(
                         get("/api/v1/contracts/{id}", contract.get("id").asText())
@@ -76,6 +85,25 @@ class ContractFrontendApiIntegrationTest extends AbstractIntegrationTest {
                 createContract(
                         token, customer.get("id").asText(), "EXT-LIFE", "LIFE-001", "2026-01-01");
         String id = contract.get("id").asText();
+
+        mockMvc.perform(
+                        post("/api/v1/contracts/{id}/suspend", id)
+                                .header("Authorization", bearer(token))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+                .andExpect(jsonPath("$.errors.version").exists());
+
+        mockMvc.perform(
+                        put("/api/v1/contracts/{id}", id)
+                                .header("Authorization", bearer(token))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        "{\"contractNumber\":\"MISSING-VERSION\",\"validFrom\":\"2026-01-01\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+                .andExpect(jsonPath("$.errors.version").exists());
 
         JsonNode suspended =
                 read(

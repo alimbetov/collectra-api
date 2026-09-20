@@ -6,6 +6,7 @@ import io.collectra.api.contract.application.ContractService;
 import io.collectra.api.contract.domain.Contract;
 import io.collectra.api.contract.domain.ContractStatus;
 import io.collectra.api.shared.tenant.TenantContext;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -71,61 +72,75 @@ public class ContractController {
 
     @GetMapping("/{id}")
     public ContractResponse get(@PathVariable UUID id) {
-        return ContractResponse.from(service.get(tenant(), id));
+        return ContractResponse.from(queries.detail(tenant(), id));
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public ContractResponse create(@Valid @RequestBody CreateRequest request) {
-        return ContractResponse.from(
+        UUID tenantId = tenant();
+        Contract value =
                 service.create(
-                        tenant(),
+                        tenantId,
                         request.customerId(),
                         request.externalId(),
                         request.contractNumber(),
                         request.validFrom(),
                         request.validTo(),
                         request.renewalDate(),
-                        request.customFields()));
+                        request.customFields());
+        return ContractResponse.from(queries.detail(tenantId, value.getId()));
     }
 
     @PutMapping("/{id}")
     public ContractResponse update(
             @PathVariable UUID id, @Valid @RequestBody UpdateRequest request) {
-        return ContractResponse.from(
-                service.update(
-                        tenant(),
-                        id,
-                        request.version(),
-                        request.contractNumber(),
-                        request.validFrom(),
-                        request.validTo(),
-                        request.renewalDate(),
-                        request.customFields()));
+        UUID tenantId = tenant();
+        service.update(
+                tenantId,
+                id,
+                request.version(),
+                request.contractNumber(),
+                request.validFrom(),
+                request.validTo(),
+                request.renewalDate(),
+                request.customFields());
+        return ContractResponse.from(queries.detail(tenantId, id));
     }
 
     @PostMapping("/{id}/suspend")
     public ContractResponse suspend(
             @PathVariable UUID id, @Valid @RequestBody VersionRequest request) {
-        return ContractResponse.from(service.suspend(tenant(), id, request.version()));
+        return transition(id, request.version(), service::suspend);
     }
 
     @PostMapping("/{id}/activate")
     public ContractResponse activate(
             @PathVariable UUID id, @Valid @RequestBody VersionRequest request) {
-        return ContractResponse.from(service.activate(tenant(), id, request.version()));
+        return transition(id, request.version(), service::activate);
     }
 
     @PostMapping("/{id}/close")
     public ContractResponse close(
             @PathVariable UUID id, @Valid @RequestBody VersionRequest request) {
-        return ContractResponse.from(service.close(tenant(), id, request.version()));
+        return transition(id, request.version(), service::close);
     }
 
     @PostMapping("/{id}/cancel")
     public ContractResponse cancel(
             @PathVariable UUID id, @Valid @RequestBody VersionRequest request) {
-        return ContractResponse.from(service.cancel(tenant(), id, request.version()));
+        return transition(id, request.version(), service::cancel);
+    }
+
+    private ContractResponse transition(UUID id, long version, TransitionCommand command) {
+        UUID tenantId = tenant();
+        command.apply(tenantId, id, version);
+        return ContractResponse.from(queries.detail(tenantId, id));
+    }
+
+    @FunctionalInterface
+    private interface TransitionCommand {
+        Contract apply(UUID tenantId, UUID id, long version);
     }
 
     private static UUID tenant() {
@@ -141,19 +156,23 @@ public class ContractController {
             LocalDate renewalDate,
             JsonNode customFields) {}
 
+    @Schema(name = "ContractUpdateRequest")
     public record UpdateRequest(
-            @Min(0) long version,
+            @NotNull @Min(0) Long version,
             @NotBlank @Size(max = 160) String contractNumber,
             @NotNull LocalDate validFrom,
             LocalDate validTo,
             LocalDate renewalDate,
             JsonNode customFields) {}
 
-    public record VersionRequest(@Min(0) long version) {}
+    @Schema(name = "ContractVersionRequest")
+    public record VersionRequest(@NotNull @Min(0) Long version) {}
 
     public record ContractResponse(
             UUID id,
             UUID customerId,
+            String customerExternalId,
+            String customerDisplayName,
             String externalId,
             String contractNumber,
             ContractStatus status,
@@ -164,20 +183,22 @@ public class ContractController {
             Instant createdAt,
             Instant updatedAt,
             long version) {
-        static ContractResponse from(Contract value) {
+        static ContractResponse from(ContractQueryService.ContractDetail value) {
             return new ContractResponse(
-                    value.getId(),
-                    value.getCustomerId(),
-                    value.getExternalId(),
-                    value.getContractNumber(),
-                    value.getStatus(),
-                    value.getValidFrom(),
-                    value.getValidTo(),
-                    value.getRenewalDate(),
-                    value.getCustomFields(),
-                    value.getCreatedAt(),
-                    value.getUpdatedAt(),
-                    value.getVersion());
+                    value.id(),
+                    value.customerId(),
+                    value.customerExternalId(),
+                    value.customerDisplayName(),
+                    value.externalId(),
+                    value.contractNumber(),
+                    value.status(),
+                    value.validFrom(),
+                    value.validTo(),
+                    value.renewalDate(),
+                    value.customFields(),
+                    value.createdAt(),
+                    value.updatedAt(),
+                    value.version());
         }
     }
 }

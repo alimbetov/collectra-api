@@ -12,6 +12,8 @@ import { DashboardPage } from '../pages/dashboard/DashboardPage';
 import { CustomersPage } from '../pages/customers/CustomersPage';
 import { CustomerDetailPage } from '../pages/customers/CustomerDetailPage';
 import { CustomerSegmentsPage } from '../pages/customers/CustomerSegmentsPage';
+import { ContractsPage } from '../pages/contracts/ContractsPage';
+import { ContractDetailPage } from '../pages/contracts/ContractDetailPage';
 
 function PlaceholderPage({ titleKey }: { titleKey: MessageKey }) {
   const { t } = useI18n();
@@ -45,8 +47,11 @@ export const router = createBrowserRouter([
       { path: 'customers/segments/:segmentId', element: <CustomerSegmentsPage /> },
       { path: 'customers/:customerId', element: <CustomerDetailPage tab="overview" /> },
       { path: 'customers/:customerId/contacts', element: <CustomerDetailPage tab="contacts" /> },
+      { path: 'customers/:customerId/contracts', element: <CustomerDetailPage tab="contracts" /> },
       { path: 'customers/:customerId/overview', element: <Navigate to=".." relative="path" replace /> },
       { path: 'receivables', element: <PlaceholderPage titleKey="navigation.receivables" /> },
+      { path: 'contracts', element: <ContractsPage /> },
+      { path: 'contracts/:contractId', element: <ContractDetailPage /> },
       { path: 'collections', element: <PlaceholderPage titleKey="navigation.collections" /> },
       {
         path: 'campaigns',

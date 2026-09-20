@@ -1,6 +1,6 @@
 # FW4 — Customers
 
-Status: FW4A–FW4D IMPLEMENTED / FW4E NEXT
+Status: FW4A–FW4E IMPLEMENTED
 
 Depends on: FW2 closure, FW3 shared query conventions
 
@@ -98,6 +98,8 @@ contact editor, segment membership.
 - segment labels are never joined by client row fan-out.
 
 ## FW4E — contracts
+
+- implementation contract: [`frontendweb-fw04e-contracts.md`](frontendweb-fw04e-contracts.md);
 
 Contracts were present in the user process and API matrix but missing from the original
 delivery sequence. Implement:

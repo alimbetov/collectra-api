@@ -9,6 +9,7 @@ import io.collectra.api.shared.error.InvalidRequestException;
 import java.time.LocalDate;
 import java.util.NoSuchElementException;
 import java.util.UUID;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -42,7 +43,7 @@ public class ContractService {
                                     "DUPLICATE_EXTERNAL_ID", "Contract externalId already exists");
                         });
         try {
-            return contracts.save(
+            return contracts.saveAndFlush(
                     new Contract(
                             tenantId,
                             customerId,
@@ -52,6 +53,9 @@ public class ContractService {
                             validTo,
                             renewalDate,
                             customFields));
+        } catch (DataIntegrityViolationException ex) {
+            throw new BusinessConflictException(
+                    "DUPLICATE_EXTERNAL_ID", "Contract externalId already exists");
         } catch (IllegalArgumentException ex) {
             throw new InvalidRequestException("INVALID_RANGE", ex.getMessage());
         }

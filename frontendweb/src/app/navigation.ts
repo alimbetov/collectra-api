@@ -2,6 +2,7 @@ export interface NavigationItem {
   labelKey:
     | 'navigation.dashboard'
     | 'navigation.customers'
+    | 'navigation.contracts'
     | 'navigation.receivables'
     | 'navigation.collections'
     | 'navigation.campaigns'
@@ -15,6 +16,7 @@ export interface NavigationItem {
 export const navigation: readonly NavigationItem[] = [
   { labelKey: 'navigation.dashboard', path: '/' },
   { labelKey: 'navigation.customers', path: '/customers' },
+  { labelKey: 'navigation.contracts', path: '/contracts' },
   { labelKey: 'navigation.receivables', path: '/receivables' },
   { labelKey: 'navigation.collections', path: '/collections' },
   { labelKey: 'navigation.campaigns', path: '/campaigns', permission: 'CAMPAIGN_READ' },

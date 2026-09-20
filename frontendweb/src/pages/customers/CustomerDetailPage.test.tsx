@@ -11,6 +11,12 @@ import { ApiError } from '../../shared/api/http-client';
 import { I18nProvider } from '../../shared/i18n/i18n-context';
 import { ToastProvider } from '../../shared/ui';
 import { CustomerDetailPage } from './CustomerDetailPage';
+import { createContract, getContracts } from '../../entities/contract/api/contract.api';
+
+vi.mock('../../entities/contract/api/contract.api', () => ({
+  getContracts: vi.fn(),
+  createContract: vi.fn(),
+}));
 
 vi.mock('../../entities/customer/api/customer.api', () => ({
   getCustomer: vi.fn(),
@@ -64,6 +70,7 @@ function renderPage(entry: string) {
   const router = createMemoryRouter([
     { path: '/customers/:customerId', element: <><CustomerDetailPage tab="overview" /><LocationProbe /></> },
     { path: '/customers/:customerId/contacts', element: <><CustomerDetailPage tab="contacts" /><LocationProbe /></> },
+    { path: '/customers/:customerId/contracts', element: <><CustomerDetailPage tab="contracts" /><LocationProbe /></> },
     { path: '/forbidden', element: <><div>Forbidden</div><LocationProbe /></> },
   ], { initialEntries: [entry] });
   return render(
@@ -97,6 +104,11 @@ beforeEach(() => {
   });
   vi.mocked(addCustomerSegment).mockResolvedValue(undefined);
   vi.mocked(removeCustomerSegment).mockResolvedValue(undefined);
+  vi.mocked(getContracts).mockResolvedValue({
+    items: [{ id: 'c1', customerId: id, customerExternalId: 'EXT-1', customerDisplayName: 'Acme Kazakhstan', externalId: 'CONTRACT-EXT', contractNumber: 'CN-1', status: 'ACTIVE', validFrom: '2026-01-01', validTo: null, renewalDate: null, createdAt: '', updatedAt: '', version: 0 }],
+    page: 0, size: 20, totalElements: 1, totalPages: 1, hasNext: false,
+  });
+  vi.mocked(createContract).mockRejectedValue(new Error('unused'));
 });
 
 describe('CustomerDetailPage', () => {
@@ -125,6 +137,15 @@ describe('CustomerDetailPage', () => {
     expect(getCustomer).toHaveBeenCalledTimes(1);
     expect(getCustomerEmails).toHaveBeenCalledTimes(1);
     expect(getCustomerPhones).toHaveBeenCalledTimes(1);
+  });
+
+  it('loads the customer-scoped contracts tab with one bounded request', async () => {
+    renderPage(`/customers/${id}/contracts`);
+
+    expect(await screen.findByText('CN-1')).toBeInTheDocument();
+    expect(getContracts).toHaveBeenCalledWith({ customerId: id, page: 0, size: 20, sort: 'createdAt,desc' });
+    expect(getCustomerEmails).not.toHaveBeenCalled();
+    expect(getCustomerPhones).not.toHaveBeenCalled();
   });
 
   it('keeps a successful contact section visible when the other fails', async () => {
