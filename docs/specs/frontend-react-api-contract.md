@@ -340,11 +340,13 @@ assigned ID read-only and does not fall back to the unpaged identity registry.
 ## 6. Contracts
 
 ```ts
-export type ContractStatus = string;
+export type ContractStatus = 'ACTIVE' | 'SUSPENDED' | 'CLOSED' | 'CANCELLED';
 
 export interface ContractListItemDto {
   id: UUID;
   customerId: UUID;
+  customerExternalId: string | null;
+  customerDisplayName: string | null;
   externalId: string;
   contractNumber: string;
   status: ContractStatus;
@@ -357,6 +359,10 @@ export interface ContractListItemDto {
 }
 
 export type ContractPageDto = PageDto<ContractListItemDto>;
+
+export interface ContractDetailDto extends ContractListItemDto {
+  customFields: unknown | null;
+}
 
 export interface ContractListQuery {
   search?: string;
@@ -387,6 +393,7 @@ POST /api/v1/contracts/{id}/cancel
 ```
 
 Lifecycle actions are commands. React MUST NOT expose arbitrary status editing.
+Contract update and every lifecycle command MUST include the exact server `version`.
 
 ## 7. Receivables and payments
 

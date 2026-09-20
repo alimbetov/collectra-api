@@ -1,8 +1,11 @@
 package io.collectra.api.contract.application;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import io.collectra.api.contract.domain.Contract;
 import io.collectra.api.contract.domain.ContractStatus;
 import io.collectra.api.contract.infrastructure.ContractRepository;
+import io.collectra.api.customer.application.CustomerService;
+import io.collectra.api.customer.domain.Customer;
 import io.collectra.api.shared.error.InvalidRequestException;
 import jakarta.persistence.criteria.Predicate;
 import java.time.Instant;
@@ -10,8 +13,12 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -35,9 +42,11 @@ public class ContractQueryService {
                     "renewalDate");
 
     private final ContractRepository contracts;
+    private final CustomerService customers;
 
-    public ContractQueryService(ContractRepository contracts) {
+    public ContractQueryService(ContractRepository contracts, CustomerService customers) {
         this.contracts = contracts;
+        this.customers = customers;
     }
 
     @Transactional(readOnly = true)
@@ -72,13 +81,35 @@ public class ContractQueryService {
                                 createdTo),
                         PageRequest.of(page, size, parseSort(sort)));
 
+        Map<UUID, Customer> customersById =
+                customers
+                        .customersByIds(
+                                tenantId,
+                                result.getContent().stream()
+                                        .map(Contract::getCustomerId)
+                                        .collect(Collectors.toSet()))
+                        .stream()
+                        .collect(Collectors.toMap(Customer::getId, Function.identity()));
+
         return new ContractPage(
-                result.getContent().stream().map(ContractItem::from).toList(),
+                result.getContent().stream()
+                        .map(value -> ContractItem.from(value, customersById.get(value.getCustomerId())))
+                        .toList(),
                 result.getNumber(),
                 result.getSize(),
                 result.getTotalElements(),
                 result.getTotalPages(),
                 result.hasNext());
+    }
+
+    @Transactional(readOnly = true)
+    public ContractDetail detail(UUID tenantId, UUID id) {
+        Contract value =
+                contracts
+                        .findByIdAndTenantId(id, tenantId)
+                        .orElseThrow(() -> new NoSuchElementException("Contract not found"));
+        Customer customer = customers.get(tenantId, value.getCustomerId());
+        return ContractDetail.from(value, customer);
     }
 
     private static Specification<Contract> specification(
@@ -170,6 +201,8 @@ public class ContractQueryService {
     public record ContractItem(
             UUID id,
             UUID customerId,
+            String customerExternalId,
+            String customerDisplayName,
             String externalId,
             String contractNumber,
             ContractStatus status,
@@ -179,16 +212,52 @@ public class ContractQueryService {
             Instant createdAt,
             Instant updatedAt,
             long version) {
-        static ContractItem from(Contract value) {
+        static ContractItem from(Contract value, Customer customer) {
             return new ContractItem(
                     value.getId(),
                     value.getCustomerId(),
+                    customer == null ? null : customer.getExternalId(),
+                    customer == null ? null : customer.getDisplayName(),
                     value.getExternalId(),
                     value.getContractNumber(),
                     value.getStatus(),
                     value.getValidFrom(),
                     value.getValidTo(),
                     value.getRenewalDate(),
+                    value.getCreatedAt(),
+                    value.getUpdatedAt(),
+                    value.getVersion());
+        }
+    }
+
+    public record ContractDetail(
+            UUID id,
+            UUID customerId,
+            String customerExternalId,
+            String customerDisplayName,
+            String externalId,
+            String contractNumber,
+            ContractStatus status,
+            LocalDate validFrom,
+            LocalDate validTo,
+            LocalDate renewalDate,
+            JsonNode customFields,
+            Instant createdAt,
+            Instant updatedAt,
+            long version) {
+        static ContractDetail from(Contract value, Customer customer) {
+            return new ContractDetail(
+                    value.getId(),
+                    value.getCustomerId(),
+                    customer.getExternalId(),
+                    customer.getDisplayName(),
+                    value.getExternalId(),
+                    value.getContractNumber(),
+                    value.getStatus(),
+                    value.getValidFrom(),
+                    value.getValidTo(),
+                    value.getRenewalDate(),
+                    value.getCustomFields(),
                     value.getCreatedAt(),
                     value.getUpdatedAt(),
                     value.getVersion());

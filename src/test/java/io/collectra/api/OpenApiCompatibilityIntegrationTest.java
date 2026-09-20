@@ -106,6 +106,8 @@ class OpenApiCompatibilityIntegrationTest extends AbstractIntegrationTest {
         assertRequiredVersion(schemas, "CustomerStatusRequest");
         assertRequiredVersion(schemas, "ContactPatchRequest");
         assertRequiredVersion(schemas, "CustomerSegmentUpdateRequest");
+        assertRequiredVersion(schemas, "ContractUpdateRequest");
+        assertRequiredVersion(schemas, "ContractVersionRequest");
 
         assertThat(
                         document.path("paths")
@@ -129,6 +131,28 @@ class OpenApiCompatibilityIntegrationTest extends AbstractIntegrationTest {
                                 .path("$ref")
                                 .asText())
                 .endsWith("/CustomerSegmentUpdateRequest");
+        assertThat(
+                        document.path("paths")
+                                .path("/api/v1/contracts/{id}")
+                                .path("put")
+                                .path("requestBody")
+                                .path("content")
+                                .path("application/json")
+                                .path("schema")
+                                .path("$ref")
+                                .asText())
+                .endsWith("/ContractUpdateRequest");
+        assertThat(
+                        document.path("paths")
+                                .path("/api/v1/contracts/{id}/suspend")
+                                .path("post")
+                                .path("requestBody")
+                                .path("content")
+                                .path("application/json")
+                                .path("schema")
+                                .path("$ref")
+                                .asText())
+                .endsWith("/ContractVersionRequest");
     }
 
     @Test
