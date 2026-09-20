@@ -1,6 +1,6 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Navigate, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, useSearchParams } from 'react-router-dom';
 import { customerQueries } from '../../entities/customer/api/customer.queries';
 import { useAuth } from '../../features/auth/model/auth-context';
 import {
@@ -83,9 +83,10 @@ export function CustomersPage() {
               : t('customers.totalPending')}
           </p>
         </div>
-        {customers.isFetching && !customers.isLoading ? (
-          <Spinner size="small" label={t('customers.refreshing')} />
-        ) : null}
+        <div className="customers-page__header-actions">
+          {customers.isFetching && !customers.isLoading ? <Spinner size="small" label={t('customers.refreshing')} /> : null}
+          <Link className="ui-button ui-button--secondary" to="/customers/segments">{t('segments.manage')}</Link>
+        </div>
       </header>
 
       <CustomerFilters

@@ -1,6 +1,7 @@
 import type { CustomerDetailDto } from '../../../entities/customer/model/customer.types';
 import { formatInstant } from '../../../shared/i18n/formatters';
 import { useI18n } from '../../../shared/i18n/i18n-context';
+import { Button } from '../../../shared/ui';
 import { customFieldsText } from '../model/customer-detail';
 
 interface FieldProps {
@@ -18,7 +19,7 @@ function Field({ label, value }: FieldProps) {
   );
 }
 
-export function CustomerOverview({ customer }: { customer: CustomerDetailDto }) {
+export function CustomerOverview({ customer, onManageSegments }: { customer: CustomerDetailDto; onManageSegments: () => void }) {
   const { t, locale, timeZone } = useI18n();
   const customFields = customFieldsText(customer.customFields);
   return (
@@ -47,7 +48,10 @@ export function CustomerOverview({ customer }: { customer: CustomerDetailDto }) 
       </section>
 
       <section className="customer-detail-card">
-        <h2>{t('customers.columns.segments')}</h2>
+        <div className="customer-detail-card__heading">
+          <h2>{t('customers.columns.segments')}</h2>
+          <Button variant="secondary" onClick={onManageSegments}>{t('segments.membershipAction')}</Button>
+        </div>
         {customer.segments.length ? (
           <div className="customer-segments">
             {customer.segments.map((segment) => <span key={segment.id}>{segment.name}</span>)}

@@ -4,8 +4,8 @@ import { createMemoryRouter, RouterProvider, useLocation } from 'react-router-do
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import {
-  addCustomerEmail, addCustomerPhone, changeCustomerStatus, getCustomer, getCustomerEmails,
-  getCustomerPhones, updateCustomer, updateCustomerEmail, updateCustomerPhone,
+  addCustomerEmail, addCustomerPhone, addCustomerSegment, changeCustomerStatus, getCustomer, getCustomerEmails,
+  getCustomerPhones, getSegmentOptions, removeCustomerSegment, updateCustomer, updateCustomerEmail, updateCustomerPhone,
 } from '../../entities/customer/api/customer.api';
 import { ApiError } from '../../shared/api/http-client';
 import { I18nProvider } from '../../shared/i18n/i18n-context';
@@ -22,6 +22,9 @@ vi.mock('../../entities/customer/api/customer.api', () => ({
   addCustomerPhone: vi.fn(),
   updateCustomerEmail: vi.fn(),
   updateCustomerPhone: vi.fn(),
+  getSegmentOptions: vi.fn(),
+  addCustomerSegment: vi.fn(),
+  removeCustomerSegment: vi.fn(),
 }));
 
 vi.mock('../../features/auth/model/auth-context', () => ({
@@ -88,6 +91,12 @@ beforeEach(() => {
   vi.mocked(addCustomerPhone).mockResolvedValue({ id: 'p2', phone: '+7702', normalizedPhone: '+7702', type: 'MOBILE', primary: false, verified: false, status: 'ACTIVE', version: 0 });
   vi.mocked(updateCustomerEmail).mockResolvedValue({ id: 'e1', email: 'billing@acme.test', type: 'HOME', primary: false, verified: false, status: 'ACTIVE', version: 3 });
   vi.mocked(updateCustomerPhone).mockResolvedValue({ id: 'p1', phone: '+7 701 000 00 00', normalizedPhone: '+77010000000', type: 'MOBILE', primary: false, verified: true, status: 'INACTIVE', version: 4 });
+  vi.mocked(getSegmentOptions).mockResolvedValue({
+    items: [{ id: '44444444-4444-4444-8444-444444444444', code: 'NEW', name: 'New segment', description: null, active: true, createdAt: '', updatedAt: '', version: 0 }],
+    page: 0, size: 20, totalElements: 1, totalPages: 1, hasNext: false,
+  });
+  vi.mocked(addCustomerSegment).mockResolvedValue(undefined);
+  vi.mocked(removeCustomerSegment).mockResolvedValue(undefined);
 });
 
 describe('CustomerDetailPage', () => {
@@ -214,5 +223,40 @@ describe('CustomerDetailPage', () => {
     await waitFor(() => expect(updateCustomerEmail).toHaveBeenCalledWith(id, 'e1', {
       type: 'WORK', primary: false, status: 'INACTIVE', version: 2,
     }));
+  });
+
+  it('applies only the membership delta and never sends a tenant id', async () => {
+    const user = userEvent.setup();
+    renderPage(`/customers/${id}`);
+    await screen.findByRole('heading', { name: 'Acme Kazakhstan' });
+
+    await user.click(screen.getByRole('button', { name: 'Изменить состав' }));
+    const dialog = screen.getByRole('dialog', { name: 'Сегменты клиента' });
+    await user.click(await within(dialog).findByRole('checkbox', { name: /New segment/ }));
+    await user.click(within(dialog).getByRole('checkbox', { name: /VIP/ }));
+    await user.click(within(dialog).getByRole('button', { name: 'Сохранить' }));
+
+    await waitFor(() => expect(addCustomerSegment).toHaveBeenCalledWith(id, '44444444-4444-4444-8444-444444444444'));
+    expect(removeCustomerSegment).toHaveBeenCalledWith(id, '33333333-3333-4333-8333-333333333333');
+    expect(JSON.stringify([
+      ...vi.mocked(addCustomerSegment).mock.calls,
+      ...vi.mocked(removeCustomerSegment).mock.calls,
+    ])).not.toContain('tenantId');
+  });
+
+  it('refetches authoritative customer state when a membership delta partially fails', async () => {
+    const user = userEvent.setup();
+    vi.mocked(removeCustomerSegment).mockRejectedValueOnce(new ApiError(409, { status: 409, code: 'INACTIVE_SEGMENT' }));
+    renderPage(`/customers/${id}`);
+    await screen.findByRole('heading', { name: 'Acme Kazakhstan' });
+
+    await user.click(screen.getByRole('button', { name: 'Изменить состав' }));
+    const dialog = screen.getByRole('dialog', { name: 'Сегменты клиента' });
+    await user.click(await within(dialog).findByRole('checkbox', { name: /New segment/ }));
+    await user.click(within(dialog).getByRole('checkbox', { name: /VIP/ }));
+    await user.click(within(dialog).getByRole('button', { name: 'Сохранить' }));
+
+    expect(await within(dialog).findByText('Сегмент уже деактивирован. Показано актуальное состояние.')).toBeInTheDocument();
+    await waitFor(() => expect(getCustomer).toHaveBeenCalledTimes(2));
   });
 });

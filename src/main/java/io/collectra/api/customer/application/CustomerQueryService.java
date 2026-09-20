@@ -146,7 +146,10 @@ public class CustomerQueryService {
                         .computeIfAbsent(membership.getCustomerId(), ignored -> new ArrayList<>())
                         .add(
                                 new SegmentSummary(
-                                        segment.getId(), segment.getCode(), segment.getName()));
+                                        segment.getId(),
+                                        segment.getCode(),
+                                        segment.getName(),
+                                        segment.isActive()));
             }
         }
         segmentIdsByCustomer.values().forEach(values -> values.sort(UUID::compareTo));
@@ -246,7 +249,8 @@ public class CustomerQueryService {
                                                 new SegmentSummary(
                                                         segment.getId(),
                                                         segment.getCode(),
-                                                        segment.getName()))
+                                                        segment.getName(),
+                                                        segment.isActive()))
                                 .sorted(SEGMENT_SUMMARY_ORDER)
                                 .toList();
 
@@ -454,7 +458,7 @@ public class CustomerQueryService {
         return value == null || value.isBlank() ? null : value.trim();
     }
 
-    public record SegmentSummary(UUID id, String code, String name) {}
+    public record SegmentSummary(UUID id, String code, String name, boolean active) {}
 
     public record CustomerListItem(
             UUID id,

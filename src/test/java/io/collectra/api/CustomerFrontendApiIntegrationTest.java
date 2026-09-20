@@ -388,6 +388,44 @@ class CustomerFrontendApiIntegrationTest extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$.totalElements").value(1))
                 .andExpect(jsonPath("$.items[0].id").value(segmentId));
 
+        JsonNode inactiveSegment =
+                read(
+                        patch("/api/v1/customer-segments/{id}", segmentId)
+                                .header("Authorization", bearer(token))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        "{\"name\":\"Priority\",\"active\":false,\"version\":"
+                                                + segment.get("version").asLong()
+                                                + "}"),
+                        200);
+        assertThat(inactiveSegment.get("active").asBoolean()).isFalse();
+
+        // Repeating an already satisfied assignment remains idempotent after deactivation.
+        mockMvc.perform(
+                        post(
+                                        "/api/v1/customers/{customerId}/segments/{segmentId}",
+                                        customerId,
+                                        segmentId)
+                                .header("Authorization", bearer(token)))
+                .andExpect(status().isNoContent());
+
+        JsonNode anotherCustomer = createCustomer(token, "EXT-SEGMENT-NEW", "New Segment Company");
+        mockMvc.perform(
+                        post(
+                                        "/api/v1/customers/{customerId}/segments/{segmentId}",
+                                        anotherCustomer.get("id").asText(),
+                                        segmentId)
+                                .header("Authorization", bearer(token)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("INACTIVE_SEGMENT"));
+
+        mockMvc.perform(
+                        get("/api/v1/customers/{id}", customerId)
+                                .header("Authorization", bearer(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.segmentIds[0]").value(segmentId))
+                .andExpect(jsonPath("$.segments[0].active").value(false));
+
         for (int i = 0; i < 2; i++) {
             mockMvc.perform(
                             delete(

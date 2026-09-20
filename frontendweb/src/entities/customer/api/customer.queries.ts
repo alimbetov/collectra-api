@@ -6,8 +6,20 @@ import {
   getCustomers,
   getManagerOptions,
   getSegmentOptions,
+  getSegment,
+  getSegments,
 } from './customer.api';
-import type { CustomerListQuery } from '../model/customer.types';
+import type { CustomerListQuery, SegmentListQuery } from '../model/customer.types';
+
+export const segmentKeys = {
+  all: ['customer-segments'] as const,
+  lists: () => [...segmentKeys.all, 'list'] as const,
+  list: (query: SegmentListQuery) => [...segmentKeys.lists(), query] as const,
+  details: () => [...segmentKeys.all, 'detail'] as const,
+  detail: (segmentId: string) => [...segmentKeys.all, 'detail', segmentId] as const,
+  optionsRoot: () => [...segmentKeys.all, 'options'] as const,
+  options: (search: string, page: number) => [...segmentKeys.all, 'options', search, page] as const,
+};
 
 export const customerKeys = {
   all: ['customers'] as const,
@@ -18,8 +30,7 @@ export const customerKeys = {
   phones: (customerId: string) => [...customerKeys.detail(customerId), 'phones'] as const,
   managerOptions: (search: string, page: number) =>
     ['identity', 'user-options', search, page] as const,
-  segmentOptions: (search: string, page: number) =>
-    ['customer-segments', 'options', search, page] as const,
+  segmentOptions: (search: string, page: number) => segmentKeys.options(search, page),
 };
 
 export const customerQueries = {
@@ -41,4 +52,8 @@ export const customerQueries = {
       queryKey: customerKeys.segmentOptions(search, page),
       queryFn: () => getSegmentOptions(search, page),
     }),
+  segmentList: (query: SegmentListQuery) =>
+    queryOptions({ queryKey: segmentKeys.list(query), queryFn: () => getSegments(query) }),
+  segmentDetail: (segmentId: string) =>
+    queryOptions({ queryKey: segmentKeys.detail(segmentId), queryFn: () => getSegment(segmentId) }),
 };

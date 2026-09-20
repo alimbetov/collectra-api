@@ -22,6 +22,7 @@ import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -279,7 +280,13 @@ public class CustomerService {
                                     "DUPLICATE_SEGMENT_CODE",
                                     "Customer segment code already exists");
                         });
-        return segments.save(new CustomerSegment(tenantId, normalizedCode, name, description));
+        try {
+            return segments.saveAndFlush(
+                    new CustomerSegment(tenantId, normalizedCode, name, description));
+        } catch (DataIntegrityViolationException exception) {
+            throw new BusinessConflictException(
+                    "DUPLICATE_SEGMENT_CODE", "Customer segment code already exists");
+        }
     }
 
     @Transactional(readOnly = true)
@@ -296,7 +303,7 @@ public class CustomerService {
             String description,
             Boolean active,
             long version) {
-        CustomerSegment value = segment(tenantId, segmentId);
+        CustomerSegment value = segmentForUpdate(tenantId, segmentId);
         requireVersion(value.getVersion(), version, "Segment");
         value.update(name, description, active);
         return value;
@@ -310,10 +317,16 @@ public class CustomerService {
     @Transactional
     public void addSegment(UUID tenantId, UUID customerId, UUID segmentId) {
         get(tenantId, customerId);
-        segment(tenantId, segmentId);
-        if (!members.existsByTenantIdAndCustomerIdAndSegmentId(tenantId, customerId, segmentId)) {
-            members.save(new CustomerSegmentMember(tenantId, customerId, segmentId));
+        CustomerSegment segment = segmentForUpdate(tenantId, segmentId);
+        if (!segment.isActive()) {
+            if (members.existsByTenantIdAndCustomerIdAndSegmentId(
+                    tenantId, customerId, segmentId)) {
+                return;
+            }
+            throw new BusinessConflictException(
+                    "INACTIVE_SEGMENT", "Inactive segment cannot be assigned");
         }
+        members.insertIgnore(UUID.randomUUID(), tenantId, customerId, segmentId);
     }
 
     @Transactional
@@ -321,6 +334,11 @@ public class CustomerService {
         get(tenantId, customerId);
         segment(tenantId, segmentId);
         members.deleteByTenantIdAndCustomerIdAndSegmentId(tenantId, customerId, segmentId);
+    }
+
+    private CustomerSegment segmentForUpdate(UUID tenantId, UUID segmentId) {
+        return segments.findForUpdateByIdAndTenantId(segmentId, tenantId)
+                .orElseThrow(() -> new NoSuchElementException("Segment not found"));
     }
 
     @Transactional(readOnly = true)

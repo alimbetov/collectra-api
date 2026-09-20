@@ -4,8 +4,8 @@
 
 Главный roadmap: [`../roadmap/backend-mvp-roadmap.md`](../roadmap/backend-mvp-roadmap.md).
 
-Следующий frontend implementation contract:
-[`frontendweb-fw04c-customer-editing.md`](frontendweb-fw04c-customer-editing.md).
+Следующий frontend implementation contract: FW4E contracts in
+[`frontendweb-fw04-customers.md`](frontendweb-fw04-customers.md).
 
 Business frontend implementation plan:
 [`frontendweb-fw03-fw12-plan.md`](frontendweb-fw03-fw12-plan.md). Он индексирует
@@ -22,7 +22,8 @@ Approved public money wire contract:
 | FW4A | [Customer list](frontendweb-fw04a-customer-list.md) | IMPLEMENTED |
 | FW4B | [Customer read-only detail](frontendweb-fw04b-customer-detail.md) | IMPLEMENTED |
 | FW4C | [Customer editing](frontendweb-fw04c-customer-editing.md) | IMPLEMENTED |
-| FW4D–E | [Customer segments/contracts](frontendweb-fw04-customers.md) | FW4D NEXT |
+| FW4D | [Customer segments](frontendweb-fw04d-customer-segments.md) | IMPLEMENTED |
+| FW4E | [Customer contracts](frontendweb-fw04-customers.md) | NEXT |
 | FW5 | [Receivables](frontendweb-fw05-receivables.md) | money/projection/paging gate |
 | FW6 | [Collections](frontendweb-fw06-collections.md) | filters/history paging gate |
 | FW7 | [Campaigns](frontendweb-fw07-campaigns.md) | detail/idempotency gate |

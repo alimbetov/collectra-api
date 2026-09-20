@@ -11,6 +11,7 @@ import { RouteErrorPage } from '../pages/system/RouteErrorPage';
 import { DashboardPage } from '../pages/dashboard/DashboardPage';
 import { CustomersPage } from '../pages/customers/CustomersPage';
 import { CustomerDetailPage } from '../pages/customers/CustomerDetailPage';
+import { CustomerSegmentsPage } from '../pages/customers/CustomerSegmentsPage';
 
 function PlaceholderPage({ titleKey }: { titleKey: MessageKey }) {
   const { t } = useI18n();
@@ -40,6 +41,8 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <DashboardPage /> },
       { path: 'customers', element: <CustomersPage /> },
+      { path: 'customers/segments', element: <CustomerSegmentsPage /> },
+      { path: 'customers/segments/:segmentId', element: <CustomerSegmentsPage /> },
       { path: 'customers/:customerId', element: <CustomerDetailPage tab="overview" /> },
       { path: 'customers/:customerId/contacts', element: <CustomerDetailPage tab="contacts" /> },
       { path: 'customers/:customerId/overview', element: <Navigate to=".." relative="path" replace /> },
