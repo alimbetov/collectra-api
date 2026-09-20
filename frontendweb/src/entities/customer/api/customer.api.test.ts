@@ -18,6 +18,13 @@ import {
   addCustomerPhone,
   updateCustomerEmail,
   updateCustomerPhone,
+  addCustomerSegment,
+  createSegment,
+  getSegment,
+  getSegments,
+  removeCustomerSegment,
+  segmentListPath,
+  updateSegment,
 } from './customer.api';
 
 const server = setupServer();
@@ -186,6 +193,62 @@ describe('customer API', () => {
       `PATCH /api/v1/customers/${id}/phones/phone%2Fid`,
     ]);
     expect(requests[1].body).toEqual(expect.objectContaining({ version: 2 }));
+    expect(requests[3].body).toEqual(expect.objectContaining({ version: 3 }));
+    expect(JSON.stringify(requests)).not.toContain('tenantId');
+  });
+
+  it('serializes the fixed segment registry filters', () => {
+    expect(segmentListPath({ search: 'A&B', active: false, page: 2, size: 50, sort: 'updatedAt,asc' }))
+      .toBe('/api/v1/customer-segments?search=A%26B&active=false&page=2&size=50&sort=updatedAt%2Casc');
+  });
+
+  it('uses versioned segment commands and idempotent membership endpoints without tenant fields', async () => {
+    const customerId = '11111111-1111-4111-8111-111111111111';
+    const segmentId = 'segment/id';
+    const requests: Array<{ method: string; path: string; body?: unknown }> = [];
+    server.use(
+      http.get('*/api/v1/customer-segments', ({ request }) => {
+        const url = new URL(request.url);
+        requests.push({ method: request.method, path: `${url.pathname}${url.search}` });
+        return HttpResponse.json({ items: [], page: 0, size: 20, totalElements: 0, totalPages: 0, hasNext: false });
+      }),
+      http.get('*/api/v1/customer-segments/*', ({ request }) => {
+        requests.push({ method: request.method, path: new URL(request.url).pathname });
+        return HttpResponse.json({ id: segmentId, code: 'VIP', name: 'VIP', version: 3 });
+      }),
+      http.post('*/api/v1/customer-segments', async ({ request }) => {
+        requests.push({ method: request.method, path: new URL(request.url).pathname, body: await request.json() });
+        return HttpResponse.json({ id: segmentId, code: 'VIP', name: 'VIP', version: 0 }, { status: 201 });
+      }),
+      http.patch('*/api/v1/customer-segments/*', async ({ request }) => {
+        requests.push({ method: request.method, path: new URL(request.url).pathname, body: await request.json() });
+        return HttpResponse.json({ id: segmentId, code: 'VIP', name: 'Priority', version: 4 });
+      }),
+      http.post('*/api/v1/customers/*/segments/*', ({ request }) => {
+        requests.push({ method: request.method, path: new URL(request.url).pathname });
+        return new HttpResponse(null, { status: 204 });
+      }),
+      http.delete('*/api/v1/customers/*/segments/*', ({ request }) => {
+        requests.push({ method: request.method, path: new URL(request.url).pathname });
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+
+    await getSegments({ active: true });
+    await getSegment(segmentId);
+    await createSegment({ code: 'VIP', name: 'VIP', description: null });
+    await updateSegment(segmentId, { name: 'Priority', description: null, active: true, version: 3 });
+    await addCustomerSegment(customerId, segmentId);
+    await removeCustomerSegment(customerId, segmentId);
+
+    expect(requests.map(({ method, path }) => `${method} ${path}`)).toEqual([
+      'GET /api/v1/customer-segments?active=true',
+      'GET /api/v1/customer-segments/segment%2Fid',
+      'POST /api/v1/customer-segments',
+      'PATCH /api/v1/customer-segments/segment%2Fid',
+      `POST /api/v1/customers/${customerId}/segments/segment%2Fid`,
+      `DELETE /api/v1/customers/${customerId}/segments/segment%2Fid`,
+    ]);
     expect(requests[3].body).toEqual(expect.objectContaining({ version: 3 }));
     expect(JSON.stringify(requests)).not.toContain('tenantId');
   });

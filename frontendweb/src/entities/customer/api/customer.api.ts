@@ -11,6 +11,10 @@ import type {
   EmailCreateCommand,
   PhoneCreateCommand,
   SegmentOptionPageDto,
+  SegmentOptionDto,
+  SegmentCreateCommand,
+  SegmentListQuery,
+  SegmentUpdateCommand,
   UserOptionPageDto,
 } from '../model/customer.types';
 
@@ -102,3 +106,38 @@ export const getSegmentOptions = (search: string, page = 0) => {
   if (search.trim()) params.set('search', search.trim());
   return apiRequest<SegmentOptionPageDto>(`/api/v1/customer-segments?${params}`);
 };
+
+export function segmentListPath(query: SegmentListQuery): string {
+  const params = new URLSearchParams();
+  append(params, 'search', query.search);
+  if (query.active !== undefined) params.set('active', String(query.active));
+  append(params, 'page', query.page);
+  append(params, 'size', query.size);
+  append(params, 'sort', query.sort);
+  const search = params.toString();
+  return `/api/v1/customer-segments${search ? `?${search}` : ''}`;
+}
+
+export const getSegments = (query: SegmentListQuery) =>
+  apiRequest<SegmentOptionPageDto>(segmentListPath(query));
+
+export const getSegment = (segmentId: string) =>
+  apiRequest<SegmentOptionDto>(`/api/v1/customer-segments/${encodeURIComponent(segmentId)}`);
+
+export const createSegment = (command: SegmentCreateCommand) =>
+  apiRequest<SegmentOptionDto>('/api/v1/customer-segments', { method: 'POST', body: command });
+
+export const updateSegment = (segmentId: string, command: SegmentUpdateCommand) =>
+  apiRequest<SegmentOptionDto>(`/api/v1/customer-segments/${encodeURIComponent(segmentId)}`, {
+    method: 'PATCH', body: command,
+  });
+
+export const addCustomerSegment = (customerId: string, segmentId: string) =>
+  apiRequest<void>(`${customerDetailPath(customerId)}/segments/${encodeURIComponent(segmentId)}`, {
+    method: 'POST',
+  });
+
+export const removeCustomerSegment = (customerId: string, segmentId: string) =>
+  apiRequest<void>(`${customerDetailPath(customerId)}/segments/${encodeURIComponent(segmentId)}`, {
+    method: 'DELETE',
+  });

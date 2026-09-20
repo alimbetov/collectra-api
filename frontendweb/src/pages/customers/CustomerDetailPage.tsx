@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Link, Navigate, useBlocker, useParams } from 'react-router-dom';
 import { customerQueries } from '../../entities/customer/api/customer.queries';
 import {
-  addCustomerEmail, addCustomerPhone, changeCustomerStatus, updateCustomer,
+  addCustomerEmail, addCustomerPhone, addCustomerSegment, changeCustomerStatus, removeCustomerSegment, updateCustomer,
   updateCustomerEmail, updateCustomerPhone,
 } from '../../entities/customer/api/customer.api';
 import type {
@@ -21,6 +21,9 @@ import { CustomerStatusDialog } from '../../features/customer-edit/ui/CustomerSt
 import { refreshContactMutation } from '../../features/customer-contact-edit/model/contact-mutations';
 import type { ContactKind, CustomerContact } from '../../features/customer-contact-edit/model/customer-contact-edit';
 import { CustomerContactDialog } from '../../features/customer-contact-edit/ui/CustomerContactDialog';
+import { applyMembershipMutation } from '../../features/customer-segments/model/segment-mutations';
+import type { MembershipDelta } from '../../features/customer-segments/model/segment-membership';
+import { CustomerSegmentsDialog } from '../../features/customer-segments/ui/CustomerSegmentsDialog';
 import { ApiError } from '../../shared/api/http-client';
 import { ProblemDetailPanel } from '../../shared/errors/ProblemDetailPanel';
 import { useI18n } from '../../shared/i18n/i18n-context';
@@ -45,6 +48,7 @@ export function CustomerDetailPage({ tab }: { tab: CustomerDetailTab }) {
   const queryClient = useQueryClient();
   const [editOpen, setEditOpen] = useState(false);
   const [statusOpen, setStatusOpen] = useState(false);
+  const [segmentsOpen, setSegmentsOpen] = useState(false);
   const [editDirty, setEditDirty] = useState(false);
   const [contactEditor, setContactEditor] = useState<{ kind: ContactKind; contact?: CustomerContact } | null>(null);
   const blocker = useBlocker(editDirty);
@@ -86,6 +90,23 @@ export function CustomerDetailPage({ tab }: { tab: CustomerDetailTab }) {
       showToast({ title: t('contactEdit.saved'), tone: 'success' });
     },
   });
+  const membershipMutation = useMutation<void, unknown, MembershipDelta>({
+    mutationFn: async ({ additions, removals }) => {
+      for (const segmentId of additions) await addCustomerSegment(id, segmentId);
+      for (const segmentId of removals) await removeCustomerSegment(id, segmentId);
+    },
+    onSuccess: async () => {
+      await applyMembershipMutation(queryClient, id);
+      setEditDirty(false);
+      setSegmentsOpen(false);
+      showToast({ title: t('segments.membershipSaved'), tone: 'success' });
+    },
+    onError: async () => {
+      // A multi-request delta can fail after an earlier idempotent operation succeeded.
+      // PostgreSQL remains authoritative, so reconcile instead of rolling back the UI locally.
+      await applyMembershipMutation(queryClient, id);
+    },
+  });
   const openContact = (kind: ContactKind, contact?: CustomerContact) => {
     contactMutation.reset();
     setContactEditor({ kind, contact });
@@ -117,7 +138,7 @@ export function CustomerDetailPage({ tab }: { tab: CustomerDetailTab }) {
         onChangeStatus={() => { profileMutation.reset(); statusMutation.reset(); setStatusOpen(true); }}
       />
       <CustomerDetailTabs customerId={id} />
-      {tab === 'overview' ? <CustomerOverview customer={detail.data} /> : (
+      {tab === 'overview' ? <CustomerOverview customer={detail.data} onManageSegments={() => { membershipMutation.reset(); setSegmentsOpen(true); }} /> : (
         <div className="customer-detail-grid">
           {emails.isLoading ? <div className="customer-detail-card"><Spinner label={t('customerDetail.loadingEmails')} /></div> : null}
           {emails.error ? <ProblemDetailPanel error={emails.error} onRetry={() => void emails.refetch()} /> : null}
@@ -166,6 +187,20 @@ export function CustomerDetailPage({ tab }: { tab: CustomerDetailTab }) {
           return contactEditor.kind === 'email' ? emails.refetch() : phones.refetch();
         }}
         onClose={() => { contactMutation.reset(); setContactEditor(null); }}
+        onDirtyChange={setEditDirty}
+      /> : null}
+      {segmentsOpen ? <CustomerSegmentsDialog
+        open
+        customer={detail.data}
+        pending={membershipMutation.isPending}
+        error={membershipMutation.error}
+        onSave={(delta) => membershipMutation.mutate(delta)}
+        onReload={async () => {
+          membershipMutation.reset();
+          await applyMembershipMutation(queryClient, id);
+          return detail.refetch();
+        }}
+        onClose={() => { membershipMutation.reset(); setSegmentsOpen(false); }}
         onDirtyChange={setEditDirty}
       /> : null}
       <ConfirmDialog

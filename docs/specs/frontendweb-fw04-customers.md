@@ -1,6 +1,6 @@
 # FW4 — Customers
 
-Status: FW4A–FW4C IMPLEMENTED / FW4D NEXT
+Status: FW4A–FW4D IMPLEMENTED / FW4E NEXT
 
 Depends on: FW2 closure, FW3 shared query conventions
 
@@ -91,9 +91,10 @@ contact editor, segment membership.
 
 ## FW4D — segments
 
+- implementation contract: [`frontendweb-fw04d-customer-segments.md`](frontendweb-fw04d-customer-segments.md);
 - paged segment registry and edit form;
-- membership add/remove is explicit, pending-safe and invalidates customer/segment views;
-- duplicate membership response is mapped by ProblemDetail code;
+- membership add/remove is explicit, idempotent, pending-safe and invalidates only dependent views;
+- inactive assignment and optimistic conflicts are mapped by stable ProblemDetail codes;
 - segment labels are never joined by client row fan-out.
 
 ## FW4E — contracts

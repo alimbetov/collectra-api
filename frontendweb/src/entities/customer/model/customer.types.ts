@@ -10,6 +10,7 @@ export interface SegmentSummaryDto {
   id: UUID;
   code: string;
   name: string;
+  active?: boolean;
 }
 
 export interface CustomerListItemDto {
@@ -164,3 +165,30 @@ export interface SegmentOptionDto {
 }
 
 export type SegmentOptionPageDto = PageDto<SegmentOptionDto>;
+
+export const segmentSorts = [
+  'name,asc', 'name,desc', 'code,asc', 'code,desc',
+  'createdAt,desc', 'createdAt,asc', 'updatedAt,desc', 'updatedAt,asc',
+] as const;
+export type SegmentSort = (typeof segmentSorts)[number];
+
+export interface SegmentListQuery {
+  search?: string;
+  active?: boolean;
+  page?: number;
+  size?: number;
+  sort?: SegmentSort;
+}
+
+export interface SegmentCreateCommand {
+  code: string;
+  name: string;
+  description: string | null;
+}
+
+export interface SegmentUpdateCommand {
+  name: string;
+  description: string | null;
+  active: boolean;
+  version: number;
+}
