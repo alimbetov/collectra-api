@@ -74,13 +74,13 @@ public class CampaignRunTemplateBindingService {
                     localeResolver.resolve(
                             tenantId,
                             anchor.getTemplateId(),
-                            TemplateChannel.EMAIL,
+                            channel,
                             requestedLocale);
             TemplateVersion selected =
                     versions.findFirstByTemplateIdAndLocaleAndChannelAndStatusOrderByTemplateVersionDesc(
                                     anchor.getTemplateId(),
                                     resolved.resolvedLocale(),
-                                    TemplateChannel.EMAIL,
+                                    channel,
                                     TemplateVersionStatus.PUBLISHED)
                             .orElseThrow(
                                     () ->
