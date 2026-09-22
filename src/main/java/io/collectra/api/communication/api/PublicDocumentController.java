@@ -30,8 +30,7 @@ public class PublicDocumentController {
     }
 
     @GetMapping("/{token}")
-    public ResponseEntity<byte[]> download(
-            @PathVariable String token, HttpServletRequest request) {
+    public ResponseEntity<byte[]> download(@PathVariable String token, HttpServletRequest request) {
         rateLimiter.check(
                 "public-document:" + request.getRemoteAddr(),
                 properties.getDownloadRateLimit(),
