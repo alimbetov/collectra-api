@@ -46,4 +46,19 @@ public record CampaignSelection(
                 amountTo,
                 AudienceSelectionType.RECEIVABLE);
     }
+
+    public static CampaignSelection empty(AudienceSelectionType type) {
+        return new CampaignSelection(Set.of(), Set.of(), null, null, null, null, type);
+    }
+
+    public static CampaignSelection customer(Set<UUID> customerIds, Set<UUID> segmentIds) {
+        return new CampaignSelection(
+                customerIds,
+                segmentIds,
+                null,
+                null,
+                null,
+                null,
+                AudienceSelectionType.CUSTOMER);
+    }
 }
