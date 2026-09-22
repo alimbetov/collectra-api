@@ -35,6 +35,12 @@ FW4E backend hardening:
 - validity filter indexes are added by Liquibase `038`;
 - stale persistence races remain protected by JPA `@Version` and map to `409 VERSION_CONFLICT`.
 
+The reviewed OpenAPI baseline is updated with this slice. The previous snapshot described
+contract lifecycle bodies as the template `VersionRequest` (a schema-name collision), although
+the running contract endpoint expected a numeric version. Contract bodies now use distinct
+`ContractUpdateRequest` and `ContractVersionRequest` schemas with required `version`. Older
+clients that omitted the version must load the detail first and send its current version.
+
 ## 3. Lifecycle state machine
 
 | Current | Allowed actions | Terminal |
