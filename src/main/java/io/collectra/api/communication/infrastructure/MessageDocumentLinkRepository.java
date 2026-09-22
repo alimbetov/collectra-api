@@ -16,6 +16,8 @@ public interface MessageDocumentLinkRepository extends JpaRepository<MessageDocu
 
     Optional<MessageDocumentLink> findByTokenHash(String tokenHash);
 
+    Optional<MessageDocumentLink> findByTenantIdAndMessageId(UUID tenantId, UUID messageId);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query(
             """
