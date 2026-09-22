@@ -132,14 +132,14 @@ class GenericCustomerCampaignAudienceIntegrationTest extends AbstractIntegration
                             assertThat(recipient.getCustomerId()).isEqualTo(included.getId());
                             assertThat(recipient.getInvoiceId()).isNull();
                             assertThat(recipient.getChannel()).isEqualTo("EMAIL");
-                            assertThat(recipient.getDestination()).isEqualTo("included@example.com");
+                            assertThat(recipient.getDestination())
+                                    .isEqualTo("included@example.com");
                             assertThat(recipient.getLocale()).isEqualTo("ru");
                             assertThat(recipient.getStatus())
                                     .isEqualTo(CampaignRecipientStatus.SNAPSHOT);
                         });
 
-        var materialized =
-                materializer.materializeNextBatch(tenant.getId(), prepared.runId(), 100);
+        var materialized = materializer.materializeNextBatch(tenant.getId(), prepared.runId(), 100);
 
         assertThat(materialized.selected()).isEqualTo(1);
         assertThat(materialized.queued()).isEqualTo(1);
