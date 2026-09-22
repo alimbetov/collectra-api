@@ -2,9 +2,9 @@ package io.collectra.api.campaign.application;
 
 import io.collectra.api.campaign.domain.CampaignRecipient;
 import io.collectra.api.campaign.infrastructure.CampaignRecipientRepository;
+import io.collectra.api.communication.domain.CommunicationChannel;
 import io.collectra.api.customer.application.CustomerService;
 import io.collectra.api.customer.domain.Customer;
-import io.collectra.api.customer.domain.CustomerEmail;
 import io.collectra.api.customer.domain.CustomerStatus;
 import io.collectra.api.receivable.application.ReceivableService;
 import io.collectra.api.receivable.domain.Invoice;
@@ -22,14 +22,17 @@ import org.springframework.transaction.annotation.Transactional;
 public class CampaignEligibilityService {
     private final CampaignRecipientRepository recipients;
     private final CustomerService customers;
+    private final RecipientDestinationResolver destinations;
     private final ReceivableService receivables;
 
     public CampaignEligibilityService(
             CampaignRecipientRepository recipients,
             CustomerService customers,
+            RecipientDestinationResolver destinations,
             ReceivableService receivables) {
         this.recipients = recipients;
         this.customers = customers;
+        this.destinations = destinations;
         this.receivables = receivables;
     }
 
@@ -63,9 +66,9 @@ public class CampaignEligibilityService {
         Map<UUID, Customer> customerById =
                 customers.customersByIds(tenantId, customerIds).stream()
                         .collect(Collectors.toMap(Customer::getId, value -> value));
-        Map<UUID, List<CustomerEmail>> emailsByCustomer =
-                customers.emailsByCustomerIds(tenantId, customerIds).stream()
-                        .collect(Collectors.groupingBy(CustomerEmail::getCustomerId));
+        CommunicationChannel channel = batchChannel(values);
+        Map<UUID, Set<String>> activeDestinations =
+                destinations.activeDestinations(tenantId, channel, customerIds);
         Map<UUID, Invoice> invoiceById =
                 receivables.invoicesByIds(tenantId, invoiceIds).stream()
                         .collect(Collectors.toMap(Invoice::getId, value -> value));
@@ -80,8 +83,10 @@ public class CampaignEligibilityService {
                 continue;
             }
             boolean contactExists =
-                    emailsByCustomer.getOrDefault(customer.getId(), List.of()).stream()
-                            .anyMatch(email -> isActiveSnapshotDestination(email, recipient));
+                    recipient.getDestination() != null
+                            && activeDestinations
+                                    .getOrDefault(customer.getId(), Set.of())
+                                    .contains(recipient.getDestination());
             if (!contactExists) {
                 recipient.skip("NO_CONTACT");
                 skipped++;
@@ -104,11 +109,16 @@ public class CampaignEligibilityService {
         return new EligibilityBatch(values.size(), eligible.size(), skipped, Map.copyOf(eligible));
     }
 
-    private static boolean isActiveSnapshotDestination(
-            CustomerEmail email, CampaignRecipient recipient) {
-        return "ACTIVE".equals(email.getStatus())
-                && recipient.getDestination() != null
-                && email.getEmail().equalsIgnoreCase(recipient.getDestination());
+    private static CommunicationChannel batchChannel(List<CampaignRecipient> values) {
+        String value = values.get(0).getChannel();
+        if (values.stream().anyMatch(recipient -> !value.equals(recipient.getChannel()))) {
+            throw new IllegalArgumentException("Eligibility batch contains multiple channels");
+        }
+        try {
+            return CommunicationChannel.valueOf(value);
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalArgumentException("Unsupported campaign channel: " + value, ex);
+        }
     }
 
     public record EligibleRecipientContext(Customer customer, Invoice invoice) {}
