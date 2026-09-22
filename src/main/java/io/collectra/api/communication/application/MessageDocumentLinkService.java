@@ -106,7 +106,8 @@ public class MessageDocumentLinkService {
         }
 
         GeneratedDocument document =
-                documents.findByTenantIdAndGenerationJobIdAndFormat(
+                documents
+                        .findByTenantIdAndGenerationJobIdAndFormat(
                                 tenantId, generationJobId, OutputFormat.PDF)
                         .orElseThrow(
                                 () ->
@@ -163,7 +164,8 @@ public class MessageDocumentLinkService {
                         .orElseThrow(() -> new NoSuchElementException("Document link not found"));
 
         GeneratedDocument document =
-                documents.findByIdAndTenantId(link.getGeneratedDocumentId(), link.getTenantId())
+                documents
+                        .findByIdAndTenantId(link.getGeneratedDocumentId(), link.getTenantId())
                         .orElseThrow(() -> new NoSuchElementException("Document link not found"));
         if (document.getSizeBytes() > properties.getMaxDownloadBytes()) {
             throw new IllegalStateException("Generated document exceeds public download limit");
