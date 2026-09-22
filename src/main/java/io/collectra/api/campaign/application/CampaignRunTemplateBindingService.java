@@ -45,9 +45,7 @@ public class CampaignRunTemplateBindingService {
             throw new IllegalStateException(
                     "Template bindings already exist for READY run " + run.getId());
         }
-        if (!"EMAIL".equals(campaign.getChannel())) {
-            throw new IllegalStateException("Slice 5 supports EMAIL campaigns only");
-        }
+        TemplateChannel channel = campaignChannel(campaign);
 
         TemplateVersion anchor =
                 versions.findByIdAndTenantId(campaign.getTemplateVersionId(), tenantId)
@@ -55,8 +53,9 @@ public class CampaignRunTemplateBindingService {
                                 () ->
                                         new IllegalStateException(
                                                 "Campaign template version not found"));
-        if (anchor.getChannel() != TemplateChannel.EMAIL) {
-            throw new IllegalStateException("Campaign template version must use EMAIL channel");
+        if (anchor.getChannel() != channel) {
+            throw new IllegalStateException(
+                    "Campaign template version channel differs from campaign channel");
         }
         if (anchor.getStatus() != TemplateVersionStatus.PUBLISHED) {
             throw new IllegalStateException("Campaign template version must be PUBLISHED");
@@ -73,15 +72,12 @@ public class CampaignRunTemplateBindingService {
         for (String requestedLocale : requestedLocales) {
             ResolvedTemplateLocale resolved =
                     localeResolver.resolve(
-                            tenantId,
-                            anchor.getTemplateId(),
-                            TemplateChannel.EMAIL,
-                            requestedLocale);
+                            tenantId, anchor.getTemplateId(), channel, requestedLocale);
             TemplateVersion selected =
                     versions.findFirstByTemplateIdAndLocaleAndChannelAndStatusOrderByTemplateVersionDesc(
                                     anchor.getTemplateId(),
                                     resolved.resolvedLocale(),
-                                    TemplateChannel.EMAIL,
+                                    channel,
                                     TemplateVersionStatus.PUBLISHED)
                             .orElseThrow(
                                     () ->
@@ -106,6 +102,19 @@ public class CampaignRunTemplateBindingService {
                         Collectors.toUnmodifiableMap(
                                 CampaignRunTemplateBinding::getRequestedLocale,
                                 Function.identity()));
+    }
+
+    private static TemplateChannel campaignChannel(Campaign campaign) {
+        try {
+            TemplateChannel channel = TemplateChannel.valueOf(campaign.getChannel());
+            if (channel == TemplateChannel.PDF) {
+                throw new IllegalStateException("PDF is not a delivery campaign channel");
+            }
+            return channel;
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalStateException(
+                    "Unsupported campaign channel: " + campaign.getChannel(), ex);
+        }
     }
 
     private static String requireSnapshotLocale(String locale) {
