@@ -11,8 +11,8 @@ import io.collectra.api.campaign.infrastructure.CampaignRepository;
 import io.collectra.api.campaign.infrastructure.CampaignRunRepository;
 import io.collectra.api.customer.application.CustomerService;
 import io.collectra.api.customer.domain.Customer;
-import io.collectra.api.customer.domain.CustomerEmail;
 import io.collectra.api.customer.domain.CustomerSegmentMember;
+import io.collectra.api.communication.domain.CommunicationChannel;
 import io.collectra.api.localization.application.TenantLocaleService;
 import io.collectra.api.receivable.application.ReceivableService;
 import io.collectra.api.receivable.domain.Invoice;
@@ -44,6 +44,7 @@ public class CampaignService {
     private final CampaignRunRepository runs;
     private final CampaignRecipientRepository recipients;
     private final CustomerService customers;
+    private final RecipientDestinationResolver destinations;
     private final ReceivableService receivables;
     private final TemplateVersionRepository templates;
     private final TenantLocaleService tenantLocales;
@@ -55,6 +56,7 @@ public class CampaignService {
             CampaignRunRepository runs,
             CampaignRecipientRepository recipients,
             CustomerService customers,
+            RecipientDestinationResolver destinations,
             ReceivableService receivables,
             TemplateVersionRepository templates,
             TenantLocaleService tenantLocales,
@@ -64,6 +66,7 @@ public class CampaignService {
         this.runs = runs;
         this.recipients = recipients;
         this.customers = customers;
+        this.destinations = destinations;
         this.receivables = receivables;
         this.templates = templates;
         this.tenantLocales = tenantLocales;
@@ -91,9 +94,7 @@ public class CampaignService {
         if (!template.getChannel().name().equalsIgnoreCase(channel)) {
             throw new IllegalArgumentException("Campaign channel differs from template channel");
         }
-        if (template.getChannel() != TemplateChannel.EMAIL) {
-            throw new IllegalArgumentException("Only EMAIL campaign is supported in this slice");
-        }
+        communicationChannel(template.getChannel());
         JsonNode criteria = json.valueToTree(selection == null ? emptySelection() : selection);
         return campaigns.save(
                 new Campaign(
@@ -172,14 +173,14 @@ public class CampaignService {
 
         Set<UUID> customerIds =
                 pageCustomers.stream().map(Customer::getId).collect(Collectors.toSet());
-        Map<UUID, List<CustomerEmail>> emailsByCustomer =
-                customers.emailsByCustomerIds(tenantId, customerIds).stream()
-                        .collect(Collectors.groupingBy(CustomerEmail::getCustomerId));
+        CommunicationChannel channel = communicationChannel(campaign.getChannel());
+        Map<UUID, String> destinationByCustomer =
+                destinations.resolvePrimary(tenantId, channel, customerIds);
 
         String tenantDefaultLocale = null;
         int created = 0;
         for (Customer customer : pageCustomers) {
-            String destination = emailDestination(emailsByCustomer.get(customer.getId()));
+            String destination = destinationByCustomer.get(customer.getId());
             String locale = customer.getPreferredLocale();
             if (locale == null || locale.isBlank()) {
                 if (tenantDefaultLocale == null) {
@@ -247,9 +248,9 @@ public class CampaignService {
         Map<UUID, Customer> customerById =
                 customers.customersByIds(tenantId, customerIds).stream()
                         .collect(Collectors.toMap(Customer::getId, value -> value));
-        Map<UUID, List<CustomerEmail>> emailsByCustomer =
-                customers.emailsByCustomerIds(tenantId, customerIds).stream()
-                        .collect(Collectors.groupingBy(CustomerEmail::getCustomerId));
+        CommunicationChannel channel = communicationChannel(campaign.getChannel());
+        Map<UUID, String> destinationByCustomer =
+                destinations.resolvePrimary(tenantId, channel, customerIds);
         Map<UUID, Set<UUID>> segmentIdsByCustomer =
                 segmentIdsByCustomer(tenantId, selection, customerIds);
 
@@ -260,7 +261,7 @@ public class CampaignService {
             if (customer == null || !matchesCustomer(customer, selection, segmentIdsByCustomer)) {
                 continue;
             }
-            String destination = emailDestination(emailsByCustomer.get(customer.getId()));
+            String destination = destinationByCustomer.get(customer.getId());
             String locale = customer.getPreferredLocale();
             if (locale == null || locale.isBlank()) {
                 if (tenantDefaultLocale == null) {
@@ -332,18 +333,19 @@ public class CampaignService {
         return selection.segmentIds().stream().anyMatch(assigned::contains);
     }
 
-    private String emailDestination(List<CustomerEmail> emails) {
-        if (emails == null || emails.isEmpty()) {
-            return null;
+    private CommunicationChannel communicationChannel(String value) {
+        try {
+            return CommunicationChannel.valueOf(value);
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalArgumentException("Unsupported campaign channel: " + value, ex);
         }
-        List<CustomerEmail> active =
-                emails.stream().filter(value -> "ACTIVE".equals(value.getStatus())).toList();
-        return active.stream()
-                .filter(CustomerEmail::isPrimary)
-                .findFirst()
-                .or(() -> active.stream().findFirst())
-                .map(CustomerEmail::getEmail)
-                .orElse(null);
+    }
+
+    private CommunicationChannel communicationChannel(TemplateChannel value) {
+        if (value == TemplateChannel.PDF) {
+            throw new IllegalArgumentException("PDF is not a delivery campaign channel");
+        }
+        return communicationChannel(value.name());
     }
 
     private LocalDate dueDateFrom(CampaignSelection selection, LocalDate today) {
