@@ -5,6 +5,7 @@ import io.collectra.api.importing.application.SourceSchemaManagementService;
 import io.collectra.api.shared.tenant.TenantContext;
 import io.collectra.api.template.application.TemplateFrontendQueryService;
 import io.collectra.api.template.application.TemplateFrontendQueryService.PageResponse;
+import io.collectra.api.template.application.TemplateFrontendQueryService.TemplateDetail;
 import io.collectra.api.template.application.TemplateFrontendQueryService.TemplateItem;
 import io.collectra.api.template.application.TemplateFrontendQueryService.VersionItem;
 import io.collectra.api.template.application.TemplateManagementService;
@@ -78,6 +79,12 @@ public class TemplateManagementController {
     TemplateResponse create(@Valid @RequestBody TemplateRequest request) {
         return TemplateResponse.from(
                 service.create(tenant(), request.code(), request.name(), request.documentType()));
+    }
+
+    @GetMapping("/{id}")
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('TEMPLATE_READ')")
+    TemplateDetail detail(@PathVariable UUID id) {
+        return queries.template(tenant(), id);
     }
 
     @PutMapping("/{id}")
@@ -184,10 +191,25 @@ public class TemplateManagementController {
     record VersionContent(
             @Size(max = 300) String subject, @NotBlank String contentHtml, String stylesheet) {}
 
-    record TemplateResponse(UUID id, String code, String name, String documentType, String status) {
+    record TemplateResponse(
+            UUID id,
+            String code,
+            String name,
+            String documentType,
+            String status,
+            Instant createdAt,
+            Instant updatedAt,
+            long revision) {
         static TemplateResponse from(DocumentTemplate v) {
             return new TemplateResponse(
-                    v.getId(), v.getCode(), v.getName(), v.getDocumentType(), v.getStatus());
+                    v.getId(),
+                    v.getCode(),
+                    v.getName(),
+                    v.getDocumentType(),
+                    v.getStatus(),
+                    v.getCreatedAt(),
+                    v.getUpdatedAt(),
+                    v.getVersion());
         }
     }
 
@@ -195,23 +217,31 @@ public class TemplateManagementController {
             UUID id,
             UUID templateId,
             int version,
+            int templateVersion,
             String locale,
             TemplateChannel channel,
             String subject,
             String contentHtml,
             String stylesheet,
-            TemplateVersionStatus status) {
+            TemplateVersionStatus status,
+            Instant createdAt,
+            Instant updatedAt,
+            long revision) {
         static VersionResponse from(TemplateVersion v) {
             return new VersionResponse(
                     v.getId(),
                     v.getTemplateId(),
+                    v.getTemplateVersion(),
                     v.getTemplateVersion(),
                     v.getLocale(),
                     v.getChannel(),
                     v.getSubject(),
                     v.getContentHtml(),
                     v.getStylesheet(),
-                    v.getStatus());
+                    v.getStatus(),
+                    v.getCreatedAt(),
+                    v.getUpdatedAt(),
+                    v.getVersion());
         }
     }
 }
