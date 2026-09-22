@@ -4,11 +4,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.collectra.api.campaign.application.AudienceSelectionType;
+import io.collectra.api.campaign.application.CampaignMessageMaterializer;
 import io.collectra.api.campaign.application.CampaignSelection;
 import io.collectra.api.campaign.application.CampaignService;
 import io.collectra.api.campaign.domain.CampaignRecipientStatus;
 import io.collectra.api.customer.application.CustomerService;
+import io.collectra.api.communication.domain.MessageStatus;
+import io.collectra.api.communication.infrastructure.MessageRepository;
 import io.collectra.api.customer.domain.CustomerType;
+import io.collectra.api.localization.domain.TenantLocale;
+import io.collectra.api.localization.infrastructure.TenantLocaleRepository;
 import io.collectra.api.template.domain.DocumentTemplate;
 import io.collectra.api.template.domain.TemplateChannel;
 import io.collectra.api.template.domain.TemplateVersion;
@@ -20,15 +25,19 @@ import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.transaction.annotation.Transactional;
 
 class GenericCustomerCampaignAudienceIntegrationTest extends AbstractIntegrationTest {
 
     @Autowired TenantRepository tenants;
+    @Autowired TenantLocaleRepository tenantLocales;
     @Autowired DocumentTemplateRepository templates;
     @Autowired TemplateVersionRepository versions;
     @Autowired CustomerService customers;
     @Autowired CampaignService campaigns;
+    @Autowired CampaignMessageMaterializer materializer;
+    @Autowired MessageRepository messages;
     @Autowired ObjectMapper json;
 
     @Test
@@ -39,6 +48,8 @@ class GenericCustomerCampaignAudienceIntegrationTest extends AbstractIntegration
                         new Tenant(
                                 "generic-audience-" + UUID.randomUUID(),
                                 "Generic Audience Test"));
+
+        tenantLocales.saveAndFlush(new TenantLocale(tenant.getId(), "ru", true, true, 0));
 
         DocumentTemplate template =
                 templates.saveAndFlush(
@@ -142,6 +153,27 @@ class GenericCustomerCampaignAudienceIntegrationTest extends AbstractIntegration
                             assertThat(recipient.getLocale()).isEqualTo("ru");
                             assertThat(recipient.getStatus())
                                     .isEqualTo(CampaignRecipientStatus.SNAPSHOT);
+                        });
+
+        var materialized =
+                materializer.materializeNextBatch(tenant.getId(), prepared.runId(), 100);
+
+        assertThat(materialized.selected()).isEqualTo(1);
+        assertThat(materialized.queued()).isEqualTo(1);
+        assertThat(materialized.skipped()).isZero();
+        assertThat(
+                        messages.findAllByTenantIdAndCampaignRunId(
+                                        tenant.getId(), prepared.runId(), PageRequest.of(0, 10))
+                                .getContent())
+                .singleElement()
+                .satisfies(
+                        message -> {
+                            assertThat(message.getCustomerId()).isEqualTo(included.getId());
+                            assertThat(message.getInvoiceId()).isNull();
+                            assertThat(message.getStatus()).isEqualTo(MessageStatus.QUEUED);
+                            assertThat(message.getDestination()).isEqualTo("included@example.com");
+                            assertThat(message.getSubject()).isEqualTo("Notification");
+                            assertThat(message.getBody()).contains("Hello");
                         });
     }
 
