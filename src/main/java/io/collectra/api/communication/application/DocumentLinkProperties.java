@@ -11,13 +11,17 @@ public class DocumentLinkProperties {
     private URI publicBaseUrl = URI.create("http://localhost:8080");
     private Duration ttl = Duration.ofDays(7);
 
-    public URI getPublicBaseUrl() { return publicBaseUrl; }
+    public URI getPublicBaseUrl() {
+        return publicBaseUrl;
+    }
 
     public void setPublicBaseUrl(URI publicBaseUrl) {
         this.publicBaseUrl = java.util.Objects.requireNonNull(publicBaseUrl);
     }
 
-    public Duration getTtl() { return ttl; }
+    public Duration getTtl() {
+        return ttl;
+    }
 
     public void setTtl(Duration ttl) {
         if (ttl == null || ttl.isZero() || ttl.isNegative()) {
