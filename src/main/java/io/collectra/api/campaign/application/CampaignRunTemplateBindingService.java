@@ -72,10 +72,7 @@ public class CampaignRunTemplateBindingService {
         for (String requestedLocale : requestedLocales) {
             ResolvedTemplateLocale resolved =
                     localeResolver.resolve(
-                            tenantId,
-                            anchor.getTemplateId(),
-                            channel,
-                            requestedLocale);
+                            tenantId, anchor.getTemplateId(), channel, requestedLocale);
             TemplateVersion selected =
                     versions.findFirstByTemplateIdAndLocaleAndChannelAndStatusOrderByTemplateVersionDesc(
                                     anchor.getTemplateId(),
