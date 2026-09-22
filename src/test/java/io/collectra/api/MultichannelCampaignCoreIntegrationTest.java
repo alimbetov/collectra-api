@@ -151,8 +151,7 @@ class MultichannelCampaignCoreIntegrationTest extends AbstractIntegrationTest {
         assertThat(prepared.recipients()).isEqualTo(1);
 
         var materialized =
-                materializer.materializeNextBatch(
-                        fixture.tenant().getId(), prepared.runId(), 100);
+                materializer.materializeNextBatch(fixture.tenant().getId(), prepared.runId(), 100);
 
         assertThat(materialized.selected()).isEqualTo(1);
         assertThat(materialized.queued()).isEqualTo(1);
