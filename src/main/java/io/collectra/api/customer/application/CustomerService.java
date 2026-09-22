@@ -2,12 +2,14 @@ package io.collectra.api.customer.application;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import io.collectra.api.customer.domain.Customer;
+import io.collectra.api.customer.domain.CustomerChannelAddress;
 import io.collectra.api.customer.domain.CustomerEmail;
 import io.collectra.api.customer.domain.CustomerPhone;
 import io.collectra.api.customer.domain.CustomerSegment;
 import io.collectra.api.customer.domain.CustomerSegmentMember;
 import io.collectra.api.customer.domain.CustomerStatus;
 import io.collectra.api.customer.domain.CustomerType;
+import io.collectra.api.customer.infrastructure.CustomerChannelAddressRepository;
 import io.collectra.api.customer.infrastructure.CustomerEmailRepository;
 import io.collectra.api.customer.infrastructure.CustomerPhoneRepository;
 import io.collectra.api.customer.infrastructure.CustomerRepository;
@@ -32,6 +34,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class CustomerService {
     private final CustomerRepository customers;
+    private final CustomerChannelAddressRepository channelAddresses;
     private final CustomerEmailRepository emails;
     private final CustomerPhoneRepository phones;
     private final CustomerSegmentRepository segments;
@@ -40,12 +43,14 @@ public class CustomerService {
 
     public CustomerService(
             CustomerRepository customers,
+            CustomerChannelAddressRepository channelAddresses,
             CustomerEmailRepository emails,
             CustomerPhoneRepository phones,
             CustomerSegmentRepository segments,
             CustomerSegmentMemberRepository members,
             TenantMembershipRepository memberships) {
         this.customers = customers;
+        this.channelAddresses = channelAddresses;
         this.emails = emails;
         this.phones = phones;
         this.segments = segments;
@@ -311,6 +316,38 @@ public class CustomerService {
     public List<CustomerPhone> phones(UUID tenantId, UUID customerId) {
         get(tenantId, customerId);
         return phones.findAllByTenantIdAndCustomerId(tenantId, customerId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<CustomerPhone> phonesByCustomerIds(UUID tenantId, Collection<UUID> customerIds) {
+        if (customerIds == null || customerIds.isEmpty()) {
+            return List.of();
+        }
+        return phones.findAllByTenantIdAndCustomerIdIn(tenantId, customerIds);
+    }
+
+    @Transactional(readOnly = true)
+    public List<CustomerChannelAddress> channelAddressesByCustomerIds(
+            UUID tenantId, Collection<UUID> customerIds, String channel) {
+        if (customerIds == null || customerIds.isEmpty()) {
+            return List.of();
+        }
+        return channelAddresses.findAllByTenantIdAndCustomerIdInAndChannel(
+                tenantId, customerIds, channel);
+    }
+
+    @Transactional
+    public CustomerChannelAddress addChannelAddress(
+            UUID tenantId,
+            UUID customerId,
+            String channel,
+            String address,
+            boolean primary,
+            java.time.Instant verifiedAt) {
+        get(tenantId, customerId);
+        return channelAddresses.save(
+                new CustomerChannelAddress(
+                        tenantId, customerId, channel, address, primary, verifiedAt));
     }
 
     @Transactional
