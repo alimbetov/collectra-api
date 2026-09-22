@@ -44,7 +44,7 @@ class MultichannelCampaignCoreIntegrationTest extends AbstractIntegrationTest {
     @Test
     @Transactional
     void smsCampaignMaterializesPlainTextToNormalizedPhone() {
-        Fixture fixture = fixture(TemplateChannel.SMS, "Hello {{customer.firstName}}");
+        Fixture fixture = fixture(TemplateChannel.SMS, "Hello {{customer.name}}");
         customers.addPhone(
                 fixture.tenant().getId(),
                 fixture.customerId(),
@@ -57,14 +57,14 @@ class MultichannelCampaignCoreIntegrationTest extends AbstractIntegrationTest {
         assertThat(message.getChannel()).isEqualTo(CommunicationChannel.SMS);
         assertThat(message.getDestination()).isEqualTo("+77771234567");
         assertThat(message.getSubject()).isNull();
-        assertThat(message.getBody()).isEqualTo("Hello Test");
+        assertThat(message.getBody()).isEqualTo("Hello Test Customer");
         assertThat(message.getStatus()).isEqualTo(MessageStatus.QUEUED);
     }
 
     @Test
     @Transactional
     void whatsappCampaignUsesPhoneDestination() {
-        Fixture fixture = fixture(TemplateChannel.WHATSAPP, "WhatsApp {{customer.displayName}}");
+        Fixture fixture = fixture(TemplateChannel.WHATSAPP, "WhatsApp {{customer.name}}");
         customers.addPhone(
                 fixture.tenant().getId(), fixture.customerId(), "77001234567", "MOBILE", true);
 
@@ -79,7 +79,7 @@ class MultichannelCampaignCoreIntegrationTest extends AbstractIntegrationTest {
     @Test
     @Transactional
     void telegramCampaignUsesDurableChannelAddress() {
-        Fixture fixture = fixture(TemplateChannel.TELEGRAM, "Telegram {{customer.externalId}}");
+        Fixture fixture = fixture(TemplateChannel.TELEGRAM, "Telegram {{customer.name}}");
         customers.addChannelAddress(
                 fixture.tenant().getId(),
                 fixture.customerId(),
@@ -93,7 +93,7 @@ class MultichannelCampaignCoreIntegrationTest extends AbstractIntegrationTest {
         assertThat(message.getChannel()).isEqualTo(CommunicationChannel.TELEGRAM);
         assertThat(message.getDestination()).isEqualTo("123456789");
         assertThat(message.getSubject()).isNull();
-        assertThat(message.getBody()).startsWith("Telegram customer-");
+        assertThat(message.getBody()).isEqualTo("Telegram Test Customer");
     }
 
     @Test
