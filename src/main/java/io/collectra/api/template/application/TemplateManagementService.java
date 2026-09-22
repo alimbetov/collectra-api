@@ -197,7 +197,7 @@ public class TemplateManagementService {
 
         Set<String> available =
                 fields.findAvailable(tenantId).stream()
-                        .map(f -> f.getKey().toLowerCase(Locale.ROOT))
+                        .map(io.collectra.api.template.domain.FieldDefinition::getKey)
                         .collect(java.util.stream.Collectors.toSet());
         validateCompiled(tenantId, "contentHtml", body, available, errors);
         if (subject != null) validateCompiled(tenantId, "subject", subject, available, errors);
