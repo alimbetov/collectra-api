@@ -54,6 +54,10 @@ public class CampaignController {
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('CAMPAIGN_MANAGE')")
     CampaignResponse create(@Valid @RequestBody CreateCampaignRequest request) {
+        CampaignSelection selection =
+                request.selection() == null
+                        ? CampaignSelection.empty(request.audienceSelectionType())
+                        : request.selection().toApplication(request.audienceSelectionType());
         return CampaignResponse.from(
                 campaigns.create(
                         tenant(),
@@ -61,17 +65,7 @@ public class CampaignController {
                         request.templateVersionId(),
                         request.channel(),
                         request.scheduledAt(),
-                        request.selection() == null
-                                ? new CampaignSelection(
-                                        Set.of(),
-                                        Set.of(),
-                                        null,
-                                        null,
-                                        null,
-                                        null,
-                                        request.audienceSelectionType())
-                                : request.selection().toApplication(
-                                        request.audienceSelectionType()),
+                        selection,
                         null));
     }
 
