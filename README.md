@@ -18,6 +18,17 @@ mvn spring-boot:run -Dspring-boot.run.profiles=local
 
 Учётные данные в `compose.yaml` предназначены только для локальной разработки.
 
+## Локальный вход
+
+Tenant-пользователи входят через frontend `/login` в режиме `Tenant`: нужен slug рабочего
+пространства, email и пароль. Этот режим вызывает `POST /api/v1/auth/login/by-slug`.
+
+Платформенный супер-админ входит через тот же `/login`, но в режиме `Платформа`: slug tenant не
+используется, поле логина принимает `super-admin`, пароль по умолчанию `Alimbetov_Ruslan`.
+Frontend вызывает `POST /api/v1/platform/auth/login` и открывает `/platform`. Это отдельная
+tenantless-сессия с ролью `PLATFORM_SUPER_ADMIN`; она не предназначена для перехода в обычные
+tenant-разделы.
+
 ## Форматирование кода
 
 Проект содержит общий IntelliJ IDEA code style и `.editorconfig`. Для форматирования всего Java-кода:

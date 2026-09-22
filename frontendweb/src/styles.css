@@ -193,6 +193,31 @@ button:disabled {
   color: #6b7280;
 }
 
+.login-mode {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  margin: 0 0 20px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 4px;
+  background: #f9fafb;
+}
+
+.login-mode button {
+  min-height: 36px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #374151;
+  font-weight: 700;
+}
+
+.login-mode button.active {
+  background: #111827;
+  color: #fff;
+}
+
 .login-form {
   display: grid;
   gap: 16px;
@@ -235,6 +260,62 @@ button:disabled {
   color: #991b1b;
   padding: 10px 12px;
   font-size: 14px;
+}
+
+.platform-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: #f3f4f6;
+}
+
+.platform-panel {
+  width: min(100%, 620px);
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  background: #fff;
+  padding: 32px;
+  box-shadow: 0 12px 32px rgb(17 24 39 / 8%);
+}
+
+.platform-panel .brand {
+  padding: 0 0 24px;
+}
+
+.platform-panel h1 {
+  margin: 6px 0 10px;
+}
+
+.platform-description {
+  margin: 0 0 24px;
+  color: #4b5563;
+}
+
+.platform-facts {
+  display: grid;
+  gap: 12px;
+  margin: 0 0 24px;
+}
+
+.platform-facts div {
+  display: grid;
+  gap: 4px;
+  border-top: 1px solid #e5e7eb;
+  padding-top: 12px;
+}
+
+.platform-facts dt {
+  color: #6b7280;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.platform-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: #111827;
+  font-weight: 700;
 }
 
 .ui-button {

@@ -2,6 +2,17 @@
 
 Контроллеры проверяют атомарные permissions/scopes. Имя роли не используется в бизнес-методах.
 
+## Platform super admin
+
+При старте backend гарантирует наличие платформенной учётки `super-admin` с паролем
+`Alimbetov_Ruslan`, если bootstrap включён в конфигурации `collectra.security.platform-bootstrap`.
+Это не tenant-пользователь: у него нет tenant slug, membership и tenant permissions.
+
+На frontend нужно выбирать режим входа `Платформа`. Режим `Tenant` ожидает slug рабочего
+пространства и email и вызывает `/api/v1/auth/login/by-slug`, поэтому `super-admin` в этом режиме
+входить не должен. Platform-режим вызывает `/api/v1/platform/auth/login`, сохраняет отдельный тип
+сессии и открывает `/platform`.
+
 | Method | Endpoint | Subject | Required authority |
 |---|---|---|---|
 | POST | `/api/v1/auth/tenants/register` | Public | Rate limit |
@@ -9,6 +20,11 @@
 | POST | `/api/v1/auth/refresh` | Refresh session | Token rotation |
 | POST | `/api/v1/auth/logout` | Refresh session | Token possession |
 | POST | `/api/v1/auth/logout-all` | User | Authenticated |
+| POST | `/api/v1/platform/auth/login` | Public | Platform super admin credentials + rate limit |
+| POST | `/api/v1/platform/auth/refresh` | Platform refresh session | Token rotation |
+| POST | `/api/v1/platform/auth/logout` | Platform refresh session | Token possession |
+| POST | `/api/v1/platform/auth/logout-all` | Platform user | Authenticated |
+| GET | `/api/v1/platform/me` | Platform user | `ROLE_PLATFORM_SUPER_ADMIN` |
 | POST | `/api/v1/auth/otp/challenges` | User | Authenticated + policy |
 | POST | `/api/v1/auth/otp/challenges/{id}/verify` | Challenge holder | Public + rate limit |
 | GET | `/api/v1/identity/users` | User | `USER_READ` |

@@ -4,6 +4,7 @@ import {
   clearTokens,
   getAccessToken,
   getRefreshToken,
+  getSessionKind,
   setTokens,
   type AuthTokens,
 } from '../auth/token-storage';
@@ -103,7 +104,11 @@ let refreshPromise: Promise<boolean> | null = null;
 
 async function performRefresh(refreshToken: string): Promise<boolean> {
   try {
-    const response = await fetch('/api/v1/auth/refresh', {
+    const path =
+      getSessionKind() === 'platform'
+        ? '/api/v1/platform/auth/refresh'
+        : '/api/v1/auth/refresh';
+    const response = await fetch(path, {
       method: 'POST',
       headers: {
         Accept: 'application/json',
@@ -121,7 +126,7 @@ async function performRefresh(refreshToken: string): Promise<boolean> {
       return invalidateSession();
     }
 
-    setTokens(tokens);
+    setTokens(tokens, getSessionKind());
     return true;
   } catch {
     return invalidateSession();

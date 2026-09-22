@@ -3,8 +3,8 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../model/auth-context';
 import { useI18n } from '../../../shared/i18n/i18n-context';
 
-export function RequireAuth({ children }: PropsWithChildren) {
-  const { sessionKind, status } = useAuth();
+export function RequirePlatformAuth({ children }: PropsWithChildren) {
+  const { hasRole, status } = useAuth();
   const location = useLocation();
   const { t } = useI18n();
 
@@ -21,9 +21,5 @@ export function RequireAuth({ children }: PropsWithChildren) {
     return <Navigate to="/login" replace state={{ from }} />;
   }
 
-  if (sessionKind === 'platform') {
-    return <Navigate to="/platform" replace />;
-  }
-
-  return children;
+  return hasRole('PLATFORM_SUPER_ADMIN') ? children : <Navigate to="/forbidden" replace />;
 }

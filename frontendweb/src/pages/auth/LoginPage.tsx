@@ -11,14 +11,20 @@ interface LoginLocationState {
 
 function safePostLoginPath(state: LoginLocationState | null): string {
   const candidate = state?.from;
-  return candidate && candidate.startsWith('/') && !candidate.startsWith('//') ? candidate : '/';
+  return candidate &&
+    candidate.startsWith('/') &&
+    !candidate.startsWith('//') &&
+    !candidate.startsWith('/platform')
+    ? candidate
+    : '/';
 }
 
 export function LoginPage() {
-  const { login, status } = useAuth();
+  const { login, loginPlatform, sessionKind, status } = useAuth();
   const { t } = useI18n();
   const navigate = useNavigate();
   const location = useLocation();
+  const [mode, setMode] = useState<'tenant' | 'platform'>('tenant');
   const [tenantSlug, setTenantSlug] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -26,7 +32,7 @@ export function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
 
   if (status === 'authenticated') {
-    return <Navigate to="/" replace />;
+    return <Navigate to={sessionKind === 'platform' ? '/platform' : '/'} replace />;
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -35,9 +41,13 @@ export function LoginPage() {
     setSubmitting(true);
 
     try {
-      await login({ tenantSlug: tenantSlug.trim().toLowerCase(), email: email.trim(), password });
+      if (mode === 'platform') {
+        await loginPlatform({ email: email.trim(), password });
+      } else {
+        await login({ tenantSlug: tenantSlug.trim().toLowerCase(), email: email.trim(), password });
+      }
       const state = location.state as LoginLocationState | null;
-      navigate(safePostLoginPath(state), { replace: true });
+      navigate(mode === 'platform' ? '/platform' : safePostLoginPath(state), { replace: true });
     } catch (error) {
       if (error instanceof ApiError) {
         const problem = toProblemViewModel(error);
@@ -54,27 +64,48 @@ export function LoginPage() {
     <main className="login-page">
       <section className="login-card" aria-labelledby="login-title">
         <div className="brand">Collectra</div>
-        <p className="eyebrow">{t('auth.workspace')}</p>
+        <p className="eyebrow">{mode === 'platform' ? t('auth.platform') : t('auth.workspace')}</p>
         <h1 id="login-title">{t('auth.signIn')}</h1>
-        <p className="login-help">{t('auth.help')}</p>
+        <p className="login-help">{mode === 'platform' ? t('auth.platformHelp') : t('auth.help')}</p>
+
+        <div className="login-mode" role="tablist" aria-label={t('auth.mode')}>
+          <button
+            type="button"
+            className={mode === 'tenant' ? 'active' : undefined}
+            aria-selected={mode === 'tenant'}
+            onClick={() => setMode('tenant')}
+          >
+            {t('auth.modeTenant')}
+          </button>
+          <button
+            type="button"
+            className={mode === 'platform' ? 'active' : undefined}
+            aria-selected={mode === 'platform'}
+            onClick={() => setMode('platform')}
+          >
+            {t('auth.modePlatform')}
+          </button>
+        </div>
 
         <form className="login-form" onSubmit={handleSubmit}>
-          <label>
-            {t('auth.tenantSlug')}
-            <input
-              name="tenantSlug"
-              autoComplete="organization"
-              value={tenantSlug}
-              onChange={(event) => setTenantSlug(event.target.value.toLowerCase())}
-              required
-              pattern="[a-z0-9-]{3,80}"
-            />
-          </label>
+          {mode === 'tenant' ? (
+            <label>
+              {t('auth.tenantSlug')}
+              <input
+                name="tenantSlug"
+                autoComplete="organization"
+                value={tenantSlug}
+                onChange={(event) => setTenantSlug(event.target.value.toLowerCase())}
+                required
+                pattern="[a-z0-9-]{3,80}"
+              />
+            </label>
+          ) : null}
 
           <label>
-            {t('auth.email')}
+            {mode === 'platform' ? t('auth.platformLogin') : t('auth.email')}
             <input
-              type="email"
+              type={mode === 'platform' ? 'text' : 'email'}
               name="email"
               autoComplete="username"
               value={email}

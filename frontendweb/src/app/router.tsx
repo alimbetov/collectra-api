@@ -1,8 +1,10 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { App } from './App';
 import { RequireAuth } from '../features/auth/ui/RequireAuth';
+import { RequirePlatformAuth } from '../features/auth/ui/RequirePlatformAuth';
 import { RequirePermission } from '../features/auth/ui/RequirePermission';
 import { LoginPage } from '../pages/auth/LoginPage';
+import { PlatformPage } from '../pages/platform/PlatformPage';
 import { ForbiddenPage } from '../pages/system/ForbiddenPage';
 import { NotFoundPage } from '../pages/system/NotFoundPage';
 import { useI18n } from '../shared/i18n/i18n-context';
@@ -31,6 +33,15 @@ export const router = createBrowserRouter([
     path: '/login',
     element: <LoginPage />,
     errorElement: <RouteErrorPage />,
+  },
+  {
+    path: '/platform',
+    errorElement: <RouteErrorPage />,
+    element: (
+      <RequirePlatformAuth>
+        <PlatformPage />
+      </RequirePlatformAuth>
+    ),
   },
   {
     path: '/',

@@ -9,6 +9,7 @@ export function App() {
   const visibleNavigation = navigation.filter((item) =>
     canAccessNavigationItem(item, hasPermission),
   );
+  const currentUserName = user?.kind === 'tenant' ? user.displayName || user.email : user?.email;
 
   return (
     <div className="app-shell">
@@ -35,7 +36,7 @@ export function App() {
           </div>
           <div className="session-summary" aria-label={t('shell.currentUser')}>
             <div>
-              <strong>{user?.displayName || user?.email}</strong>
+              <strong>{currentUserName}</strong>
               <span>{user?.email}</span>
             </div>
             <button type="button" className="secondary-button" onClick={() => void logout()}>
