@@ -129,6 +129,12 @@ public class CampaignMessageMaterializer {
                     "A snapshotted template version is missing or outside tenant");
         }
 
+        CommunicationChannel channel = campaignChannel(campaign);
+        if (campaign.isGeneratedPdfAttachment() && channel != CommunicationChannel.EMAIL) {
+            throw new IllegalStateException(
+                    "Generated PDF attachment is supported for EMAIL campaigns only");
+        }
+
         Map<UUID, CompiledTemplate> compiledBodies = new HashMap<>();
         Map<UUID, CompiledTemplate> compiledSubjects = new HashMap<>();
         int queued = 0;
@@ -155,14 +161,8 @@ public class CampaignMessageMaterializer {
             }
 
             JsonNode payload = payloadFactory.create(context.customer(), context.invoice());
-            CompiledTemplate subjectTemplate =
-                    compiledSubjects.computeIfAbsent(
-                            version.getId(), id -> compiler.compileText(id, version.getSubject()));
-            CompiledTemplate bodyTemplate =
-                    compiledBodies.computeIfAbsent(
-                            version.getId(), id -> compiler.compile(version));
-            String subject = renderer.renderText(subjectTemplate, payload);
-            String body = renderer.render(bodyTemplate, payload).html();
+            String subject = renderSubject(channel, version, payload, compiledSubjects);
+            String body = renderBody(channel, version, payload, compiledBodies);
 
             Message message =
                     messages.save(
@@ -174,7 +174,7 @@ public class CampaignMessageMaterializer {
                                     recipient.getCustomerId(),
                                     recipient.getInvoiceId(),
                                     version.getId(),
-                                    CommunicationChannel.EMAIL,
+                                    channel,
                                     recipient.getDestination(),
                                     binding.getResolvedLocale(),
                                     subject,
@@ -209,6 +209,46 @@ public class CampaignMessageMaterializer {
                 !recipients.findMaterializationCandidates(tenantId, campaignRunId, 1).isEmpty();
         run.completeIfTerminal(clock.instant());
         return new MaterializationBatchResult(batch.size(), queued, evaluated.skipped(), hasNext);
+    }
+
+    private String renderSubject(
+            CommunicationChannel channel,
+            TemplateVersion version,
+            JsonNode payload,
+            Map<UUID, CompiledTemplate> compiledSubjects) {
+        if (channel != CommunicationChannel.EMAIL) {
+            return null;
+        }
+        CompiledTemplate subjectTemplate =
+                compiledSubjects.computeIfAbsent(
+                        version.getId(), id -> compiler.compileText(id, version.getSubject()));
+        return renderer.renderText(subjectTemplate, payload);
+    }
+
+    private String renderBody(
+            CommunicationChannel channel,
+            TemplateVersion version,
+            JsonNode payload,
+            Map<UUID, CompiledTemplate> compiledBodies) {
+        CompiledTemplate bodyTemplate =
+                compiledBodies.computeIfAbsent(
+                        version.getId(),
+                        id ->
+                                channel == CommunicationChannel.EMAIL
+                                        ? compiler.compile(version)
+                                        : compiler.compileText(id, version.getContentHtml()));
+        return channel == CommunicationChannel.EMAIL
+                ? renderer.render(bodyTemplate, payload).html()
+                : renderer.renderText(bodyTemplate, payload);
+    }
+
+    private static CommunicationChannel campaignChannel(Campaign campaign) {
+        try {
+            return CommunicationChannel.valueOf(campaign.getChannel());
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalStateException(
+                    "Unsupported campaign channel: " + campaign.getChannel(), ex);
+        }
     }
 
     private static String attachmentFilename(Message message) {
