@@ -716,7 +716,7 @@
           "content" : {
             "application/json" : {
               "schema" : {
-                "$ref" : "#/components/schemas/UpdateRequest"
+                "$ref" : "#/components/schemas/ContractUpdateRequest"
               }
             }
           },
@@ -3918,7 +3918,7 @@
           "content" : {
             "application/json" : {
               "schema" : {
-                "$ref" : "#/components/schemas/VersionRequest"
+                "$ref" : "#/components/schemas/ContractVersionRequest"
               }
             }
           },
@@ -3955,7 +3955,7 @@
           "content" : {
             "application/json" : {
               "schema" : {
-                "$ref" : "#/components/schemas/VersionRequest"
+                "$ref" : "#/components/schemas/ContractVersionRequest"
               }
             }
           },
@@ -3992,7 +3992,7 @@
           "content" : {
             "application/json" : {
               "schema" : {
-                "$ref" : "#/components/schemas/VersionRequest"
+                "$ref" : "#/components/schemas/ContractVersionRequest"
               }
             }
           },
@@ -4029,7 +4029,7 @@
           "content" : {
             "application/json" : {
               "schema" : {
-                "$ref" : "#/components/schemas/VersionRequest"
+                "$ref" : "#/components/schemas/ContractVersionRequest"
               }
             }
           },
@@ -6091,6 +6091,64 @@
         }
       }
     },
+    "/api/v1/identity/user-options" : {
+      "get" : {
+        "tags" : [ "tenant-membership-controller" ],
+        "operationId" : "userOptions",
+        "parameters" : [ {
+          "name" : "search",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "maxLength" : 200,
+            "minLength" : 0
+          }
+        }, {
+          "name" : "status",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "default" : "ACTIVE",
+            "pattern" : "ACTIVE|BLOCKED"
+          }
+        }, {
+          "name" : "page",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0,
+            "minimum" : 0
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 20,
+            "maximum" : 50,
+            "minimum" : 1
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/UserOptionPage"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/identity/permissions" : {
       "get" : {
         "tags" : [ "tenant-permission-controller" ],
@@ -7422,45 +7480,6 @@
         },
         "required" : [ "displayName", "version" ]
       },
-      "CustomerStatusRequest" : {
-        "type" : "object",
-        "properties" : {
-          "status" : {
-            "type" : "string",
-            "enum" : [ "ACTIVE", "INACTIVE", "BLOCKED", "ARCHIVED" ]
-          },
-          "version" : {
-            "type" : "integer",
-            "format" : "int64",
-            "minimum" : 0
-          }
-        },
-        "required" : [ "status", "version" ]
-      },
-      "CustomerSegmentUpdateRequest" : {
-        "type" : "object",
-        "properties" : {
-          "name" : {
-            "type" : "string",
-            "maxLength" : 200,
-            "minLength" : 0
-          },
-          "description" : {
-            "type" : "string",
-            "maxLength" : 1000,
-            "minLength" : 0
-          },
-          "active" : {
-            "type" : "boolean"
-          },
-          "version" : {
-            "type" : "integer",
-            "format" : "int64",
-            "minimum" : 0
-          }
-        },
-        "required" : [ "version" ]
-      },
       "CustomerResponse" : {
         "type" : "object",
         "properties" : {
@@ -7498,6 +7517,9 @@
             "type" : "string",
             "format" : "uuid"
           },
+          "managerDisplayName" : {
+            "type" : "string"
+          },
           "preferredLocale" : {
             "type" : "string"
           },
@@ -7514,6 +7536,12 @@
               "format" : "uuid"
             }
           },
+          "segments" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SegmentSummary"
+            }
+          },
           "createdAt" : {
             "type" : "string",
             "format" : "date-time"
@@ -7528,7 +7556,25 @@
           }
         }
       },
-      "UpdateRequest" : {
+      "SegmentSummary" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "code" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "active" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "ContractUpdateRequest" : {
         "type" : "object",
         "properties" : {
           "version" : {
@@ -7557,7 +7603,7 @@
             "$ref" : "#/components/schemas/JsonNode"
           }
         },
-        "required" : [ "contractNumber", "validFrom" ]
+        "required" : [ "contractNumber", "validFrom", "version" ]
       },
       "ContractResponse" : {
         "type" : "object",
@@ -7569,6 +7615,12 @@
           "customerId" : {
             "type" : "string",
             "format" : "uuid"
+          },
+          "customerExternalId" : {
+            "type" : "string"
+          },
+          "customerDisplayName" : {
+            "type" : "string"
           },
           "externalId" : {
             "type" : "string"
@@ -8937,6 +8989,17 @@
           }
         }
       },
+      "ContractVersionRequest" : {
+        "type" : "object",
+        "properties" : {
+          "version" : {
+            "type" : "integer",
+            "format" : "int64",
+            "minimum" : 0
+          }
+        },
+        "required" : [ "version" ]
+      },
       "CaseCreateRequest" : {
         "type" : "object",
         "properties" : {
@@ -9515,6 +9578,27 @@
           }
         }
       },
+      "UpdateRequest" : {
+        "type" : "object",
+        "properties" : {
+          "displayName" : {
+            "type" : "string",
+            "maxLength" : 200,
+            "minLength" : 0
+          },
+          "locale" : {
+            "type" : "string",
+            "maxLength" : 10,
+            "minLength" : 0
+          },
+          "timezone" : {
+            "type" : "string",
+            "maxLength" : 60,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "displayName" ]
+      },
       "MeResponse" : {
         "type" : "object",
         "properties" : {
@@ -9555,6 +9639,21 @@
           }
         }
       },
+      "CustomerStatusRequest" : {
+        "type" : "object",
+        "properties" : {
+          "status" : {
+            "type" : "string",
+            "enum" : [ "ACTIVE", "INACTIVE", "BLOCKED", "ARCHIVED" ]
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64",
+            "minimum" : 0
+          }
+        },
+        "required" : [ "status", "version" ]
+      },
       "ContactPatchRequest" : {
         "type" : "object",
         "properties" : {
@@ -9569,6 +9668,30 @@
           "status" : {
             "type" : "string",
             "pattern" : "(?i)ACTIVE|INACTIVE"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64",
+            "minimum" : 0
+          }
+        },
+        "required" : [ "version" ]
+      },
+      "CustomerSegmentUpdateRequest" : {
+        "type" : "object",
+        "properties" : {
+          "name" : {
+            "type" : "string",
+            "maxLength" : 200,
+            "minLength" : 0
+          },
+          "description" : {
+            "type" : "string",
+            "maxLength" : 1000,
+            "minLength" : 0
+          },
+          "active" : {
+            "type" : "boolean"
           },
           "version" : {
             "type" : "integer",
@@ -10208,6 +10331,57 @@
           }
         }
       },
+      "UserOption" : {
+        "type" : "object",
+        "properties" : {
+          "userId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "email" : {
+            "type" : "string"
+          },
+          "displayName" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          }
+        }
+      },
+      "UserOptionPage" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/UserOption"
+            }
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "totalElements" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "totalPages" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "hasNext" : {
+            "type" : "boolean"
+          }
+        }
+      },
       "PermissionResponse" : {
         "type" : "object",
         "properties" : {
@@ -10656,21 +10830,6 @@
           }
         }
       },
-      "SegmentSummary" : {
-        "type" : "object",
-        "properties" : {
-          "id" : {
-            "type" : "string",
-            "format" : "uuid"
-          },
-          "code" : {
-            "type" : "string"
-          },
-          "name" : {
-            "type" : "string"
-          }
-        }
-      },
       "SegmentItem" : {
         "type" : "object",
         "properties" : {
@@ -10744,6 +10903,12 @@
           "customerId" : {
             "type" : "string",
             "format" : "uuid"
+          },
+          "customerExternalId" : {
+            "type" : "string"
+          },
+          "customerDisplayName" : {
+            "type" : "string"
           },
           "externalId" : {
             "type" : "string"
