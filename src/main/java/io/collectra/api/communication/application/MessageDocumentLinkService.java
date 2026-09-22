@@ -22,6 +22,7 @@ import java.time.Instant;
 import java.util.Base64;
 import java.util.NoSuchElementException;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,6 +30,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class MessageDocumentLinkService {
     public static final String DOCUMENT_LINK_GENERATION_FAILED = "DOCUMENT_LINK_GENERATION_FAILED";
+    private static final int TOKEN_BYTES = 32;
+    private static final Pattern TOKEN_PATTERN = Pattern.compile("[A-Za-z0-9_-]{43}");
 
     private final MessageDocumentLinkRepository links;
     private final MessageRepository messages;
@@ -60,7 +63,7 @@ public class MessageDocumentLinkService {
     }
 
     public PreparedLink prepare() {
-        byte[] bytes = new byte[32];
+        byte[] bytes = new byte[TOKEN_BYTES];
         random.nextBytes(bytes);
         String token = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
         Instant expiresAt = clock.instant().plus(properties.getTtl());
@@ -152,8 +155,9 @@ public class MessageDocumentLinkService {
 
     @Transactional(readOnly = true)
     public PublicDocument open(String token) {
+        String normalizedToken = requireToken(token);
         MessageDocumentLink link =
-                links.findByTokenHash(sha256(token))
+                links.findByTokenHash(sha256(normalizedToken))
                         .filter(value -> value.getStatus() == MessageDocumentLinkStatus.READY)
                         .filter(value -> value.getExpiresAt().isAfter(clock.instant()))
                         .orElseThrow(() -> new NoSuchElementException("Document link not found"));
@@ -161,12 +165,26 @@ public class MessageDocumentLinkService {
         GeneratedDocument document =
                 documents.findByIdAndTenantId(link.getGeneratedDocumentId(), link.getTenantId())
                         .orElseThrow(() -> new NoSuchElementException("Document link not found"));
-        return new PublicDocument(document.getMediaType(), outputs.read(document));
+        if (document.getSizeBytes() > properties.getMaxDownloadBytes()) {
+            throw new IllegalStateException("Generated document exceeds public download limit");
+        }
+        byte[] content = outputs.read(document);
+        if (content.length > properties.getMaxDownloadBytes()) {
+            throw new IllegalStateException("Generated document exceeds public download limit");
+        }
+        return new PublicDocument(document.getMediaType(), content);
     }
 
     private Message lockedMessage(UUID tenantId, UUID messageId) {
         return messages.findLockedByIdAndTenantId(tenantId, messageId)
                 .orElseThrow(() -> new NoSuchElementException("Message not found"));
+    }
+
+    private String requireToken(String token) {
+        if (token == null || !TOKEN_PATTERN.matcher(token).matches()) {
+            throw new NoSuchElementException("Document link not found");
+        }
+        return token;
     }
 
     private String sha256(String value) {
