@@ -53,12 +53,6 @@ public record CampaignSelection(
 
     public static CampaignSelection customer(Set<UUID> customerIds, Set<UUID> segmentIds) {
         return new CampaignSelection(
-                customerIds,
-                segmentIds,
-                null,
-                null,
-                null,
-                null,
-                AudienceSelectionType.CUSTOMER);
+                customerIds, segmentIds, null, null, null, null, AudienceSelectionType.CUSTOMER);
     }
 }
