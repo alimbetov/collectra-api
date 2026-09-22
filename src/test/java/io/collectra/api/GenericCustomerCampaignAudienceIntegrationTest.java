@@ -46,8 +46,7 @@ class GenericCustomerCampaignAudienceIntegrationTest extends AbstractIntegration
         Tenant tenant =
                 tenants.saveAndFlush(
                         new Tenant(
-                                "generic-audience-" + UUID.randomUUID(),
-                                "Generic Audience Test"));
+                                "generic-audience-" + UUID.randomUUID(), "Generic Audience Test"));
 
         tenantLocales.saveAndFlush(new TenantLocale(tenant.getId(), "ru", true, true, 0));
 
@@ -85,12 +84,7 @@ class GenericCustomerCampaignAudienceIntegrationTest extends AbstractIntegration
                         "ru",
                         "Asia/Almaty",
                         json.createObjectNode());
-        customers.addEmail(
-                tenant.getId(),
-                included.getId(),
-                "included@example.com",
-                "WORK",
-                true);
+        customers.addEmail(tenant.getId(), included.getId(), "included@example.com", "WORK", true);
 
         var outsideSegment =
                 customers.create(
@@ -107,11 +101,7 @@ class GenericCustomerCampaignAudienceIntegrationTest extends AbstractIntegration
                         "Asia/Almaty",
                         json.createObjectNode());
         customers.addEmail(
-                tenant.getId(),
-                outsideSegment.getId(),
-                "outside@example.com",
-                "WORK",
-                true);
+                tenant.getId(), outsideSegment.getId(), "outside@example.com", "WORK", true);
 
         var segment =
                 customers.createSegment(
