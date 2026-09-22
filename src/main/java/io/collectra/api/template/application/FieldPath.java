@@ -1,6 +1,7 @@
 package io.collectra.api.template.application;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 
 public record FieldPath(List<String> segments) {
@@ -16,7 +17,7 @@ public record FieldPath(List<String> segments) {
     }
 
     public String canonical() {
-        return String.join(".", segments);
+        return String.join(".", segments).toLowerCase(Locale.ROOT);
     }
 
     public String jsonPointer() {

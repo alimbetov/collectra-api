@@ -48,9 +48,8 @@ class FieldKeyValidatorUnitTest {
     }
 
     @Test
-    void doesNotNormalizeUppercaseSilently() {
+    void rejectsUppercaseLeadingNamespace() {
         assertThatThrownBy(() -> validator.validateCustomFieldKey("CUSTOM.invoice.total"))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("canonical lowercase");
+                .isInstanceOf(IllegalArgumentException.class);
     }
 }

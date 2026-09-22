@@ -97,6 +97,34 @@ public class TemplateFrontendQueryService {
     }
 
     @Transactional(readOnly = true)
+    public TemplateDetail template(UUID tenantId, UUID templateId) {
+        var values =
+                jdbc.query(
+                        """
+                        SELECT dt.id, dt.code, dt.name, dt.document_type, dt.status,
+                               dt.created_at, dt.updated_at, dt.version
+                        FROM document_templates dt
+                        WHERE dt.tenant_id = :tenantId
+                          AND dt.id = :templateId
+                        """,
+                        Map.of("tenantId", tenantId, "templateId", templateId),
+                        (rs, rowNum) ->
+                                new TemplateDetail(
+                                        rs.getObject("id", UUID.class),
+                                        rs.getString("code"),
+                                        rs.getString("name"),
+                                        rs.getString("document_type"),
+                                        rs.getString("status"),
+                                        instant(rs, "created_at"),
+                                        instant(rs, "updated_at"),
+                                        rs.getLong("version")));
+        if (values.isEmpty()) {
+            throw new NoSuchElementException("Template not found");
+        }
+        return values.get(0);
+    }
+
+    @Transactional(readOnly = true)
     public PageResponse<VersionItem> versions(
             UUID tenantId,
             UUID templateId,
@@ -248,6 +276,16 @@ public class TemplateFrontendQueryService {
             Instant createdAt,
             Instant updatedAt,
             long version) {}
+
+    public record TemplateDetail(
+            UUID id,
+            String code,
+            String name,
+            String documentType,
+            String status,
+            Instant createdAt,
+            Instant updatedAt,
+            long revision) {}
 
     public record VersionItem(
             UUID id,

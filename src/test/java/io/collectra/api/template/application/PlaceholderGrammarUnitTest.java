@@ -12,6 +12,8 @@ class PlaceholderGrammarUnitTest {
     @ValueSource(
             strings = {
                 "customer.name",
+                "customer.displayName",
+                "invoice.invoiceNumber",
                 "document.number",
                 "custom.erp.code",
                 "custom.invoice.manager_name",
@@ -20,7 +22,7 @@ class PlaceholderGrammarUnitTest {
     void acceptsCanonicalNestedPaths(String key) {
         FieldPath path = PlaceholderGrammar.parse("  " + key + "  ");
 
-        assertThat(path.canonical()).isEqualTo(key);
+        assertThat(path.canonical()).isEqualTo(key.toLowerCase(java.util.Locale.ROOT));
         assertThat(path.jsonPointer()).isEqualTo("/" + key.replace('.', '/'));
     }
 
@@ -29,6 +31,7 @@ class PlaceholderGrammarUnitTest {
             strings = {
                 "customer",
                 "Customer.Name",
+                "customer.DisplayName",
                 "customer..name",
                 ".customer.name",
                 "customer.name.",
