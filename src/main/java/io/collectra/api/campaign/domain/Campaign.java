@@ -49,6 +49,12 @@ public class Campaign extends AuditableEntity {
     @Column(name = "generated_pdf_attachment_required", nullable = false)
     private boolean generatedPdfAttachmentRequired;
 
+    @Column(name = "document_template_version_id")
+    private UUID documentTemplateVersionId;
+
+    @Column(name = "generated_pdf_link", nullable = false)
+    private boolean generatedPdfLink;
+
     @Column(name = "created_by")
     private UUID createdBy;
 
@@ -107,6 +113,19 @@ public class Campaign extends AuditableEntity {
         generatedPdfAttachmentRequired = enabled && required;
     }
 
+    public void configureGeneratedPdfLink(UUID documentTemplateVersionId, boolean enabled) {
+        if (status != CampaignStatus.DRAFT) {
+            throw new IllegalStateException(
+                    "Generated PDF link can only be configured for draft campaign");
+        }
+        if (enabled && documentTemplateVersionId == null) {
+            throw new IllegalArgumentException(
+                    "documentTemplateVersionId is required for generated PDF link");
+        }
+        this.documentTemplateVersionId = enabled ? documentTemplateVersionId : null;
+        this.generatedPdfLink = enabled;
+    }
+
     public void activate() {
         if (status != CampaignStatus.DRAFT) {
             throw new IllegalStateException("Only draft campaign can be activated");
@@ -156,6 +175,14 @@ public class Campaign extends AuditableEntity {
 
     public boolean isGeneratedPdfAttachmentRequired() {
         return generatedPdfAttachmentRequired;
+    }
+
+    public UUID getDocumentTemplateVersionId() {
+        return documentTemplateVersionId;
+    }
+
+    public boolean isGeneratedPdfLink() {
+        return generatedPdfLink;
     }
 
     public UUID getCreatedBy() {
