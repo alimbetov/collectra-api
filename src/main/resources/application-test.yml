@@ -23,4 +23,5 @@ collectra.file.storage.region: us-east-1
 collectra.file.storage.path-style-access: true
 collectra.file.cleanup.enabled: false
 collectra.messaging.outbox-enabled: false
+collectra.communication.dead-letter-monitor.enabled: false
 management.health.rabbit.enabled: false

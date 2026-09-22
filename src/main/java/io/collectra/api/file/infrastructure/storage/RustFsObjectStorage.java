@@ -3,12 +3,18 @@ package io.collectra.api.file.infrastructure.storage;
 import java.io.InputStream;
 import java.net.URI;
 import java.time.Duration;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.BucketAlreadyExistsException;
+import software.amazon.awssdk.services.s3.model.BucketAlreadyOwnedByYouException;
+import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
+import software.amazon.awssdk.services.s3.model.HeadBucketRequest;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
@@ -20,6 +26,7 @@ import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignReques
 public class RustFsObjectStorage implements ObjectStorage {
     private final S3Client client;
     private final S3Presigner presigner;
+    private final Set<String> readyBuckets = ConcurrentHashMap.newKeySet();
 
     public RustFsObjectStorage(S3Client client, S3Presigner presigner) {
         this.client = client;
@@ -29,6 +36,7 @@ public class RustFsObjectStorage implements ObjectStorage {
     @Override
     public StoredObject upload(UploadObject command) {
         try {
+            ensureBucket(command.location().bucket());
             var requestBuilder = PutObjectRequest.builder()
                     .bucket(command.location().bucket())
                     .key(command.location().objectKey())
@@ -141,5 +149,24 @@ public class RustFsObjectStorage implements ObjectStorage {
         } catch (Exception ex) {
             throw new FileStorageException("Cannot generate presigned upload URL", ex);
         }
+    }
+
+    private void ensureBucket(String bucket) {
+        if (readyBuckets.contains(bucket)) {
+            return;
+        }
+        try {
+            client.headBucket(HeadBucketRequest.builder().bucket(bucket).build());
+        } catch (S3Exception ex) {
+            if (ex.statusCode() != 404) {
+                throw ex;
+            }
+            try {
+                client.createBucket(CreateBucketRequest.builder().bucket(bucket).build());
+            } catch (BucketAlreadyExistsException | BucketAlreadyOwnedByYouException ignored) {
+                // Another app instance created it after the head check.
+            }
+        }
+        readyBuckets.add(bucket);
     }
 }

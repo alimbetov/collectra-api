@@ -129,8 +129,8 @@ public class ApiExceptionHandler {
                 "VERSION_CONFLICT");
     }
 
-    @ExceptionHandler(IllegalArgumentException.class)
-    ProblemDetail conflict(IllegalArgumentException ex, HttpServletRequest request) {
+    @ExceptionHandler({IllegalArgumentException.class, IllegalStateException.class})
+    ProblemDetail conflict(RuntimeException ex, HttpServletRequest request) {
         return withCode(base(HttpStatus.CONFLICT, ex.getMessage(), request), "CONFLICT");
     }
 

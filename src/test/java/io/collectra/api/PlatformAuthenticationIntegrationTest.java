@@ -19,8 +19,8 @@ import org.springframework.test.web.servlet.MockMvc;
 @AutoConfigureMockMvc
 @SpringBootTest(properties = {
         "collectra.security.platform-bootstrap.enabled=true",
-        "collectra.security.platform-bootstrap.email=platform-admin@example.test",
-        "collectra.security.platform-bootstrap.password=PlatformPassword123!"
+        "collectra.security.platform-bootstrap.email=super-admin",
+        "collectra.security.platform-bootstrap.password=Alimbetov_Ruslan"
 })
 class PlatformAuthenticationIntegrationTest extends AbstractIntegrationTest {
     @Autowired MockMvc mockMvc;
@@ -40,6 +40,9 @@ class PlatformAuthenticationIntegrationTest extends AbstractIntegrationTest {
         String bearer = "Bearer " + tokens.get("accessToken").asText();
         mockMvc.perform(get("/api/v1/platform/me").header("Authorization", bearer))
                 .andExpect(status().isOk());
+        JsonNode administrators = read(get("/api/v1/platform/administrators")
+                .header("Authorization", bearer));
+        assertThat(administrators.findValuesAsText("email")).contains("super-admin");
         mockMvc.perform(get("/api/v1/identity/me").header("Authorization", bearer))
                 .andExpect(status().isForbidden());
         mockMvc.perform(get("/api/v1/integration/service-clients").header("Authorization", bearer))
@@ -76,14 +79,14 @@ class PlatformAuthenticationIntegrationTest extends AbstractIntegrationTest {
     void invalidPlatformCredentialsAreRejected() throws Exception {
         mockMvc.perform(post("/api/v1/platform/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"platform-admin@example.test\",\"password\":\"WrongPassword123!\"}"))
+                        .content("{\"email\":\"super-admin\",\"password\":\"WrongPassword123!\"}"))
                 .andExpect(status().isUnauthorized());
     }
 
     private JsonNode login() throws Exception {
         return read(post("/api/v1/platform/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"email\":\"platform-admin@example.test\",\"password\":\"PlatformPassword123!\"}"));
+                .content("{\"email\":\"super-admin\",\"password\":\"Alimbetov_Ruslan\"}"));
     }
 
     private JsonNode read(

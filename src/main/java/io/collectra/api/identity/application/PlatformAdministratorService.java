@@ -32,12 +32,33 @@ public class PlatformAdministratorService {
 
     @Transactional
     public Optional<UserAccount> bootstrap(String email, String password) {
-        if (platformRoles.activeSuperAdminExists()) return Optional.empty();
-        UserAccount user = users.saveAndFlush(new UserAccount(null,
-                email.trim().toLowerCase(Locale.ROOT), passwords.encode(password),
-                SystemRole.PLATFORM_SUPER_ADMIN));
-        platformRoles.assignSuperAdmin(user.getId());
-        return Optional.of(user);
+        String normalized = email.trim().toLowerCase(Locale.ROOT);
+        Optional<UserAccount> existing = users.findByTenantIdIsNullAndEmailIgnoreCase(normalized);
+        UserAccount user =
+                existing.orElseGet(
+                        () ->
+                                users.saveAndFlush(
+                                        new UserAccount(
+                                                null,
+                                                normalized,
+                                                passwords.encode(password),
+                                                SystemRole.PLATFORM_SUPER_ADMIN)));
+        boolean changed = existing.isEmpty();
+        if (!"ACTIVE".equals(user.getStatus())) {
+            user.activate();
+            changed = true;
+        }
+        if (!platformRoles.hasSuperAdminRole(user.getId())) {
+            platformRoles.assignSuperAdmin(user.getId());
+            user.authorizationChanged();
+            changed = true;
+        }
+        if (!passwords.matches(password, user.getPasswordHash())) {
+            user.changePassword(passwords.encode(password));
+            sessions.revokeAllPlatformByUserId(user.getId());
+            changed = true;
+        }
+        return changed ? Optional.of(user) : Optional.empty();
     }
 
     @Transactional(readOnly = true)

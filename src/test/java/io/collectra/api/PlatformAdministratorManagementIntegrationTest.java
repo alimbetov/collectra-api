@@ -24,8 +24,8 @@ import org.springframework.test.web.servlet.MockMvc;
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @SpringBootTest(properties = {
         "collectra.security.platform-bootstrap.enabled=true",
-        "collectra.security.platform-bootstrap.email=platform-admin@example.test",
-        "collectra.security.platform-bootstrap.password=PlatformPassword123!"
+        "collectra.security.platform-bootstrap.email=super-admin",
+        "collectra.security.platform-bootstrap.password=Alimbetov_Ruslan"
 })
 class PlatformAdministratorManagementIntegrationTest extends AbstractIntegrationTest {
     @Autowired MockMvc mockMvc;
@@ -34,7 +34,7 @@ class PlatformAdministratorManagementIntegrationTest extends AbstractIntegration
 
     @BeforeAll
     void authenticatePrimaryAdministrator() throws Exception {
-        primary = login("platform-admin@example.test", "PlatformPassword123!");
+        primary = login("super-admin", "Alimbetov_Ruslan");
     }
 
     @Test

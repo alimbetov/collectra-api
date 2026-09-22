@@ -2,7 +2,6 @@ package io.collectra.api.identity.api;
 
 import io.collectra.api.identity.application.PlatformAuthService;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
@@ -45,6 +44,6 @@ public class PlatformAuthController {
         return ResponseEntity.noContent().build();
     }
 
-    record LoginRequest(@Email @NotBlank String email, @NotBlank String password) {}
+    record LoginRequest(@NotBlank String email, @NotBlank String password) {}
     record TokenRequest(@NotBlank String refreshToken) {}
 }

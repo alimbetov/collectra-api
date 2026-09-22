@@ -8,12 +8,14 @@ import java.util.Properties;
 import java.util.concurrent.atomic.AtomicLong;
 import org.springframework.amqp.core.AmqpAdmin;
 import org.springframework.amqp.rabbit.core.RabbitAdmin;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 @Component
-@ConditionalOnProperty(name = "collectra.communication.delivery.enabled", havingValue = "true")
+@ConditionalOnExpression(
+        "'${collectra.communication.delivery.enabled:false}' == 'true' "
+                + "&& '${collectra.communication.dead-letter-monitor.enabled:true}' == 'true'")
 public class DeadLetterMonitor {
     private static final String REASON = "broker_dead_letter";
 

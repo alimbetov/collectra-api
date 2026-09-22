@@ -85,6 +85,10 @@ collectra:
   security:
     access-token-ttl: PT15M
     refresh-token-ttl: 30d
+    platform-bootstrap:
+      enabled: true
+      email: super-admin
+      password: Alimbetov_Ruslan
     expose-otp: false
 logging:
   pattern:
