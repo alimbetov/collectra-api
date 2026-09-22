@@ -144,10 +144,7 @@ public class CampaignService {
     }
 
     private int prepareCustomerAudience(
-            UUID tenantId,
-            Campaign campaign,
-            CampaignRun run,
-            CampaignSelection selection) {
+            UUID tenantId, Campaign campaign, CampaignRun run, CampaignSelection selection) {
         int created = 0;
         int pageNumber = 0;
         Page<Customer> page;
@@ -208,10 +205,7 @@ public class CampaignService {
     }
 
     private int prepareReceivableAudience(
-            UUID tenantId,
-            Campaign campaign,
-            CampaignRun run,
-            CampaignSelection selection) {
+            UUID tenantId, Campaign campaign, CampaignRun run, CampaignSelection selection) {
         LocalDate today = LocalDate.now(clock);
         LocalDate dueDateFrom = dueDateFrom(selection, today);
         LocalDate dueDateTo = dueDateTo(selection, today);
@@ -232,9 +226,7 @@ public class CampaignService {
                                     pageNumber,
                                     PREPARE_PAGE_SIZE,
                                     Sort.by(Sort.Direction.ASC, "id")));
-            created +=
-                    prepareReceivablePage(
-                            tenantId, campaign, run, selection, page.getContent());
+            created += prepareReceivablePage(tenantId, campaign, run, selection, page.getContent());
             pageNumber++;
         } while (page.hasNext());
         return created;
@@ -381,14 +373,7 @@ public class CampaignService {
     }
 
     private CampaignSelection emptySelection() {
-        return new CampaignSelection(
-                Set.of(),
-                Set.of(),
-                null,
-                null,
-                null,
-                null,
-                AudienceSelectionType.RECEIVABLE);
+        return CampaignSelection.empty(AudienceSelectionType.RECEIVABLE);
     }
 
     public record PrepareResult(UUID runId, int recipients) {}
