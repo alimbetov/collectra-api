@@ -104,8 +104,7 @@ public class RecipientDestinationResolver {
             UUID tenantId, Collection<UUID> customerIds, CommunicationChannel channel) {
         Map<UUID, Set<String>> result = new LinkedHashMap<>();
         for (CustomerChannelAddress address :
-                customers.channelAddressesByCustomerIds(
-                        tenantId, customerIds, channel.name())) {
+                customers.channelAddressesByCustomerIds(tenantId, customerIds, channel.name())) {
             if (address.isActive()) {
                 add(result, address.getCustomerId(), address.getAddress());
             }
@@ -127,8 +126,7 @@ public class RecipientDestinationResolver {
         }
     }
 
-    private static void add(
-            Map<UUID, Set<String>> result, UUID customerId, String destination) {
+    private static void add(Map<UUID, Set<String>> result, UUID customerId, String destination) {
         if (destination != null && !destination.isBlank()) {
             result.computeIfAbsent(customerId, ignored -> new LinkedHashSet<>()).add(destination);
         }
@@ -142,7 +140,8 @@ public class RecipientDestinationResolver {
 
     private static Map<UUID, Set<String>> immutable(Map<UUID, Set<String>> values) {
         Map<UUID, Set<String>> result = new LinkedHashMap<>();
-        values.forEach((customerId, destinations) -> result.put(customerId, Set.copyOf(destinations)));
+        values.forEach(
+                (customerId, destinations) -> result.put(customerId, Set.copyOf(destinations)));
         return Map.copyOf(result);
     }
 
