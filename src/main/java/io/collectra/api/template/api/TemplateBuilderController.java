@@ -13,6 +13,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
@@ -270,17 +271,22 @@ public class TemplateBuilderController {
             UUID id,
             UUID templateId,
             int version,
+            int templateVersion,
             String locale,
             TemplateChannel channel,
             String subject,
             JsonNode builderJson,
             String content,
             String stylesheet,
-            String status) {
+            String status,
+            Instant createdAt,
+            Instant updatedAt,
+            long revision) {
         static VersionResponse from(TemplateVersion version) {
             return new VersionResponse(
                     version.getId(),
                     version.getTemplateId(),
+                    version.getTemplateVersion(),
                     version.getTemplateVersion(),
                     version.getLocale(),
                     version.getChannel(),
@@ -288,7 +294,10 @@ public class TemplateBuilderController {
                     version.getBuilderJson(),
                     version.getContentHtml(),
                     version.getStylesheet(),
-                    version.getStatus().name());
+                    version.getStatus().name(),
+                    version.getCreatedAt(),
+                    version.getUpdatedAt(),
+                    version.getVersion());
         }
     }
 }
