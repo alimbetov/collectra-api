@@ -1,5 +1,6 @@
 package io.collectra.api.campaign.api;
 
+import io.collectra.api.campaign.application.AudienceSelectionType;
 import io.collectra.api.campaign.application.CampaignEligibilityService;
 import io.collectra.api.campaign.application.CampaignFrontendQueryService;
 import io.collectra.api.campaign.application.CampaignFrontendQueryService.CampaignItem;
@@ -163,7 +164,8 @@ public class CampaignController {
             Integer daysOverdueFrom,
             Integer daysOverdueTo,
             @Schema(type = "string", pattern = DecimalString.PATTERN) DecimalString amountFrom,
-            @Schema(type = "string", pattern = DecimalString.PATTERN) DecimalString amountTo) {
+            @Schema(type = "string", pattern = DecimalString.PATTERN) DecimalString amountTo,
+            AudienceSelectionType audienceSelectionType) {
         CampaignSelection toApplication() {
             return new CampaignSelection(
                     customerIds,
@@ -171,7 +173,8 @@ public class CampaignController {
                     daysOverdueFrom,
                     daysOverdueTo,
                     amountFrom == null ? null : amountFrom.value(),
-                    amountTo == null ? null : amountTo.value());
+                    amountTo == null ? null : amountTo.value(),
+                    audienceSelectionType);
         }
     }
 
