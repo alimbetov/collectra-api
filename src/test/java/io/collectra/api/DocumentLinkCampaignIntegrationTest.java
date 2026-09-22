@@ -148,7 +148,9 @@ class DocumentLinkCampaignIntegrationTest extends AbstractIntegrationTest {
         assertThat(message.getDeliveryRequestedAt()).isNull();
 
         var link =
-                documentLinks.findByTenantIdAndMessageId(tenant.getId(), message.getId()).orElseThrow();
+                documentLinks
+                        .findByTenantIdAndMessageId(tenant.getId(), message.getId())
+                        .orElseThrow();
         assertThat(link.getStatus()).isEqualTo(MessageDocumentLinkStatus.PENDING);
 
         var job = generationJobs.get(tenant.getId(), link.getGenerationJobId());
@@ -172,7 +174,9 @@ class DocumentLinkCampaignIntegrationTest extends AbstractIntegrationTest {
 
         var reloadedMessage = messages.findById(message.getId()).orElseThrow();
         var readyLink =
-                documentLinks.findByTenantIdAndMessageId(tenant.getId(), message.getId()).orElseThrow();
+                documentLinks
+                        .findByTenantIdAndMessageId(tenant.getId(), message.getId())
+                        .orElseThrow();
         assertThat(readyLink.getStatus()).isEqualTo(MessageDocumentLinkStatus.READY);
         assertThat(reloadedMessage.getDeliveryRequestedAt()).isNotNull();
     }
