@@ -8,9 +8,9 @@ import io.collectra.api.campaign.application.CampaignMessageMaterializer;
 import io.collectra.api.campaign.application.CampaignSelection;
 import io.collectra.api.campaign.application.CampaignService;
 import io.collectra.api.campaign.domain.CampaignRecipientStatus;
-import io.collectra.api.customer.application.CustomerService;
 import io.collectra.api.communication.domain.MessageStatus;
 import io.collectra.api.communication.infrastructure.MessageRepository;
+import io.collectra.api.customer.application.CustomerService;
 import io.collectra.api.customer.domain.CustomerType;
 import io.collectra.api.localization.domain.TenantLocale;
 import io.collectra.api.localization.infrastructure.TenantLocaleRepository;
@@ -128,14 +128,7 @@ class GenericCustomerCampaignAudienceIntegrationTest extends AbstractIntegration
                         version.getId(),
                         "EMAIL",
                         null,
-                        new CampaignSelection(
-                                Set.of(),
-                                Set.of(segment.getId()),
-                                null,
-                                null,
-                                null,
-                                null,
-                                AudienceSelectionType.CUSTOMER),
+                        CampaignSelection.customer(Set.of(), Set.of(segment.getId())),
                         null);
         campaigns.activate(tenant.getId(), campaign.getId());
 
@@ -179,11 +172,9 @@ class GenericCustomerCampaignAudienceIntegrationTest extends AbstractIntegration
 
     @Test
     void legacySelectionDefaultsToReceivable() {
-        CampaignSelection selection =
-                new CampaignSelection(Set.of(), Set.of(), 1, 30, null, null);
+        CampaignSelection selection = new CampaignSelection(Set.of(), Set.of(), 1, 30, null, null);
 
-        assertThat(selection.audienceSelectionType())
-                .isEqualTo(AudienceSelectionType.RECEIVABLE);
+        assertThat(selection.audienceSelectionType()).isEqualTo(AudienceSelectionType.RECEIVABLE);
     }
 
     @Test
