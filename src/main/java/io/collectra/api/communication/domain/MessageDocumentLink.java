@@ -109,15 +109,41 @@ public class MessageDocumentLink {
         return true;
     }
 
-    public UUID getTenantId() { return tenantId; }
-    public UUID getMessageId() { return messageId; }
-    public UUID getGenerationJobId() { return generationJobId; }
-    public UUID getGeneratedDocumentId() { return generatedDocumentId; }
-    public OutputFormat getOutputFormat() { return outputFormat; }
-    public String getTokenHash() { return tokenHash; }
-    public boolean isRequired() { return required; }
-    public MessageDocumentLinkStatus getStatus() { return status; }
-    public Instant getExpiresAt() { return expiresAt; }
+    public UUID getTenantId() {
+        return tenantId;
+    }
+
+    public UUID getMessageId() {
+        return messageId;
+    }
+
+    public UUID getGenerationJobId() {
+        return generationJobId;
+    }
+
+    public UUID getGeneratedDocumentId() {
+        return generatedDocumentId;
+    }
+
+    public OutputFormat getOutputFormat() {
+        return outputFormat;
+    }
+
+    public String getTokenHash() {
+        return tokenHash;
+    }
+
+    public boolean isRequired() {
+        return required;
+    }
+
+    public MessageDocumentLinkStatus getStatus() {
+        return status;
+    }
+
+    public Instant getExpiresAt() {
+        return expiresAt;
+    }
 
     private static String required(String value, String field, int maxLength) {
         if (value == null || value.isBlank()) {
