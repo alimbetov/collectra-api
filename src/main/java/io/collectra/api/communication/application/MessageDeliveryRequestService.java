@@ -2,8 +2,10 @@ package io.collectra.api.communication.application;
 
 import io.collectra.api.communication.domain.Message;
 import io.collectra.api.communication.domain.MessageAttachmentStatus;
+import io.collectra.api.communication.domain.MessageDocumentLinkStatus;
 import io.collectra.api.communication.domain.MessageStatus;
 import io.collectra.api.communication.infrastructure.MessageAttachmentRepository;
+import io.collectra.api.communication.infrastructure.MessageDocumentLinkRepository;
 import java.time.Clock;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -12,14 +14,17 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class MessageDeliveryRequestService {
     private final MessageAttachmentRepository attachments;
+    private final MessageDocumentLinkRepository documentLinks;
     private final MessageDeliveryEventPublisher events;
     private final Clock clock;
 
     public MessageDeliveryRequestService(
             MessageAttachmentRepository attachments,
+            MessageDocumentLinkRepository documentLinks,
             MessageDeliveryEventPublisher events,
             Clock clock) {
         this.attachments = attachments;
+        this.documentLinks = documentLinks;
         this.events = events;
         this.clock = clock;
     }
@@ -31,6 +36,10 @@ public class MessageDeliveryRequestService {
         }
         if (attachments.existsRequiredNotReady(
                 message.getTenantId(), message.getId(), MessageAttachmentStatus.READY)) {
+            return false;
+        }
+        if (documentLinks.existsRequiredNotReady(
+                message.getTenantId(), message.getId(), MessageDocumentLinkStatus.READY)) {
             return false;
         }
         if (!message.markDeliveryRequested(clock.instant())) {

@@ -83,6 +83,29 @@ public class CampaignService {
             Instant scheduledAt,
             CampaignSelection selection,
             UUID createdBy) {
+        return create(
+                tenantId,
+                name,
+                templateVersionId,
+                channel,
+                scheduledAt,
+                selection,
+                null,
+                false,
+                createdBy);
+    }
+
+    @Transactional
+    public Campaign create(
+            UUID tenantId,
+            String name,
+            UUID templateVersionId,
+            String channel,
+            Instant scheduledAt,
+            CampaignSelection selection,
+            UUID documentTemplateVersionId,
+            boolean generatedPdfLink,
+            UUID createdBy) {
         var template =
                 templates
                         .findByIdAndTenantId(templateVersionId, tenantId)
@@ -95,8 +118,27 @@ public class CampaignService {
             throw new IllegalArgumentException("Campaign channel differs from template channel");
         }
         communicationChannel(template.getChannel());
+
+        if (generatedPdfLink) {
+            var documentTemplate =
+                    templates
+                            .findByIdAndTenantId(documentTemplateVersionId, tenantId)
+                            .orElseThrow(
+                                    () ->
+                                            new NoSuchElementException(
+                                                    "Document template version not found"));
+            if (documentTemplate.getStatus() != TemplateVersionStatus.PUBLISHED) {
+                throw new IllegalArgumentException(
+                        "Generated PDF link requires a published document template version");
+            }
+            if (documentTemplate.getChannel() != TemplateChannel.PDF) {
+                throw new IllegalArgumentException(
+                        "Generated PDF link requires a PDF document template version");
+            }
+        }
+
         JsonNode criteria = json.valueToTree(selection == null ? emptySelection() : selection);
-        return campaigns.save(
+        Campaign campaign =
                 new Campaign(
                         tenantId,
                         name,
@@ -104,7 +146,9 @@ public class CampaignService {
                         channel,
                         scheduledAt,
                         criteria,
-                        createdBy));
+                        createdBy);
+        campaign.configureGeneratedPdfLink(documentTemplateVersionId, generatedPdfLink);
+        return campaigns.save(campaign);
     }
 
     @Transactional

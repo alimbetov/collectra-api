@@ -66,6 +66,8 @@ public class CampaignController {
                         request.channel(),
                         request.scheduledAt(),
                         selection,
+                        request.documentTemplateVersionId(),
+                        Boolean.TRUE.equals(request.generatedPdfLink()),
                         null));
     }
 
@@ -160,7 +162,9 @@ public class CampaignController {
             @NotBlank @Size(max = 30) String channel,
             Instant scheduledAt,
             AudienceSelectionType audienceSelectionType,
-            CampaignSelectionRequest selection) {}
+            CampaignSelectionRequest selection,
+            UUID documentTemplateVersionId,
+            Boolean generatedPdfLink) {}
 
     @Schema(name = "CampaignSelection")
     record CampaignSelectionRequest(
@@ -188,7 +192,9 @@ public class CampaignController {
             CampaignStatus status,
             UUID templateVersionId,
             String channel,
-            Instant scheduledAt) {
+            Instant scheduledAt,
+            UUID documentTemplateVersionId,
+            boolean generatedPdfLink) {
         static CampaignResponse from(Campaign value) {
             return new CampaignResponse(
                     value.getId(),
@@ -196,7 +202,9 @@ public class CampaignController {
                     value.getStatus(),
                     value.getTemplateVersionId(),
                     value.getChannel(),
-                    value.getScheduledAt());
+                    value.getScheduledAt(),
+                    value.getDocumentTemplateVersionId(),
+                    value.isGeneratedPdfLink());
         }
     }
 }
