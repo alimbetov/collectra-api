@@ -1,6 +1,7 @@
 package io.collectra.api.campaign.application;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.collectra.api.campaign.domain.Campaign;
 import io.collectra.api.campaign.domain.CampaignRecipient;
 import io.collectra.api.campaign.domain.CampaignRun;
@@ -11,6 +12,7 @@ import io.collectra.api.campaign.infrastructure.CampaignRepository;
 import io.collectra.api.campaign.infrastructure.CampaignRunRepository;
 import io.collectra.api.communication.application.MessageAttachmentService;
 import io.collectra.api.communication.application.MessageDeliveryRequestService;
+import io.collectra.api.communication.application.MessageDocumentLinkService;
 import io.collectra.api.communication.domain.CommunicationChannel;
 import io.collectra.api.communication.domain.Message;
 import io.collectra.api.communication.infrastructure.MessageRepository;
@@ -50,6 +52,7 @@ public class CampaignMessageMaterializer {
     private final MessageRepository messages;
     private final GenerationJobService generationJobs;
     private final MessageAttachmentService attachmentService;
+    private final MessageDocumentLinkService documentLinks;
     private final MessageDeliveryRequestService deliveryRequests;
     private final Clock clock;
 
@@ -66,6 +69,7 @@ public class CampaignMessageMaterializer {
             MessageRepository messages,
             GenerationJobService generationJobs,
             MessageAttachmentService attachmentService,
+            MessageDocumentLinkService documentLinks,
             MessageDeliveryRequestService deliveryRequests,
             Clock clock) {
         this.runs = runs;
@@ -80,6 +84,7 @@ public class CampaignMessageMaterializer {
         this.messages = messages;
         this.generationJobs = generationJobs;
         this.attachmentService = attachmentService;
+        this.documentLinks = documentLinks;
         this.deliveryRequests = deliveryRequests;
         this.clock = clock;
     }
@@ -161,6 +166,31 @@ public class CampaignMessageMaterializer {
             }
 
             JsonNode payload = payloadFactory.create(context.customer(), context.invoice());
+            JsonNode documentPayload = payload.deepCopy();
+            MessageDocumentLinkService.PreparedLink preparedLink = null;
+            GenerationJob generationJob = null;
+
+            if (campaign.isGeneratedPdfLink()) {
+                preparedLink = documentLinks.prepare();
+                if (!(payload instanceof ObjectNode root)) {
+                    throw new IllegalStateException("Campaign message payload must be an object");
+                }
+                root.with("document").put("url", preparedLink.url().toString());
+            }
+
+            if (campaign.isGeneratedPdfAttachment() || campaign.isGeneratedPdfLink()) {
+                UUID documentTemplateVersionId =
+                        campaign.getDocumentTemplateVersionId() == null
+                                ? version.getId()
+                                : campaign.getDocumentTemplateVersionId();
+                generationJob =
+                        generationJobs.prepareFromNormalizedPayload(
+                                tenantId,
+                                documentTemplateVersionId,
+                                documentPayload,
+                                Set.of(OutputFormat.PDF));
+            }
+
             String subject = renderSubject(channel, version, payload, compiledSubjects);
             String body = renderBody(channel, version, payload, compiledBodies);
 
@@ -181,25 +211,19 @@ public class CampaignMessageMaterializer {
                                     body));
 
             if (campaign.isGeneratedPdfAttachment()) {
-                GenerationJob generationJob =
-                        generationJobs.prepareFromNormalizedPayload(
-                                tenantId, version.getId(), payload, Set.of(OutputFormat.PDF));
                 attachmentService.createPendingGeneratedPdf(
                         message,
                         generationJob,
                         attachmentFilename(message),
                         campaign.isGeneratedPdfAttachmentRequired());
-
-                // The requirement is durable before the broker-visible generation request exists.
-                generationJobs.request(generationJob);
-
-                // Optional PENDING attachments are explicitly non-blocking.
-                if (!campaign.isGeneratedPdfAttachmentRequired()) {
-                    deliveryRequests.requestIfEligible(message);
-                }
-            } else {
-                deliveryRequests.requestIfEligible(message);
             }
+            if (campaign.isGeneratedPdfLink()) {
+                documentLinks.createPending(message, generationJob, preparedLink);
+            }
+            if (generationJob != null) {
+                generationJobs.request(generationJob);
+            }
+            deliveryRequests.requestIfEligible(message);
             queued++;
         }
 
