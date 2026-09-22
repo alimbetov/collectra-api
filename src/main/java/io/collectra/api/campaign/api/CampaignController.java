@@ -61,7 +61,17 @@ public class CampaignController {
                         request.templateVersionId(),
                         request.channel(),
                         request.scheduledAt(),
-                        request.selection() == null ? null : request.selection().toApplication(),
+                        request.selection() == null
+                                ? new CampaignSelection(
+                                        Set.of(),
+                                        Set.of(),
+                                        null,
+                                        null,
+                                        null,
+                                        null,
+                                        request.audienceSelectionType())
+                                : request.selection().toApplication(
+                                        request.audienceSelectionType()),
                         null));
     }
 
@@ -155,6 +165,7 @@ public class CampaignController {
             @NotNull UUID templateVersionId,
             @NotBlank @Size(max = 30) String channel,
             Instant scheduledAt,
+            AudienceSelectionType audienceSelectionType,
             CampaignSelectionRequest selection) {}
 
     @Schema(name = "CampaignSelection")
@@ -164,9 +175,8 @@ public class CampaignController {
             Integer daysOverdueFrom,
             Integer daysOverdueTo,
             @Schema(type = "string", pattern = DecimalString.PATTERN) DecimalString amountFrom,
-            @Schema(type = "string", pattern = DecimalString.PATTERN) DecimalString amountTo,
-            AudienceSelectionType audienceSelectionType) {
-        CampaignSelection toApplication() {
+            @Schema(type = "string", pattern = DecimalString.PATTERN) DecimalString amountTo) {
+        CampaignSelection toApplication(AudienceSelectionType audienceSelectionType) {
             return new CampaignSelection(
                     customerIds,
                     segmentIds,
