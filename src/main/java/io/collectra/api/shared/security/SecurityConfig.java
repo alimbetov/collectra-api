@@ -60,6 +60,7 @@ public class SecurityConfig {
                                         "/api/v1/platform/auth/refresh",
                                         "/api/v1/platform/auth/logout",
                                         "/api/v1/integration/service-token",
+                                        "/api/v1/public/documents/**",
                                         "/actuator/health",
                                         "/v3/api-docs/**",
                                         "/swagger-ui/**",
