@@ -224,6 +224,7 @@ public class TemplateBuilderService {
     private Set<String> availableFields(UUID tenantId) {
         return fieldCatalog.catalog(tenantId).stream()
                 .map(FieldDefinition::getKey)
+                .map(value -> value.toLowerCase(Locale.ROOT))
                 .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
     }
 
