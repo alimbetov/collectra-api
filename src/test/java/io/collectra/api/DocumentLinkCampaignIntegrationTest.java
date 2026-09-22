@@ -132,8 +132,7 @@ class DocumentLinkCampaignIntegrationTest extends AbstractIntegrationTest {
         campaigns.activate(tenant.getId(), campaign.getId());
         var prepared = campaigns.prepare(tenant.getId(), campaign.getId());
 
-        var materialized =
-                materializer.materializeNextBatch(tenant.getId(), prepared.runId(), 100);
+        var materialized = materializer.materializeNextBatch(tenant.getId(), prepared.runId(), 100);
 
         assertThat(materialized.queued()).isEqualTo(1);
         var message =
@@ -192,8 +191,7 @@ class DocumentLinkCampaignIntegrationTest extends AbstractIntegrationTest {
 
     private String sha256(String value) throws Exception {
         byte[] digest =
-                MessageDigest.getInstance("SHA-256")
-                        .digest(value.getBytes(StandardCharsets.UTF_8));
+                MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8));
         return HexFormat.of().formatHex(digest);
     }
 }
