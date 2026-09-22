@@ -9,7 +9,9 @@ import static org.mockito.Mockito.when;
 import io.collectra.api.communication.domain.CommunicationChannel;
 import io.collectra.api.communication.domain.Message;
 import io.collectra.api.communication.domain.MessageAttachmentStatus;
+import io.collectra.api.communication.domain.MessageDocumentLinkStatus;
 import io.collectra.api.communication.infrastructure.MessageAttachmentRepository;
+import io.collectra.api.communication.infrastructure.MessageDocumentLinkRepository;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -20,17 +22,17 @@ class MessageDeliveryRequestServiceTest {
     private static final Instant NOW = Instant.parse("2026-09-12T10:00:00Z");
 
     private final MessageAttachmentRepository attachments = mock(MessageAttachmentRepository.class);
+    private final MessageDocumentLinkRepository documentLinks =
+            mock(MessageDocumentLinkRepository.class);
     private final MessageDeliveryEventPublisher events = mock(MessageDeliveryEventPublisher.class);
     private final MessageDeliveryRequestService service =
             new MessageDeliveryRequestService(
-                    attachments, events, Clock.fixed(NOW, ZoneOffset.UTC));
+                    attachments, documentLinks, events, Clock.fixed(NOW, ZoneOffset.UTC));
 
     @Test
     void eligibleMessageGetsDurableMarkerAndEvent() {
         Message message = queued();
-        when(attachments.existsRequiredNotReady(
-                        message.getTenantId(), message.getId(), MessageAttachmentStatus.READY))
-                .thenReturn(false);
+        allowDeliveryPrerequisites(message);
 
         assertThat(service.requestIfEligible(message)).isTrue();
 
@@ -41,9 +43,7 @@ class MessageDeliveryRequestServiceTest {
     @Test
     void duplicateEligibilityCheckDoesNotPublishSecondEvent() {
         Message message = queued();
-        when(attachments.existsRequiredNotReady(
-                        message.getTenantId(), message.getId(), MessageAttachmentStatus.READY))
-                .thenReturn(false);
+        allowDeliveryPrerequisites(message);
 
         assertThat(service.requestIfEligible(message)).isTrue();
         assertThat(service.requestIfEligible(message)).isFalse();
@@ -62,6 +62,25 @@ class MessageDeliveryRequestServiceTest {
 
         assertThat(message.getDeliveryRequestedAt()).isNull();
         verify(events, never()).requestDelivery(message.getTenantId(), message.getId());
+        verify(documentLinks, never())
+                .existsRequiredNotReady(
+                        message.getTenantId(), message.getId(), MessageDocumentLinkStatus.READY);
+    }
+
+    @Test
+    void requiredNotReadyDocumentLinkBlocksMarkerAndEvent() {
+        Message message = queued();
+        when(attachments.existsRequiredNotReady(
+                        message.getTenantId(), message.getId(), MessageAttachmentStatus.READY))
+                .thenReturn(false);
+        when(documentLinks.existsRequiredNotReady(
+                        message.getTenantId(), message.getId(), MessageDocumentLinkStatus.READY))
+                .thenReturn(true);
+
+        assertThat(service.requestIfEligible(message)).isFalse();
+
+        assertThat(message.getDeliveryRequestedAt()).isNull();
+        verify(events, never()).requestDelivery(message.getTenantId(), message.getId());
     }
 
     @Test
@@ -74,7 +93,19 @@ class MessageDeliveryRequestServiceTest {
         verify(attachments, never())
                 .existsRequiredNotReady(
                         message.getTenantId(), message.getId(), MessageAttachmentStatus.READY);
+        verify(documentLinks, never())
+                .existsRequiredNotReady(
+                        message.getTenantId(), message.getId(), MessageDocumentLinkStatus.READY);
         verify(events, never()).requestDelivery(message.getTenantId(), message.getId());
+    }
+
+    private void allowDeliveryPrerequisites(Message message) {
+        when(attachments.existsRequiredNotReady(
+                        message.getTenantId(), message.getId(), MessageAttachmentStatus.READY))
+                .thenReturn(false);
+        when(documentLinks.existsRequiredNotReady(
+                        message.getTenantId(), message.getId(), MessageDocumentLinkStatus.READY))
+                .thenReturn(false);
     }
 
     private Message queued() {
