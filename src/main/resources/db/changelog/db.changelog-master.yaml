@@ -69,3 +69,5 @@ databaseChangeLog:
       file: db/changelog/changes/037-identity-user-option-indexes.sql
   - include:
       file: db/changelog/changes/038-contract-validity-indexes.sql
+  - include:
+      file: db/changelog/changes/039-customer-channel-addresses.sql
