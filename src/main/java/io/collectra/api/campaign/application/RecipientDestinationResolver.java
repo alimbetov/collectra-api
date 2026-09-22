@@ -68,26 +68,19 @@ public class RecipientDestinationResolver {
     }
 
     private Map<UUID, String> channelPrimary(
-            UUID tenantId,
-            Collection<UUID> customerIds,
-            CommunicationChannel channel) {
+            UUID tenantId, Collection<UUID> customerIds, CommunicationChannel channel) {
         Map<UUID, DestinationCandidate> result = new LinkedHashMap<>();
         for (CustomerChannelAddress address :
-                customers.channelAddressesByCustomerIds(
-                        tenantId, customerIds, channel.name())) {
+                customers.channelAddressesByCustomerIds(tenantId, customerIds, channel.name())) {
             if (address.isActive()) {
                 putCandidate(
-                        result,
-                        address.getCustomerId(),
-                        address.getAddress(),
-                        address.isPrimary());
+                        result, address.getCustomerId(), address.getAddress(), address.isPrimary());
             }
         }
         return values(result);
     }
 
-    private Map<UUID, Set<String>> activeEmails(
-            UUID tenantId, Collection<UUID> customerIds) {
+    private Map<UUID, Set<String>> activeEmails(UUID tenantId, Collection<UUID> customerIds) {
         Map<UUID, Set<String>> result = new LinkedHashMap<>();
         for (CustomerEmail email : customers.emailsByCustomerIds(tenantId, customerIds)) {
             if ("ACTIVE".equals(email.getStatus())) {
@@ -97,8 +90,7 @@ public class RecipientDestinationResolver {
         return immutable(result);
     }
 
-    private Map<UUID, Set<String>> activePhones(
-            UUID tenantId, Collection<UUID> customerIds) {
+    private Map<UUID, Set<String>> activePhones(UUID tenantId, Collection<UUID> customerIds) {
         Map<UUID, Set<String>> result = new LinkedHashMap<>();
         for (CustomerPhone phone : customers.phonesByCustomerIds(tenantId, customerIds)) {
             if ("ACTIVE".equals(phone.getStatus())) {
@@ -109,9 +101,7 @@ public class RecipientDestinationResolver {
     }
 
     private Map<UUID, Set<String>> activeChannelAddresses(
-            UUID tenantId,
-            Collection<UUID> customerIds,
-            CommunicationChannel channel) {
+            UUID tenantId, Collection<UUID> customerIds, CommunicationChannel channel) {
         Map<UUID, Set<String>> result = new LinkedHashMap<>();
         for (CustomerChannelAddress address :
                 customers.channelAddressesByCustomerIds(
