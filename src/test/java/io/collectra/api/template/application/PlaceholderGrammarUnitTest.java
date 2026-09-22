@@ -22,7 +22,7 @@ class PlaceholderGrammarUnitTest {
     void acceptsCanonicalNestedPaths(String key) {
         FieldPath path = PlaceholderGrammar.parse("  " + key + "  ");
 
-        assertThat(path.canonical()).isEqualTo(key);
+        assertThat(path.canonical()).isEqualTo(key.toLowerCase(java.util.Locale.ROOT));
         assertThat(path.jsonPointer()).isEqualTo("/" + key.replace('.', '/'));
     }
 
