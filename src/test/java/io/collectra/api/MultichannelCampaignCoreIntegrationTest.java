@@ -114,8 +114,7 @@ class MultichannelCampaignCoreIntegrationTest extends AbstractIntegrationTest {
         var prepared = campaigns.prepare(fixture.tenant().getId(), campaign.getId());
 
         var materialized =
-                materializer.materializeNextBatch(
-                        fixture.tenant().getId(), prepared.runId(), 100);
+                materializer.materializeNextBatch(fixture.tenant().getId(), prepared.runId(), 100);
 
         assertThat(materialized.selected()).isEqualTo(1);
         assertThat(materialized.queued()).isZero();
@@ -168,8 +167,7 @@ class MultichannelCampaignCoreIntegrationTest extends AbstractIntegrationTest {
     private Fixture fixture(TemplateChannel channel, String body) {
         String tenantCode =
                 "multichannel-" + channel.name().toLowerCase() + "-" + UUID.randomUUID();
-        Tenant tenant =
-                tenants.saveAndFlush(new Tenant(tenantCode, "Multichannel Test"));
+        Tenant tenant = tenants.saveAndFlush(new Tenant(tenantCode, "Multichannel Test"));
         tenantLocales.saveAndFlush(new TenantLocale(tenant.getId(), "ru", true, true, 0));
 
         DocumentTemplate template =
