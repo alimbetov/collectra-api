@@ -23,6 +23,9 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -114,6 +117,47 @@ public class CustomerService {
             return List.of();
         }
         return customers.findAllByTenantIdAndIdIn(tenantId, customerIds);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<Customer> campaignAudienceCandidates(
+            UUID tenantId,
+            Collection<UUID> customerIds,
+            Collection<UUID> segmentIds,
+            Pageable pageable) {
+        Collection<UUID> effectiveCustomerIds =
+                customerIds == null ? List.of() : List.copyOf(customerIds);
+        Collection<UUID> effectiveSegmentIds =
+                segmentIds == null ? List.of() : List.copyOf(segmentIds);
+
+        Specification<Customer> specification =
+                (root, query, criteriaBuilder) -> {
+                    java.util.ArrayList<jakarta.persistence.criteria.Predicate> predicates =
+                            new java.util.ArrayList<>();
+                    predicates.add(criteriaBuilder.equal(root.get("tenantId"), tenantId));
+                    predicates.add(
+                            criteriaBuilder.equal(root.get("status"), CustomerStatus.ACTIVE));
+
+                    if (!effectiveCustomerIds.isEmpty()) {
+                        predicates.add(root.get("id").in(effectiveCustomerIds));
+                    }
+
+                    if (!effectiveSegmentIds.isEmpty()) {
+                        var membership = query.subquery(Integer.class);
+                        var member = membership.from(CustomerSegmentMember.class);
+                        membership.select(criteriaBuilder.literal(1));
+                        membership.where(
+                                criteriaBuilder.equal(member.get("tenantId"), tenantId),
+                                criteriaBuilder.equal(member.get("customerId"), root.get("id")),
+                                member.get("segmentId").in(effectiveSegmentIds));
+                        predicates.add(criteriaBuilder.exists(membership));
+                    }
+
+                    return criteriaBuilder.and(
+                            predicates.toArray(jakarta.persistence.criteria.Predicate[]::new));
+                };
+
+        return customers.findAll(specification, pageable);
     }
 
     @Transactional

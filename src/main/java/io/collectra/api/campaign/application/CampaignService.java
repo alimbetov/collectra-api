@@ -134,6 +134,78 @@ public class CampaignService {
 
         CampaignRun run = runs.save(new CampaignRun(tenantId, campaignId));
         CampaignSelection selection = selection(campaign.getSelectionCriteria());
+        int created =
+                selection.audienceSelectionType() == AudienceSelectionType.CUSTOMER
+                        ? prepareCustomerAudience(tenantId, campaign, run, selection)
+                        : prepareReceivableAudience(tenantId, campaign, run, selection);
+
+        run.ready(created, Instant.now(clock));
+        return new PrepareResult(run.getId(), created);
+    }
+
+    private int prepareCustomerAudience(
+            UUID tenantId, Campaign campaign, CampaignRun run, CampaignSelection selection) {
+        int created = 0;
+        int pageNumber = 0;
+        Page<Customer> page;
+        do {
+            page =
+                    customers.campaignAudienceCandidates(
+                            tenantId,
+                            selection.customerIds(),
+                            selection.segmentIds(),
+                            PageRequest.of(
+                                    pageNumber,
+                                    PREPARE_PAGE_SIZE,
+                                    Sort.by(Sort.Direction.ASC, "id")));
+            created += prepareCustomerPage(tenantId, campaign, run, page.getContent());
+            pageNumber++;
+        } while (page.hasNext());
+        return created;
+    }
+
+    private int prepareCustomerPage(
+            UUID tenantId, Campaign campaign, CampaignRun run, List<Customer> pageCustomers) {
+        if (pageCustomers.isEmpty()) {
+            return 0;
+        }
+
+        Set<UUID> customerIds =
+                pageCustomers.stream().map(Customer::getId).collect(Collectors.toSet());
+        Map<UUID, List<CustomerEmail>> emailsByCustomer =
+                customers.emailsByCustomerIds(tenantId, customerIds).stream()
+                        .collect(Collectors.groupingBy(CustomerEmail::getCustomerId));
+
+        String tenantDefaultLocale = null;
+        int created = 0;
+        for (Customer customer : pageCustomers) {
+            String destination = emailDestination(emailsByCustomer.get(customer.getId()));
+            String locale = customer.getPreferredLocale();
+            if (locale == null || locale.isBlank()) {
+                if (tenantDefaultLocale == null) {
+                    tenantDefaultLocale = tenantLocales.requireDefault(tenantId).getLocale();
+                }
+                locale = tenantDefaultLocale;
+            } else {
+                locale = locale.trim();
+            }
+            recipients.save(
+                    new CampaignRecipient(
+                            tenantId,
+                            campaign.getId(),
+                            run.getId(),
+                            customer.getId(),
+                            null,
+                            campaign.getChannel(),
+                            destination,
+                            locale));
+            created++;
+        }
+        return created;
+    }
+
+    private int prepareReceivableAudience(
+            UUID tenantId, Campaign campaign, CampaignRun run, CampaignSelection selection) {
         LocalDate today = LocalDate.now(clock);
         LocalDate dueDateFrom = dueDateFrom(selection, today);
         LocalDate dueDateTo = dueDateTo(selection, today);
@@ -154,15 +226,13 @@ public class CampaignService {
                                     pageNumber,
                                     PREPARE_PAGE_SIZE,
                                     Sort.by(Sort.Direction.ASC, "id")));
-            created += preparePage(tenantId, campaign, run, selection, page.getContent());
+            created += prepareReceivablePage(tenantId, campaign, run, selection, page.getContent());
             pageNumber++;
         } while (page.hasNext());
-
-        run.ready(created, Instant.now(clock));
-        return new PrepareResult(run.getId(), created);
+        return created;
     }
 
-    private int preparePage(
+    private int prepareReceivablePage(
             UUID tenantId,
             Campaign campaign,
             CampaignRun run,
@@ -303,7 +373,7 @@ public class CampaignService {
     }
 
     private CampaignSelection emptySelection() {
-        return new CampaignSelection(Set.of(), Set.of(), null, null, null, null);
+        return CampaignSelection.empty(AudienceSelectionType.RECEIVABLE);
     }
 
     public record PrepareResult(UUID runId, int recipients) {}

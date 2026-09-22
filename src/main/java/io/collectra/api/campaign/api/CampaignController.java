@@ -1,5 +1,6 @@
 package io.collectra.api.campaign.api;
 
+import io.collectra.api.campaign.application.AudienceSelectionType;
 import io.collectra.api.campaign.application.CampaignEligibilityService;
 import io.collectra.api.campaign.application.CampaignFrontendQueryService;
 import io.collectra.api.campaign.application.CampaignFrontendQueryService.CampaignItem;
@@ -53,6 +54,10 @@ public class CampaignController {
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('CAMPAIGN_MANAGE')")
     CampaignResponse create(@Valid @RequestBody CreateCampaignRequest request) {
+        CampaignSelection selection =
+                request.selection() == null
+                        ? CampaignSelection.empty(request.audienceSelectionType())
+                        : request.selection().toApplication(request.audienceSelectionType());
         return CampaignResponse.from(
                 campaigns.create(
                         tenant(),
@@ -60,7 +65,7 @@ public class CampaignController {
                         request.templateVersionId(),
                         request.channel(),
                         request.scheduledAt(),
-                        request.selection() == null ? null : request.selection().toApplication(),
+                        selection,
                         null));
     }
 
@@ -154,6 +159,7 @@ public class CampaignController {
             @NotNull UUID templateVersionId,
             @NotBlank @Size(max = 30) String channel,
             Instant scheduledAt,
+            AudienceSelectionType audienceSelectionType,
             CampaignSelectionRequest selection) {}
 
     @Schema(name = "CampaignSelection")
@@ -164,14 +170,15 @@ public class CampaignController {
             Integer daysOverdueTo,
             @Schema(type = "string", pattern = DecimalString.PATTERN) DecimalString amountFrom,
             @Schema(type = "string", pattern = DecimalString.PATTERN) DecimalString amountTo) {
-        CampaignSelection toApplication() {
+        CampaignSelection toApplication(AudienceSelectionType audienceSelectionType) {
             return new CampaignSelection(
                     customerIds,
                     segmentIds,
                     daysOverdueFrom,
                     daysOverdueTo,
                     amountFrom == null ? null : amountFrom.value(),
-                    amountTo == null ? null : amountTo.value());
+                    amountTo == null ? null : amountTo.value(),
+                    audienceSelectionType);
         }
     }
 
