@@ -3,7 +3,6 @@ package io.collectra.api;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.collectra.api.campaign.application.AudienceSelectionType;
 import io.collectra.api.campaign.application.CampaignMessageMaterializer;
 import io.collectra.api.campaign.application.CampaignSelection;
 import io.collectra.api.campaign.application.CampaignService;
@@ -145,14 +144,7 @@ class MultichannelCampaignCoreIntegrationTest extends AbstractIntegrationTest {
                         fixture.versionId(),
                         channel.name(),
                         null,
-                        new CampaignSelection(
-                                Set.of(fixture.customerId()),
-                                Set.of(),
-                                null,
-                                null,
-                                null,
-                                null,
-                                AudienceSelectionType.CUSTOMER),
+                        CampaignSelection.customer(Set.of(fixture.customerId()), Set.of()),
                         null);
         campaigns.activate(fixture.tenant().getId(), campaign.getId());
         var prepared = campaigns.prepare(fixture.tenant().getId(), campaign.getId());
@@ -174,11 +166,10 @@ class MultichannelCampaignCoreIntegrationTest extends AbstractIntegrationTest {
     }
 
     private Fixture fixture(TemplateChannel channel, String body) {
+        String tenantCode =
+                "multichannel-" + channel.name().toLowerCase() + "-" + UUID.randomUUID();
         Tenant tenant =
-                tenants.saveAndFlush(
-                        new Tenant(
-                                "multichannel-" + channel.name().toLowerCase() + "-" + UUID.randomUUID(),
-                                "Multichannel Test"));
+                tenants.saveAndFlush(new Tenant(tenantCode, "Multichannel Test"));
         tenantLocales.saveAndFlush(new TenantLocale(tenant.getId(), "ru", true, true, 0));
 
         DocumentTemplate template =
