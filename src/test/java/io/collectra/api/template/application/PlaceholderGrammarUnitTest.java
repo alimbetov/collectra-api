@@ -12,6 +12,8 @@ class PlaceholderGrammarUnitTest {
     @ValueSource(
             strings = {
                 "customer.name",
+                "customer.displayName",
+                "invoice.invoiceNumber",
                 "document.number",
                 "custom.erp.code",
                 "custom.invoice.manager_name",
@@ -29,6 +31,7 @@ class PlaceholderGrammarUnitTest {
             strings = {
                 "customer",
                 "Customer.Name",
+                "customer.DisplayName",
                 "customer..name",
                 ".customer.name",
                 "customer.name.",
