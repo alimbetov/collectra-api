@@ -21,9 +21,9 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.DelegatingPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
 import org.springframework.security.oauth2.core.OAuth2TokenValidator;
+import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtClaimValidator;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
@@ -40,48 +40,56 @@ import org.springframework.security.web.SecurityFilterChain;
 public class SecurityConfig {
 
     @Bean
-    SecurityFilterChain security(HttpSecurity http, AuthorizationVersionFilter authorizationVersionFilter) throws Exception {
-        return http
-                .csrf(csrf -> csrf.disable())
+    SecurityFilterChain security(
+            HttpSecurity http, AuthorizationVersionFilter authorizationVersionFilter)
+            throws Exception {
+        return http.csrf(csrf -> csrf.disable())
                 .sessionManagement(
                         session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(
-                        requests -> requests
-                                .requestMatchers(
-                                        "/api/v1/auth/tenants/register",
-                                        "/api/v1/auth/login",
-                                        "/api/v1/auth/login/by-slug",
-                                        "/api/v1/auth/refresh",
-                                        "/api/v1/auth/logout",
-                                        "/api/v1/auth/invitations/accept",
-                                        "/api/v1/auth/password/forgot",
-                                        "/api/v1/auth/password/reset",
-                                        "/api/v1/platform/auth/login",
-                                        "/api/v1/platform/auth/refresh",
-                                        "/api/v1/platform/auth/logout",
-                                        "/api/v1/integration/service-token",
-                                        "/api/v1/public/documents/**",
-                                        "/actuator/health",
-                                        "/v3/api-docs/**",
-                                        "/swagger-ui/**",
-                                        "/swagger-ui.html")
-                                .permitAll()
-                                .requestMatchers(HttpMethod.POST, "/api/v1/auth/otp/challenges/*/verify")
-                                .permitAll()
-                                .requestMatchers("/api/v1/platform/**")
-                                .hasAuthority("ROLE_PLATFORM_SUPER_ADMIN")
-                                .requestMatchers("/api/v1/identity/**", "/api/v1/audit/**")
-                                .hasAuthority("ROLE_HUMAN")
-                                .requestMatchers("/api/v1/integration/service-clients/**")
-                                .hasAuthority("ROLE_HUMAN")
-                                .requestMatchers("/api/v1/integration/**")
-                                .hasAuthority("ROLE_SERVICE")
-                                .anyRequest()
-                                .authenticated())
+                        requests ->
+                                requests
+                                        .requestMatchers(
+                                                "/api/v1/auth/tenants/register",
+                                                "/api/v1/auth/login",
+                                                "/api/v1/auth/login/by-slug",
+                                                "/api/v1/auth/refresh",
+                                                "/api/v1/auth/logout",
+                                                "/api/v1/auth/invitations/accept",
+                                                "/api/v1/auth/password/forgot",
+                                                "/api/v1/auth/password/reset",
+                                                "/api/v1/platform/auth/login",
+                                                "/api/v1/platform/auth/refresh",
+                                                "/api/v1/platform/auth/logout",
+                                                "/api/v1/integration/service-token",
+                                                "/api/v1/public/documents/**",
+                                                "/actuator/health",
+                                                "/v3/api-docs/**",
+                                                "/swagger-ui/**",
+                                                "/swagger-ui.html")
+                                        .permitAll()
+                                        .requestMatchers(
+                                                HttpMethod.POST,
+                                                "/api/v1/auth/otp/challenges/*/verify")
+                                        .permitAll()
+                                        .requestMatchers("/api/v1/platform/**")
+                                        .hasAuthority("ROLE_PLATFORM_SUPER_ADMIN")
+                                        .requestMatchers(
+                                                "/api/v1/identity/**", "/api/v1/audit/**")
+                                        .hasAuthority("ROLE_HUMAN")
+                                        .requestMatchers("/api/v1/integration/service-clients/**")
+                                        .hasAuthority("ROLE_HUMAN")
+                                        .requestMatchers("/api/v1/integration/**")
+                                        .hasAuthority("ROLE_SERVICE")
+                                        .anyRequest()
+                                        .authenticated())
                 .oauth2ResourceServer(
-                        oauth2 -> oauth2.jwt(
-                                jwt -> jwt.jwtAuthenticationConverter(jwtConverter())))
-                .addFilterAfter(authorizationVersionFilter, BearerTokenAuthenticationFilter.class)
+                        oauth2 ->
+                                oauth2.jwt(
+                                        jwt ->
+                                                jwt.jwtAuthenticationConverter(jwtConverter())))
+                .addFilterAfter(
+                        authorizationVersionFilter, BearerTokenAuthenticationFilter.class)
                 .addFilterAfter(new TenantContextFilter(), AuthorizationVersionFilter.class)
                 .build();
     }
@@ -111,9 +119,8 @@ public class SecurityConfig {
 
     @Bean
     JwtDecoder jwtDecoder(SecretKey key) {
-        NimbusJwtDecoder decoder = NimbusJwtDecoder.withSecretKey(key)
-                .macAlgorithm(MacAlgorithm.HS256)
-                .build();
+        NimbusJwtDecoder decoder =
+                NimbusJwtDecoder.withSecretKey(key).macAlgorithm(MacAlgorithm.HS256).build();
         OAuth2TokenValidator<Jwt> issuer =
                 JwtValidators.createDefaultWithIssuer("collectra-api");
         OAuth2TokenValidator<Jwt> audience =
@@ -138,12 +145,22 @@ public class SecurityConfig {
             authorities.add(new SimpleGrantedAuthority("ROLE_SERVICE"));
         }
         List<String> roles = jwt.getClaimAsStringList("roles");
-        if (roles != null) roles.forEach(role -> authorities.add(new SimpleGrantedAuthority("ROLE_" + role)));
+        if (roles != null) {
+            roles.forEach(role -> authorities.add(new SimpleGrantedAuthority("ROLE_" + role)));
+        }
         List<String> permissions = jwt.getClaimAsStringList("permissions");
-        if (permissions != null) permissions.forEach(code -> authorities.add(new SimpleGrantedAuthority(code)));
+        if (permissions != null) {
+            permissions.forEach(code -> authorities.add(new SimpleGrantedAuthority(code)));
+        }
         String scope = jwt.getClaimAsString("scope");
-        if (scope != null) java.util.Arrays.stream(scope.split(" ")).filter(s -> !s.isBlank())
-                .forEach(code -> authorities.add(new SimpleGrantedAuthority("SCOPE_" + code)));
+        if (scope != null) {
+            java.util.Arrays.stream(scope.split(" "))
+                    .filter(s -> !s.isBlank())
+                    .forEach(
+                            code ->
+                                    authorities.add(
+                                            new SimpleGrantedAuthority("SCOPE_" + code)));
+        }
         return List.copyOf(authorities);
     }
 }
