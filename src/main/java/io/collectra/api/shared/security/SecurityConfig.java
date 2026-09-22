@@ -48,8 +48,7 @@ public class SecurityConfig {
                         session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(
                         requests ->
-                                requests
-                                        .requestMatchers(
+                                requests.requestMatchers(
                                                 "/api/v1/auth/tenants/register",
                                                 "/api/v1/auth/login",
                                                 "/api/v1/auth/login/by-slug",
@@ -74,8 +73,7 @@ public class SecurityConfig {
                                         .permitAll()
                                         .requestMatchers("/api/v1/platform/**")
                                         .hasAuthority("ROLE_PLATFORM_SUPER_ADMIN")
-                                        .requestMatchers(
-                                                "/api/v1/identity/**", "/api/v1/audit/**")
+                                        .requestMatchers("/api/v1/identity/**", "/api/v1/audit/**")
                                         .hasAuthority("ROLE_HUMAN")
                                         .requestMatchers("/api/v1/integration/service-clients/**")
                                         .hasAuthority("ROLE_HUMAN")
@@ -84,12 +82,8 @@ public class SecurityConfig {
                                         .anyRequest()
                                         .authenticated())
                 .oauth2ResourceServer(
-                        oauth2 ->
-                                oauth2.jwt(
-                                        jwt ->
-                                                jwt.jwtAuthenticationConverter(jwtConverter())))
-                .addFilterAfter(
-                        authorizationVersionFilter, BearerTokenAuthenticationFilter.class)
+                        oauth2 -> oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtConverter())))
+                .addFilterAfter(authorizationVersionFilter, BearerTokenAuthenticationFilter.class)
                 .addFilterAfter(new TenantContextFilter(), AuthorizationVersionFilter.class)
                 .build();
     }
@@ -121,8 +115,7 @@ public class SecurityConfig {
     JwtDecoder jwtDecoder(SecretKey key) {
         NimbusJwtDecoder decoder =
                 NimbusJwtDecoder.withSecretKey(key).macAlgorithm(MacAlgorithm.HS256).build();
-        OAuth2TokenValidator<Jwt> issuer =
-                JwtValidators.createDefaultWithIssuer("collectra-api");
+        OAuth2TokenValidator<Jwt> issuer = JwtValidators.createDefaultWithIssuer("collectra-api");
         OAuth2TokenValidator<Jwt> audience =
                 new JwtClaimValidator<List<String>>(
                         "aud", values -> values != null && values.contains("collectra-api"));
@@ -156,10 +149,7 @@ public class SecurityConfig {
         if (scope != null) {
             java.util.Arrays.stream(scope.split(" "))
                     .filter(s -> !s.isBlank())
-                    .forEach(
-                            code ->
-                                    authorities.add(
-                                            new SimpleGrantedAuthority("SCOPE_" + code)));
+                    .forEach(code -> authorities.add(new SimpleGrantedAuthority("SCOPE_" + code)));
         }
         return List.copyOf(authorities);
     }
