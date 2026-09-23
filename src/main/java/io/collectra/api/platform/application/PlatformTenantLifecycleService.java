@@ -27,15 +27,9 @@ public class PlatformTenantLifecycleService {
 
     @Transactional
     public Tenant changeStatus(
-            UUID actorId,
-            UUID tenantId,
-            boolean active,
-            long expectedRevision,
-            String reason) {
+            UUID actorId, UUID tenantId, boolean active, long expectedRevision, String reason) {
         Tenant tenant =
-                tenants
-                        .findByIdForUpdate(tenantId)
-                        .orElseThrow(TenantNotFoundException::new);
+                tenants.findByIdForUpdate(tenantId).orElseThrow(TenantNotFoundException::new);
 
         if (tenant.getVersion() != expectedRevision) {
             throw new BusinessConflictException(
@@ -53,12 +47,7 @@ public class PlatformTenantLifecycleService {
             }
             tenant.activate();
             audit.appendTransactional(
-                    tenantId,
-                    "PLATFORM_USER",
-                    actorId,
-                    "TENANT_ACTIVATED",
-                    "SUCCEEDED",
-                    reason);
+                    tenantId, "PLATFORM_USER", actorId, "TENANT_ACTIVATED", "SUCCEEDED", reason);
         } else {
             if (!tenant.active()) {
                 throw new BusinessConflictException(
@@ -67,12 +56,7 @@ public class PlatformTenantLifecycleService {
             tenant.block();
             sessions.revokeAllByTenantId(tenantId);
             audit.appendTransactional(
-                    tenantId,
-                    "PLATFORM_USER",
-                    actorId,
-                    "TENANT_BLOCKED",
-                    "SUCCEEDED",
-                    reason);
+                    tenantId, "PLATFORM_USER", actorId, "TENANT_BLOCKED", "SUCCEEDED", reason);
         }
         return tenant;
     }

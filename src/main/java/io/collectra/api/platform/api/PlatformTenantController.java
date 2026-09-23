@@ -40,11 +40,9 @@ public class PlatformTenantController {
     PageResponse<TenantItem> list(
             @RequestParam(required = false) String search,
             @RequestParam(required = false) String status,
-            @RequestParam(required = false)
-                    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
                     Instant createdFrom,
-            @RequestParam(required = false)
-                    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
                     Instant createdTo,
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "50") @Min(1) @Max(200) int size,
@@ -76,7 +74,5 @@ public class PlatformTenantController {
     }
 
     record StatusRequest(
-            boolean active,
-            @Min(0) long revision,
-            @NotBlank @Size(max = 255) String reason) {}
+            boolean active, @Min(0) long revision, @NotBlank @Size(max = 255) String reason) {}
 }

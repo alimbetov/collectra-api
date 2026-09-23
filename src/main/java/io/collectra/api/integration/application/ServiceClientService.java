@@ -190,8 +190,7 @@ public class ServiceClientService {
                 .orElse(null);
     }
 
-    private ClientResponse response(
-            ServiceClient client, ServiceClientCredential credential) {
+    private ClientResponse response(ServiceClient client, ServiceClientCredential credential) {
         return new ClientResponse(
                 client.getId(),
                 client.getClientId(),
@@ -209,8 +208,7 @@ public class ServiceClientService {
     private void validateSecret(String secret) {
         int bytes = secret.getBytes(StandardCharsets.UTF_8).length;
         if (bytes < 32 || bytes > 72) {
-            throw new IllegalArgumentException(
-                    "Client secret must contain 32 to 72 UTF-8 bytes");
+            throw new IllegalArgumentException("Client secret must contain 32 to 72 UTF-8 bytes");
         }
     }
 

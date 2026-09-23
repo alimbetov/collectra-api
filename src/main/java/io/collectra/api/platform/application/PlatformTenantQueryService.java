@@ -1,11 +1,11 @@
 package io.collectra.api.platform.application;
 
+import io.collectra.api.shared.error.InvalidRequestException;
+import io.collectra.api.shared.error.TenantNotFoundException;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import io.collectra.api.shared.error.InvalidRequestException;
-import io.collectra.api.shared.error.TenantNotFoundException;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -66,10 +66,7 @@ public class PlatformTenantQueryService {
         }
 
         long total =
-                jdbc.queryForObject(
-                        "select count(*) from tenants t" + where,
-                        params,
-                        Long.class);
+                jdbc.queryForObject("select count(*) from tenants t" + where, params, Long.class);
 
         String orderBy = orderBy(sort);
         params.addValue("limit", size);
@@ -127,11 +124,7 @@ public class PlatformTenantQueryService {
                                         rs.getLong("messages_30d")));
 
         return new PageResponse<>(
-                items,
-                page,
-                size,
-                total,
-                total == 0 ? 0 : (int) Math.ceil((double) total / size));
+                items, page, size, total, total == 0 ? 0 : (int) Math.ceil((double) total / size));
     }
 
     @Transactional(readOnly = true)

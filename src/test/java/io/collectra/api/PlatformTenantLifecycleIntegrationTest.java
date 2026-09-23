@@ -14,7 +14,6 @@ import io.collectra.api.integration.application.ServiceClientService;
 import io.collectra.api.platform.application.PlatformTenantLifecycleService;
 import io.collectra.api.shared.error.InvalidRefreshTokenException;
 import io.collectra.api.tenant.infrastructure.TenantRepository;
-import java.time.Instant;
 import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -59,31 +58,21 @@ class PlatformTenantLifecycleIntegrationTest extends AbstractIntegrationTest {
 
         UUID actorId = UUID.randomUUID();
         lifecycle.changeStatus(
-                actorId,
-                tenant.getId(),
-                false,
-                tenant.getVersion(),
-                "Security test");
+                actorId, tenant.getId(), false, tenant.getVersion(), "Security test");
 
         assertThatThrownBy(() -> auth.login(slug, email, password))
                 .isInstanceOf(BadCredentialsException.class);
         assertThatThrownBy(() -> auth.refresh(registered.refreshToken()))
                 .isInstanceOf(InvalidRefreshTokenException.class);
         assertThatThrownBy(
-                        () ->
-                                serviceClients.token(
-                                        clientId, clientSecret, Set.of("document:read")))
+                        () -> serviceClients.token(clientId, clientSecret, Set.of("document:read")))
                 .isInstanceOf(BadCredentialsException.class);
 
         var blocked = tenants.findById(tenant.getId()).orElseThrow();
         assertThat(blocked.getStatus()).isEqualTo("BLOCKED");
 
         lifecycle.changeStatus(
-                actorId,
-                tenant.getId(),
-                true,
-                blocked.getVersion(),
-                "Security issue resolved");
+                actorId, tenant.getId(), true, blocked.getVersion(), "Security issue resolved");
 
         assertThat(auth.login(slug, email, password)).isNotNull();
         assertThatThrownBy(() -> auth.refresh(registered.refreshToken()))
@@ -122,7 +111,8 @@ class PlatformTenantLifecycleIntegrationTest extends AbstractIntegrationTest {
     @Test
     void platformTenantRegistryIsPagedAndPlatformOnly() throws Exception {
         String marker = "pf2-list-" + UUID.randomUUID();
-        tenants.saveAndFlush(new io.collectra.api.tenant.domain.Tenant(marker, "PF2 Listed Tenant"));
+        tenants.saveAndFlush(
+                new io.collectra.api.tenant.domain.Tenant(marker, "PF2 Listed Tenant"));
 
         JsonNode response =
                 read(
@@ -160,8 +150,7 @@ class PlatformTenantLifecycleIntegrationTest extends AbstractIntegrationTest {
                                                                         UUID.randomUUID()
                                                                                 .toString()))
                                                 .authorities(
-                                                        new SimpleGrantedAuthority(
-                                                                "ROLE_HUMAN"))))
+                                                        new SimpleGrantedAuthority("ROLE_HUMAN"))))
                 .andExpect(status().isForbidden());
     }
 
