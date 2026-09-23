@@ -25,7 +25,16 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/template-builder")
@@ -113,9 +122,7 @@ public class TemplateBuilderController {
     @PreAuthorize("hasAuthority('TEMPLATE_MANAGE')")
     ResponseEntity<byte[]> previewDocumentPdf(
             @Valid @RequestBody BuilderDocumentPreviewRequest request) {
-        byte[] pdf =
-                builder.previewPdf(
-                        tenant(), request.draft().toDraft(), request.payload());
+        byte[] pdf = builder.previewPdf(tenant(), request.draft().toDraft(), request.payload());
         return ResponseEntity.ok()
                 .header(HttpHeaders.CACHE_CONTROL, "no-store")
                 .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"preview.pdf\"")
@@ -309,11 +316,7 @@ public class TemplateBuilderController {
             String builderSchemaVersion) {}
 
     record PageResponse<T>(
-            List<T> items,
-            int page,
-            int size,
-            long totalElements,
-            int totalPages) {
+            List<T> items, int page, int size, long totalElements, int totalPages) {
         static <T> PageResponse<T> from(org.springframework.data.domain.Page<T> page) {
             return new PageResponse<>(
                     page.getContent(),
