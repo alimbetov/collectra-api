@@ -170,7 +170,6 @@ class PlatformTenantLifecycleIntegrationTest extends AbstractIntegrationTest {
                 .andExpect(status().isForbidden());
     }
 
-
     @Test
     void lifecyclePatchRejectsStaleRevisionWithStableCode() throws Exception {
         String marker = "pf2-stale-" + UUID.randomUUID();
@@ -223,8 +222,7 @@ class PlatformTenantLifecycleIntegrationTest extends AbstractIntegrationTest {
     }
 
     private RequestPostProcessor platformAdmin() {
-        return jwt()
-                .jwt(
+        return jwt().jwt(
                         token ->
                                 token.subject(UUID.randomUUID().toString())
                                         .claim("token_type", "platform_user")
