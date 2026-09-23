@@ -11,7 +11,8 @@ import org.junit.jupiter.api.Test;
 class TemplateRendererUnitTest {
     private final ObjectMapper json = new ObjectMapper();
     private final HtmlTemplatePolicy policy = new HtmlTemplatePolicy();
-    private final TemplateCompiler compiler = new TemplateCompiler(policy, new PlaceholderScanner());
+    private final TemplateCompiler compiler =
+            new TemplateCompiler(policy, new PlaceholderScanner());
     private final TemplateRenderer renderer = new TemplateRenderer(compiler);
 
     @Test
@@ -42,7 +43,8 @@ class TemplateRendererUnitTest {
     @Test
     void textRenderingDoesNotHtmlEscapeMessageValues() throws Exception {
         CompiledTemplate compiled =
-                compiler.compileText(UUID.randomUUID(), "Hello {{recipient.name}}: {{invoice.number}}");
+                compiler.compileText(
+                        UUID.randomUUID(), "Hello {{recipient.name}}: {{invoice.number}}");
 
         String text =
                 renderer.renderText(
