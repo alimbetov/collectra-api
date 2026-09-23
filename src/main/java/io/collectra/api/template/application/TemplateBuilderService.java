@@ -122,8 +122,7 @@ public class TemplateBuilderService {
         limits.validatePreviewPayload(payload);
         ValidationResult validation = validate(tenantId, draft);
         if (!validation.valid()) {
-            throw new IllegalArgumentException(
-                    "Builder draft is invalid: " + validation.errors());
+            throw new IllegalArgumentException("Builder draft is invalid: " + validation.errors());
         }
         return renderPreview(
                 tenantId,
@@ -145,12 +144,7 @@ public class TemplateBuilderService {
         TemplateChannel channel = effectiveChannel(draft.channel());
         String content = documentCompiler.compile(draft.builderJson(), channel);
         return renderPreview(
-                tenantId,
-                channel,
-                draft.subject(),
-                content,
-                draft.stylesheet(),
-                payload);
+                tenantId, channel, draft.subject(), content, draft.stylesheet(), payload);
     }
 
     public byte[] previewPdf(UUID tenantId, BuilderDocumentDraft draft, JsonNode payload) {
@@ -251,9 +245,7 @@ public class TemplateBuilderService {
                     ? compiler.compileText(UUID.randomUUID(), content)
                     : compiler.compileBody(UUID.randomUUID(), content, stylesheet);
         } catch (IllegalArgumentException ex) {
-            errors.add(
-                    new ValidationIssue(
-                            "INVALID_TEMPLATE", "content", ex.getMessage()));
+            errors.add(new ValidationIssue("INVALID_TEMPLATE", "content", ex.getMessage()));
             return null;
         }
     }
@@ -271,9 +263,7 @@ public class TemplateBuilderService {
             CompiledTemplate compiled = compiler.compileText(UUID.randomUUID(), subject);
             validateTokens(tenantId, "subject", compiled.tokens(), available, errors);
         } catch (IllegalArgumentException ex) {
-            errors.add(
-                    new ValidationIssue(
-                            "INVALID_TEMPLATE", "subject", ex.getMessage()));
+            errors.add(new ValidationIssue("INVALID_TEMPLATE", "subject", ex.getMessage()));
         }
     }
 
@@ -337,18 +327,14 @@ public class TemplateBuilderService {
                 if (!assets.exists(tenantId, assetKey)) {
                     errors.add(
                             new ValidationIssue(
-                                    "UNKNOWN_ASSET",
-                                    path,
-                                    "Unknown template asset: " + assetKey));
+                                    "UNKNOWN_ASSET", path, "Unknown template asset: " + assetKey));
                 }
                 continue;
             }
             if (!available.contains(key)) {
                 errors.add(
                         new ValidationIssue(
-                                "UNKNOWN_PLACEHOLDER",
-                                path,
-                                "Unknown placeholder: " + key));
+                                "UNKNOWN_PLACEHOLDER", path, "Unknown placeholder: " + key));
             }
         }
     }
