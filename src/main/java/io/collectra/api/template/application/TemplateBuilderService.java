@@ -1,6 +1,7 @@
 package io.collectra.api.template.application;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import io.collectra.api.document.application.PdfRenderer;
 import io.collectra.api.template.domain.FieldDefinition;
 import io.collectra.api.template.domain.TemplateAsset;
 import io.collectra.api.template.domain.TemplateChannel;
@@ -19,18 +20,24 @@ public class TemplateBuilderService {
     private final TemplateCompiler compiler;
     private final TemplateRenderer renderer;
     private final TemplateBuilderDocumentCompiler documentCompiler;
+    private final TemplateBuilderLimits limits;
+    private final PdfRenderer pdfRenderer;
 
     public TemplateBuilderService(
             FieldCatalogService fieldCatalog,
             TemplateAssetService assets,
             TemplateCompiler compiler,
             TemplateRenderer renderer,
-            TemplateBuilderDocumentCompiler documentCompiler) {
+            TemplateBuilderDocumentCompiler documentCompiler,
+            TemplateBuilderLimits limits,
+            PdfRenderer pdfRenderer) {
         this.fieldCatalog = fieldCatalog;
         this.assets = assets;
         this.compiler = compiler;
         this.renderer = renderer;
         this.documentCompiler = documentCompiler;
+        this.limits = limits;
+        this.pdfRenderer = pdfRenderer;
     }
 
     public BuilderCatalog catalog(UUID tenantId) {
@@ -54,6 +61,7 @@ public class TemplateBuilderService {
         }
 
         TemplateChannel channel = effectiveChannel(draft.channel());
+        limits.validateDraft(draft.content(), draft.stylesheet());
         validateChannelRules(channel, draft.subject(), draft.content(), draft.stylesheet(), errors);
 
         Set<String> available = availableFields(tenantId);
@@ -77,6 +85,8 @@ public class TemplateBuilderService {
                     List.of(new ValidationIssue("DRAFT_REQUIRED", "draft", "Builder draft is required")),
                     List.of());
         }
+        limits.validateBuilder(draft.builderJson());
+        limits.validateDraft("", draft.stylesheet());
         String content;
         try {
             content = documentCompiler.compile(draft.builderJson(), effectiveChannel(draft.channel()));
@@ -93,6 +103,7 @@ public class TemplateBuilderService {
     }
 
     public PreviewResult preview(UUID tenantId, BuilderDraft draft, JsonNode payload) {
+        limits.validatePreviewPayload(payload);
         ValidationResult validation = validate(tenantId, draft);
         if (!validation.valid()) {
             throw new IllegalArgumentException("Builder draft is invalid: " + validation.errors());
@@ -108,6 +119,7 @@ public class TemplateBuilderService {
 
     public PreviewResult previewDocument(
             UUID tenantId, BuilderDocumentDraft draft, JsonNode payload) {
+        limits.validatePreviewPayload(payload);
         ValidationResult validation = validateDocument(tenantId, draft);
         if (!validation.valid()) {
             throw new IllegalArgumentException("Builder document is invalid: " + validation.errors());
@@ -121,6 +133,18 @@ public class TemplateBuilderService {
                 content,
                 draft.stylesheet(),
                 payload);
+    }
+
+    public byte[] previewPdf(
+            UUID tenantId, BuilderDocumentDraft draft, JsonNode payload) {
+        TemplateChannel channel = effectiveChannel(draft.channel());
+        if (channel != TemplateChannel.PDF) {
+            throw new IllegalArgumentException("PDF preview requires PDF template channel");
+        }
+        PreviewResult preview = previewDocument(tenantId, draft, payload);
+        byte[] pdf = pdfRenderer.render(preview.content(), draft.locale());
+        limits.validatePdf(pdf);
+        return pdf;
     }
 
     public CompiledBuilderDocument compileDocument(UUID tenantId, BuilderDocumentDraft draft) {
@@ -156,6 +180,7 @@ public class TemplateBuilderService {
                         ? renderer.renderText(
                                 compiler.compileText(previewId, subjectTemplate), effectivePayload)
                         : null;
+        limits.validateRenderedContent(content);
         return new PreviewResult(channel, subject, content);
     }
 
