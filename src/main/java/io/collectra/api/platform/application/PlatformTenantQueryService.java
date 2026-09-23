@@ -1,12 +1,11 @@
 package io.collectra.api.platform.application;
 
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.UUID;
+import io.collectra.api.shared.error.InvalidRequestException;
+import io.collectra.api.shared.error.TenantNotFoundException;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -45,12 +44,21 @@ public class PlatformTenantQueryService {
             params.addValue("search", "%" + search.trim().toLowerCase() + "%");
         }
         if (status != null && !status.isBlank()) {
+            String normalizedStatus = status.trim().toUpperCase();
+            if (!"ACTIVE".equals(normalizedStatus) && !"BLOCKED".equals(normalizedStatus)) {
+                throw new InvalidRequestException(
+                        "INVALID_FILTER", "Unsupported tenant status: " + status);
+            }
             where.append(" and t.status = :status ");
-            params.addValue("status", status.trim().toUpperCase());
+            params.addValue("status", normalizedStatus);
         }
         if (createdFrom != null) {
             where.append(" and t.created_at >= :createdFrom ");
             params.addValue("createdFrom", createdFrom);
+        }
+        if (createdFrom != null && createdTo != null && !createdFrom.isBefore(createdTo)) {
+            throw new InvalidRequestException(
+                    "INVALID_FILTER", "createdFrom must be before createdTo");
         }
         if (createdTo != null) {
             where.append(" and t.created_at < :createdTo ");
@@ -190,7 +198,7 @@ public class PlatformTenantQueryService {
                                         rs.getLong("generated_documents"),
                                         rs.getLong("files")));
         if (values.isEmpty()) {
-            throw new NoSuchElementException("Tenant not found");
+            throw new TenantNotFoundException();
         }
         return values.get(0);
     }
@@ -198,13 +206,22 @@ public class PlatformTenantQueryService {
     private String orderBy(String sort) {
         String value = sort == null || sort.isBlank() ? "createdAt,desc" : sort.trim();
         String[] parts = value.split(",", -1);
+        if (parts.length > 2) {
+            throw new InvalidRequestException("UNSUPPORTED_SORT", "Invalid tenant sort: " + value);
+        }
+
         String field = parts[0];
         String column = SORT_COLUMNS.get(field);
         if (column == null) {
-            throw new IllegalArgumentException("Unsupported tenant sort: " + field);
+            throw new InvalidRequestException(
+                    "UNSUPPORTED_SORT", "Unsupported tenant sort: " + field);
         }
-        String direction =
-                parts.length > 1 && "asc".equalsIgnoreCase(parts[1]) ? "asc" : "desc";
+
+        String direction = parts.length == 1 ? "desc" : parts[1].toLowerCase();
+        if (!"asc".equals(direction) && !"desc".equals(direction)) {
+            throw new InvalidRequestException(
+                    "UNSUPPORTED_SORT", "Unsupported tenant sort direction: " + parts[1]);
+        }
         return column + " " + direction + ", t.id " + direction;
     }
 
