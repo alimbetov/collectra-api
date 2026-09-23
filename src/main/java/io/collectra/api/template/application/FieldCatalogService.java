@@ -2,20 +2,17 @@ package io.collectra.api.template.application;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
-
 import io.collectra.api.template.domain.FieldDataType;
 import io.collectra.api.template.domain.FieldDefinition;
 import io.collectra.api.template.infrastructure.FieldDefinitionRepository;
-
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.util.List;
 import java.util.Locale;
 import java.util.NoSuchElementException;
 import java.util.UUID;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class FieldCatalogService {
@@ -23,8 +20,7 @@ public class FieldCatalogService {
     private final FieldKeyValidator fieldKeyValidator;
 
     public FieldCatalogService(
-            FieldDefinitionRepository fields,
-            FieldKeyValidator fieldKeyValidator) {
+            FieldDefinitionRepository fields, FieldKeyValidator fieldKeyValidator) {
         this.fields = fields;
         this.fieldKeyValidator = fieldKeyValidator;
     }
@@ -109,16 +105,20 @@ public class FieldCatalogService {
         FieldDefinition field =
                 fields.findById(fieldId)
                         .orElseThrow(() -> new NoSuchElementException("Field not found"));
-        if (field.isSystem()) throw new IllegalArgumentException("System fields cannot be changed");
-        if (!tenantId.equals(field.getTenantId()))
+        if (field.isSystem()) {
+            throw new IllegalArgumentException("System fields cannot be changed");
+        }
+        if (!tenantId.equals(field.getTenantId())) {
             throw new NoSuchElementException("Field not found");
+        }
         return field;
     }
 
     private void ensureKeyAvailable(UUID tenantId, String key) {
         if (fields.existsByTenantIdIsNullAndKeyIgnoreCase(key)
-                || fields.existsByTenantIdAndKeyIgnoreCase(tenantId, key))
+                || fields.existsByTenantIdAndKeyIgnoreCase(tenantId, key)) {
             throw new IllegalArgumentException("Field key already exists");
+        }
     }
 
     private String normalizeCategory(String category) {
@@ -126,9 +126,12 @@ public class FieldCatalogService {
     }
 
     private JsonNode rules(JsonNode validationRules) {
-        if (validationRules == null) return JsonNodeFactory.instance.objectNode();
-        if (!validationRules.isObject())
+        if (validationRules == null) {
+            return JsonNodeFactory.instance.objectNode();
+        }
+        if (!validationRules.isObject()) {
             throw new IllegalArgumentException("Validation rules must be a JSON object");
+        }
         return validationRules;
     }
 }
