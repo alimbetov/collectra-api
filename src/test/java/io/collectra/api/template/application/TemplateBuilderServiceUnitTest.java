@@ -18,7 +18,8 @@ class TemplateBuilderServiceUnitTest {
     private final FieldCatalogService fields = mock(FieldCatalogService.class);
     private final TemplateAssetService assets = mock(TemplateAssetService.class);
     private final HtmlTemplatePolicy policy = new HtmlTemplatePolicy();
-    private final TemplateCompiler compiler = new TemplateCompiler(policy, new PlaceholderScanner());
+    private final TemplateCompiler compiler =
+            new TemplateCompiler(policy, new PlaceholderScanner());
     private final TemplateRenderer renderer = new TemplateRenderer(compiler);
     private final TemplateBuilderDocumentCompiler documentCompiler =
             new TemplateBuilderDocumentCompiler();
@@ -138,8 +139,7 @@ class TemplateBuilderServiceUnitTest {
                                 TemplateChannel.PDF, "ru", null, builderJson, null));
 
         assertThat(result.valid()).isFalse();
-        assertThat(result.errors())
-                .anyMatch(issue -> "UNKNOWN_PLACEHOLDER".equals(issue.code()));
+        assertThat(result.errors()).anyMatch(issue -> "UNKNOWN_PLACEHOLDER".equals(issue.code()));
     }
 
     @Test
