@@ -16,6 +16,9 @@ import java.util.Locale;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.UUID;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -44,6 +47,14 @@ public class TemplateAssetService {
     @Transactional(readOnly = true)
     public List<TemplateAsset> list(UUID tenantId) {
         return assets.findAllByTenantIdAndStatusOrderByAssetKeyAsc(tenantId, "ACTIVE");
+    }
+
+    @Transactional(readOnly = true)
+    public Page<TemplateAsset> list(UUID tenantId, int page, int size) {
+        return assets.findByTenantIdAndStatus(
+                tenantId,
+                "ACTIVE",
+                PageRequest.of(page, size, Sort.by(Sort.Direction.ASC, "assetKey")));
     }
 
     @Transactional
