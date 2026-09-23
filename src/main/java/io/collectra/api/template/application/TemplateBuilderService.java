@@ -56,7 +56,9 @@ public class TemplateBuilderService {
         if (draft == null) {
             return new ValidationResult(
                     false,
-                    List.of(new ValidationIssue("DRAFT_REQUIRED", "draft", "Builder draft is required")),
+                    List.of(
+                            new ValidationIssue(
+                                    "DRAFT_REQUIRED", "draft", "Builder draft is required")),
                     List.of());
         }
 
@@ -66,14 +68,18 @@ public class TemplateBuilderService {
 
         Set<String> available = availableFields(tenantId);
         CompiledTemplate body = compileBody(channel, draft.content(), draft.stylesheet(), errors);
-        if (body != null) validateTokens(tenantId, "content", body.tokens(), available, errors);
+        if (body != null) {
+            validateTokens(tenantId, "content", body.tokens(), available, errors);
+        }
 
         validateSubject(tenantId, channel, draft.subject(), available, errors);
 
         if (body != null && body.tokens().stream().noneMatch(this::isDynamicToken)) {
             warnings.add(
                     new ValidationIssue(
-                            "NO_DYNAMIC_FIELDS", "content", "Template does not contain dynamic placeholders"));
+                            "NO_DYNAMIC_FIELDS",
+                            "content",
+                            "Template does not contain dynamic placeholders"));
         }
         return new ValidationResult(errors.isEmpty(), List.copyOf(errors), List.copyOf(warnings));
     }
@@ -82,31 +88,42 @@ public class TemplateBuilderService {
         if (draft == null) {
             return new ValidationResult(
                     false,
-                    List.of(new ValidationIssue("DRAFT_REQUIRED", "draft", "Builder draft is required")),
+                    List.of(
+                            new ValidationIssue(
+                                    "DRAFT_REQUIRED", "draft", "Builder draft is required")),
                     List.of());
         }
         limits.validateBuilder(draft.builderJson());
         limits.validateDraft("", draft.stylesheet());
         String content;
         try {
-            content = documentCompiler.compile(draft.builderJson(), effectiveChannel(draft.channel()));
+            content =
+                    documentCompiler.compile(
+                            draft.builderJson(), effectiveChannel(draft.channel()));
         } catch (IllegalArgumentException ex) {
             return new ValidationResult(
                     false,
-                    List.of(new ValidationIssue("INVALID_BUILDER_JSON", "builderJson", ex.getMessage())),
+                    List.of(
+                            new ValidationIssue(
+                                    "INVALID_BUILDER_JSON", "builderJson", ex.getMessage())),
                     List.of());
         }
         return validate(
                 tenantId,
                 new BuilderDraft(
-                        draft.channel(), draft.locale(), draft.subject(), content, draft.stylesheet()));
+                        draft.channel(),
+                        draft.locale(),
+                        draft.subject(),
+                        content,
+                        draft.stylesheet()));
     }
 
     public PreviewResult preview(UUID tenantId, BuilderDraft draft, JsonNode payload) {
         limits.validatePreviewPayload(payload);
         ValidationResult validation = validate(tenantId, draft);
         if (!validation.valid()) {
-            throw new IllegalArgumentException("Builder draft is invalid: " + validation.errors());
+            throw new IllegalArgumentException(
+                    "Builder draft is invalid: " + validation.errors());
         }
         return renderPreview(
                 tenantId,
@@ -122,7 +139,8 @@ public class TemplateBuilderService {
         limits.validatePreviewPayload(payload);
         ValidationResult validation = validateDocument(tenantId, draft);
         if (!validation.valid()) {
-            throw new IllegalArgumentException("Builder document is invalid: " + validation.errors());
+            throw new IllegalArgumentException(
+                    "Builder document is invalid: " + validation.errors());
         }
         TemplateChannel channel = effectiveChannel(draft.channel());
         String content = documentCompiler.compile(draft.builderJson(), channel);
@@ -135,8 +153,7 @@ public class TemplateBuilderService {
                 payload);
     }
 
-    public byte[] previewPdf(
-            UUID tenantId, BuilderDocumentDraft draft, JsonNode payload) {
+    public byte[] previewPdf(UUID tenantId, BuilderDocumentDraft draft, JsonNode payload) {
         TemplateChannel channel = effectiveChannel(draft.channel());
         if (channel != TemplateChannel.PDF) {
             throw new IllegalArgumentException("PDF preview requires PDF template channel");
@@ -150,11 +167,13 @@ public class TemplateBuilderService {
     public CompiledBuilderDocument compileDocument(UUID tenantId, BuilderDocumentDraft draft) {
         ValidationResult validation = validateDocument(tenantId, draft);
         if (!validation.valid()) {
-            throw new IllegalArgumentException("Builder document is invalid: " + validation.errors());
+            throw new IllegalArgumentException(
+                    "Builder document is invalid: " + validation.errors());
         }
         TemplateChannel channel = effectiveChannel(draft.channel());
         return new CompiledBuilderDocument(
-                draft.builderJson().deepCopy(), documentCompiler.compile(draft.builderJson(), channel));
+                draft.builderJson().deepCopy(),
+                documentCompiler.compile(draft.builderJson(), channel));
     }
 
     private PreviewResult renderPreview(
@@ -191,10 +210,14 @@ public class TemplateBuilderService {
             String stylesheet,
             List<ValidationIssue> errors) {
         if (channel == TemplateChannel.EMAIL && (subject == null || subject.isBlank())) {
-            errors.add(new ValidationIssue("SUBJECT_REQUIRED", "subject", "Email subject is required"));
+            errors.add(
+                    new ValidationIssue(
+                            "SUBJECT_REQUIRED", "subject", "Email subject is required"));
         }
         if (content == null || content.isBlank()) {
-            errors.add(new ValidationIssue("CONTENT_REQUIRED", "content", "Template content is required"));
+            errors.add(
+                    new ValidationIssue(
+                            "CONTENT_REQUIRED", "content", "Template content is required"));
             return;
         }
         if (isTextChannel(channel)) {
@@ -220,13 +243,17 @@ public class TemplateBuilderService {
             String content,
             String stylesheet,
             List<ValidationIssue> errors) {
-        if (content == null || content.isBlank()) return null;
+        if (content == null || content.isBlank()) {
+            return null;
+        }
         try {
             return isTextChannel(channel)
                     ? compiler.compileText(UUID.randomUUID(), content)
                     : compiler.compileBody(UUID.randomUUID(), content, stylesheet);
         } catch (IllegalArgumentException ex) {
-            errors.add(new ValidationIssue("INVALID_TEMPLATE", "content", ex.getMessage()));
+            errors.add(
+                    new ValidationIssue(
+                            "INVALID_TEMPLATE", "content", ex.getMessage()));
             return null;
         }
     }
@@ -237,12 +264,16 @@ public class TemplateBuilderService {
             String subject,
             Set<String> available,
             List<ValidationIssue> errors) {
-        if (channel != TemplateChannel.EMAIL || subject == null || subject.isBlank()) return;
+        if (channel != TemplateChannel.EMAIL || subject == null || subject.isBlank()) {
+            return;
+        }
         try {
             CompiledTemplate compiled = compiler.compileText(UUID.randomUUID(), subject);
             validateTokens(tenantId, "subject", compiled.tokens(), available, errors);
         } catch (IllegalArgumentException ex) {
-            errors.add(new ValidationIssue("INVALID_TEMPLATE", "subject", ex.getMessage()));
+            errors.add(
+                    new ValidationIssue(
+                            "INVALID_TEMPLATE", "subject", ex.getMessage()));
         }
     }
 
@@ -269,7 +300,9 @@ public class TemplateBuilderService {
                 insideItems = false;
                 continue;
             }
-            if (!(token instanceof TemplateToken.Placeholder placeholder)) continue;
+            if (!(token instanceof TemplateToken.Placeholder placeholder)) {
+                continue;
+            }
 
             String key = placeholder.path().canonical();
             if (key.startsWith("item.")) {
@@ -285,7 +318,9 @@ public class TemplateBuilderService {
                 if (!available.contains(catalogKey)) {
                     errors.add(
                             new ValidationIssue(
-                                    "UNKNOWN_PLACEHOLDER", path, "Unknown item placeholder: " + key));
+                                    "UNKNOWN_PLACEHOLDER",
+                                    path,
+                                    "Unknown item placeholder: " + key));
                 }
                 continue;
             }
@@ -302,13 +337,18 @@ public class TemplateBuilderService {
                 if (!assets.exists(tenantId, assetKey)) {
                     errors.add(
                             new ValidationIssue(
-                                    "UNKNOWN_ASSET", path, "Unknown template asset: " + assetKey));
+                                    "UNKNOWN_ASSET",
+                                    path,
+                                    "Unknown template asset: " + assetKey));
                 }
                 continue;
             }
             if (!available.contains(key)) {
                 errors.add(
-                        new ValidationIssue("UNKNOWN_PLACEHOLDER", path, "Unknown placeholder: " + key));
+                        new ValidationIssue(
+                                "UNKNOWN_PLACEHOLDER",
+                                path,
+                                "Unknown placeholder: " + key));
             }
         }
     }
@@ -318,7 +358,8 @@ public class TemplateBuilderService {
     }
 
     private boolean isDynamicToken(TemplateToken token) {
-        return token instanceof TemplateToken.Placeholder || token instanceof TemplateToken.EachStart;
+        return token instanceof TemplateToken.Placeholder
+                || token instanceof TemplateToken.EachStart;
     }
 
     private boolean isTextChannel(TemplateChannel channel) {
@@ -328,7 +369,11 @@ public class TemplateBuilderService {
     }
 
     public record BuilderDraft(
-            TemplateChannel channel, String locale, String subject, String content, String stylesheet) {}
+            TemplateChannel channel,
+            String locale,
+            String subject,
+            String content,
+            String stylesheet) {}
 
     public record BuilderDocumentDraft(
             TemplateChannel channel,
