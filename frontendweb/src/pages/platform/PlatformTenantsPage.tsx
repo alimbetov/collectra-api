@@ -176,7 +176,7 @@ export function PlatformTenantsPage() {
           </select>
         </label>
         <label>
-          <span>Created from</span>
+          <span>{t('platform.tenants.createdFrom')}</span>
           <input
             type="date"
             value={createdFromDate}
@@ -186,7 +186,7 @@ export function PlatformTenantsPage() {
           />
         </label>
         <label>
-          <span>Created to</span>
+          <span>{t('platform.tenants.createdTo')}</span>
           <input
             type="date"
             value={createdToDate}
@@ -196,18 +196,18 @@ export function PlatformTenantsPage() {
           />
         </label>
         <label>
-          <span>Sort</span>
+          <span>{t('platform.tenants.sort')}</span>
           <select
             value={sort}
             onChange={(event) => updateParams({ sort: event.target.value, page: undefined })}
           >
-            <option value="createdAt,desc">Created ↓</option>
-            <option value="createdAt,asc">Created ↑</option>
-            <option value="updatedAt,desc">Updated ↓</option>
-            <option value="name,asc">Name A–Z</option>
-            <option value="name,desc">Name Z–A</option>
-            <option value="slug,asc">Slug A–Z</option>
-            <option value="status,asc">Status</option>
+            <option value="createdAt,desc">{t('platform.tenants.sortCreatedDesc')}</option>
+            <option value="createdAt,asc">{t('platform.tenants.sortCreatedAsc')}</option>
+            <option value="updatedAt,desc">{t('platform.tenants.sortUpdatedDesc')}</option>
+            <option value="name,asc">{t('platform.tenants.sortNameAsc')}</option>
+            <option value="name,desc">{t('platform.tenants.sortNameDesc')}</option>
+            <option value="slug,asc">{t('platform.tenants.sortSlugAsc')}</option>
+            <option value="status,asc">{t('platform.tenants.sortStatusAsc')}</option>
           </select>
         </label>
         <div className="platform-tenant-filters__actions">
