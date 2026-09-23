@@ -3,9 +3,9 @@ package io.collectra.api.platform.application;
 import io.collectra.api.audit.application.SecurityAuditService;
 import io.collectra.api.identity.infrastructure.RefreshSessionRepository;
 import io.collectra.api.shared.error.BusinessConflictException;
+import io.collectra.api.shared.error.TenantNotFoundException;
 import io.collectra.api.tenant.domain.Tenant;
 import io.collectra.api.tenant.infrastructure.TenantRepository;
-import java.util.NoSuchElementException;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,7 +35,7 @@ public class PlatformTenantLifecycleService {
         Tenant tenant =
                 tenants
                         .findByIdForUpdate(tenantId)
-                        .orElseThrow(() -> new NoSuchElementException("Tenant not found"));
+                        .orElseThrow(TenantNotFoundException::new);
 
         if (tenant.getVersion() != expectedRevision) {
             throw new BusinessConflictException(
