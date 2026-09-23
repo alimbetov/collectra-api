@@ -196,6 +196,29 @@ class PlatformTenantLifecycleIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void lifecyclePatchRequiresActiveAndRevision() throws Exception {
+        String marker = "pf2-required-" + UUID.randomUUID();
+        var tenant =
+                tenants.saveAndFlush(
+                        new io.collectra.api.tenant.domain.Tenant(marker, "PF2 Required Tenant"));
+
+        mockMvc.perform(
+                        patch("/api/v1/platform/tenants/{tenantId}/status", tenant.getId())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                                        {
+                                          "reason": "missing command fields"
+                                        }
+                                        """)
+                                .with(platformAdmin()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+                .andExpect(jsonPath("$.errors.active").exists())
+                .andExpect(jsonPath("$.errors.revision").exists());
+    }
+
+    @Test
     void tenantDetailUsesStableNotFoundCode() throws Exception {
         mockMvc.perform(
                         get("/api/v1/platform/tenants/{tenantId}", UUID.randomUUID())
