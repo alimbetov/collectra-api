@@ -189,7 +189,7 @@ class TemplateManagementServiceUnitTest {
                 .anyMatch(
                         error ->
                                 "INVALID_TEMPLATE".equals(error.code())
-                                        && error.message().contains("canonical lowercase"));
+                                        && error.message().contains("Invalid placeholder expression"));
         assertThat(version.getStatus()).isEqualTo(TemplateVersionStatus.DRAFT);
         verifyNoInteractions(fields);
     }
