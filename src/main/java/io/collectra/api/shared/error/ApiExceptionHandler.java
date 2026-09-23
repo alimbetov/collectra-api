@@ -149,6 +149,11 @@ public class ApiExceptionHandler {
         return problem;
     }
 
+    @ExceptionHandler(TenantNotFoundException.class)
+    ProblemDetail tenantNotFound(TenantNotFoundException ex, HttpServletRequest request) {
+        return withCode(base(HttpStatus.NOT_FOUND, ex.getMessage(), request), "TENANT_NOT_FOUND");
+    }
+
     @ExceptionHandler(java.util.NoSuchElementException.class)
     ProblemDetail notFound(java.util.NoSuchElementException ex, HttpServletRequest request) {
         return withCode(base(HttpStatus.NOT_FOUND, ex.getMessage(), request), "NOT_FOUND");
