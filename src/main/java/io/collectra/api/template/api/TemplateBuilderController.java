@@ -5,11 +5,13 @@ import io.collectra.api.shared.tenant.TenantContext;
 import io.collectra.api.template.application.TemplateAssetService;
 import io.collectra.api.template.application.TemplateBuilderService;
 import io.collectra.api.template.application.TemplateManagementService;
+import io.collectra.api.template.application.TemplateMutationService;
 import io.collectra.api.template.domain.FieldDefinition;
 import io.collectra.api.template.domain.TemplateAsset;
 import io.collectra.api.template.domain.TemplateChannel;
 import io.collectra.api.template.domain.TemplateVersion;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -27,14 +29,17 @@ public class TemplateBuilderController {
     private final TemplateBuilderService builder;
     private final TemplateAssetService assets;
     private final TemplateManagementService templates;
+    private final TemplateMutationService mutations;
 
     public TemplateBuilderController(
             TemplateBuilderService builder,
             TemplateAssetService assets,
-            TemplateManagementService templates) {
+            TemplateManagementService templates,
+            TemplateMutationService mutations) {
         this.builder = builder;
         this.assets = assets;
         this.templates = templates;
+        this.mutations = mutations;
     }
 
     @GetMapping("/catalog")
@@ -117,12 +122,20 @@ public class TemplateBuilderController {
         TemplateVersion existing = templates.getVersion(tenant(), versionId);
         ensureChannelUnchanged(request.channel(), existing);
         return VersionResponse.from(
-                templates.update(
-                        tenant(),
-                        versionId,
-                        request.subject(),
-                        request.content(),
-                        request.stylesheet()));
+                request.revision() == null
+                        ? templates.update(
+                                tenant(),
+                                versionId,
+                                request.subject(),
+                                request.content(),
+                                request.stylesheet())
+                        : mutations.update(
+                                tenant(),
+                                versionId,
+                                request.subject(),
+                                request.content(),
+                                request.stylesheet(),
+                                request.revision()));
     }
 
     @PutMapping("/versions/{versionId}/builder")
@@ -133,13 +146,22 @@ public class TemplateBuilderController {
         ensureChannelUnchanged(request.channel(), existing);
         var compiled = builder.compileDocument(tenant(), request.toDraft());
         return VersionResponse.from(
-                templates.updateBuilder(
-                        tenant(),
-                        versionId,
-                        request.subject(),
-                        compiled.builderJson(),
-                        compiled.contentHtml(),
-                        request.stylesheet()));
+                request.revision() == null
+                        ? templates.updateBuilder(
+                                tenant(),
+                                versionId,
+                                request.subject(),
+                                compiled.builderJson(),
+                                compiled.contentHtml(),
+                                request.stylesheet())
+                        : mutations.updateBuilder(
+                                tenant(),
+                                versionId,
+                                request.subject(),
+                                compiled.builderJson(),
+                                compiled.contentHtml(),
+                                request.stylesheet(),
+                                request.revision()));
     }
 
     @GetMapping("/versions/{versionId}")
@@ -150,14 +172,21 @@ public class TemplateBuilderController {
 
     @PostMapping("/versions/{versionId}/validate")
     @PreAuthorize("hasAuthority('TEMPLATE_MANAGE')")
-    Object validateSavedDraft(@PathVariable UUID versionId) {
-        return templates.validate(tenant(), versionId);
+    Object validateSavedDraft(
+            @PathVariable UUID versionId, @RequestParam(required = false) @Min(0) Long revision) {
+        return revision == null
+                ? templates.validate(tenant(), versionId)
+                : mutations.validate(tenant(), versionId, revision);
     }
 
     @PostMapping("/versions/{versionId}/publish")
     @PreAuthorize("hasAuthority('TEMPLATE_PUBLISH')")
-    VersionResponse publish(@PathVariable UUID versionId) {
-        return VersionResponse.from(templates.publish(tenant(), versionId));
+    VersionResponse publish(
+            @PathVariable UUID versionId, @RequestParam(required = false) @Min(0) Long revision) {
+        return VersionResponse.from(
+                revision == null
+                        ? templates.publish(tenant(), versionId)
+                        : mutations.publish(tenant(), versionId, revision));
     }
 
     @GetMapping("/assets")
@@ -197,7 +226,8 @@ public class TemplateBuilderController {
             @NotBlank @Size(max = 10) String locale,
             @Size(max = 300) String subject,
             @NotBlank String content,
-            String stylesheet) {
+            String stylesheet,
+            @Min(0) Long revision) {
         TemplateBuilderService.BuilderDraft toDraft() {
             return new TemplateBuilderService.BuilderDraft(
                     channel, locale, subject, content, stylesheet);
@@ -209,7 +239,8 @@ public class TemplateBuilderController {
             @NotBlank @Size(max = 10) String locale,
             @Size(max = 300) String subject,
             @NotNull JsonNode builderJson,
-            String stylesheet) {
+            String stylesheet,
+            @Min(0) Long revision) {
         TemplateBuilderService.BuilderDocumentDraft toDraft() {
             return new TemplateBuilderService.BuilderDocumentDraft(
                     channel, locale, subject, builderJson, stylesheet);
