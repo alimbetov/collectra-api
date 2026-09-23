@@ -4,7 +4,9 @@ import { RequireAuth } from '../features/auth/ui/RequireAuth';
 import { RequirePlatformAuth } from '../features/auth/ui/RequirePlatformAuth';
 import { RequirePermission } from '../features/auth/ui/RequirePermission';
 import { LoginPage } from '../pages/auth/LoginPage';
-import { PlatformPage } from '../pages/platform/PlatformPage';
+import { PlatformLayout } from '../pages/platform/PlatformLayout';
+import { PlatformOverviewPage } from '../pages/platform/PlatformOverviewPage';
+import { PlatformPlaceholderPage } from '../pages/platform/PlatformPlaceholderPage';
 import { ForbiddenPage } from '../pages/system/ForbiddenPage';
 import { NotFoundPage } from '../pages/system/NotFoundPage';
 import { useI18n } from '../shared/i18n/i18n-context';
@@ -39,9 +41,36 @@ export const router = createBrowserRouter([
     errorElement: <RouteErrorPage />,
     element: (
       <RequirePlatformAuth>
-        <PlatformPage />
+        <PlatformLayout />
       </RequirePlatformAuth>
     ),
+    children: [
+      { index: true, element: <PlatformOverviewPage /> },
+      {
+        path: 'tenants',
+        element: <PlatformPlaceholderPage titleKey="platform.navigation.tenants" />,
+      },
+      {
+        path: 'users',
+        element: <PlatformPlaceholderPage titleKey="platform.navigation.users" />,
+      },
+      {
+        path: 'administrators',
+        element: <PlatformPlaceholderPage titleKey="platform.navigation.administrators" />,
+      },
+      {
+        path: 'analytics',
+        element: <PlatformPlaceholderPage titleKey="platform.navigation.analytics" />,
+      },
+      {
+        path: 'audit',
+        element: <PlatformPlaceholderPage titleKey="platform.navigation.audit" />,
+      },
+      {
+        path: 'operations',
+        element: <PlatformPlaceholderPage titleKey="platform.navigation.operations" />,
+      },
+    ],
   },
   {
     path: '/',
