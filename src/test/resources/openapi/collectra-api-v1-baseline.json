@@ -7,6 +7,31 @@
   },
   "paths" : {
     "/api/v1/templates/{id}" : {
+      "get" : {
+        "tags" : [ "template-management-controller" ],
+        "operationId" : "detail",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TemplateDetail"
+                }
+              }
+            }
+          }
+        }
+      },
       "put" : {
         "tags" : [ "template-management-controller" ],
         "operationId" : "rename",
@@ -5809,6 +5834,33 @@
         }
       }
     },
+    "/api/v1/public/documents/{token}" : {
+      "get" : {
+        "tags" : [ "public-document-controller" ],
+        "operationId" : "download",
+        "parameters" : [ {
+          "name" : "token",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "string",
+                  "format" : "byte"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/platform/me" : {
       "get" : {
         "tags" : [ "platform-access-controller" ],
@@ -6494,7 +6546,7 @@
     "/api/v1/documents/generation-jobs/{jobId}/outputs/{format}" : {
       "get" : {
         "tags" : [ "generation-job-controller" ],
-        "operationId" : "download",
+        "operationId" : "download_1",
         "parameters" : [ {
           "name" : "jobId",
           "in" : "path",
@@ -6814,7 +6866,7 @@
     "/api/v1/campaigns/{campaignId}/runs/{runId}/messages/{messageId}" : {
       "get" : {
         "tags" : [ "message-controller" ],
-        "operationId" : "detail",
+        "operationId" : "detail_1",
         "parameters" : [ {
           "name" : "campaignId",
           "in" : "path",
@@ -7025,6 +7077,18 @@
           },
           "status" : {
             "type" : "string"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "revision" : {
+            "type" : "integer",
+            "format" : "int64"
           }
         }
       },
@@ -7061,6 +7125,10 @@
             "type" : "integer",
             "format" : "int32"
           },
+          "templateVersion" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
           "locale" : {
             "type" : "string"
           },
@@ -7080,6 +7148,18 @@
           "status" : {
             "type" : "string",
             "enum" : [ "DRAFT", "VALIDATED", "PUBLISHED", "ARCHIVED" ]
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "revision" : {
+            "type" : "integer",
+            "format" : "int64"
           }
         }
       },
@@ -8177,7 +8257,6 @@
         "properties" : {
           "email" : {
             "type" : "string",
-            "format" : "email",
             "minLength" : 1
           },
           "password" : {
@@ -9285,8 +9364,19 @@
             "type" : "string",
             "format" : "date-time"
           },
+          "audienceSelectionType" : {
+            "type" : "string",
+            "enum" : [ "CUSTOMER", "RECEIVABLE" ]
+          },
           "selection" : {
             "$ref" : "#/components/schemas/CampaignSelection"
+          },
+          "documentTemplateVersionId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "generatedPdfLink" : {
+            "type" : "boolean"
           }
         },
         "required" : [ "channel", "name", "templateVersionId" ]
@@ -9315,6 +9405,13 @@
           "scheduledAt" : {
             "type" : "string",
             "format" : "date-time"
+          },
+          "documentTemplateVersionId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "generatedPdfLink" : {
+            "type" : "boolean"
           }
         }
       },
@@ -9759,6 +9856,39 @@
             "format" : "date-time"
           },
           "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "TemplateDetail" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "code" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "documentType" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "revision" : {
             "type" : "integer",
             "format" : "int64"
           }
