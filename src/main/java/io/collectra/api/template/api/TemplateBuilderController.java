@@ -116,9 +116,7 @@ public class TemplateBuilderController {
         return builder.previewDocument(tenant(), request.draft().toDraft(), request.payload());
     }
 
-    @PostMapping(
-            value = "/documents/preview-pdf",
-            produces = MediaType.APPLICATION_PDF_VALUE)
+    @PostMapping(value = "/documents/preview-pdf", produces = MediaType.APPLICATION_PDF_VALUE)
     @PreAuthorize("hasAuthority('TEMPLATE_MANAGE')")
     ResponseEntity<byte[]> previewDocumentPdf(
             @Valid @RequestBody BuilderDocumentPreviewRequest request) {
@@ -315,8 +313,7 @@ public class TemplateBuilderController {
             String assetSyntax,
             String builderSchemaVersion) {}
 
-    record PageResponse<T>(
-            List<T> items, int page, int size, long totalElements, int totalPages) {
+    record PageResponse<T>(List<T> items, int page, int size, long totalElements, int totalPages) {
         static <T> PageResponse<T> from(org.springframework.data.domain.Page<T> page) {
             return new PageResponse<>(
                     page.getContent(),
