@@ -5,6 +5,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.collectra.api.document.application.PdfRenderer;
 import io.collectra.api.template.domain.FieldDataType;
 import io.collectra.api.template.domain.FieldDefinition;
 import io.collectra.api.template.domain.TemplateChannel;
@@ -29,7 +30,13 @@ class TemplateBuilderServiceUnitTest {
     void setUp() {
         service =
                 new TemplateBuilderService(
-                        fields, assets, compiler, renderer, documentCompiler);
+                        fields,
+                        assets,
+                        compiler,
+                        renderer,
+                        documentCompiler,
+                        new TemplateBuilderLimits(),
+                        mock(PdfRenderer.class));
         tenantId = UUID.randomUUID();
     }
 
