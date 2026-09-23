@@ -7,6 +7,8 @@ import io.collectra.api.template.domain.FieldDataType;
 import io.collectra.api.template.domain.FieldDefinition;
 import io.collectra.api.template.infrastructure.FieldDefinitionRepository;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,6 +32,11 @@ public class FieldCatalogService {
     @Transactional(readOnly = true)
     public List<FieldDefinition> catalog(UUID tenantId) {
         return fields.findAvailable(tenantId);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<FieldDefinition> catalog(UUID tenantId, int page, int size) {
+        return fields.findAvailable(tenantId, PageRequest.of(page, size));
     }
 
     @Transactional
