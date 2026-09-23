@@ -135,6 +135,27 @@ public class AuthService {
         return new AuthTokens(access, raw, "Bearer", jwt.expiresIn());
     }
 
+    private void requireActiveTenantForLogin(UUID tenantId) {
+        boolean active =
+                tenants.findById(tenantId)
+                        .map(Tenant::active)
+                        .orElse(false);
+        if (!active) {
+            throw new BadCredentialsException("Invalid credentials");
+        }
+    }
+
+    private void requireActiveTenantForRefresh(UUID tenantId) {
+        boolean active =
+                tenantId != null
+                        && tenants.findById(tenantId)
+                                .map(Tenant::active)
+                                .orElse(false);
+        if (!active) {
+            throw new InvalidRefreshTokenException();
+        }
+    }
+
     private String hash(String raw) {
         try {
             return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
