@@ -2,6 +2,7 @@ package io.collectra.api.template.api;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import io.collectra.api.shared.tenant.TenantContext;
+import io.collectra.api.template.application.FieldCatalogService;
 import io.collectra.api.template.application.TemplateAssetService;
 import io.collectra.api.template.application.TemplateBuilderService;
 import io.collectra.api.template.application.TemplateManagementService;
@@ -11,6 +12,7 @@ import io.collectra.api.template.domain.TemplateAsset;
 import io.collectra.api.template.domain.TemplateChannel;
 import io.collectra.api.template.domain.TemplateVersion;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -18,7 +20,10 @@ import jakarta.validation.constraints.Size;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -27,16 +32,19 @@ import org.springframework.web.bind.annotation.*;
 @PreAuthorize("hasAuthority('ROLE_HUMAN')")
 public class TemplateBuilderController {
     private final TemplateBuilderService builder;
+    private final FieldCatalogService fields;
     private final TemplateAssetService assets;
     private final TemplateManagementService templates;
     private final TemplateMutationService mutations;
 
     public TemplateBuilderController(
             TemplateBuilderService builder,
+            FieldCatalogService fields,
             TemplateAssetService assets,
             TemplateManagementService templates,
             TemplateMutationService mutations) {
         this.builder = builder;
+        this.fields = fields;
         this.assets = assets;
         this.templates = templates;
         this.mutations = mutations;
@@ -53,6 +61,24 @@ public class TemplateBuilderController {
                 catalog.eachSyntax(),
                 catalog.assetSyntax(),
                 catalog.builderSchemaVersion());
+    }
+
+    @GetMapping("/catalog/fields")
+    @PreAuthorize("hasAuthority('TEMPLATE_READ') and hasAuthority('FIELD_READ')")
+    PageResponse<FieldResponse> catalogFields(
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "50") @Min(1) @Max(200) int size) {
+        var result = fields.catalog(tenant(), page, size);
+        return PageResponse.from(result.map(FieldResponse::from));
+    }
+
+    @GetMapping("/catalog/assets")
+    @PreAuthorize("hasAuthority('TEMPLATE_READ')")
+    PageResponse<AssetResponse> catalogAssets(
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "50") @Min(1) @Max(200) int size) {
+        var result = assets.list(tenant(), page, size);
+        return PageResponse.from(result.map(AssetResponse::from));
     }
 
     @PostMapping("/validate")
@@ -79,6 +105,23 @@ public class TemplateBuilderController {
     TemplateBuilderService.PreviewResult previewDocument(
             @Valid @RequestBody BuilderDocumentPreviewRequest request) {
         return builder.previewDocument(tenant(), request.draft().toDraft(), request.payload());
+    }
+
+    @PostMapping(
+            value = "/documents/preview-pdf",
+            produces = MediaType.APPLICATION_PDF_VALUE)
+    @PreAuthorize("hasAuthority('TEMPLATE_MANAGE')")
+    ResponseEntity<byte[]> previewDocumentPdf(
+            @Valid @RequestBody BuilderDocumentPreviewRequest request) {
+        byte[] pdf =
+                builder.previewPdf(
+                        tenant(), request.draft().toDraft(), request.payload());
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CACHE_CONTROL, "no-store")
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"preview.pdf\"")
+                .contentType(MediaType.APPLICATION_PDF)
+                .contentLength(pdf.length)
+                .body(pdf);
     }
 
     @PostMapping("/templates/{templateId}/versions")
@@ -264,6 +307,22 @@ public class TemplateBuilderController {
             String eachSyntax,
             String assetSyntax,
             String builderSchemaVersion) {}
+
+    record PageResponse<T>(
+            List<T> items,
+            int page,
+            int size,
+            long totalElements,
+            int totalPages) {
+        static <T> PageResponse<T> from(org.springframework.data.domain.Page<T> page) {
+            return new PageResponse<>(
+                    page.getContent(),
+                    page.getNumber(),
+                    page.getSize(),
+                    page.getTotalElements(),
+                    page.getTotalPages());
+        }
+    }
 
     record FieldResponse(
             UUID id,
