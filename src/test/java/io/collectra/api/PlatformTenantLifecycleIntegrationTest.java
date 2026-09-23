@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -19,10 +21,12 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 @AutoConfigureMockMvc
 class PlatformTenantLifecycleIntegrationTest extends AbstractIntegrationTest {
@@ -70,6 +74,18 @@ class PlatformTenantLifecycleIntegrationTest extends AbstractIntegrationTest {
 
         var blocked = tenants.findById(tenant.getId()).orElseThrow();
         assertThat(blocked.getStatus()).isEqualTo("BLOCKED");
+        Integer activeRefreshSessions =
+                jdbc.queryForObject(
+                        """
+                        select count(*)
+                        from refresh_sessions
+                        where tenant_id = ?
+                          and context_type = 'TENANT'
+                          and revoked_at is null
+                        """,
+                        Integer.class,
+                        tenant.getId());
+        assertThat(activeRefreshSessions).isZero();
 
         lifecycle.changeStatus(
                 actorId, tenant.getId(), true, blocked.getVersion(), "Security issue resolved");
@@ -152,6 +168,68 @@ class PlatformTenantLifecycleIntegrationTest extends AbstractIntegrationTest {
                                                 .authorities(
                                                         new SimpleGrantedAuthority("ROLE_HUMAN"))))
                 .andExpect(status().isForbidden());
+    }
+
+
+    @Test
+    void lifecyclePatchRejectsStaleRevisionWithStableCode() throws Exception {
+        String marker = "pf2-stale-" + UUID.randomUUID();
+        var tenant =
+                tenants.saveAndFlush(
+                        new io.collectra.api.tenant.domain.Tenant(marker, "PF2 Stale Tenant"));
+
+        mockMvc.perform(
+                        patch("/api/v1/platform/tenants/{tenantId}/status", tenant.getId())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                                        {
+                                          "active": false,
+                                          "revision": 999,
+                                          "reason": "stale test"
+                                        }
+                                        """)
+                                .with(platformAdmin()))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("VERSION_CONFLICT"));
+
+        assertThat(tenants.findById(tenant.getId()).orElseThrow().getStatus()).isEqualTo("ACTIVE");
+    }
+
+    @Test
+    void tenantDetailUsesStableNotFoundCode() throws Exception {
+        mockMvc.perform(
+                        get("/api/v1/platform/tenants/{tenantId}", UUID.randomUUID())
+                                .with(platformAdmin()))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("TENANT_NOT_FOUND"));
+    }
+
+    @Test
+    void tenantListRejectsInvalidFilterAndSort() throws Exception {
+        mockMvc.perform(
+                        get("/api/v1/platform/tenants")
+                                .queryParam("status", "SUSPENDED")
+                                .with(platformAdmin()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_FILTER"));
+
+        mockMvc.perform(
+                        get("/api/v1/platform/tenants")
+                                .queryParam("sort", "name,sideways")
+                                .with(platformAdmin()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("UNSUPPORTED_SORT"));
+    }
+
+    private RequestPostProcessor platformAdmin() {
+        return jwt()
+                .jwt(
+                        token ->
+                                token.subject(UUID.randomUUID().toString())
+                                        .claim("token_type", "platform_user")
+                                        .claim("authorization_version", 0L))
+                .authorities(new SimpleGrantedAuthority("ROLE_PLATFORM_SUPER_ADMIN"));
     }
 
     private JsonNode read(
