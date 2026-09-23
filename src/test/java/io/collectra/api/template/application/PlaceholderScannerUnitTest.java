@@ -63,6 +63,6 @@ class PlaceholderScannerUnitTest {
 
         assertThatThrownBy(() -> scanner.scan("{{Customer.Name}}"))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("canonical lowercase");
+                .hasMessageContaining("Invalid placeholder expression");
     }
 }
