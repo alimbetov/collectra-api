@@ -90,7 +90,8 @@ class TemplateBuilderChannelUnitTest {
                 .anyMatch(
                         issue ->
                                 "INVALID_BUILDER_JSON".equals(issue.code())
-                                        && issue.message().contains("not supported for text channel SMS"));
+                                        && issue.message()
+                                                .contains("not supported for text channel SMS"));
     }
 
     private FieldDefinition field(String key) {
