@@ -153,8 +153,7 @@ class TemplateBuilderServiceUnitTest {
                                 TemplateChannel.PDF, "ru", null, builderJson, null));
 
         assertThat(result.valid()).isFalse();
-        assertThat(result.errors())
-                .anyMatch(issue -> "INVALID_BUILDER_JSON".equals(issue.code()));
+        assertThat(result.errors()).anyMatch(issue -> "INVALID_BUILDER_JSON".equals(issue.code()));
     }
 
     @Test
