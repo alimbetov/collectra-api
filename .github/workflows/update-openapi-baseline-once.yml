@@ -1,0 +1,37 @@
+name: Update OpenAPI baseline once
+
+on:
+  push:
+    branches:
+      - fix/main-template-regressions
+    paths:
+      - .github/workflows/update-openapi-baseline-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  update-baseline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: fix/main-template-regressions
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+      - name: Generate reviewed baseline
+        run: ./scripts/update-openapi-baseline.sh
+      - name: Commit generated baseline
+        run: |
+          if git diff --quiet -- src/test/resources/openapi/collectra-api-v1-baseline.json; then
+            echo "Baseline already current"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/test/resources/openapi/collectra-api-v1-baseline.json
+          git commit -m "test(openapi): refresh reviewed baseline after F1"
+          git push origin HEAD:fix/main-template-regressions
