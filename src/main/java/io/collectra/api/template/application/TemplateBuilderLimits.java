@@ -66,9 +66,7 @@ public class TemplateBuilderLimits {
         }
         int bytes = node.toString().getBytes(StandardCharsets.UTF_8).length;
         JsonStats stats = stats(node, 1);
-        if (bytes > maxBytes
-                || stats.depth() > MAX_JSON_DEPTH
-                || stats.nodes() > MAX_JSON_NODES) {
+        if (bytes > maxBytes || stats.depth() > MAX_JSON_DEPTH || stats.nodes() > MAX_JSON_NODES) {
             throw new InvalidRequestException(code, message);
         }
     }
