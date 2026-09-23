@@ -32,7 +32,9 @@ class SystemFieldRoundTripIntegrationTest extends AbstractIntegrationTest {
         StringBuilder html = new StringBuilder("<html><body>");
         int index = 0;
         for (var field : systemFields) {
-            String marker = putRepresentativeValue(payload, field.getKey(), field.getDataType(), index++);
+            String marker =
+                    putRepresentativeValue(
+                            payload, field.getKey(), field.getDataType(), index++);
             html.append("<p>{{").append(field.getKey()).append("}}</p>");
             if (field.getDataType() == FieldDataType.STRING
                     || field.getDataType() == FieldDataType.DATE
