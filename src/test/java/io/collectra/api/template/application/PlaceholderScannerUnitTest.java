@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.List;
-
 import org.junit.jupiter.api.Test;
 
 class PlaceholderScannerUnitTest {
@@ -18,11 +17,9 @@ class PlaceholderScannerUnitTest {
         assertThat(tokens)
                 .containsExactly(
                         new TemplateToken.Text("Hello "),
-                        new TemplateToken.Placeholder(
-                                new FieldPath(List.of("customer", "name"))),
+                        new TemplateToken.Placeholder(new FieldPath(List.of("customer", "name"))),
                         new TemplateToken.Text(", invoice "),
-                        new TemplateToken.Placeholder(
-                                new FieldPath(List.of("document", "number"))),
+                        new TemplateToken.Placeholder(new FieldPath(List.of("document", "number"))),
                         new TemplateToken.Text("."));
     }
 
@@ -36,8 +33,7 @@ class PlaceholderScannerUnitTest {
     void acceptsWhitespaceAroundCanonicalKey() {
         assertThat(scanner.scan("{{   customer.name   }}"))
                 .containsExactly(
-                        new TemplateToken.Placeholder(
-                                new FieldPath(List.of("customer", "name"))));
+                        new TemplateToken.Placeholder(new FieldPath(List.of("customer", "name"))));
     }
 
     @Test
