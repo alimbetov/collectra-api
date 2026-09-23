@@ -74,6 +74,7 @@ public class AuthService {
     }
 
     private AuthTokens loginResolved(UUID tenantId, String email, String password) {
+        requireActiveTenantForLogin(tenantId);
         limiter.check("login:" + tenantId + ":" + email.toLowerCase(Locale.ROOT), 5, Duration.ofMinutes(15));
         UserAccount user = users.findByTenantIdAndEmailIgnoreCase(tenantId, email)
                 .filter(account -> "ACTIVE".equals(account.getStatus()))
@@ -98,6 +99,7 @@ public class AuthService {
             }
             throw new InvalidRefreshTokenException();
         }
+        requireActiveTenantForRefresh(old.getTenantId());
         UserAccount user = users.findById(old.getUserId()).filter(u -> "ACTIVE".equals(u.getStatus()))
                 .orElseThrow(InvalidRefreshTokenException::new);
         TenantMembership membership = memberships.findByIdAndTenantId(old.getMembershipId(), old.getTenantId())
