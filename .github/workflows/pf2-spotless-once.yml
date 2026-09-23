@@ -1,0 +1,38 @@
+name: PF2 one-time Spotless apply
+
+on:
+  push:
+    branches:
+      - feat/platform-pf2-tenant-lifecycle
+    paths:
+      - .github/workflows/pf2-spotless-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: feat/platform-pf2-tenant-lifecycle
+          fetch-depth: 0
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+      - name: Apply Spotless
+        run: mvn --batch-mode --no-transfer-progress spotless:apply
+      - name: Commit formatting
+        run: |
+          if git diff --quiet; then
+            echo "No formatting changes"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/main/java src/test/java
+          git commit -m "style(platform): apply final PF2 formatting"
+          git push origin HEAD:feat/platform-pf2-tenant-lifecycle
