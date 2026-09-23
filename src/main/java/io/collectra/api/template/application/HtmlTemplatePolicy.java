@@ -12,9 +12,13 @@ import org.springframework.stereotype.Component;
 public class HtmlTemplatePolicy {
     private static final Pattern ASSET_PLACEHOLDER =
             Pattern.compile("\\{\\{\\s*asset\\.[a-z][a-z0-9_]*\\s*}}", Pattern.CASE_INSENSITIVE);
+    private static final Pattern DOCUMENT_URL_PLACEHOLDER =
+            Pattern.compile("\\{\\{\\s*document\\.url\\s*}}", Pattern.CASE_INSENSITIVE);
     private static final String MANAGED_ASSET_ATTRIBUTE = "data-collectra-managed-asset";
+    private static final String MANAGED_LINK_ATTRIBUTE = "data-collectra-managed-link";
     private static final String MANAGED_ASSET_SENTINEL =
             "data:image/gif;base64,R0lGODlhAQABAAAAACw=";
+    private static final String MANAGED_LINK_SENTINEL = "https://collectra.invalid/document";
 
     private final Cleaner cleaner;
 
@@ -35,12 +39,34 @@ public class HtmlTemplatePolicy {
                         .addAttributes("td", "colspan", "rowspan")
                         .addAttributes("th", "colspan", "rowspan")
                         .addAttributes("img", MANAGED_ASSET_ATTRIBUTE)
+                        .addAttributes("a", MANAGED_LINK_ATTRIBUTE)
                         .addProtocols("img", "src", "data");
         this.cleaner = new Cleaner(allowed);
     }
 
     public String sanitize(String html) {
         Document dirty = Jsoup.parseBodyFragment(html);
+        protectManagedImages(dirty);
+        protectManagedLinks(dirty);
+
+        Document clean = cleaner.clean(dirty);
+
+        clean.select("img[" + MANAGED_ASSET_ATTRIBUTE + "]")
+                .forEach(
+                        image -> {
+                            image.attr("src", image.attr(MANAGED_ASSET_ATTRIBUTE));
+                            image.removeAttr(MANAGED_ASSET_ATTRIBUTE);
+                        });
+        clean.select("a[" + MANAGED_LINK_ATTRIBUTE + "]")
+                .forEach(
+                        link -> {
+                            link.attr("href", link.attr(MANAGED_LINK_ATTRIBUTE));
+                            link.removeAttr(MANAGED_LINK_ATTRIBUTE);
+                        });
+        return clean.body().html();
+    }
+
+    private void protectManagedImages(Document dirty) {
         dirty.select("img[src]")
                 .forEach(
                         image -> {
@@ -60,14 +86,23 @@ public class HtmlTemplatePolicy {
                                 image.attr("src", MANAGED_ASSET_SENTINEL);
                             }
                         });
-        Document clean = cleaner.clean(dirty);
-        clean.select("img[" + MANAGED_ASSET_ATTRIBUTE + "]")
+    }
+
+    private void protectManagedLinks(Document dirty) {
+        dirty.select("a[href]")
                 .forEach(
-                        image -> {
-                            image.attr("src", image.attr(MANAGED_ASSET_ATTRIBUTE));
-                            image.removeAttr(MANAGED_ASSET_ATTRIBUTE);
+                        link -> {
+                            String raw = link.attr("href").trim();
+                            if (!raw.contains("{{")) {
+                                return;
+                            }
+                            if (!DOCUMENT_URL_PLACEHOLDER.matcher(raw).matches()) {
+                                throw new IllegalArgumentException(
+                                        "Dynamic link URLs are forbidden; only {{document.url}} is supported");
+                            }
+                            link.attr(MANAGED_LINK_ATTRIBUTE, raw);
+                            link.attr("href", MANAGED_LINK_SENTINEL);
                         });
-        return clean.body().html();
     }
 
     public void validateStylesheet(String stylesheet) {
