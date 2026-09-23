@@ -12,30 +12,28 @@ import org.springframework.stereotype.Component;
 public class HtmlTemplatePolicy {
     private static final Pattern ASSET_PLACEHOLDER =
             Pattern.compile("\\{\\{\\s*asset\\.[a-z][a-z0-9_]*\\s*}}", Pattern.CASE_INSENSITIVE);
+    private static final Pattern DOCUMENT_LINK_PLACEHOLDER =
+            Pattern.compile("\\{\\{\\s*document\\.url\\s*}}", Pattern.CASE_INSENSITIVE);
     private static final String MANAGED_ASSET_ATTRIBUTE = "data-collectra-managed-asset";
+    private static final String MANAGED_LINK_ATTRIBUTE = "data-collectra-managed-link";
     private static final String MANAGED_ASSET_SENTINEL =
             "data:image/gif;base64,R0lGODlhAQABAAAAACw=";
+    private static final String MANAGED_LINK_SENTINEL = "https://collectra.invalid/document";
 
     private final Cleaner cleaner;
 
     public HtmlTemplatePolicy() {
         Safelist allowed =
                 Safelist.relaxed()
-                        .addTags(
-                                "html",
-                                "head",
-                                "body",
-                                "meta",
-                                "title",
-                                "thead",
-                                "tbody",
-                                "tfoot")
+                        .addTags("html", "head", "body", "meta", "title", "thead", "tbody", "tfoot")
                         .addAttributes(":all", "class", "id")
                         .addAttributes("meta", "charset")
                         .addAttributes("td", "colspan", "rowspan")
                         .addAttributes("th", "colspan", "rowspan")
                         .addAttributes("img", MANAGED_ASSET_ATTRIBUTE)
-                        .addProtocols("img", "src", "data");
+                        .addAttributes("a", MANAGED_LINK_ATTRIBUTE)
+                        .addProtocols("img", "src", "data")
+                        .addProtocols("a", "href", "https");
         this.cleaner = new Cleaner(allowed);
     }
 
@@ -60,12 +58,27 @@ public class HtmlTemplatePolicy {
                                 image.attr("src", MANAGED_ASSET_SENTINEL);
                             }
                         });
+        dirty.select("a[href]")
+                .forEach(
+                        link -> {
+                            String raw = link.attr("href").trim();
+                            if (DOCUMENT_LINK_PLACEHOLDER.matcher(raw).matches()) {
+                                link.attr(MANAGED_LINK_ATTRIBUTE, raw);
+                                link.attr("href", MANAGED_LINK_SENTINEL);
+                            }
+                        });
         Document clean = cleaner.clean(dirty);
         clean.select("img[" + MANAGED_ASSET_ATTRIBUTE + "]")
                 .forEach(
                         image -> {
                             image.attr("src", image.attr(MANAGED_ASSET_ATTRIBUTE));
                             image.removeAttr(MANAGED_ASSET_ATTRIBUTE);
+                        });
+        clean.select("a[" + MANAGED_LINK_ATTRIBUTE + "]")
+                .forEach(
+                        link -> {
+                            link.attr("href", link.attr(MANAGED_LINK_ATTRIBUTE));
+                            link.removeAttr(MANAGED_LINK_ATTRIBUTE);
                         });
         return clean.body().html();
     }

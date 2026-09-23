@@ -27,7 +27,8 @@ class TemplateManagementServiceUnitTest {
     private final FieldDefinitionRepository fields = mock(FieldDefinitionRepository.class);
     private final TemplateAssetService assets = mock(TemplateAssetService.class);
     private final HtmlTemplatePolicy policy = new HtmlTemplatePolicy();
-    private final TemplateCompiler compiler = new TemplateCompiler(policy, new PlaceholderScanner());
+    private final TemplateCompiler compiler =
+            new TemplateCompiler(policy, new PlaceholderScanner());
     private final TemplateRenderer renderer = new TemplateRenderer(compiler);
     private final ObjectMapper json = new ObjectMapper();
 
@@ -36,7 +37,9 @@ class TemplateManagementServiceUnitTest {
 
     @BeforeEach
     void setUp() {
-        service = new TemplateManagementService(templates, versions, fields, compiler, renderer, assets);
+        service =
+                new TemplateManagementService(
+                        templates, versions, fields, compiler, renderer, assets);
         tenantId = UUID.randomUUID();
     }
 
@@ -103,11 +106,7 @@ class TemplateManagementServiceUnitTest {
     void rejectsUnknownManagedAssetOnSavedVersion() {
         TemplateVersion version =
                 new TemplateVersion(
-                        UUID.randomUUID(),
-                        1,
-                        "ru",
-                        "<img src=\"{{asset.company_logo}}\">",
-                        null);
+                        UUID.randomUUID(), 1, "ru", "<img src=\"{{asset.company_logo}}\">", null);
         when(versions.findByIdAndTenantId(version.getId(), tenantId))
                 .thenReturn(Optional.of(version));
         when(fields.findAvailable(tenantId)).thenReturn(List.of());
@@ -124,11 +123,7 @@ class TemplateManagementServiceUnitTest {
     void enrichesPayloadWithManagedAssetsBeforeSavedPreview() throws Exception {
         TemplateVersion version =
                 new TemplateVersion(
-                        UUID.randomUUID(),
-                        1,
-                        "ru",
-                        "<img src=\"{{asset.company_logo}}\">",
-                        null);
+                        UUID.randomUUID(), 1, "ru", "<img src=\"{{asset.company_logo}}\">", null);
         var payload = json.readTree("{}");
         var enriched =
                 json.readTree(
@@ -149,11 +144,7 @@ class TemplateManagementServiceUnitTest {
     void rejectsUnknownPlaceholderWithoutChangingDraftStatus() {
         TemplateVersion version =
                 new TemplateVersion(
-                        UUID.randomUUID(),
-                        1,
-                        "ru-kz",
-                        "<p>{{customer.unknown}}</p>",
-                        null);
+                        UUID.randomUUID(), 1, "ru-kz", "<p>{{customer.unknown}}</p>", null);
         FieldDefinition customerName = field("customer.name");
         when(versions.findByIdAndTenantId(version.getId(), tenantId))
                 .thenReturn(Optional.of(version));
@@ -174,11 +165,7 @@ class TemplateManagementServiceUnitTest {
     void malformedPlaceholderFailsBeforeFieldCatalogLookup() {
         TemplateVersion version =
                 new TemplateVersion(
-                        UUID.randomUUID(),
-                        1,
-                        "ru-kz",
-                        "<p>{{Customer.Name}}</p>",
-                        null);
+                        UUID.randomUUID(), 1, "ru-kz", "<p>{{Customer.Name}}</p>", null);
         when(versions.findByIdAndTenantId(version.getId(), tenantId))
                 .thenReturn(Optional.of(version));
 
@@ -189,7 +176,8 @@ class TemplateManagementServiceUnitTest {
                 .anyMatch(
                         error ->
                                 "INVALID_TEMPLATE".equals(error.code())
-                                        && error.message().contains("canonical lowercase"));
+                                        && error.message()
+                                                .contains("Invalid placeholder expression"));
         assertThat(version.getStatus()).isEqualTo(TemplateVersionStatus.DRAFT);
         verifyNoInteractions(fields);
     }
