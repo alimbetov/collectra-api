@@ -177,18 +177,22 @@ class TemplateStudioContractIntegrationTest extends AbstractIntegrationTest {
     }
 
     private String register(String prefix) throws Exception {
+        String slug = prefix + "-" + UUID.randomUUID();
+        String email = UUID.randomUUID() + "@example.test";
         JsonNode response =
                 read(
                         post("/api/v1/auth/tenants/register")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(
-                                        "{"slug":""
-                                                + prefix
-                                                + "-"
-                                                + UUID.randomUUID()
-                                                + "","companyName":"Company","email":""
-                                                + UUID.randomUUID()
-                                                + "@example.test","password":"StrongPassword123!"}"));
+                                        """
+                                        {
+                                          "slug": "%s",
+                                          "companyName": "Company",
+                                          "email": "%s",
+                                          "password": "StrongPassword123!"
+                                        }
+                                        """
+                                                .formatted(slug, email)));
         return response.get("accessToken").asText();
     }
 
