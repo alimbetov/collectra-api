@@ -56,8 +56,6 @@ export function TemplateVersionEditorPage() {
     serverUpdatedAt: string;
   } | null>(null);
   const [operationError, setOperationError] = useState<unknown>(null);
-  const [fieldSearch, setFieldSearch] = useState('');
-  const [assetSearch, setAssetSearch] = useState('');
   const initializedVersionRef = useRef<string | null>(null);
   const previewSequence = useRef(0);
 
