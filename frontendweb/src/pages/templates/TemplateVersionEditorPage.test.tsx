@@ -122,6 +122,20 @@ function renderPage() {
 }
 
 describe('TemplateVersionEditorPage', () => {
+  it('blocks internal navigation while the draft is dirty', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    const editor = await screen.findByDisplayValue('Hello');
+    await user.clear(editor);
+    await user.type(editor, 'Dirty draft');
+    await user.click(screen.getByRole('link', { name: /К карточке шаблона/ }));
+
+    expect(await screen.findByRole('heading', { name: 'Уйти без сохранения?' }))
+      .toBeInTheDocument();
+    expect(screen.getByDisplayValue('Dirty draft')).toBeInTheDocument();
+  });
+
   it('renders published version read-only with only archive lifecycle action', async () => {
     vi.mocked(getTemplateVersion).mockResolvedValue({
       ...initial,
