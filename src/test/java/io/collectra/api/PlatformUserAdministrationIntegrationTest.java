@@ -70,6 +70,7 @@ class PlatformUserAdministrationIntegrationTest extends AbstractIntegrationTest 
         assertThat(response.at("/items/0/effectiveAccessStatus").asText()).isEqualTo("ACTIVE");
         assertThat(response.at("/items/0/roleCodes").findValuesAsText(""))
                 .doesNotContain("tokenHash");
+        assertThat(response.at("/items/0/roleCodes").toString()).contains("TENANT_USER");
 
         var tenantTokens = auth.login(user.tenantSlug(), user.email(), user.password());
         mockMvc.perform(
