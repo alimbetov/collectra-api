@@ -43,7 +43,11 @@ export function PlatformUserDetailPage() {
   const [sessionPage, setSessionPage] = useState(0);
   const tab = readTab(searchParams.get('tab'));
   const sessions = useQuery(
-    platformQueries.membershipSessions(user.data?.membershipId ?? '', sessionPage, 50),
+    platformQueries.membershipSessions(
+      tab === 'sessions' ? (user.data?.membershipId ?? '') : '',
+      sessionPage,
+      50,
+    ),
   );
 
   const [dialog, setDialog] = useState<'status' | 'sessions' | null>(null);
