@@ -64,6 +64,8 @@ Facts:
 - UNKNOWN
 - last run timestamp
 
+Document metrics are deliberately not stored in this projection. Document expiry and public-link access can mutate long after the seven-day reconciliation window.
+
 ### Failure metrics
 
 `communication_daily_failure_metrics`
@@ -118,12 +120,14 @@ A rebuild is idempotent.
 
 For one `tenant + UTC day`:
 
-1. state becomes `BUILDING` in an independent transaction;
-2. existing projection rows for the tenant/day are deleted inside the rebuild transaction;
-3. new rows are produced with `INSERT ... SELECT`;
-4. source watermark is calculated;
-5. state becomes `READY` and revision is incremented in the same rebuild transaction;
-6. if the transaction fails, it rolls back completely and state becomes `FAILED` in a new transaction.
+1. the worker atomically claims `tenant + day` by setting state to `BUILDING` in an independent transaction;
+2. a concurrent worker that sees a non-stale `BUILDING` claim skips the bucket;
+3. an abandoned BUILDING claim may be taken over after the configured stale timeout;
+4. existing projection rows for the tenant/day are deleted inside the rebuild transaction;
+5. new rows are produced with `INSERT ... SELECT`;
+6. source watermark is calculated;
+7. state becomes `READY` and revision is incremented in the same rebuild transaction;
+8. if the transaction fails, it rolls back completely and state becomes `FAILED` in a new transaction.
 
 The previous materialized rows can remain physically present after a failed rebuild, but they are never selected because only `READY` days are eligible for projection routing.
 
@@ -137,6 +141,7 @@ Default policy:
 UTC 01:20
 rolling window = D-1 .. D-7
 tenant batch size = 100
+stale BUILDING timeout = 30m
 ```
 
 The rolling window covers delayed retry/recovery/provider reconciliation without requiring incremental event processing.
