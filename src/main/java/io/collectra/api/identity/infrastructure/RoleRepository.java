@@ -59,4 +59,15 @@ public interface RoleRepository extends JpaRepository<Role, UUID> {
                     """,
             nativeQuery = true)
     long countActiveTenantAdmins(@Param("tenantId") UUID tenantId);
+
+    @Query(
+            value = """
+                    select id
+                      from roles
+                     where id = '00000000-0000-0000-0000-000000000002'::uuid
+                     for update
+                    """,
+            nativeQuery = true)
+    UUID lockTenantAdminRole();
 }
+
