@@ -182,12 +182,11 @@ public class CommunicationProjectionQueryService {
         Query query = campaignQuery(tenantId, from, to, campaignId, channel, userId);
         String bucketExpression =
                 switch (bucket) {
-                    case DAY ->
-                            "business_date::timestamp at time zone 'UTC'";
-                    case WEEK ->
-                            "date_trunc('week', business_date::timestamp) at time zone 'UTC'";
-                    case HOUR -> throw new IllegalArgumentException(
-                            "Hourly projection timeseries is not supported");
+                    case DAY -> "business_date::timestamp at time zone 'UTC'";
+                    case WEEK -> "date_trunc('week', business_date::timestamp) at time zone 'UTC'";
+                    case HOUR ->
+                            throw new IllegalArgumentException(
+                                    "Hourly projection timeseries is not supported");
                 };
 
         return jdbc.query(
@@ -206,7 +205,7 @@ public class CommunicationProjectionQueryService {
                        coalesce(sum(unknown_count), 0) unknown_count
                   from communication_daily_campaign_metrics
                 """
-                        .formatted(bucketExpression)
+                                .formatted(bucketExpression)
                         + query.where()
                         + " group by 1 order by 1",
                 query.params(),
@@ -524,11 +523,9 @@ public class CommunicationProjectionQueryService {
         if (parts.length > 2 || !allowed.containsKey(parts[0])) {
             throw new IllegalArgumentException("Unsupported report sort: " + value);
         }
-        String direction =
-                parts.length == 1 ? defaultDirection : parts[1].trim().toLowerCase();
+        String direction = parts.length == 1 ? defaultDirection : parts[1].trim().toLowerCase();
         if (!"asc".equals(direction) && !"desc".equals(direction)) {
-            throw new IllegalArgumentException(
-                    "Unsupported report sort direction: " + direction);
+            throw new IllegalArgumentException("Unsupported report sort direction: " + direction);
         }
         return allowed.get(parts[0]) + " " + direction + " nulls last";
     }

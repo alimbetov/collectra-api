@@ -980,8 +980,7 @@ public class CommunicationAnalyticsQueryService {
         if (resolved.to().isAfter(todayStart)) {
             return false;
         }
-        return projections.coversTenantRange(
-                resolved.tenantId(), resolved.from(), resolved.to());
+        return projections.coversTenantRange(resolved.tenantId(), resolved.from(), resolved.to());
     }
 
     private HybridRange hybridRange(ResolvedFilter resolved) {
