@@ -377,10 +377,7 @@ class CommunicationAnalyticsIntegrationTest extends AbstractIntegrationTest {
 
         assertThat(
                         projectionStates.tryMarkBuilding(
-                                fixture.tenantId(),
-                                day,
-                                now,
-                                now.minusSeconds(1800)))
+                                fixture.tenantId(), day, now, now.minusSeconds(1800)))
                 .isTrue();
 
         var skipped = projectionRebuilds.rebuildTenantDay(fixture.tenantId(), day);

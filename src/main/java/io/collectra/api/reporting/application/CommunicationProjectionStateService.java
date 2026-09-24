@@ -19,10 +19,7 @@ public class CommunicationProjectionStateService {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public boolean tryMarkBuilding(
-            UUID tenantId,
-            LocalDate businessDate,
-            Instant calculatedAt,
-            Instant staleBefore) {
+            UUID tenantId, LocalDate businessDate, Instant calculatedAt, Instant staleBefore) {
         int changed =
                 jdbc.update(
                         """

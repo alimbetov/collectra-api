@@ -315,10 +315,8 @@ public class CommunicationProjectionRebuildService {
                     false);
         }
 
-        static RebuildResult skipped(
-                UUID tenantId, LocalDate businessDate, Instant calculatedAt) {
-            return new RebuildResult(
-                    tenantId, businessDate, 0, 0, null, calculatedAt, true);
+        static RebuildResult skipped(UUID tenantId, LocalDate businessDate, Instant calculatedAt) {
+            return new RebuildResult(tenantId, businessDate, 0, 0, null, calculatedAt, true);
         }
     }
 }
