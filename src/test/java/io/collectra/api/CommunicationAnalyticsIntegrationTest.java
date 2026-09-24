@@ -23,6 +23,7 @@ import io.collectra.api.customer.application.CustomerService;
 import io.collectra.api.customer.domain.CustomerType;
 import io.collectra.api.identity.infrastructure.UserAccountRepository;
 import io.collectra.api.reporting.application.CommunicationAnalyticsQueryService;
+import io.collectra.api.reporting.application.CommunicationProjectionRebuildService;
 import io.collectra.api.template.domain.DocumentTemplate;
 import io.collectra.api.template.domain.TemplateChannel;
 import io.collectra.api.template.domain.TemplateVersion;
@@ -30,6 +31,8 @@ import io.collectra.api.template.infrastructure.DocumentTemplateRepository;
 import io.collectra.api.template.infrastructure.TemplateVersionRepository;
 import io.collectra.api.tenant.infrastructure.TenantRepository;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -37,6 +40,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 
 @AutoConfigureMockMvc
@@ -44,7 +48,8 @@ import org.springframework.test.web.servlet.MockMvc;
         properties = {
             "collectra.security.platform-bootstrap.enabled=true",
             "collectra.security.platform-bootstrap.email=reporting-super-admin",
-            "collectra.security.platform-bootstrap.password=Reporting_Admin_123!"
+            "collectra.security.platform-bootstrap.password=Reporting_Admin_123!",
+            "collectra.reporting.projections.enabled=true"
         })
 class CommunicationAnalyticsIntegrationTest extends AbstractIntegrationTest {
 
@@ -61,6 +66,8 @@ class CommunicationAnalyticsIntegrationTest extends AbstractIntegrationTest {
     @Autowired MessageRepository messages;
     @Autowired MessageDeliveryAttemptRepository attempts;
     @Autowired CommunicationAnalyticsQueryService analytics;
+    @Autowired CommunicationProjectionRebuildService projectionRebuilds;
+    @Autowired JdbcTemplate jdbc;
 
     @Test
     void tenantAndPlatformUseSameMetricDefinitionsWithStrictTenantScope() throws Exception {
@@ -189,6 +196,92 @@ class CommunicationAnalyticsIntegrationTest extends AbstractIntegrationTest {
                                 .header("Authorization", bearer(fixture.accessToken())));
         assertThat(timeseries.get("generatedAt").asText()).isNotBlank();
         assertThat(timeseries.get("items").size()).isGreaterThanOrEqualTo(1);
+    }
+
+    @Test
+    void tenantDailyProjectionMatchesRawAndIsIsolatedPerTenant() throws Exception {
+        Fixture first = fixture("r11-projection-one", true);
+        Fixture second = fixture("r11-projection-two", true);
+
+        ZoneId zone = ZoneId.of("Asia/Almaty");
+        LocalDate day = LocalDate.now(zone).minusDays(1);
+        Instant from = day.atStartOfDay(zone).toInstant();
+        Instant to = day.plusDays(1).atStartOfDay(zone).toInstant();
+        Instant factTime = day.atTime(12, 0).atZone(zone).toInstant();
+
+        moveFixtureFactsTo(first, factTime);
+        moveFixtureFactsTo(second, factTime);
+
+        JsonNode rawFirst =
+                read(
+                        get("/api/v1/analytics/communication/summary")
+                                .queryParam("from", from.toString())
+                                .queryParam("to", to.toString())
+                                .header("Authorization", bearer(first.accessToken())));
+
+        JsonNode rawSecond =
+                read(
+                        get("/api/v1/analytics/communication/summary")
+                                .queryParam("from", from.toString())
+                                .queryParam("to", to.toString())
+                                .header("Authorization", bearer(second.accessToken())));
+
+        projectionRebuilds.rebuildTenantDay(first.tenantId(), day);
+
+        JsonNode projectedFirst =
+                read(
+                        get("/api/v1/analytics/communication/summary")
+                                .queryParam("from", from.toString())
+                                .queryParam("to", to.toString())
+                                .header("Authorization", bearer(first.accessToken())));
+
+        JsonNode fallbackSecond =
+                read(
+                        get("/api/v1/analytics/communication/summary")
+                                .queryParam("from", from.toString())
+                                .queryParam("to", to.toString())
+                                .header("Authorization", bearer(second.accessToken())));
+
+        assertThat(projectedFirst.get("business")).isEqualTo(rawFirst.get("business"));
+        assertThat(projectedFirst.get("messages")).isEqualTo(rawFirst.get("messages"));
+        assertThat(fallbackSecond.get("business")).isEqualTo(rawSecond.get("business"));
+        assertThat(fallbackSecond.get("messages")).isEqualTo(rawSecond.get("messages"));
+
+        JsonNode projectedChannels =
+                read(
+                        get("/api/v1/analytics/communication/channels")
+                                .queryParam("from", from.toString())
+                                .queryParam("to", to.toString())
+                                .header("Authorization", bearer(first.accessToken())));
+        assertThat(projectedChannels.findValuesAsText("channel")).contains("EMAIL");
+
+        Integer firstState =
+                jdbc.queryForObject(
+                        """
+                        select count(*)
+                          from communication_reporting_projection_state
+                         where tenant_id = ?
+                           and business_date = ?
+                           and status = 'READY'
+                        """,
+                        Integer.class,
+                        first.tenantId(),
+                        day);
+        Integer secondState =
+                jdbc.queryForObject(
+                        """
+                        select count(*)
+                          from communication_reporting_projection_state
+                         where tenant_id = ?
+                           and business_date = ?
+                           and status = 'READY'
+                        """,
+                        Integer.class,
+                        second.tenantId(),
+                        day);
+
+        assertThat(firstState).isEqualTo(1);
+        assertThat(secondState).isZero();
     }
 
     @Test
@@ -419,6 +512,49 @@ class CommunicationAnalyticsIntegrationTest extends AbstractIntegrationTest {
                 "ru",
                 "Subject",
                 "<p>Hello</p>");
+    }
+
+    private void moveFixtureFactsTo(Fixture fixture, Instant factTime) {
+        java.sql.Timestamp timestamp = java.sql.Timestamp.from(factTime);
+        jdbc.update(
+                """
+                update campaign_runs
+                   set created_at = ?, updated_at = ?
+                 where tenant_id = ?
+                   and id = ?
+                """,
+                timestamp,
+                timestamp,
+                fixture.tenantId(),
+                fixture.runId());
+        jdbc.update(
+                """
+                update messages
+                   set created_at = ?, updated_at = ?
+                 where tenant_id = ?
+                   and campaign_run_id = ?
+                """,
+                timestamp,
+                timestamp,
+                fixture.tenantId(),
+                fixture.runId());
+        jdbc.update(
+                """
+                update message_delivery_attempts
+                   set started_at = ?, completed_at = ?
+                 where tenant_id = ?
+                   and message_id in (
+                       select id
+                         from messages
+                        where tenant_id = ?
+                          and campaign_run_id = ?
+                   )
+                """,
+                timestamp,
+                timestamp,
+                fixture.tenantId(),
+                fixture.tenantId(),
+                fixture.runId());
     }
 
     private String platformToken() throws Exception {
