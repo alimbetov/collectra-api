@@ -355,7 +355,8 @@ public class CommunicationAnalyticsQueryService {
         }
         String runWhere = where("cr", "c", resolved, true);
         String messageWhere = where("m", "c", resolved, true);
-        String order = orderBy(sort, USER_SORT, "sent", "desc");
+        String order =
+                stableOrder(orderBy(sort, USER_SORT, "sent", "desc"), "user_id");
 
         String grouped =
                 """
@@ -484,7 +485,10 @@ public class CommunicationAnalyticsQueryService {
                     projected.totalElements());
         }
         String where = where("cr", "c", resolved, true);
-        String order = orderBy(sort, CAMPAIGN_SORT, "lastRunAt", "desc");
+        String order =
+                stableOrder(
+                        orderBy(sort, CAMPAIGN_SORT, "lastRunAt", "desc"),
+                        "campaign_id");
 
         String grouped =
                 """
@@ -584,7 +588,10 @@ public class CommunicationAnalyticsQueryService {
                     projected.totalElements());
         }
         String where = attemptWhere(resolved);
-        String order = orderBy(sort, FAILURE_SORT, "count", "desc");
+        String order =
+                stableOrder(
+                        orderBy(sort, FAILURE_SORT, "count", "desc"),
+                        "error_code");
 
         String grouped =
                 """
@@ -654,7 +661,10 @@ public class CommunicationAnalyticsQueryService {
         ResolvedFilter resolved = resolve(scope, filter, false);
         String runWhere = where("cr", "c", resolved, true);
         String messageWhere = where("m", "c", resolved, true);
-        String order = orderBy(sort, TENANT_SORT, "sent", "desc");
+        String order =
+                stableOrder(
+                        orderBy(sort, TENANT_SORT, "sent", "desc"),
+                        "tenant_id");
 
         String grouped =
                 """
@@ -1126,6 +1136,10 @@ public class CommunicationAnalyticsQueryService {
 
     private record HybridRange(
             Instant historicalFrom, Instant historicalTo, Range leading, Range trailing) {}
+
+    private String stableOrder(String order, String tieBreak) {
+        return order + ", " + tieBreak + " asc nulls last";
+    }
 
     private String orderBy(
             String sort,
