@@ -39,6 +39,7 @@ class TemplateStudioContractIntegrationTest extends AbstractIntegrationTest {
         JsonNode fields =
                 read(
                         get("/api/v1/template-builder/catalog/fields")
+                                .queryParam("search", "customer")
                                 .queryParam("page", "0")
                                 .queryParam("size", "2")
                                 .header("Authorization", bearer(token)));

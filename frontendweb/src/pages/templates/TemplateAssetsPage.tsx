@@ -23,13 +23,14 @@ export function TemplateAssetsPage() {
   const canManage = hasPermission('TEMPLATE_MANAGE');
   const client = useQueryClient();
   const [page, setPage] = useState(0);
+  const [search, setSearch] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [key, setKey] = useState('');
   const [altText, setAltText] = useState('');
   const [clientError, setClientError] = useState<string | null>(null);
   const [archiveTarget, setArchiveTarget] = useState<TemplateAssetDto | null>(null);
 
-  const assets = useQuery(templateQueries.assets(page, PAGE_SIZE));
+  const assets = useQuery(templateQueries.assets(page, PAGE_SIZE, search));
 
   const uploadMutation = useMutation({
     mutationFn: async () => {
@@ -153,6 +154,16 @@ export function TemplateAssetsPage() {
       ) : null}
 
       <section className="customer-detail-card">
+        <label className="ui-form-field">
+          <span className="ui-form-field__label">{t('templates.catalogSearch')}</span>
+          <input
+            value={search}
+            onChange={(event) => {
+              setSearch(event.target.value);
+              setPage(0);
+            }}
+          />
+        </label>
         {assets.isLoading ? <Spinner label={t('templates.assetsLoading')} /> : null}
         {assets.error ? <ProblemDetailPanel error={assets.error} onRetry={() => void assets.refetch()} /> : null}
         {assets.data ? (

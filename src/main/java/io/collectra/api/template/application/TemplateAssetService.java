@@ -50,10 +50,15 @@ public class TemplateAssetService {
     }
 
     @Transactional(readOnly = true)
-    public Page<TemplateAsset> list(UUID tenantId, int page, int size) {
-        return assets.findByTenantIdAndStatus(
+    public Page<TemplateAsset> list(UUID tenantId, String search, int page, int size) {
+        String normalized =
+                search == null || search.isBlank()
+                        ? null
+                        : "%" + search.trim().toLowerCase(Locale.ROOT) + "%";
+        return assets.findAvailable(
                 tenantId,
                 "ACTIVE",
+                normalized,
                 PageRequest.of(page, size, Sort.by(Sort.Direction.ASC, "assetKey")));
     }
 

@@ -95,15 +95,21 @@ export const createTemplateVersion = (templateId: string, command: CreateVersion
 export const getBuilderCapabilities = () =>
   apiRequest<BuilderCapabilitiesDto>('/api/v1/template-builder/capabilities');
 
-export const getTemplateFields = (page = 0, size = 50) =>
-  apiRequest<BuilderPageDto<TemplateFieldDto>>(
-    `/api/v1/template-builder/catalog/fields?page=${page}&size=${size}`,
+export const getTemplateFields = (page = 0, size = 50, search?: string) => {
+  const params = new URLSearchParams({ page: String(page), size: String(size) });
+  if (search?.trim()) params.set('search', search.trim());
+  return apiRequest<BuilderPageDto<TemplateFieldDto>>(
+    `/api/v1/template-builder/catalog/fields?${params.toString()}`,
   );
+};
 
-export const getTemplateAssets = (page = 0, size = 50) =>
-  apiRequest<BuilderPageDto<TemplateAssetDto>>(
-    `/api/v1/template-builder/catalog/assets?page=${page}&size=${size}`,
+export const getTemplateAssets = (page = 0, size = 50, search?: string) => {
+  const params = new URLSearchParams({ page: String(page), size: String(size) });
+  if (search?.trim()) params.set('search', search.trim());
+  return apiRequest<BuilderPageDto<TemplateAssetDto>>(
+    `/api/v1/template-builder/catalog/assets?${params.toString()}`,
   );
+};
 
 export const uploadTemplateAssetFile = (file: File) => {
   const form = new FormData();
