@@ -222,6 +222,27 @@ class PartitionMaintenanceIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void configuredRunContinuesAfterOneTableFails() {
+        var broken = new PartitionMaintenanceProperties.TablePolicy();
+        broken.setSchema("public");
+        broken.setTable("missing_partition_parent");
+        broken.setPartitionColumn("created_at");
+        broken.setCreateAhead(0);
+        broken.setDryRun(false);
+
+        policy.setCreateAhead(0);
+        properties.setTables(List.of(broken, policy));
+
+        var result = service.maintainConfiguredTables();
+
+        assertThat(result.tables()).hasSize(2);
+        assertThat(result.tables().get(0).failed()).isEqualTo(1);
+        assertThat(result.tables().get(0).errors()).isNotEmpty();
+        assertThat(result.tables().get(1).failed()).isZero();
+        assertThat(result.tables().get(1).created()).isEqualTo(1);
+    }
+
+    @Test
     void recordsOperationMetrics() {
         policy.setCreateAhead(0);
 
