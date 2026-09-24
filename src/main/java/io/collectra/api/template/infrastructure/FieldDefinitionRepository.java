@@ -18,11 +18,18 @@ public interface FieldDefinitionRepository extends JpaRepository<FieldDefinition
     @Query(
             value =
                     "select f from FieldDefinition f where (f.tenantId is null or f.tenantId = :tenantId) "
-                            + "and f.status = 'ACTIVE' order by f.category, f.key",
+                            + "and f.status = 'ACTIVE' "
+                            + "and (:search is null or lower(f.key) like :search or lower(f.label) like :search "
+                            + "or lower(f.category) like :search) order by f.category, f.key",
             countQuery =
                     "select count(f) from FieldDefinition f where (f.tenantId is null or f.tenantId = :tenantId) "
-                            + "and f.status = 'ACTIVE'")
-    Page<FieldDefinition> findAvailable(@Param("tenantId") UUID tenantId, Pageable pageable);
+                            + "and f.status = 'ACTIVE' "
+                            + "and (:search is null or lower(f.key) like :search or lower(f.label) like :search "
+                            + "or lower(f.category) like :search)")
+    Page<FieldDefinition> findAvailable(
+            @Param("tenantId") UUID tenantId,
+            @Param("search") String search,
+            Pageable pageable);
 
     boolean existsByTenantIdAndKeyIgnoreCase(UUID tenantId, String key);
 
