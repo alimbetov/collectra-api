@@ -100,7 +100,7 @@ public class PartitionMaintenanceService {
             return TableResult.lockSkipped(policy, dryRun);
         }
 
-        SessionSettings sessionSettings = readSessionSettings(connection);
+        SessionSettings sessionSettings = null;
         long startedAt = System.nanoTime();
         int created = 0;
         int existing = 0;
@@ -111,6 +111,7 @@ public class PartitionMaintenanceService {
         List<String> errors = new ArrayList<>();
 
         try {
+            sessionSettings = readSessionSettings(connection);
             configureSession(connection);
             verifyRangePartitionedParent(connection, policy);
 
@@ -221,7 +222,9 @@ public class PartitionMaintenanceService {
             log.info("Partition maintenance completed. result={}", result);
             return result;
         } finally {
-            restoreSession(connection, sessionSettings);
+            if (sessionSettings != null) {
+                restoreSession(connection, sessionSettings);
+            }
             unlock(connection, lockName);
         }
     }
