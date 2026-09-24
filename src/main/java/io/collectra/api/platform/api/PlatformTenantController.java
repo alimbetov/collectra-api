@@ -9,6 +9,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.time.Instant;
 import java.util.UUID;
@@ -74,5 +75,7 @@ public class PlatformTenantController {
     }
 
     record PlatformTenantStatusRequest(
-            boolean active, @Min(0) long revision, @NotBlank @Size(max = 255) String reason) {}
+            @NotNull Boolean active,
+            @NotNull @Min(0) Long revision,
+            @NotBlank @Size(max = 255) String reason) {}
 }
