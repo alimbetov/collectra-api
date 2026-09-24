@@ -55,7 +55,18 @@ public class PartitionMaintenanceService {
             if (!policy.isEnabled()) {
                 continue;
             }
-            results.add(maintain(policy, today));
+            try {
+                results.add(maintain(policy, today));
+            } catch (RuntimeException ex) {
+                log.error(
+                        "Partition maintenance failed for configured table {}.{}",
+                        policy.getSchema(),
+                        policy.getTable(),
+                        ex);
+                TableResult failed = TableResult.failed(policy, effectiveDryRun(policy), ex);
+                recordMetrics(failed);
+                results.add(failed);
+            }
         }
         return new RunResult(today, List.copyOf(results));
     }
@@ -570,6 +581,31 @@ public class PartitionMaintenanceService {
                     1,
                     0,
                     List.of());
+        }
+
+        static TableResult failed(
+                PartitionMaintenanceProperties.TablePolicy policy,
+                boolean dryRun,
+                RuntimeException exception) {
+            String message =
+                    exception.getMessage() == null
+                            ? exception.getClass().getSimpleName()
+                            : exception.getMessage();
+            return new TableResult(
+                    policy.getSchema(),
+                    policy.getTable(),
+                    policy.getGranularity(),
+                    policy.getMode(),
+                    dryRun,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    1,
+                    0,
+                    0,
+                    List.of(message));
         }
     }
 }
