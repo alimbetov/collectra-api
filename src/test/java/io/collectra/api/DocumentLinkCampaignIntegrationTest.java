@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.collectra.api.campaign.application.CampaignMessageMaterializer;
 import io.collectra.api.campaign.application.CampaignSelection;
 import io.collectra.api.campaign.application.CampaignService;
+import io.collectra.api.communication.application.MessageDocumentAccessRecorder;
 import io.collectra.api.communication.application.MessageDocumentLinkService;
 import io.collectra.api.communication.domain.CommunicationChannel;
 import io.collectra.api.communication.domain.MessageDocumentLinkStatus;
@@ -19,6 +20,7 @@ import io.collectra.api.document.domain.OutputFormat;
 import io.collectra.api.document.infrastructure.GeneratedDocumentRepository;
 import io.collectra.api.localization.domain.TenantLocale;
 import io.collectra.api.localization.infrastructure.TenantLocaleRepository;
+import io.collectra.api.reporting.application.CommunicationAnalyticsQueryService;
 import io.collectra.api.template.domain.DocumentTemplate;
 import io.collectra.api.template.domain.TemplateChannel;
 import io.collectra.api.template.domain.TemplateVersion;
@@ -35,7 +37,6 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.transaction.annotation.Transactional;
 
 class DocumentLinkCampaignIntegrationTest extends AbstractIntegrationTest {
 
@@ -49,12 +50,14 @@ class DocumentLinkCampaignIntegrationTest extends AbstractIntegrationTest {
     @Autowired MessageRepository messages;
     @Autowired MessageDocumentLinkRepository documentLinks;
     @Autowired MessageDocumentLinkService documentLinkService;
+    @Autowired MessageDocumentAccessRecorder accessRecorder;
+    @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
     @Autowired GenerationJobService generationJobs;
     @Autowired GeneratedDocumentRepository generatedDocuments;
     @Autowired ObjectMapper json;
+    @Autowired CommunicationAnalyticsQueryService analytics;
 
     @Test
-    @Transactional
     void messageUsesSeparatePdfTemplateAndWaitsForSecureLinkReadiness() throws Exception {
         Tenant tenant =
                 tenants.saveAndFlush(
@@ -178,6 +181,38 @@ class DocumentLinkCampaignIntegrationTest extends AbstractIntegrationTest {
                         .orElseThrow();
         assertThat(readyLink.getStatus()).isEqualTo(MessageDocumentLinkStatus.READY);
         assertThat(reloadedMessage.getDeliveryRequestedAt()).isNotNull();
+
+        Instant firstOpen = Instant.parse("2026-09-24T10:00:00Z");
+        Instant secondOpen = firstOpen.plusSeconds(5);
+        accessRecorder.record(tenant.getId(), readyLink.getId(), firstOpen);
+        accessRecorder.record(tenant.getId(), readyLink.getId(), secondOpen);
+
+        var access =
+                jdbc.queryForMap(
+                        """
+                        select access_count, first_access_at, last_access_at
+                          from message_document_links
+                         where id = ?
+                        """,
+                        readyLink.getId());
+        assertThat(((Number) access.get("access_count")).longValue()).isEqualTo(2);
+        assertThat(((java.sql.Timestamp) access.get("first_access_at")).toInstant())
+                .isEqualTo(firstOpen);
+        assertThat(((java.sql.Timestamp) access.get("last_access_at")).toInstant())
+                .isEqualTo(secondOpen);
+
+        var documentReport =
+                analytics.documents(
+                        CommunicationAnalyticsQueryService.Scope.tenant(tenant.getId()),
+                        new CommunicationAnalyticsQueryService.Filter(
+                                Instant.now().minusSeconds(3600),
+                                Instant.now().plusSeconds(3600),
+                                campaign.getId(),
+                                prepared.runId(),
+                                "EMAIL",
+                                null));
+        assertThat(documentReport.totals().accessCount()).isEqualTo(2);
+        assertThat(documentReport.totals().accessedLinks()).isEqualTo(1);
     }
 
     private String tokenFrom(String body) {

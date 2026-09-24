@@ -1,5 +1,6 @@
 package io.collectra.api.dashboard.application;
 
+import io.collectra.api.reporting.application.CommunicationAnalyticsQueryService;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -18,11 +19,17 @@ public class DashboardQueryService {
     private final JdbcTemplate jdbc;
     private final Clock clock;
     private final ZoneId businessZone;
+    private final CommunicationAnalyticsQueryService communicationAnalytics;
 
-    public DashboardQueryService(JdbcTemplate jdbc, Clock clock, ZoneId businessZone) {
+    public DashboardQueryService(
+            JdbcTemplate jdbc,
+            Clock clock,
+            ZoneId businessZone,
+            CommunicationAnalyticsQueryService communicationAnalytics) {
         this.jdbc = jdbc;
         this.clock = clock;
         this.businessZone = businessZone;
+        this.communicationAnalytics = communicationAnalytics;
     }
 
     @Transactional(readOnly = true)
@@ -110,26 +117,15 @@ public class DashboardQueryService {
     @Transactional(readOnly = true)
     public Delivery delivery(UUID tenantId) {
         Snapshot snapshot = snapshot();
-        return jdbc.queryForObject(
-                """
-                SELECT COALESCE(SUM(recipient_count),0) recipient_count,
-                       COALESCE(SUM(sent_count),0) sent_count,
-                       COALESCE(SUM(failed_count),0) failed_count,
-                       COALESCE(SUM(skipped_count),0) skipped_count,
-                       COALESCE(SUM(retry_count),0) retry_count
-                FROM campaign_runs
-                WHERE tenant_id = ?
-                """,
-                (rs, rowNum) ->
-                        new Delivery(
-                                snapshot.asOf(),
-                                snapshot.businessDate(),
-                                rs.getLong("recipient_count"),
-                                rs.getLong("sent_count"),
-                                rs.getLong("failed_count"),
-                                rs.getLong("skipped_count"),
-                                rs.getLong("retry_count")),
-                tenantId);
+        var totals = communicationAnalytics.deliveryTotalsAllTime(tenantId);
+        return new Delivery(
+                snapshot.asOf(),
+                snapshot.businessDate(),
+                totals.recipients(),
+                totals.sent(),
+                totals.failed(),
+                totals.skipped(),
+                totals.retries());
     }
 
     @Transactional(readOnly = true)
