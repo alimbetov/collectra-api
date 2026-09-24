@@ -144,16 +144,16 @@ class PlatformTenantLifecycleIntegrationTest extends AbstractIntegrationTest {
         assertThat(response.get("page").asInt()).isZero();
         assertThat(response.get("size").asInt()).isEqualTo(1);
 
+        String tenantSlug = "pf2-human-" + UUID.randomUUID();
+        AuthTokens tenantUser =
+                auth.register(
+                        tenantSlug,
+                        "PF2 Human Tenant",
+                        UUID.randomUUID() + "@example.test",
+                        "StrongPassword123!");
         mockMvc.perform(
                         get("/api/v1/platform/tenants")
-                                .with(
-                                        jwt().jwt(
-                                                        token ->
-                                                                token.subject(
-                                                                        UUID.randomUUID()
-                                                                                .toString()))
-                                                .authorities(
-                                                        new SimpleGrantedAuthority("ROLE_HUMAN"))))
+                                .header("Authorization", "Bearer " + tenantUser.accessToken()))
                 .andExpect(status().isForbidden());
     }
 
@@ -175,7 +175,7 @@ class PlatformTenantLifecycleIntegrationTest extends AbstractIntegrationTest {
                                           "reason": "stale test"
                                         }
                                         """)
-                                .with(platformAdmin()))
+                                .header("Authorization", "Bearer " + platformAccessToken()))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("VERSION_CONFLICT"));
 
@@ -198,7 +198,7 @@ class PlatformTenantLifecycleIntegrationTest extends AbstractIntegrationTest {
                                           "reason": "missing command fields"
                                         }
                                         """)
-                                .with(platformAdmin()))
+                                .header("Authorization", "Bearer " + platformAccessToken()))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
                 .andExpect(jsonPath("$.errors.active").exists())
@@ -209,7 +209,7 @@ class PlatformTenantLifecycleIntegrationTest extends AbstractIntegrationTest {
     void tenantDetailUsesStableNotFoundCode() throws Exception {
         mockMvc.perform(
                         get("/api/v1/platform/tenants/{tenantId}", UUID.randomUUID())
-                                .with(platformAdmin()))
+                                .header("Authorization", "Bearer " + platformAccessToken()))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("TENANT_NOT_FOUND"));
     }
@@ -219,14 +219,14 @@ class PlatformTenantLifecycleIntegrationTest extends AbstractIntegrationTest {
         mockMvc.perform(
                         get("/api/v1/platform/tenants")
                                 .queryParam("status", "SUSPENDED")
-                                .with(platformAdmin()))
+                                .header("Authorization", "Bearer " + platformAccessToken()))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("INVALID_FILTER"));
 
         mockMvc.perform(
                         get("/api/v1/platform/tenants")
                                 .queryParam("sort", "name,sideways")
-                                .with(platformAdmin()))
+                                .header("Authorization", "Bearer " + platformAccessToken()))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("UNSUPPORTED_SORT"));
     }
