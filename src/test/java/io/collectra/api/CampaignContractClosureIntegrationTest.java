@@ -9,6 +9,7 @@ import io.collectra.api.campaign.application.CampaignPreviewService;
 import io.collectra.api.campaign.application.CampaignSelection;
 import io.collectra.api.campaign.application.CampaignService;
 import io.collectra.api.campaign.infrastructure.CampaignRepository;
+import io.collectra.api.campaign.infrastructure.CampaignRunRepository;
 import io.collectra.api.customer.application.CustomerService;
 import io.collectra.api.customer.domain.CustomerType;
 import io.collectra.api.localization.domain.TenantLocale;
@@ -38,6 +39,7 @@ class CampaignContractClosureIntegrationTest extends AbstractIntegrationTest {
     @Autowired CampaignFrontendQueryService campaignQueries;
     @Autowired CampaignPreviewService campaignPreview;
     @Autowired CampaignRepository campaignRepository;
+    @Autowired CampaignRunRepository campaignRunRepository;
     @Autowired ObjectMapper json;
 
     @Test
@@ -141,6 +143,7 @@ class CampaignContractClosureIntegrationTest extends AbstractIntegrationTest {
         campaigns.activate(fixture.tenantId(), campaign.getId(), campaign.getVersion());
         UUID commandId = UUID.randomUUID();
         var prepared = campaigns.prepare(fixture.tenantId(), campaign.getId(), commandId);
+        campaignRunRepository.flush();
         var run = campaignQueries.run(fixture.tenantId(), campaign.getId(), prepared.runId());
 
         assertThat(run.campaignId()).isEqualTo(campaign.getId());
