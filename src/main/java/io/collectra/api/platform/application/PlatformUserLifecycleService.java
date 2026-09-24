@@ -112,16 +112,12 @@ public class PlatformUserLifecycleService {
                         .orElseThrow(
                                 () -> new java.util.NoSuchElementException("Membership not found"));
 
-        int revoked = sessions.revokeAllByMembershipId(membershipId);
-        if (revoked > 0) {
-            UserAccount user =
-                    users.findById(membership.getUserId())
-                            .orElseThrow(
-                                    () ->
-                                            new java.util.NoSuchElementException(
-                                                    "User account not found"));
-            user.authorizationChanged();
-        }
+        sessions.revokeAllByMembershipId(membershipId);
+        UserAccount user =
+                users.findById(membership.getUserId())
+                        .orElseThrow(
+                                () -> new java.util.NoSuchElementException("User account not found"));
+        user.authorizationChanged();
 
         audit.appendTransactional(
                 membership.getTenantId(),
