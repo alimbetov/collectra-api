@@ -38,8 +38,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.validation.annotation.Validated;
 
 @RestController
+@Validated
 @RequestMapping("/api/v1/campaigns")
 @PreAuthorize("hasAuthority('ROLE_HUMAN')")
 public class CampaignController {
@@ -163,12 +165,8 @@ public class CampaignController {
     @PostMapping("/{campaignId}/activate")
     @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('CAMPAIGN_MANAGE')")
     CampaignResponse activate(
-            @PathVariable UUID campaignId, @RequestParam(required = false) @Min(0) Long revision) {
-        Campaign value =
-                revision == null
-                        ? campaigns.activate(tenant(), campaignId)
-                        : campaigns.activate(tenant(), campaignId, revision);
-        return response(value);
+            @PathVariable UUID campaignId, @RequestParam @Min(0) long revision) {
+        return response(campaigns.activate(tenant(), campaignId, revision));
     }
 
     @PostMapping("/{campaignId}/runs")
@@ -176,10 +174,8 @@ public class CampaignController {
     @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('CAMPAIGN_MANAGE')")
     CampaignService.PrepareResult prepare(
             @PathVariable UUID campaignId,
-            @RequestHeader(value = "X-Command-Id", required = false) UUID commandId) {
-        return commandId == null
-                ? campaigns.prepare(tenant(), campaignId)
-                : campaigns.prepare(tenant(), campaignId, commandId);
+            @RequestHeader("X-Command-Id") UUID commandId) {
+        return campaigns.prepare(tenant(), campaignId, commandId);
     }
 
     @GetMapping("/{campaignId}/runs")
@@ -254,7 +250,7 @@ public class CampaignController {
             CampaignSelectionRequest selection,
             UUID documentTemplateVersionId,
             Boolean generatedPdfLink,
-            @Min(0) long revision) {}
+            @NotNull @Min(0) Long revision) {}
 
     record PreviewRequest(UUID customerId, UUID invoiceId) {}
 
