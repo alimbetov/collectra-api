@@ -24,12 +24,14 @@ import io.collectra.api.customer.domain.CustomerType;
 import io.collectra.api.identity.infrastructure.UserAccountRepository;
 import io.collectra.api.reporting.application.CommunicationAnalyticsQueryService;
 import io.collectra.api.reporting.application.CommunicationProjectionRebuildService;
+import io.collectra.api.reporting.application.CommunicationProjectionStateService;
 import io.collectra.api.template.domain.DocumentTemplate;
 import io.collectra.api.template.domain.TemplateChannel;
 import io.collectra.api.template.domain.TemplateVersion;
 import io.collectra.api.template.infrastructure.DocumentTemplateRepository;
 import io.collectra.api.template.infrastructure.TemplateVersionRepository;
 import io.collectra.api.tenant.infrastructure.TenantRepository;
+import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -67,6 +69,8 @@ class CommunicationAnalyticsIntegrationTest extends AbstractIntegrationTest {
     @Autowired MessageDeliveryAttemptRepository attempts;
     @Autowired CommunicationAnalyticsQueryService analytics;
     @Autowired CommunicationProjectionRebuildService projectionRebuilds;
+    @Autowired CommunicationProjectionStateService projectionStates;
+    @Autowired Clock clock;
     @Autowired JdbcTemplate jdbc;
 
     @Test
@@ -363,6 +367,27 @@ class CommunicationAnalyticsIntegrationTest extends AbstractIntegrationTest {
         assertThat(firstState).isEqualTo(1);
         assertThat(firstRevision).isEqualTo(2L);
         assertThat(secondState).isZero();
+    }
+
+    @Test
+    void tenantDayProjectionClaimPreventsConcurrentRebuild() {
+        Fixture fixture = fixture("r11-claim", true);
+        LocalDate day = LocalDate.now(ZoneId.of("UTC")).minusDays(10);
+        Instant now = clock.instant();
+
+        assertThat(
+                        projectionStates.tryMarkBuilding(
+                                fixture.tenantId(),
+                                day,
+                                now,
+                                now.minusSeconds(1800)))
+                .isTrue();
+
+        var skipped = projectionRebuilds.rebuildTenantDay(fixture.tenantId(), day);
+
+        assertThat(skipped.lockSkipped()).isTrue();
+        assertThat(skipped.tenantId()).isEqualTo(fixture.tenantId());
+        assertThat(skipped.businessDate()).isEqualTo(day);
     }
 
     @Test
