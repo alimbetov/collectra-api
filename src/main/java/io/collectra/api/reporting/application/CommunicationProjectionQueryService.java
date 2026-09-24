@@ -278,7 +278,9 @@ public class CommunicationProjectionQueryService {
                         """
                                 + grouped
                                 + " order by "
-                                + orderBy(sort, USER_SORT, "sent", "desc")
+                                + stableOrder(
+                                        orderBy(sort, USER_SORT, "sent", "desc"),
+                                        "user_id")
                                 + " limit :limit offset :offset",
                         params,
                         (rs, rowNum) -> {
@@ -359,7 +361,13 @@ public class CommunicationProjectionQueryService {
                         """
                                 + grouped
                                 + " order by "
-                                + orderBy(sort, CAMPAIGN_SORT, "lastRunAt", "desc")
+                                + stableOrder(
+                                        orderBy(
+                                                sort,
+                                                CAMPAIGN_SORT,
+                                                "lastRunAt",
+                                                "desc"),
+                                        "campaign_id")
                                 + " limit :limit offset :offset",
                         params,
                         (rs, rowNum) -> {
@@ -454,7 +462,9 @@ public class CommunicationProjectionQueryService {
                         """
                                 + grouped
                                 + " order by "
-                                + orderBy(sort, FAILURE_SORT, "count", "desc")
+                                + stableOrder(
+                                        orderBy(sort, FAILURE_SORT, "count", "desc"),
+                                        "error_code")
                                 + " limit :limit offset :offset",
                         paged,
                         (rs, rowNum) ->
@@ -508,6 +518,10 @@ public class CommunicationProjectionQueryService {
             copy.addValue(name, source.getValue(name));
         }
         return copy;
+    }
+
+    private String stableOrder(String order, String tieBreak) {
+        return order + ", " + tieBreak + " asc nulls last";
     }
 
     private String orderBy(
