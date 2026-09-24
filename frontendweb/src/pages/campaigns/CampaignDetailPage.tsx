@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 import {
   activateCampaign,
+  configureCampaignPdfAttachment,
   prepareCampaignRun,
   previewCampaign,
   updateCampaign,
@@ -48,6 +49,23 @@ export function CampaignDetailPage() {
     onSuccess: async (campaign) => {
       client.setQueryData(campaignKeys.detail(campaign.id), campaign);
       await client.invalidateQueries({ queryKey: campaignKeys.lists() });
+      showToast({ title: t('campaigns.saved'), tone: 'success' });
+    },
+    onError: async (error) => {
+      if (error instanceof ApiError && error.problem?.code === 'VERSION_CONFLICT') {
+        await detail.refetch();
+      }
+    },
+  });
+
+  const attachmentMutation = useMutation({
+    mutationFn: (command: { enabled: boolean; required: boolean }) =>
+      configureCampaignPdfAttachment(campaignId, {
+        ...command,
+        revision: detail.data?.revision ?? -1,
+      }),
+    onSuccess: async () => {
+      await detail.refetch();
       showToast({ title: t('campaigns.saved'), tone: 'success' });
     },
     onError: async (error) => {
@@ -107,6 +125,7 @@ export function CampaignDetailPage() {
   const campaign = detail.data;
   const actionError =
     updateMutation.error ??
+    attachmentMutation.error ??
     validateMutation.error ??
     previewMutation.error ??
     activateMutation.error ??
@@ -270,6 +289,43 @@ export function CampaignDetailPage() {
           </dl>
         </section>
       )}
+
+      {campaign.status === 'DRAFT' && canManage ? (
+        <section className="customer-detail-card campaign-attachment-settings">
+          <h2>{t('campaigns.attachmentTitle')}</h2>
+          <label className="campaign-form__check">
+            <input
+              type="checkbox"
+              checked={campaign.generatedPdfAttachment}
+              disabled={attachmentMutation.isPending}
+              onChange={(event) =>
+                attachmentMutation.mutate({
+                  enabled: event.target.checked,
+                  required: event.target.checked ? campaign.generatedPdfAttachmentRequired : false,
+                })
+              }
+            />
+            <span>{t('campaigns.generatedPdfAttachment')}</span>
+          </label>
+          {campaign.generatedPdfAttachment ? (
+            <label className="campaign-form__check">
+              <input
+                type="checkbox"
+                checked={campaign.generatedPdfAttachmentRequired}
+                disabled={attachmentMutation.isPending}
+                onChange={(event) =>
+                  attachmentMutation.mutate({
+                    enabled: true,
+                    required: event.target.checked,
+                  })
+                }
+              />
+              <span>{t('campaigns.generatedPdfAttachmentRequired')}</span>
+            </label>
+          ) : null}
+          <p>{t('campaigns.attachmentHint')}</p>
+        </section>
+      ) : null}
 
       <section className="customer-detail-card">
         <h2>{t('campaigns.runs')}</h2>
