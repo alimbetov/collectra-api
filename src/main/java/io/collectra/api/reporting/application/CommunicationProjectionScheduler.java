@@ -6,6 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -35,7 +36,12 @@ public class CommunicationProjectionScheduler {
 
         int page = 0;
         while (true) {
-            var tenantPage = tenants.findAll(PageRequest.of(page, properties.getTenantBatchSize()));
+            var tenantPage =
+                    tenants.findAll(
+                            PageRequest.of(
+                                    page,
+                                    properties.getTenantBatchSize(),
+                                    Sort.by(Sort.Direction.ASC, "id")));
             tenantPage.stream()
                     .filter(tenant -> tenant.active())
                     .forEach(
