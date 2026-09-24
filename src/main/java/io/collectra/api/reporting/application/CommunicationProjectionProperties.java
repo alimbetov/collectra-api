@@ -10,6 +10,7 @@ public class CommunicationProjectionProperties {
     private boolean enabled = false;
     private String cron = "0 20 1 * * *";
     private int reconciliationDays = 7;
+    private int tenantBatchSize = 100;
     private Duration cacheTtl = Duration.ofMinutes(5);
 
     public boolean isEnabled() {
@@ -37,6 +38,17 @@ public class CommunicationProjectionProperties {
             throw new IllegalArgumentException("reconciliation-days must be between 1 and 31");
         }
         this.reconciliationDays = reconciliationDays;
+    }
+
+    public int getTenantBatchSize() {
+        return tenantBatchSize;
+    }
+
+    public void setTenantBatchSize(int tenantBatchSize) {
+        if (tenantBatchSize < 1 || tenantBatchSize > 1000) {
+            throw new IllegalArgumentException("tenant-batch-size must be between 1 and 1000");
+        }
+        this.tenantBatchSize = tenantBatchSize;
     }
 
     public Duration getCacheTtl() {
