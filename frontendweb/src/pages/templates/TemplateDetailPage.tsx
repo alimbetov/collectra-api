@@ -36,7 +36,7 @@ const emptyBuilderDocument = (): BuilderDocumentDto => ({
   blocks: [
     {
       type: 'richText',
-      props: { content: [{ type: 'text', value: '' }] },
+      props: { content: [{ type: 'placeholder', key: 'customer.name' }] },
     },
   ],
 });
