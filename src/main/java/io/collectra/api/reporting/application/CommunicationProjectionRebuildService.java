@@ -4,7 +4,7 @@ import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.UUID;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -15,25 +15,22 @@ import org.springframework.transaction.annotation.Transactional;
 public class CommunicationProjectionRebuildService {
     private final NamedParameterJdbcTemplate jdbc;
     private final Clock clock;
-    private final ZoneId businessZone;
     private final CommunicationProjectionStateService stateService;
 
     public CommunicationProjectionRebuildService(
             NamedParameterJdbcTemplate jdbc,
             Clock clock,
-            ZoneId businessZone,
             CommunicationProjectionStateService stateService) {
         this.jdbc = jdbc;
         this.clock = clock;
-        this.businessZone = businessZone;
         this.stateService = stateService;
     }
 
     @Transactional
     public RebuildResult rebuildTenantDay(UUID tenantId, LocalDate businessDate) {
         Instant calculatedAt = clock.instant();
-        Instant from = businessDate.atStartOfDay(businessZone).toInstant();
-        Instant to = businessDate.plusDays(1).atStartOfDay(businessZone).toInstant();
+        Instant from = businessDate.atStartOfDay(ZoneOffset.UTC).toInstant();
+        Instant to = businessDate.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant();
 
         MapSqlParameterSource params =
                 new MapSqlParameterSource()
@@ -98,7 +95,7 @@ public class CommunicationProjectionRebuildService {
     }
 
     public LocalDate currentBusinessDate() {
-        return LocalDate.now(clock.withZone(businessZone));
+        return LocalDate.now(clock.withZone(ZoneOffset.UTC));
     }
 
     private void markBuilding(MapSqlParameterSource params) {
