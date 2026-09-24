@@ -8,8 +8,6 @@ import java.sql.SQLException;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -227,8 +225,7 @@ public class CommunicationAnalyticsQueryService {
     }
 
     @Transactional(readOnly = true)
-    public PageReport<UserItem> users(
-            Scope scope, Filter filter, int page, int size, String sort) {
+    public PageReport<UserItem> users(Scope scope, Filter filter, int page, int size, String sort) {
         validatePage(page, size);
         ResolvedFilter resolved = resolve(scope, filter, false);
         String runWhere = where("cr", "c", resolved, true);
@@ -280,9 +277,7 @@ public class CommunicationAnalyticsQueryService {
 
         long total =
                 jdbc.queryForObject(
-                        grouped + " select count(*) from combined",
-                        resolved.params(),
-                        Long.class);
+                        grouped + " select count(*) from combined", resolved.params(), Long.class);
 
         MapSqlParameterSource params =
                 copy(resolved.params())
@@ -475,8 +470,7 @@ public class CommunicationAnalyticsQueryService {
     public DocumentReport documents(Scope scope, Filter filter) {
         ResolvedFilter resolved = resolve(scope, filter, false);
         DocumentTotals totals = documentTotals(resolved);
-        return new DocumentReport(
-                resolved.generatedAt(), resolved.from(), resolved.to(), totals);
+        return new DocumentReport(resolved.generatedAt(), resolved.from(), resolved.to(), totals);
     }
 
     @Transactional(readOnly = true)
@@ -532,9 +526,7 @@ public class CommunicationAnalyticsQueryService {
 
         long total =
                 jdbc.queryForObject(
-                        grouped + " select count(*) from combined",
-                        resolved.params(),
-                        Long.class);
+                        grouped + " select count(*) from combined", resolved.params(), Long.class);
 
         MapSqlParameterSource params =
                 copy(resolved.params())
@@ -765,13 +757,12 @@ public class CommunicationAnalyticsQueryService {
                         "INVALID_FILTER", "runId is not supported for this report");
             }
             String column =
-                    "cr".equals(factAlias)
-                            ? factAlias + ".id"
-                            : factAlias + ".campaign_run_id";
+                    "cr".equals(factAlias) ? factAlias + ".id" : factAlias + ".campaign_run_id";
             where.append(" and ").append(column).append(" = :runId ");
         }
         if (filter.channel() != null) {
-            String column = "m".equals(factAlias) ? factAlias + ".channel" : campaignAlias + ".channel";
+            String column =
+                    "m".equals(factAlias) ? factAlias + ".channel" : campaignAlias + ".channel";
             where.append(" and ").append(column).append(" = :channel ");
         }
     }
@@ -812,10 +803,10 @@ public class CommunicationAnalyticsQueryService {
                         : sort.trim();
         String[] parts = value.split(",", -1);
         if (parts.length > 2 || !allowed.containsKey(parts[0])) {
-            throw new InvalidRequestException("UNSUPPORTED_SORT", "Unsupported report sort: " + value);
+            throw new InvalidRequestException(
+                    "UNSUPPORTED_SORT", "Unsupported report sort: " + value);
         }
-        String direction =
-                parts.length == 1 ? defaultDirection : parts[1].trim().toLowerCase();
+        String direction = parts.length == 1 ? defaultDirection : parts[1].trim().toLowerCase();
         if (!"asc".equals(direction) && !"desc".equals(direction)) {
             throw new InvalidRequestException(
                     "UNSUPPORTED_SORT", "Unsupported report sort direction: " + direction);
@@ -902,12 +893,7 @@ public class CommunicationAnalyticsQueryService {
     }
 
     public record Filter(
-            Instant from,
-            Instant to,
-            UUID campaignId,
-            UUID runId,
-            String channel,
-            UUID userId) {}
+            Instant from, Instant to, UUID campaignId, UUID runId, String channel, UUID userId) {}
 
     private record ResolvedFilter(
             Instant generatedAt,
@@ -924,12 +910,7 @@ public class CommunicationAnalyticsQueryService {
             long recipients, long sent, long failed, long skipped, long retries) {}
 
     public record MessageStates(
-            long queued,
-            long processing,
-            long retryWait,
-            long sent,
-            long failed,
-            long unknown) {}
+            long queued, long processing, long retryWait, long sent, long failed, long unknown) {}
 
     public record DocumentTotals(
             long created,
@@ -1015,11 +996,7 @@ public class CommunicationAnalyticsQueryService {
             BigDecimal terminalSuccessRate) {}
 
     public record FailureItem(
-            String errorCode,
-            long count,
-            long retryable,
-            long permanent,
-            long unknown) {}
+            String errorCode, long count, long retryable, long permanent, long unknown) {}
 
     public record TenantItem(
             UUID tenantId,

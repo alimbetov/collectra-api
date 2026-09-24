@@ -309,11 +309,7 @@ class CommunicationAnalyticsIntegrationTest extends AbstractIntegrationTest {
             retry = messages.saveAndFlush(retry);
             MessageDeliveryAttempt retryAttempt =
                     MessageDeliveryAttempt.started(
-                            tenant.getId(),
-                            retry.getId(),
-                            1,
-                            retry.getDeliveryKey(),
-                            now);
+                            tenant.getId(), retry.getId(), 1, retry.getDeliveryKey(), now);
             retryAttempt.retryableFailure("TIMEOUT", now.plusSeconds(1));
             attempts.saveAndFlush(retryAttempt);
 
@@ -331,15 +327,12 @@ class CommunicationAnalyticsIntegrationTest extends AbstractIntegrationTest {
             unknown = messages.saveAndFlush(unknown);
             MessageDeliveryAttempt unknownAttempt =
                     MessageDeliveryAttempt.started(
-                            tenant.getId(),
-                            unknown.getId(),
-                            1,
-                            unknown.getDeliveryKey(),
-                            now);
+                            tenant.getId(), unknown.getId(), 1, unknown.getDeliveryKey(), now);
             unknownAttempt.unknown("SMTP_550", now.plusSeconds(1));
             attempts.saveAndFlush(unknownAttempt);
 
-            return new Fixture(tenant.getId(), user.getId(), email, token, campaign.getId(), run.getId());
+            return new Fixture(
+                    tenant.getId(), user.getId(), email, token, campaign.getId(), run.getId());
         } catch (Exception ex) {
             throw new IllegalStateException(ex);
         }

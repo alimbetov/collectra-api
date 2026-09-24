@@ -55,9 +55,7 @@ public class PlatformCommunicationAnalyticsController {
             @RequestParam(required = false) String channel,
             @RequestParam(defaultValue = "DAY") Bucket bucket) {
         return analytics.timeseries(
-                scope(tenantId, userId),
-                filter(from, to, campaignId, runId, channel),
-                bucket);
+                scope(tenantId, userId), filter(from, to, campaignId, runId, channel), bucket);
     }
 
     @GetMapping("/channels")
@@ -198,8 +196,7 @@ public class PlatformCommunicationAnalyticsController {
         return Scope.platform(tenantId, userId);
     }
 
-    private Filter filter(
-            Instant from, Instant to, UUID campaignId, UUID runId, String channel) {
+    private Filter filter(Instant from, Instant to, UUID campaignId, UUID runId, String channel) {
         return new Filter(from, to, campaignId, runId, channel, null);
     }
 }

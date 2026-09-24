@@ -87,11 +87,7 @@ public class TenantCommunicationAnalyticsController {
                     @RequestParam(defaultValue = "50") @Min(1) @Max(200) int size,
                     @RequestParam(defaultValue = "sent,desc") String sort) {
         return analytics.users(
-                scope(),
-                filter(from, to, campaignId, runId, channel, userId),
-                page,
-                size,
-                sort);
+                scope(), filter(from, to, campaignId, runId, channel, userId), page, size, sort);
     }
 
     @GetMapping("/campaigns")
@@ -112,11 +108,7 @@ public class TenantCommunicationAnalyticsController {
                     @RequestParam(defaultValue = "50") @Min(1) @Max(200) int size,
                     @RequestParam(defaultValue = "lastRunAt,desc") String sort) {
         return analytics.campaigns(
-                scope(),
-                filter(from, to, campaignId, runId, channel, userId),
-                page,
-                size,
-                sort);
+                scope(), filter(from, to, campaignId, runId, channel, userId), page, size, sort);
     }
 
     @GetMapping("/failures")
@@ -137,11 +129,7 @@ public class TenantCommunicationAnalyticsController {
                     @RequestParam(defaultValue = "50") @Min(1) @Max(200) int size,
                     @RequestParam(defaultValue = "count,desc") String sort) {
         return analytics.failures(
-                scope(),
-                filter(from, to, campaignId, runId, channel, userId),
-                page,
-                size,
-                sort);
+                scope(), filter(from, to, campaignId, runId, channel, userId), page, size, sort);
     }
 
     @GetMapping("/documents")
@@ -162,12 +150,7 @@ public class TenantCommunicationAnalyticsController {
     }
 
     private Filter filter(
-            Instant from,
-            Instant to,
-            UUID campaignId,
-            UUID runId,
-            String channel,
-            UUID userId) {
+            Instant from, Instant to, UUID campaignId, UUID runId, String channel, UUID userId) {
         return new Filter(from, to, campaignId, runId, channel, userId);
     }
 }
