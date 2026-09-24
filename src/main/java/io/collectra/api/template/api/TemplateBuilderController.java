@@ -176,7 +176,7 @@ public class TemplateBuilderController {
     @PutMapping("/versions/{versionId}")
     @PreAuthorize("hasAuthority('TEMPLATE_MANAGE')")
     VersionResponse updateDraft(
-            @PathVariable UUID versionId, @Valid @RequestBody DraftRequest request) {
+            @PathVariable UUID versionId, @Valid @RequestBody DraftUpdateRequest request) {
         TemplateVersion existing = templates.getVersion(tenant(), versionId);
         ensureChannelUnchanged(request.channel(), existing);
         return VersionResponse.from(
@@ -186,13 +186,13 @@ public class TemplateBuilderController {
                         request.subject(),
                         request.content(),
                         request.stylesheet(),
-                        requiredRevision(request.revision())));
+                        request.revision()));
     }
 
     @PutMapping("/versions/{versionId}/builder")
     @PreAuthorize("hasAuthority('TEMPLATE_MANAGE')")
     VersionResponse updateBuilderDraft(
-            @PathVariable UUID versionId, @Valid @RequestBody BuilderDocumentRequest request) {
+            @PathVariable UUID versionId, @Valid @RequestBody BuilderDocumentUpdateRequest request) {
         TemplateVersion existing = templates.getVersion(tenant(), versionId);
         ensureChannelUnchanged(request.channel(), existing);
         var compiled = builder.compileDocument(tenant(), request.toDraft());
@@ -246,13 +246,6 @@ public class TemplateBuilderController {
         assets.archive(tenant(), assetId);
     }
 
-    private long requiredRevision(Long revision) {
-        if (revision == null) {
-            throw new IllegalArgumentException("revision is required for updating a saved version");
-        }
-        return revision;
-    }
-
     private void ensureChannelUnchanged(TemplateChannel requested, TemplateVersion existing) {
         if (requested != null && requested != existing.getChannel()) {
             throw new IllegalArgumentException(
@@ -277,6 +270,14 @@ public class TemplateBuilderController {
         }
     }
 
+    record DraftUpdateRequest(
+            TemplateChannel channel,
+            @NotBlank @Size(max = 10) String locale,
+            @Size(max = 300) String subject,
+            @NotBlank String content,
+            String stylesheet,
+            @NotNull @Min(0) Long revision) {}
+
     record BuilderDocumentRequest(
             TemplateChannel channel,
             @NotBlank @Size(max = 10) String locale,
@@ -284,6 +285,19 @@ public class TemplateBuilderController {
             @NotNull JsonNode builderJson,
             String stylesheet,
             @Min(0) Long revision) {
+        TemplateBuilderService.BuilderDocumentDraft toDraft() {
+            return new TemplateBuilderService.BuilderDocumentDraft(
+                    channel, locale, subject, builderJson, stylesheet);
+        }
+    }
+
+    record BuilderDocumentUpdateRequest(
+            TemplateChannel channel,
+            @NotBlank @Size(max = 10) String locale,
+            @Size(max = 300) String subject,
+            @NotNull JsonNode builderJson,
+            String stylesheet,
+            @NotNull @Min(0) Long revision) {
         TemplateBuilderService.BuilderDocumentDraft toDraft() {
             return new TemplateBuilderService.BuilderDocumentDraft(
                     channel, locale, subject, builderJson, stylesheet);
