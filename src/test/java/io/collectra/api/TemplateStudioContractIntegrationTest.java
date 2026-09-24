@@ -74,7 +74,9 @@ class TemplateStudioContractIntegrationTest extends AbstractIntegrationTest {
                         put("/api/v1/templates/{id}", id)
                                 .header("Authorization", bearer(token))
                                 .contentType(MediaType.APPLICATION_JSON)
-                                .content("{"name":"Renamed"}"))
+                                .content("""
+                                        {"name":"Renamed"}
+                                        """))
                 .andExpect(status().isBadRequest());
 
         read(
@@ -82,18 +84,18 @@ class TemplateStudioContractIntegrationTest extends AbstractIntegrationTest {
                         .header("Authorization", bearer(token))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(
-                                "{"name":"Renamed","revision":"
-                                        + revision
-                                        + "}"));
+                                """
+                                {"name":"Renamed","revision":%d}
+                                """.formatted(revision)));
 
         mockMvc.perform(
                         put("/api/v1/templates/{id}", id)
                                 .header("Authorization", bearer(token))
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(
-                                        "{"name":"Stale","revision":"
-                                                + revision
-                                                + "}"))
+                                        """
+                                        {"name":"Stale","revision":%d}
+                                        """.formatted(revision)))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("VERSION_CONFLICT"));
     }
