@@ -60,7 +60,9 @@ function prepareRequest(options: ApiRequestOptions): RequestInit {
     }
   }
 
-  headers.set('Accept', 'application/json');
+  if (!headers.has('Accept')) {
+    headers.set('Accept', 'application/json');
+  }
 
   const accessToken = getAccessToken();
   if (auth && accessToken && !headers.has('Authorization')) {
