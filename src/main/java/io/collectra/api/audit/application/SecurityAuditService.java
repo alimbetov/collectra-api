@@ -10,14 +10,54 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class SecurityAuditService {
     private final JdbcTemplate jdbc;
-    public SecurityAuditService(JdbcTemplate jdbc) { this.jdbc = jdbc; }
+
+    public SecurityAuditService(JdbcTemplate jdbc) {
+        this.jdbc = jdbc;
+    }
+
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void append(UUID tenantId, String actorType, UUID actorId, String action, String result, String reason) {
-        jdbc.update("""
+    public void append(
+            UUID tenantId,
+            String actorType,
+            UUID actorId,
+            String action,
+            String result,
+            String reason) {
+        insert(tenantId, actorType, actorId, action, result, reason);
+    }
+
+    @Transactional
+    public void appendTransactional(
+            UUID tenantId,
+            String actorType,
+            UUID actorId,
+            String action,
+            String result,
+            String reason) {
+        insert(tenantId, actorType, actorId, action, result, reason);
+    }
+
+    private void insert(
+            UUID tenantId,
+            String actorType,
+            UUID actorId,
+            String action,
+            String result,
+            String reason) {
+        jdbc.update(
+                """
                 insert into security_audit_events(id, tenant_id, actor_type, actor_id, action, result,
                     reason, trace_id, correlation_id, metadata, created_at)
                 values (?, ?, ?, ?, ?, ?, ?, ?, ?, '{}'::jsonb, now())
-                """, UUID.randomUUID(), tenantId, actorType, actorId, action, result, reason,
-                MDC.get("traceId"), MDC.get("correlationId"));
+                """,
+                UUID.randomUUID(),
+                tenantId,
+                actorType,
+                actorId,
+                action,
+                result,
+                reason,
+                MDC.get("traceId"),
+                MDC.get("correlationId"));
     }
 }

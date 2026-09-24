@@ -12,19 +12,32 @@ public interface RefreshSessionRepository extends JpaRepository<RefreshSession, 
     Optional<RefreshSession> findByTokenHashForUpdate(@Param("hash") String hash);
 
     Optional<RefreshSession> findByTokenHash(String tokenHash);
+
     List<RefreshSession> findAllByFamilyId(UUID familyId);
-    List<RefreshSession> findAllByUserIdAndMembershipIdOrderByCreatedAtDesc(UUID userId, UUID membershipId);
-    Optional<RefreshSession> findByIdAndUserIdAndMembershipId(UUID id, UUID userId, UUID membershipId);
+
+    List<RefreshSession> findAllByUserIdAndMembershipIdOrderByCreatedAtDesc(
+            UUID userId, UUID membershipId);
+
+    Optional<RefreshSession> findByIdAndUserIdAndMembershipId(
+            UUID id, UUID userId, UUID membershipId);
 
     @Modifying
-    @Query("update RefreshSession session set session.revokedAt = current_timestamp where session.membershipId = :membershipId and session.revokedAt is null")
+    @Query(
+            "update RefreshSession session set session.revokedAt = current_timestamp where session.membershipId = :membershipId and session.revokedAt is null")
     int revokeAllByMembershipId(@Param("membershipId") UUID membershipId);
 
     @Modifying
-    @Query("update RefreshSession session set session.revokedAt = current_timestamp where session.userId = :userId and session.revokedAt is null")
+    @Query(
+            "update RefreshSession session set session.revokedAt = current_timestamp where session.userId = :userId and session.revokedAt is null")
     int revokeAllByUserId(@Param("userId") UUID userId);
 
     @Modifying
-    @Query("update RefreshSession session set session.revokedAt = current_timestamp where session.userId = :userId and session.contextType = 'PLATFORM' and session.revokedAt is null")
+    @Query(
+            "update RefreshSession session set session.revokedAt = current_timestamp where session.tenantId = :tenantId and session.contextType = 'TENANT' and session.revokedAt is null")
+    int revokeAllByTenantId(@Param("tenantId") UUID tenantId);
+
+    @Modifying
+    @Query(
+            "update RefreshSession session set session.revokedAt = current_timestamp where session.userId = :userId and session.contextType = 'PLATFORM' and session.revokedAt is null")
     int revokeAllPlatformByUserId(@Param("userId") UUID userId);
 }

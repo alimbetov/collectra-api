@@ -6,6 +6,8 @@ import { RequirePermission } from '../features/auth/ui/RequirePermission';
 import { LoginPage } from '../pages/auth/LoginPage';
 import { PlatformLayout } from '../pages/platform/PlatformLayout';
 import { PlatformOverviewPage } from '../pages/platform/PlatformOverviewPage';
+import { PlatformTenantDetailPage } from '../pages/platform/PlatformTenantDetailPage';
+import { PlatformTenantsPage } from '../pages/platform/PlatformTenantsPage';
 import { PlatformPlaceholderPage } from '../pages/platform/PlatformPlaceholderPage';
 import { ForbiddenPage } from '../pages/system/ForbiddenPage';
 import { NotFoundPage } from '../pages/system/NotFoundPage';
@@ -46,10 +48,8 @@ export const router = createBrowserRouter([
     ),
     children: [
       { index: true, element: <PlatformOverviewPage /> },
-      {
-        path: 'tenants',
-        element: <PlatformPlaceholderPage titleKey="platform.navigation.tenants" />,
-      },
+      { path: 'tenants', element: <PlatformTenantsPage /> },
+      { path: 'tenants/:tenantId', element: <PlatformTenantDetailPage /> },
       {
         path: 'users',
         element: <PlatformPlaceholderPage titleKey="platform.navigation.users" />,

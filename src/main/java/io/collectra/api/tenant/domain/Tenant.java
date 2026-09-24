@@ -38,4 +38,26 @@ public class Tenant extends AuditableEntity {
     public String getName() {
         return name;
     }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public boolean active() {
+        return "ACTIVE".equals(status);
+    }
+
+    public void block() {
+        if (!"ACTIVE".equals(status)) {
+            throw new IllegalStateException("Tenant cannot be blocked from status " + status);
+        }
+        status = "BLOCKED";
+    }
+
+    public void activate() {
+        if (!"BLOCKED".equals(status)) {
+            throw new IllegalStateException("Tenant cannot be activated from status " + status);
+        }
+        status = "ACTIVE";
+    }
 }

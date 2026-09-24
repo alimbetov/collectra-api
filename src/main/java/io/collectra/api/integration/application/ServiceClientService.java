@@ -6,6 +6,8 @@ import io.collectra.api.integration.domain.ServiceClientCredential;
 import io.collectra.api.integration.infrastructure.ServiceClientCredentialRepository;
 import io.collectra.api.integration.infrastructure.ServiceClientRepository;
 import io.collectra.api.shared.security.InMemoryRateLimiter;
+import io.collectra.api.tenant.domain.Tenant;
+import io.collectra.api.tenant.infrastructure.TenantRepository;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
@@ -36,18 +38,21 @@ public class ServiceClientService {
     private final PasswordEncoder passwords;
     private final JwtService jwt;
     private final InMemoryRateLimiter limiter;
+    private final TenantRepository tenants;
 
     public ServiceClientService(
             ServiceClientRepository clients,
             ServiceClientCredentialRepository credentials,
             PasswordEncoder passwords,
             JwtService jwt,
-            InMemoryRateLimiter limiter) {
+            InMemoryRateLimiter limiter,
+            TenantRepository tenants) {
         this.clients = clients;
         this.credentials = credentials;
         this.passwords = passwords;
         this.jwt = jwt;
         this.limiter = limiter;
+        this.tenants = tenants;
     }
 
     @Transactional
@@ -152,6 +157,9 @@ public class ServiceClientService {
         if (!client.getScopes().containsAll(requestedScopes)) {
             throw new BadCredentialsException("Invalid service client");
         }
+        if (!tenants.findById(client.getTenantId()).map(Tenant::active).orElse(false)) {
+            throw new BadCredentialsException("Invalid service client");
+        }
         ServiceClientCredential credential =
                 credentials.findAllByServiceClientId(client.getId()).stream()
                         .filter(value -> value.usableAt(now))
@@ -182,8 +190,7 @@ public class ServiceClientService {
                 .orElse(null);
     }
 
-    private ClientResponse response(
-            ServiceClient client, ServiceClientCredential credential) {
+    private ClientResponse response(ServiceClient client, ServiceClientCredential credential) {
         return new ClientResponse(
                 client.getId(),
                 client.getClientId(),
@@ -201,8 +208,7 @@ public class ServiceClientService {
     private void validateSecret(String secret) {
         int bytes = secret.getBytes(StandardCharsets.UTF_8).length;
         if (bytes < 32 || bytes > 72) {
-            throw new IllegalArgumentException(
-                    "Client secret must contain 32 to 72 UTF-8 bytes");
+            throw new IllegalArgumentException("Client secret must contain 32 to 72 UTF-8 bytes");
         }
     }
 
