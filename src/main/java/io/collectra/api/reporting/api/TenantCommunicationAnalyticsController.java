@@ -29,7 +29,7 @@ public class TenantCommunicationAnalyticsController {
     }
 
     @GetMapping("/summary")
-    public CommunicationAnalyticsQueryService.Summary summary(
+    public CommunicationAnalyticsQueryService.CommunicationSummary summary(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
                     Instant from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
@@ -42,7 +42,7 @@ public class TenantCommunicationAnalyticsController {
     }
 
     @GetMapping("/timeseries")
-    public CommunicationAnalyticsQueryService.TimeSeries timeseries(
+    public CommunicationAnalyticsQueryService.CommunicationTimeSeries timeseries(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
                     Instant from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
@@ -57,7 +57,7 @@ public class TenantCommunicationAnalyticsController {
     }
 
     @GetMapping("/channels")
-    public CommunicationAnalyticsQueryService.ChannelReport channels(
+    public CommunicationAnalyticsQueryService.CommunicationChannelReport channels(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
                     Instant from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
@@ -70,8 +70,8 @@ public class TenantCommunicationAnalyticsController {
     }
 
     @GetMapping("/users")
-    public CommunicationAnalyticsQueryService.PageReport<
-                    CommunicationAnalyticsQueryService.UserItem>
+    public CommunicationAnalyticsQueryService.CommunicationPageReport<
+                    CommunicationAnalyticsQueryService.CommunicationUserItem>
             users(
                     @RequestParam(required = false)
                             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
@@ -91,8 +91,8 @@ public class TenantCommunicationAnalyticsController {
     }
 
     @GetMapping("/campaigns")
-    public CommunicationAnalyticsQueryService.PageReport<
-                    CommunicationAnalyticsQueryService.CampaignItem>
+    public CommunicationAnalyticsQueryService.CommunicationPageReport<
+                    CommunicationAnalyticsQueryService.CommunicationCampaignItem>
             campaigns(
                     @RequestParam(required = false)
                             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
@@ -112,8 +112,8 @@ public class TenantCommunicationAnalyticsController {
     }
 
     @GetMapping("/failures")
-    public CommunicationAnalyticsQueryService.PageReport<
-                    CommunicationAnalyticsQueryService.FailureItem>
+    public CommunicationAnalyticsQueryService.CommunicationPageReport<
+                    CommunicationAnalyticsQueryService.CommunicationFailureItem>
             failures(
                     @RequestParam(required = false)
                             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
@@ -133,7 +133,7 @@ public class TenantCommunicationAnalyticsController {
     }
 
     @GetMapping("/documents")
-    public CommunicationAnalyticsQueryService.DocumentReport documents(
+    public CommunicationAnalyticsQueryService.CommunicationDocumentReport documents(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
                     Instant from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
