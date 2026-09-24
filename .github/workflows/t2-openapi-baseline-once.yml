@@ -23,7 +23,7 @@ jobs:
           java-version: '17'
           cache: maven
       - name: Regenerate reviewed OpenAPI baseline
-        run: ./scripts/update-openapi-baseline.sh
+        run: bash scripts/update-openapi-baseline.sh
       - name: Commit baseline
         run: |
           if git diff --quiet -- src/test/resources/openapi/collectra-api-v1-baseline.json; then
