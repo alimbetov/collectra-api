@@ -20,6 +20,9 @@ import { CustomerDetailPage } from '../pages/customers/CustomerDetailPage';
 import { CustomerSegmentsPage } from '../pages/customers/CustomerSegmentsPage';
 import { ContractsPage } from '../pages/contracts/ContractsPage';
 import { ContractDetailPage } from '../pages/contracts/ContractDetailPage';
+import { CampaignsPage } from '../pages/campaigns/CampaignsPage';
+import { CampaignDetailPage } from '../pages/campaigns/CampaignDetailPage';
+import { CampaignRunPage } from '../pages/campaigns/CampaignRunPage';
 
 function PlaceholderPage({ titleKey }: { titleKey: MessageKey }) {
   const { t } = useI18n();
@@ -97,7 +100,23 @@ export const router = createBrowserRouter([
         path: 'campaigns',
         element: (
           <RequirePermission permission="CAMPAIGN_READ">
-            <PlaceholderPage titleKey="navigation.campaigns" />
+            <CampaignsPage />
+          </RequirePermission>
+        ),
+      },
+      {
+        path: 'campaigns/:campaignId',
+        element: (
+          <RequirePermission permission="CAMPAIGN_READ">
+            <CampaignDetailPage />
+          </RequirePermission>
+        ),
+      },
+      {
+        path: 'campaigns/:campaignId/runs/:runId',
+        element: (
+          <RequirePermission permission="CAMPAIGN_READ">
+            <CampaignRunPage />
           </RequirePermission>
         ),
       },
