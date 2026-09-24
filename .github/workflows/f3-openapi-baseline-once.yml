@@ -1,0 +1,38 @@
+name: F3 one-time OpenAPI baseline update
+
+on:
+  push:
+    branches:
+      - feat/campaign-f3-contract-closure
+    paths:
+      - .github/workflows/f3-openapi-baseline-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  baseline:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: feat/campaign-f3-contract-closure
+          fetch-depth: 0
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+      - name: Update reviewed OpenAPI baseline
+        run: mvn --batch-mode --no-transfer-progress -Dcollectra.openapi.update-baseline=true -Dtest=OpenApiCompatibilityIntegrationTest test
+      - name: Commit baseline
+        run: |
+          if git diff --quiet -- src/test/resources/openapi/collectra-api-v1-baseline.json; then
+            echo "OpenAPI baseline unchanged"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/test/resources/openapi/collectra-api-v1-baseline.json
+          git commit -m "test(openapi): accept reviewed F3 campaign contract"
+          git push origin HEAD:feat/campaign-f3-contract-closure
