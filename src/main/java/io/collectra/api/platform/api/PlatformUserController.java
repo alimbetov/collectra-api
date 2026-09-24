@@ -104,22 +104,10 @@ public class PlatformUserController {
             @PathVariable UUID membershipId,
             @RequestParam @NotBlank @Size(max = 255) String reason) {
         UUID userId =
-                lifecycleUserId(
-                        authentication, membershipId, reason);
+                lifecycle
+                        .revokeAllSessions(actorId(authentication), membershipId, reason)
+                        .getUserId();
         return queries.user(userId);
-    }
-
-    private UUID lifecycleUserId(
-            JwtAuthenticationToken authentication, UUID membershipId, String reason) {
-        lifecycle.revokeAllSessions(actorId(authentication), membershipId, reason);
-        return queries.sessions(membershipId, 0, 1).items().stream()
-                .findFirst()
-                .map(ignored -> queriesMembershipUserId(membershipId))
-                .orElseGet(() -> queriesMembershipUserId(membershipId));
-    }
-
-    private UUID queriesMembershipUserId(UUID membershipId) {
-        return queries.userIdByMembership(membershipId);
     }
 
     private UUID actorId(JwtAuthenticationToken authentication) {
