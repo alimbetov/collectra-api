@@ -76,3 +76,106 @@ export interface PlatformTenantStatusCommand {
   revision: number;
   reason: string;
 }
+
+
+export type PlatformAccountStatus = 'ACTIVE' | 'BLOCKED';
+export type PlatformMembershipStatus = 'ACTIVE' | 'BLOCKED';
+export type PlatformEffectiveAccessStatus = 'ACTIVE' | 'BLOCKED';
+
+export interface PlatformUserListItemDto {
+  userId: string;
+  membershipId: string;
+  tenantId: string;
+  tenantSlug: string;
+  tenantName: string;
+  email: string;
+  displayName: string | null;
+  accountStatus: PlatformAccountStatus;
+  membershipStatus: PlatformMembershipStatus;
+  effectiveAccessStatus: PlatformEffectiveAccessStatus;
+  roleCodes: string[];
+  createdAt: string;
+  updatedAt: string;
+  revision: number;
+}
+
+export interface PlatformUserDetailDto extends PlatformUserListItemDto {
+  locale: string | null;
+  timezone: string | null;
+  authorizationVersion: number;
+  sessionCount: number;
+  activeSessionCount: number;
+}
+
+export interface PlatformUserPageDto {
+  items: PlatformUserListItemDto[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+}
+
+export interface PlatformUserListParams {
+  search?: string;
+  tenantId?: string;
+  tenantSlug?: string;
+  membershipStatus?: PlatformMembershipStatus;
+  accountStatus?: PlatformAccountStatus;
+  roleCode?: string;
+  createdFrom?: string;
+  createdTo?: string;
+  page?: number;
+  size?: number;
+  sort?: string;
+}
+
+export interface PlatformMembershipStatusCommand {
+  active: boolean;
+  revision: number;
+  reason: string;
+}
+
+export interface PlatformSessionDto {
+  id: string;
+  familyId: string;
+  createdAt: string;
+  expiresAt: string;
+  revokedAt: string | null;
+  lastUsedAt: string | null;
+  userAgent: string | null;
+  sourceIp: string | null;
+}
+
+export interface PlatformSessionPageDto {
+  items: PlatformSessionDto[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+}
+
+export interface PlatformAdministratorDto {
+  id: string;
+  email: string;
+  status: PlatformAccountStatus;
+  authorizationVersion: number;
+  createdAt: string;
+  updatedAt: string;
+  revision: number;
+}
+
+export interface PlatformAdministratorPageDto {
+  items: PlatformAdministratorDto[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+}
+
+export interface PlatformAdministratorListParams {
+  search?: string;
+  status?: PlatformAccountStatus;
+  page?: number;
+  size?: number;
+  sort?: string;
+}
