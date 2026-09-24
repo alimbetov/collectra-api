@@ -22,9 +22,34 @@ public class PartitionMaintenanceScheduler {
             zone = "${collectra.business-zone:Asia/Almaty}")
     public void maintain() {
         PartitionMaintenanceService.RunResult result = service.maintainConfiguredTables();
+
+        int failed = result.tables().stream().mapToInt(PartitionMaintenanceService.TableResult::failed).sum();
+        int lockSkipped =
+                result.tables().stream()
+                        .mapToInt(PartitionMaintenanceService.TableResult::lockSkipped)
+                        .sum();
+        int planned =
+                result.tables().stream()
+                        .mapToInt(
+                                table -> table.plannedCreates() + table.plannedDrops())
+                        .sum();
+
+        if (failed > 0) {
+            log.error(
+                    "Partition maintenance run completed with failures. businessDate={}, tables={}, failed={}, lockSkipped={}, planned={}",
+                    result.businessDate(),
+                    result.tables().size(),
+                    failed,
+                    lockSkipped,
+                    planned);
+            return;
+        }
+
         log.info(
-                "Partition maintenance run finished. businessDate={}, tables={}",
+                "Partition maintenance run finished. businessDate={}, tables={}, failed=0, lockSkipped={}, planned={}",
                 result.businessDate(),
-                result.tables().size());
+                result.tables().size(),
+                lockSkipped,
+                planned);
     }
 }
