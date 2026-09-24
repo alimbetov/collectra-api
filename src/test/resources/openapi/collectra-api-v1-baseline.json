@@ -2109,16 +2109,57 @@
       "get" : {
         "tags" : [ "platform-administrator-controller" ],
         "operationId" : "list_3",
+        "parameters" : [ {
+          "name" : "search",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "status",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "page",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0,
+            "minimum" : 0
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 50,
+            "maximum" : 200,
+            "minimum" : 1
+          }
+        }, {
+          "name" : "sort",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "default" : "email,asc"
+          }
+        } ],
         "responses" : {
           "200" : {
             "description" : "OK",
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "type" : "array",
-                  "items" : {
-                    "$ref" : "#/components/schemas/AdministratorResponse"
-                  }
+                  "$ref" : "#/components/schemas/PageResponseAdministratorItem"
                 }
               }
             }
@@ -5652,6 +5693,43 @@
         }
       }
     },
+    "/api/v1/platform/memberships/{membershipId}/status" : {
+      "patch" : {
+        "tags" : [ "platform-user-controller" ],
+        "operationId" : "changeMembershipStatus",
+        "parameters" : [ {
+          "name" : "membershipId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/MembershipStatusRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/UserDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/platform/administrators/{id}/status" : {
       "patch" : {
         "tags" : [ "platform-administrator-controller" ],
@@ -6200,6 +6278,140 @@
         }
       }
     },
+    "/api/v1/platform/users" : {
+      "get" : {
+        "tags" : [ "platform-user-controller" ],
+        "operationId" : "users",
+        "parameters" : [ {
+          "name" : "search",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "tenantId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "tenantSlug",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "membershipStatus",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "accountStatus",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "roleCode",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "createdFrom",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "createdTo",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "page",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0,
+            "minimum" : 0
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 50,
+            "maximum" : 200,
+            "minimum" : 1
+          }
+        }, {
+          "name" : "sort",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "default" : "createdAt,desc"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PageResponseUserItem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/platform/users/{userId}" : {
+      "get" : {
+        "tags" : [ "platform-user-controller" ],
+        "operationId" : "user",
+        "parameters" : [ {
+          "name" : "userId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/UserDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/platform/tenants" : {
       "get" : {
         "tags" : [ "platform-tenant-controller" ],
@@ -6316,6 +6528,88 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/Overview"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/platform/memberships/{membershipId}/sessions" : {
+      "get" : {
+        "tags" : [ "platform-user-controller" ],
+        "operationId" : "sessions",
+        "parameters" : [ {
+          "name" : "membershipId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "page",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0,
+            "minimum" : 0
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 50,
+            "maximum" : 200,
+            "minimum" : 1
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PageResponseSessionItem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete" : {
+        "tags" : [ "platform-user-controller" ],
+        "operationId" : "revokeSessions",
+        "parameters" : [ {
+          "name" : "membershipId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "reason",
+          "in" : "query",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "maxLength" : 255,
+            "minLength" : 0
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/UserDetail"
                 }
               }
             }
@@ -6587,7 +6881,7 @@
     "/api/v1/identity/users" : {
       "get" : {
         "tags" : [ "tenant-membership-controller" ],
-        "operationId" : "users",
+        "operationId" : "users_1",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -6687,7 +6981,7 @@
     "/api/v1/identity/memberships/{id}/sessions" : {
       "get" : {
         "tags" : [ "tenant-membership-controller" ],
-        "operationId" : "sessions",
+        "operationId" : "sessions_1",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -6715,7 +7009,7 @@
       },
       "delete" : {
         "tags" : [ "tenant-membership-controller" ],
-        "operationId" : "revokeSessions",
+        "operationId" : "revokeSessions_1",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -6735,7 +7029,7 @@
     "/api/v1/identity/me/sessions" : {
       "get" : {
         "tags" : [ "current-user-controller" ],
-        "operationId" : "sessions_1",
+        "operationId" : "sessions_2",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -7441,6 +7735,15 @@
           "schema" : {
             "type" : "string",
             "format" : "uuid"
+          }
+        }, {
+          "name" : "revision",
+          "in" : "query",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64",
+            "minimum" : 0
           }
         } ],
         "responses" : {
@@ -8981,6 +9284,14 @@
           "createdAt" : {
             "type" : "string",
             "format" : "date-time"
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "revision" : {
+            "type" : "integer",
+            "format" : "int64"
           }
         }
       },
@@ -10352,13 +10663,112 @@
           }
         }
       },
+      "MembershipStatusRequest" : {
+        "type" : "object",
+        "properties" : {
+          "active" : {
+            "type" : "boolean"
+          },
+          "revision" : {
+            "type" : "integer",
+            "format" : "int64",
+            "minimum" : 0
+          },
+          "reason" : {
+            "type" : "string",
+            "maxLength" : 255,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "active", "reason", "revision" ]
+      },
+      "UserDetail" : {
+        "type" : "object",
+        "properties" : {
+          "userId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "membershipId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "tenantId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "tenantSlug" : {
+            "type" : "string"
+          },
+          "tenantName" : {
+            "type" : "string"
+          },
+          "email" : {
+            "type" : "string"
+          },
+          "displayName" : {
+            "type" : "string"
+          },
+          "locale" : {
+            "type" : "string"
+          },
+          "timezone" : {
+            "type" : "string"
+          },
+          "accountStatus" : {
+            "type" : "string"
+          },
+          "membershipStatus" : {
+            "type" : "string"
+          },
+          "effectiveAccessStatus" : {
+            "type" : "string"
+          },
+          "authorizationVersion" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "roleCodes" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "revision" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "sessionCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "activeSessionCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
       "StatusRequest" : {
         "type" : "object",
         "properties" : {
           "active" : {
             "type" : "boolean"
+          },
+          "revision" : {
+            "type" : "integer",
+            "format" : "int64",
+            "minimum" : 0
           }
-        }
+        },
+        "required" : [ "active", "revision" ]
       },
       "UpdateRequest" : {
         "type" : "object",
@@ -10897,6 +11307,89 @@
           }
         }
       },
+      "PageResponseUserItem" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/UserItem"
+            }
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "totalElements" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "totalPages" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "UserItem" : {
+        "type" : "object",
+        "properties" : {
+          "userId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "membershipId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "tenantId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "tenantSlug" : {
+            "type" : "string"
+          },
+          "tenantName" : {
+            "type" : "string"
+          },
+          "email" : {
+            "type" : "string"
+          },
+          "displayName" : {
+            "type" : "string"
+          },
+          "accountStatus" : {
+            "type" : "string"
+          },
+          "membershipStatus" : {
+            "type" : "string"
+          },
+          "effectiveAccessStatus" : {
+            "type" : "string"
+          },
+          "roleCodes" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "revision" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
       "PageResponseTenantItem" : {
         "type" : "object",
         "properties" : {
@@ -11045,12 +11538,132 @@
           }
         }
       },
+      "PageResponseSessionItem" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SessionItem"
+            }
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "totalElements" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "totalPages" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "SessionItem" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "familyId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "expiresAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "revokedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "lastUsedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "userAgent" : {
+            "type" : "string"
+          },
+          "sourceIp" : {
+            "type" : "string"
+          }
+        }
+      },
       "PlatformPrincipalResponse" : {
         "type" : "object",
         "properties" : {
           "userId" : {
             "type" : "string",
             "format" : "uuid"
+          }
+        }
+      },
+      "AdministratorItem" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "email" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "authorizationVersion" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "revision" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "PageResponseAdministratorItem" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/AdministratorItem"
+            }
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "totalElements" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "totalPages" : {
+            "type" : "integer",
+            "format" : "int32"
           }
         }
       },

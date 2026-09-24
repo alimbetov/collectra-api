@@ -21,8 +21,10 @@ public class PlatformAdministratorService {
     private final PasswordEncoder passwords;
     private final RefreshSessionRepository sessions;
 
-    public PlatformAdministratorService(UserAccountRepository users,
-            PlatformUserRoleRepository platformRoles, PasswordEncoder passwords,
+    public PlatformAdministratorService(
+            UserAccountRepository users,
+            PlatformUserRoleRepository platformRoles,
+            PasswordEncoder passwords,
             RefreshSessionRepository sessions) {
         this.users = users;
         this.platformRoles = platformRoles;
@@ -73,19 +75,39 @@ public class PlatformAdministratorService {
         String normalized = email.trim().toLowerCase(Locale.ROOT);
         if (users.findByTenantIdIsNullAndEmailIgnoreCase(normalized).isPresent())
             throw new IllegalArgumentException("Platform email already exists");
-        UserAccount user = users.saveAndFlush(new UserAccount(null, normalized,
-                passwords.encode(password), SystemRole.PLATFORM_SUPER_ADMIN));
+        UserAccount user =
+                users.saveAndFlush(
+                        new UserAccount(
+                                null,
+                                normalized,
+                                passwords.encode(password),
+                                SystemRole.PLATFORM_SUPER_ADMIN));
         platformRoles.assignSuperAdmin(user.getId());
         return user;
     }
 
     @Transactional
     public UserAccount changeStatus(UUID actorId, UUID userId, boolean active) {
+        return changeStatus(actorId, userId, active, null);
+    }
+
+    @Transactional
+    public UserAccount changeStatus(
+            UUID actorId, UUID userId, boolean active, Long expectedRevision) {
         UserAccount user = requireAdministrator(userId);
+        if (expectedRevision != null && user.getVersion() != expectedRevision) {
+            throw new io.collectra.api.shared.error.BusinessConflictException(
+                    "VERSION_CONFLICT",
+                    "Administrator revision conflict: expected "
+                            + expectedRevision
+                            + " but was "
+                            + user.getVersion());
+        }
         if (!active) {
             platformRoles.lockSuperAdminRole();
-            if (actorId.equals(userId) || ("ACTIVE".equals(user.getStatus())
-                    && platformRoles.activeSuperAdminCount() <= 1))
+            if (actorId.equals(userId)
+                    || ("ACTIVE".equals(user.getStatus())
+                            && platformRoles.activeSuperAdminCount() <= 1))
                 throw new IllegalArgumentException("The last platform administrator is protected");
             user.block();
             sessions.revokeAllPlatformByUserId(userId);
@@ -104,10 +126,24 @@ public class PlatformAdministratorService {
 
     @Transactional
     public void removeRole(UUID actorId, UUID userId) {
+        removeRole(actorId, userId, null);
+    }
+
+    @Transactional
+    public void removeRole(UUID actorId, UUID userId, Long expectedRevision) {
         UserAccount user = requireAdministrator(userId);
+        if (expectedRevision != null && user.getVersion() != expectedRevision) {
+            throw new io.collectra.api.shared.error.BusinessConflictException(
+                    "VERSION_CONFLICT",
+                    "Administrator revision conflict: expected "
+                            + expectedRevision
+                            + " but was "
+                            + user.getVersion());
+        }
         platformRoles.lockSuperAdminRole();
-        if (actorId.equals(userId) || ("ACTIVE".equals(user.getStatus())
-                && platformRoles.activeSuperAdminCount() <= 1))
+        if (actorId.equals(userId)
+                || ("ACTIVE".equals(user.getStatus())
+                        && platformRoles.activeSuperAdminCount() <= 1))
             throw new IllegalArgumentException("The last platform administrator is protected");
         platformRoles.removeSuperAdmin(userId);
         user.authorizationChanged();
@@ -115,8 +151,12 @@ public class PlatformAdministratorService {
     }
 
     private UserAccount requireAdministrator(UUID userId) {
-        UserAccount user = users.findByIdAndTenantIdIsNull(userId)
-                .orElseThrow(() -> new NoSuchElementException("Platform administrator not found"));
+        UserAccount user =
+                users.findByIdAndTenantIdIsNull(userId)
+                        .orElseThrow(
+                                () ->
+                                        new NoSuchElementException(
+                                                "Platform administrator not found"));
         if (!platformRoles.hasSuperAdminRole(userId))
             throw new NoSuchElementException("Platform administrator not found");
         return user;
