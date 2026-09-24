@@ -221,11 +221,13 @@ public class CommunicationAnalyticsQueryService {
                                     rs.getLong("unknown_count"),
                                     rate(sent, failed));
                         });
-        return new CommunicationChannelReport(resolved.generatedAt(), resolved.from(), resolved.to(), items);
+        return new CommunicationChannelReport(
+                resolved.generatedAt(), resolved.from(), resolved.to(), items);
     }
 
     @Transactional(readOnly = true)
-    public CommunicationPageReport<CommunicationUserItem> users(Scope scope, Filter filter, int page, int size, String sort) {
+    public CommunicationPageReport<CommunicationUserItem> users(
+            Scope scope, Filter filter, int page, int size, String sort) {
         validatePage(page, size);
         ResolvedFilter resolved = resolve(scope, filter, false);
         String runWhere = where("cr", "c", resolved, true);
@@ -470,7 +472,8 @@ public class CommunicationAnalyticsQueryService {
     public CommunicationDocumentReport documents(Scope scope, Filter filter) {
         ResolvedFilter resolved = resolve(scope, filter, false);
         DocumentTotals totals = documentTotals(resolved);
-        return new CommunicationDocumentReport(resolved.generatedAt(), resolved.from(), resolved.to(), totals);
+        return new CommunicationDocumentReport(
+                resolved.generatedAt(), resolved.from(), resolved.to(), totals);
     }
 
     @Transactional(readOnly = true)
@@ -946,7 +949,11 @@ public class CommunicationAnalyticsQueryService {
             long unknown) {}
 
     public record CommunicationTimeSeries(
-            Instant generatedAt, Instant from, Instant to, Bucket bucket, List<CommunicationTimePoint> items) {}
+            Instant generatedAt,
+            Instant from,
+            Instant to,
+            Bucket bucket,
+            List<CommunicationTimePoint> items) {}
 
     public record CommunicationChannelItem(
             String channel,
