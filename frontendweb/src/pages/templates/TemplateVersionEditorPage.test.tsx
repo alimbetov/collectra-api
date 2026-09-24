@@ -8,6 +8,7 @@ import {
   getTemplateAssets,
   getTemplateFields,
   getTemplateVersion,
+  transitionTemplateVersion,
   updateBuilderVersion,
 } from '../../entities/template/api/template.api';
 import { ApiError } from '../../shared/api/http-client';
@@ -31,6 +32,7 @@ vi.mock('../../entities/template/api/template.api', async () => {
   return {
     ...actual,
     getTemplateVersion: vi.fn(),
+    transitionTemplateVersion: vi.fn(),
     getBuilderCapabilities: vi.fn(),
     getTemplateFields: vi.fn(),
     getTemplateAssets: vi.fn(),
@@ -120,6 +122,22 @@ function renderPage() {
 }
 
 describe('TemplateVersionEditorPage', () => {
+  it('renders published version read-only with only archive lifecycle action', async () => {
+    vi.mocked(getTemplateVersion).mockResolvedValue({
+      ...initial,
+      status: 'PUBLISHED',
+      revision: 9,
+    });
+
+    renderPage();
+
+    const editor = await screen.findByDisplayValue('Hello');
+    expect(editor).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Сохранить' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Опубликовать' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Архивировать версию' })).toBeInTheDocument();
+  });
+
   it('preserves local draft after VERSION_CONFLICT', async () => {
     const user = userEvent.setup();
     vi.mocked(updateBuilderVersion).mockRejectedValue(
