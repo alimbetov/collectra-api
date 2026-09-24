@@ -135,6 +135,7 @@ export interface BuilderCapabilitiesDto {
   eachSyntax: string;
   assetSyntax: string;
   builderSchemaVersion: string;
+  blockSupport: Record<TemplateChannel, BuilderBlockDto['type'][]>;
 }
 
 export interface TemplateFieldDto {
