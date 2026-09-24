@@ -16,12 +16,17 @@ public class CommunicationProjectionRebuildService {
     private final NamedParameterJdbcTemplate jdbc;
     private final Clock clock;
     private final ZoneId businessZone;
+    private final CommunicationProjectionStateService stateService;
 
     public CommunicationProjectionRebuildService(
-            NamedParameterJdbcTemplate jdbc, Clock clock, ZoneId businessZone) {
+            NamedParameterJdbcTemplate jdbc,
+            Clock clock,
+            ZoneId businessZone,
+            CommunicationProjectionStateService stateService) {
         this.jdbc = jdbc;
         this.clock = clock;
         this.businessZone = businessZone;
+        this.stateService = stateService;
     }
 
     @Transactional
@@ -92,7 +97,7 @@ public class CommunicationProjectionRebuildService {
                     watermark,
                     calculatedAt);
         } catch (RuntimeException ex) {
-            markFailed(tenantId, businessDate, calculatedAt, ex);
+            stateService.markFailed(tenantId, businessDate, calculatedAt, ex.getMessage());
             throw ex;
         }
     }
@@ -336,38 +341,12 @@ public class CommunicationProjectionRebuildService {
         return value == null ? null : value.toInstant();
     }
 
-    private void markFailed(
-            UUID tenantId, LocalDate businessDate, Instant calculatedAt, RuntimeException ex) {
-        try {
-            jdbc.update(
-                    """
-                    update communication_reporting_projection_state
-                       set status = 'FAILED',
-                           calculated_at = ?,
-                           error_message = ?
-                     where tenant_id = ?
-                       and business_date = ?
-                    """,
-                    Timestamp.from(calculatedAt),
-                    truncate(ex.getMessage(), 1000),
-                    tenantId,
-                    businessDate);
-        } catch (RuntimeException ignored) {
-            // Preserve the original projection failure.
-        }
-    }
-
     private MapSqlParameterSource copy(MapSqlParameterSource source) {
         MapSqlParameterSource copy = new MapSqlParameterSource();
         for (String name : source.getParameterNames()) {
             copy.addValue(name, source.getValue(name));
         }
         return copy;
-    }
-
-    private String truncate(String value, int max) {
-        if (value == null) return null;
-        return value.length() <= max ? value : value.substring(0, max);
     }
 
     public record RebuildResult(
