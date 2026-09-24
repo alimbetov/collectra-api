@@ -72,7 +72,8 @@ CREATE INDEX idx_comm_daily_failure_code_date
     ON communication_daily_failure_metrics(tenant_id, error_code, business_date DESC);
 
 CREATE TABLE communication_reporting_projection_state (
-    business_date DATE PRIMARY KEY,
+    tenant_id UUID NOT NULL,
+    business_date DATE NOT NULL,
     status VARCHAR(24) NOT NULL,
     revision BIGINT NOT NULL DEFAULT 0,
     source_watermark TIMESTAMPTZ,
@@ -80,9 +81,16 @@ CREATE TABLE communication_reporting_projection_state (
     failure_rows BIGINT NOT NULL DEFAULT 0,
     calculated_at TIMESTAMPTZ NOT NULL,
     error_message VARCHAR(1000),
+    PRIMARY KEY (tenant_id, business_date),
+    CONSTRAINT fk_comm_projection_state_tenant
+        FOREIGN KEY (tenant_id) REFERENCES tenants(id),
     CONSTRAINT ck_comm_projection_status
         CHECK (status IN ('BUILDING', 'READY', 'FAILED')),
     CONSTRAINT ck_comm_projection_revision CHECK (revision >= 0),
     CONSTRAINT ck_comm_projection_rows
         CHECK (campaign_rows >= 0 AND failure_rows >= 0)
 );
+
+
+CREATE INDEX idx_comm_projection_state_status_date
+    ON communication_reporting_projection_state(status, business_date DESC, tenant_id);
