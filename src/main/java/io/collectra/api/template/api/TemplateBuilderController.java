@@ -66,7 +66,15 @@ public class TemplateBuilderController {
                 List.of(TemplateChannel.values()),
                 "{{#each items}}...{{/each}}",
                 "{{asset.<key>}}",
-                "1.0");
+                "1.0",
+                java.util.Map.of(
+                        TemplateChannel.EMAIL,
+                                List.of("header", "footer", "row", "column", "richText", "itemsTable", "image", "spacer"),
+                        TemplateChannel.PDF,
+                                List.of("header", "footer", "row", "column", "richText", "itemsTable", "image", "spacer"),
+                        TemplateChannel.SMS, List.of("header", "footer", "richText", "spacer"),
+                        TemplateChannel.WHATSAPP, List.of("header", "footer", "richText", "spacer"),
+                        TemplateChannel.TELEGRAM, List.of("header", "footer", "richText", "spacer")));
     }
 
     @GetMapping("/catalog")
@@ -85,18 +93,20 @@ public class TemplateBuilderController {
     @GetMapping("/catalog/fields")
     @PreAuthorize("hasAuthority('TEMPLATE_READ') and hasAuthority('FIELD_READ')")
     PageResponse<FieldResponse> catalogFields(
+            @RequestParam(required = false) @Size(max = 100) String search,
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "50") @Min(1) @Max(200) int size) {
-        var result = fields.catalog(tenant(), page, size);
+        var result = fields.catalog(tenant(), search, page, size);
         return PageResponse.from(result.map(FieldResponse::from));
     }
 
     @GetMapping("/catalog/assets")
     @PreAuthorize("hasAuthority('TEMPLATE_READ')")
     PageResponse<AssetResponse> catalogAssets(
+            @RequestParam(required = false) @Size(max = 100) String search,
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "50") @Min(1) @Max(200) int size) {
-        var result = assets.list(tenant(), page, size);
+        var result = assets.list(tenant(), search, page, size);
         return PageResponse.from(result.map(AssetResponse::from));
     }
 
@@ -319,7 +329,8 @@ public class TemplateBuilderController {
             List<TemplateChannel> channels,
             String eachSyntax,
             String assetSyntax,
-            String builderSchemaVersion) {}
+            String builderSchemaVersion,
+            java.util.Map<TemplateChannel, List<String>> blockSupport) {}
 
     record BuilderCatalogResponse(
             List<FieldResponse> fields,
