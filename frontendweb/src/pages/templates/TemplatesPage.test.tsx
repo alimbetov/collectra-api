@@ -6,6 +6,16 @@ import { getTemplates } from '../../entities/template/api/template.api';
 import { I18nProvider } from '../../shared/i18n/i18n-context';
 import { TemplatesPage } from './TemplatesPage';
 
+vi.mock('../../features/auth/model/auth-context', () => ({
+  useAuth: () => ({
+    hasPermission: () => true,
+    hasRole: () => false,
+    user: null,
+    status: 'authenticated',
+    sessionKind: 'tenant',
+  }),
+}));
+
 vi.mock('../../entities/template/api/template.api', async () => {
   const actual = await vi.importActual<typeof import('../../entities/template/api/template.api')>(
     '../../entities/template/api/template.api',
