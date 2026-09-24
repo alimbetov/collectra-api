@@ -476,7 +476,7 @@ public class CommunicationAnalyticsQueryService {
     @Transactional(readOnly = true)
     public CommunicationPageReport<CommunicationTenantItem> tenants(
             Scope scope, Filter filter, int page, int size, String sort) {
-        if (scope.tenantId() != null) {
+        if (!scope.platformScope()) {
             throw new InvalidRequestException(
                     "INVALID_FILTER", "Tenant breakdown is available only in platform scope");
         }
@@ -882,13 +882,13 @@ public class CommunicationAnalyticsQueryService {
         WEEK
     }
 
-    public record Scope(UUID tenantId, UUID userId) {
+    public record Scope(UUID tenantId, UUID userId, boolean platformScope) {
         public static Scope tenant(UUID tenantId) {
-            return new Scope(tenantId, null);
+            return new Scope(tenantId, null, false);
         }
 
         public static Scope platform(UUID tenantId, UUID userId) {
-            return new Scope(tenantId, userId);
+            return new Scope(tenantId, userId, true);
         }
     }
 
