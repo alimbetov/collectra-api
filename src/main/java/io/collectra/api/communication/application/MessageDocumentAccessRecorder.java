@@ -17,6 +17,7 @@ public class MessageDocumentAccessRecorder {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void record(UUID tenantId, UUID linkId, Instant now) {
+        java.sql.Timestamp timestamp = java.sql.Timestamp.from(now);
         jdbc.update(
                 """
                 update message_document_links
@@ -27,8 +28,8 @@ public class MessageDocumentAccessRecorder {
                    and tenant_id = ?
                    and status = 'READY'
                 """,
-                now,
-                now,
+                timestamp,
+                timestamp,
                 linkId,
                 tenantId);
     }
