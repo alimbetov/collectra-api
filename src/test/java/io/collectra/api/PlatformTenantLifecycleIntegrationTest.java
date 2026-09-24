@@ -2,7 +2,6 @@ package io.collectra.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -12,6 +11,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.collectra.api.identity.application.AuthService;
 import io.collectra.api.identity.application.AuthService.AuthTokens;
+import io.collectra.api.identity.application.PlatformAdministratorService;
+import io.collectra.api.identity.application.PlatformAuthService;
 import io.collectra.api.integration.application.ServiceClientService;
 import io.collectra.api.platform.application.PlatformTenantLifecycleService;
 import io.collectra.api.shared.error.InvalidRefreshTokenException;
@@ -24,14 +25,14 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.authentication.BadCredentialsException;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 @AutoConfigureMockMvc
 class PlatformTenantLifecycleIntegrationTest extends AbstractIntegrationTest {
 
     @Autowired AuthService auth;
+    @Autowired PlatformAdministratorService platformAdministrators;
+    @Autowired PlatformAuthService platformAuth;
     @Autowired ServiceClientService serviceClients;
     @Autowired PlatformTenantLifecycleService lifecycle;
     @Autowired TenantRepository tenants;
@@ -136,21 +137,7 @@ class PlatformTenantLifecycleIntegrationTest extends AbstractIntegrationTest {
                                 .queryParam("search", marker)
                                 .queryParam("page", "0")
                                 .queryParam("size", "1")
-                                .with(
-                                        jwt().jwt(
-                                                        token ->
-                                                                token.subject(
-                                                                                UUID.randomUUID()
-                                                                                        .toString())
-                                                                        .claim(
-                                                                                "token_type",
-                                                                                "platform_user")
-                                                                        .claim(
-                                                                                "authorization_version",
-                                                                                0L))
-                                                .authorities(
-                                                        new SimpleGrantedAuthority(
-                                                                "ROLE_PLATFORM_SUPER_ADMIN"))));
+                                .header("Authorization", "Bearer " + platformAccessToken()));
 
         assertThat(response.get("items").size()).isEqualTo(1);
         assertThat(response.get("items").get(0).get("slug").asText()).isEqualTo(marker);
@@ -244,13 +231,11 @@ class PlatformTenantLifecycleIntegrationTest extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$.code").value("UNSUPPORTED_SORT"));
     }
 
-    private RequestPostProcessor platformAdmin() {
-        return jwt().jwt(
-                        token ->
-                                token.subject(UUID.randomUUID().toString())
-                                        .claim("token_type", "platform_user")
-                                        .claim("authorization_version", 0L))
-                .authorities(new SimpleGrantedAuthority("ROLE_PLATFORM_SUPER_ADMIN"));
+    private String platformAccessToken() {
+        String email = "pf2-platform-" + UUID.randomUUID() + "@example.test";
+        String password = "StrongPlatformPassword123!";
+        platformAdministrators.bootstrap(email, password);
+        return platformAuth.login(email, password).accessToken();
     }
 
     private JsonNode read(
