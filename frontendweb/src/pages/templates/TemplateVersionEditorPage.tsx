@@ -35,7 +35,8 @@ export function TemplateVersionEditorPage() {
   const canManage = hasPermission('TEMPLATE_MANAGE');
   const canPublish = hasPermission('TEMPLATE_PUBLISH');
   const client = useQueryClient();
-
+  const [fieldSearch, setFieldSearch] = useState('');
+  const [assetSearch, setAssetSearch] = useState('');
 
   const version = useQuery(templateQueries.version(versionId));
   const capabilities = useQuery(templateQueries.capabilities());
