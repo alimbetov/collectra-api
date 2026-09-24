@@ -3,6 +3,7 @@ package io.collectra.api.reporting.application;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.sql.Timestamp;
+import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -17,11 +18,13 @@ import org.springframework.transaction.annotation.Transactional;
 public class CommunicationProjectionQueryService {
     private final NamedParameterJdbcTemplate jdbc;
     private final ZoneId businessZone;
+    private final Clock clock;
 
     public CommunicationProjectionQueryService(
-            NamedParameterJdbcTemplate jdbc, ZoneId businessZone) {
+            NamedParameterJdbcTemplate jdbc, ZoneId businessZone, Clock clock) {
         this.jdbc = jdbc;
         this.businessZone = businessZone;
+        this.clock = clock;
     }
 
     @Transactional(readOnly = true)
@@ -33,7 +36,7 @@ public class CommunicationProjectionQueryService {
             lastExclusive = lastExclusive.plusDays(1);
         }
 
-        LocalDate today = LocalDate.now(java.time.Clock.system(businessZone));
+        LocalDate today = LocalDate.now(clock.withZone(businessZone));
         if (!lastExclusive.isBefore(today.plusDays(1))) {
             return false;
         }
@@ -70,7 +73,7 @@ public class CommunicationProjectionQueryService {
             UUID campaignId,
             String channel,
             UUID userId) {
-        MapSqlParameterSource params = params(tenantId, from, to, campaignId, channel, userId);
+        Query query = campaignQuery(tenantId, from, to, campaignId, channel, userId);
         return jdbc.queryForObject(
                 """
                 select coalesce(sum(recipient_count), 0) recipient_count,
@@ -79,14 +82,9 @@ public class CommunicationProjectionQueryService {
                        coalesce(sum(skipped_count), 0) skipped_count,
                        coalesce(sum(retry_count), 0) retry_count
                   from communication_daily_campaign_metrics
-                 where tenant_id = :tenantId
-                   and business_date >= :fromDate
-                   and business_date < :toDate
-                   and (:campaignId is null or campaign_id = :campaignId)
-                   and (:channel is null or channel = :channel)
-                   and (:userId is null or created_by_user_id = :userId)
-                """,
-                params,
+                """
+                        + query.where(),
+                query.params(),
                 (rs, rowNum) ->
                         new CommunicationAnalyticsQueryService.BusinessTotals(
                                 rs.getLong("recipient_count"),
@@ -104,7 +102,7 @@ public class CommunicationProjectionQueryService {
             UUID campaignId,
             String channel,
             UUID userId) {
-        MapSqlParameterSource params = params(tenantId, from, to, campaignId, channel, userId);
+        Query query = campaignQuery(tenantId, from, to, campaignId, channel, userId);
         return jdbc.queryForObject(
                 """
                 select coalesce(sum(queued_count), 0) queued_count,
@@ -114,14 +112,9 @@ public class CommunicationProjectionQueryService {
                        coalesce(sum(message_failed_count), 0) failed_count,
                        coalesce(sum(unknown_count), 0) unknown_count
                   from communication_daily_campaign_metrics
-                 where tenant_id = :tenantId
-                   and business_date >= :fromDate
-                   and business_date < :toDate
-                   and (:campaignId is null or campaign_id = :campaignId)
-                   and (:channel is null or channel = :channel)
-                   and (:userId is null or created_by_user_id = :userId)
-                """,
-                params,
+                """
+                        + query.where(),
+                query.params(),
                 (rs, rowNum) ->
                         new CommunicationAnalyticsQueryService.MessageStates(
                                 rs.getLong("queued_count"),
@@ -140,7 +133,7 @@ public class CommunicationProjectionQueryService {
             UUID campaignId,
             String channel,
             UUID userId) {
-        MapSqlParameterSource params = params(tenantId, from, to, campaignId, channel, userId);
+        Query query = campaignQuery(tenantId, from, to, campaignId, channel, userId);
         return jdbc.query(
                 """
                 select channel,
@@ -153,16 +146,10 @@ public class CommunicationProjectionQueryService {
                        coalesce(sum(retry_wait_count), 0) retry_wait_count,
                        coalesce(sum(unknown_count), 0) unknown_count
                   from communication_daily_campaign_metrics
-                 where tenant_id = :tenantId
-                   and business_date >= :fromDate
-                   and business_date < :toDate
-                   and (:campaignId is null or campaign_id = :campaignId)
-                   and (:channel is null or channel = :channel)
-                   and (:userId is null or created_by_user_id = :userId)
-                 group by channel
-                 order by channel
-                """,
-                params,
+                """
+                        + query.where()
+                        + " group by channel order by channel",
+                query.params(),
                 (rs, rowNum) -> {
                     long sent = rs.getLong("sent_count");
                     long failed = rs.getLong("failed_count");
@@ -180,7 +167,7 @@ public class CommunicationProjectionQueryService {
                 });
     }
 
-    private MapSqlParameterSource params(
+    private Query campaignQuery(
             UUID tenantId,
             Instant from,
             Instant to,
@@ -193,14 +180,32 @@ public class CommunicationProjectionQueryService {
             toDate = toDate.plusDays(1);
         }
 
-        return new MapSqlParameterSource()
-                .addValue("tenantId", tenantId)
-                .addValue("fromDate", fromDate)
-                .addValue("toDate", toDate)
-                .addValue("campaignId", campaignId)
-                .addValue("channel", channel == null ? null : channel.trim().toUpperCase())
-                .addValue("userId", userId);
+        MapSqlParameterSource params =
+                new MapSqlParameterSource()
+                        .addValue("tenantId", tenantId)
+                        .addValue("fromDate", fromDate)
+                        .addValue("toDate", toDate);
+        StringBuilder where =
+                new StringBuilder(
+                        " where tenant_id = :tenantId"
+                                + " and business_date >= :fromDate"
+                                + " and business_date < :toDate");
+        if (campaignId != null) {
+            params.addValue("campaignId", campaignId);
+            where.append(" and campaign_id = :campaignId");
+        }
+        if (channel != null && !channel.isBlank()) {
+            params.addValue("channel", channel.trim().toUpperCase());
+            where.append(" and channel = :channel");
+        }
+        if (userId != null) {
+            params.addValue("userId", userId);
+            where.append(" and created_by_user_id = :userId");
+        }
+        return new Query(where.toString(), params);
     }
+
+    private record Query(String where, MapSqlParameterSource params) {}
 
     private BigDecimal rate(long numerator, long otherTerminal) {
         long denominator = numerator + otherTerminal;
