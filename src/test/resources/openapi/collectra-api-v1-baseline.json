@@ -81,7 +81,7 @@
         }, {
           "name" : "revision",
           "in" : "query",
-          "required" : false,
+          "required" : true,
           "schema" : {
             "type" : "integer",
             "format" : "int64",
@@ -229,7 +229,7 @@
           "content" : {
             "application/json" : {
               "schema" : {
-                "$ref" : "#/components/schemas/DraftRequest"
+                "$ref" : "#/components/schemas/DraftUpdateRequest"
               }
             }
           },
@@ -266,7 +266,7 @@
           "content" : {
             "application/json" : {
               "schema" : {
-                "$ref" : "#/components/schemas/BuilderDocumentRequest"
+                "$ref" : "#/components/schemas/BuilderDocumentUpdateRequest"
               }
             }
           },
@@ -1230,7 +1230,7 @@
         }, {
           "name" : "revision",
           "in" : "query",
-          "required" : false,
+          "required" : true,
           "schema" : {
             "type" : "integer",
             "format" : "int64",
@@ -1266,7 +1266,7 @@
         }, {
           "name" : "revision",
           "in" : "query",
-          "required" : false,
+          "required" : true,
           "schema" : {
             "type" : "integer",
             "format" : "int64",
@@ -1460,7 +1460,7 @@
         }, {
           "name" : "revision",
           "in" : "query",
-          "required" : false,
+          "required" : true,
           "schema" : {
             "type" : "integer",
             "format" : "int64",
@@ -1496,7 +1496,7 @@
         }, {
           "name" : "revision",
           "in" : "query",
-          "required" : false,
+          "required" : true,
           "schema" : {
             "type" : "integer",
             "format" : "int64",
@@ -6146,6 +6146,24 @@
         }
       }
     },
+    "/api/v1/template-builder/capabilities" : {
+      "get" : {
+        "tags" : [ "template-builder-controller" ],
+        "operationId" : "capabilities",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BuilderCapabilitiesResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/reference-data" : {
       "get" : {
         "tags" : [ "reference-data-controller" ],
@@ -7838,7 +7856,7 @@
             "minimum" : 0
           }
         },
-        "required" : [ "name" ]
+        "required" : [ "name", "revision" ]
       },
       "TemplateResponse" : {
         "type" : "object",
@@ -7894,7 +7912,7 @@
             "minimum" : 0
           }
         },
-        "required" : [ "contentHtml" ]
+        "required" : [ "contentHtml", "revision" ]
       },
       "VersionResponse" : {
         "type" : "object",
@@ -8032,7 +8050,7 @@
           }
         }
       },
-      "DraftRequest" : {
+      "DraftUpdateRequest" : {
         "type" : "object",
         "properties" : {
           "channel" : {
@@ -8062,9 +8080,9 @@
             "minimum" : 0
           }
         },
-        "required" : [ "content", "locale" ]
+        "required" : [ "content", "locale", "revision" ]
       },
-      "BuilderDocumentRequest" : {
+      "BuilderDocumentUpdateRequest" : {
         "type" : "object",
         "properties" : {
           "channel" : {
@@ -8093,7 +8111,7 @@
             "minimum" : 0
           }
         },
-        "required" : [ "builderJson", "locale" ]
+        "required" : [ "builderJson", "locale", "revision" ]
       },
       "DefinitionResponse" : {
         "type" : "object",
@@ -9120,6 +9138,69 @@
             "type" : "string"
           }
         }
+      },
+      "DraftRequest" : {
+        "type" : "object",
+        "properties" : {
+          "channel" : {
+            "type" : "string",
+            "enum" : [ "EMAIL", "SMS", "WHATSAPP", "TELEGRAM", "PDF" ]
+          },
+          "locale" : {
+            "type" : "string",
+            "maxLength" : 10,
+            "minLength" : 0
+          },
+          "subject" : {
+            "type" : "string",
+            "maxLength" : 300,
+            "minLength" : 0
+          },
+          "content" : {
+            "type" : "string",
+            "minLength" : 1
+          },
+          "stylesheet" : {
+            "type" : "string"
+          },
+          "revision" : {
+            "type" : "integer",
+            "format" : "int64",
+            "minimum" : 0
+          }
+        },
+        "required" : [ "content", "locale" ]
+      },
+      "BuilderDocumentRequest" : {
+        "type" : "object",
+        "properties" : {
+          "channel" : {
+            "type" : "string",
+            "enum" : [ "EMAIL", "SMS", "WHATSAPP", "TELEGRAM", "PDF" ]
+          },
+          "locale" : {
+            "type" : "string",
+            "maxLength" : 10,
+            "minLength" : 0
+          },
+          "subject" : {
+            "type" : "string",
+            "maxLength" : 300,
+            "minLength" : 0
+          },
+          "builderJson" : {
+            "$ref" : "#/components/schemas/JsonNode"
+          },
+          "stylesheet" : {
+            "type" : "string"
+          },
+          "revision" : {
+            "type" : "integer",
+            "format" : "int64",
+            "minimum" : 0
+          }
+        },
+        "required" : [ "builderJson", "locale" ]
       },
       "PreviewResult" : {
         "type" : "object",
@@ -11255,6 +11336,27 @@
           "totalPages" : {
             "type" : "integer",
             "format" : "int32"
+          }
+        }
+      },
+      "BuilderCapabilitiesResponse" : {
+        "type" : "object",
+        "properties" : {
+          "channels" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "enum" : [ "EMAIL", "SMS", "WHATSAPP", "TELEGRAM", "PDF" ]
+            }
+          },
+          "eachSyntax" : {
+            "type" : "string"
+          },
+          "assetSyntax" : {
+            "type" : "string"
+          },
+          "builderSchemaVersion" : {
+            "type" : "string"
           }
         }
       },
