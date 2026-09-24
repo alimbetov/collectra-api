@@ -684,9 +684,9 @@ public class CommunicationAnalyticsQueryService {
         }
         MapSqlParameterSource params =
                 new MapSqlParameterSource()
-                        .addValue("generatedAt", generatedAt)
-                        .addValue("from", from)
-                        .addValue("to", to);
+                        .addValue("generatedAt", java.sql.Timestamp.from(generatedAt))
+                        .addValue("from", java.sql.Timestamp.from(from))
+                        .addValue("to", java.sql.Timestamp.from(to));
         if (scope.tenantId() != null) params.addValue("tenantId", scope.tenantId());
         UUID effectiveUser = scope.userId() != null ? scope.userId() : filter.userId();
         if (effectiveUser != null) params.addValue("userId", effectiveUser);
