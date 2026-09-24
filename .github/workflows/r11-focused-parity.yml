@@ -1,0 +1,20 @@
+name: R11 Focused Parity
+
+on:
+  push:
+    branches:
+      - feat/reporting-r11-daily-projections
+
+jobs:
+  parity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: feat/reporting-r11-daily-projections
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+      - run: mvn --batch-mode --no-transfer-progress -Dtest=CommunicationAnalyticsIntegrationTest test
