@@ -268,7 +268,8 @@ public class CommunicationProjectionQueryService {
                                coalesce(ua.display_name, 'SYSTEM') display_name,
                                x.tenant_id,
                                t.name tenant_name,
-                               count(distinct x.campaign_id) campaign_count,
+                               count(distinct x.campaign_id) filter (where x.run_count > 0)
+                                       campaign_count,
                                coalesce(sum(x.recipient_count), 0) recipient_count,
                                coalesce(sum(x.sent_count), 0) sent_count,
                                coalesce(sum(x.failed_count), 0) failed_count,
@@ -322,6 +323,7 @@ public class CommunicationProjectionQueryService {
                 left join user_accounts ua on ua.id = x.created_by_user_id
                 """
                         + query.where()
+                        + " and x.run_count > 0"
                         + """
                          group by x.campaign_id, c.name, x.tenant_id, t.name,
                                   x.created_by_user_id, ua.email, x.channel
