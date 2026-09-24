@@ -9,24 +9,27 @@ import java.util.UUID;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @Service
 public class CommunicationProjectionRebuildService {
     private final NamedParameterJdbcTemplate jdbc;
     private final Clock clock;
     private final CommunicationProjectionStateService stateService;
+    private final TransactionTemplate transactions;
 
     public CommunicationProjectionRebuildService(
             NamedParameterJdbcTemplate jdbc,
             Clock clock,
-            CommunicationProjectionStateService stateService) {
+            CommunicationProjectionStateService stateService,
+            PlatformTransactionManager transactionManager) {
         this.jdbc = jdbc;
         this.clock = clock;
         this.stateService = stateService;
+        this.transactions = new TransactionTemplate(transactionManager);
     }
 
-    @Transactional
     public RebuildResult rebuildTenantDay(UUID tenantId, LocalDate businessDate) {
         Instant calculatedAt = clock.instant();
         Instant from = businessDate.atStartOfDay(ZoneOffset.UTC).toInstant();
@@ -40,54 +43,64 @@ public class CommunicationProjectionRebuildService {
                         .addValue("to", Timestamp.from(to))
                         .addValue("calculatedAt", Timestamp.from(calculatedAt));
 
-        markBuilding(params);
-
         try {
-            jdbc.update(
-                    """
-                    delete from communication_daily_campaign_metrics
-                     where tenant_id = :tenantId
-                       and business_date = :businessDate
-                    """,
-                    params);
+            return transactions.execute(
+                    status -> {
+                        markBuilding(params);
 
-            jdbc.update(
-                    """
-                    delete from communication_daily_failure_metrics
-                     where tenant_id = :tenantId
-                       and business_date = :businessDate
-                    """,
-                    params);
+                        jdbc.update(
+                                """
+                                delete from communication_daily_campaign_metrics
+                                 where tenant_id = :tenantId
+                                   and business_date = :businessDate
+                                """,
+                                params);
 
-            int campaignRows = rebuildCampaignMetrics(params);
-            int failureRows = rebuildFailureMetrics(params);
-            Instant watermark = sourceWatermark(params);
+                        jdbc.update(
+                                """
+                                delete from communication_daily_failure_metrics
+                                 where tenant_id = :tenantId
+                                   and business_date = :businessDate
+                                """,
+                                params);
 
-            MapSqlParameterSource ready =
-                    copy(params)
-                            .addValue(
-                                    "sourceWatermark",
-                                    watermark == null ? null : Timestamp.from(watermark))
-                            .addValue("campaignRows", campaignRows)
-                            .addValue("failureRows", failureRows);
+                        int campaignRows = rebuildCampaignMetrics(params);
+                        int failureRows = rebuildFailureMetrics(params);
+                        Instant watermark = sourceWatermark(params);
 
-            jdbc.update(
-                    """
-                    update communication_reporting_projection_state
-                       set status = 'READY',
-                           revision = revision + 1,
-                           source_watermark = :sourceWatermark,
-                           campaign_rows = :campaignRows,
-                           failure_rows = :failureRows,
-                           calculated_at = :calculatedAt,
-                           error_message = null
-                     where tenant_id = :tenantId
-                       and business_date = :businessDate
-                    """,
-                    ready);
+                        MapSqlParameterSource ready =
+                                copy(params)
+                                        .addValue(
+                                                "sourceWatermark",
+                                                watermark == null
+                                                        ? null
+                                                        : Timestamp.from(watermark))
+                                        .addValue("campaignRows", campaignRows)
+                                        .addValue("failureRows", failureRows);
 
-            return new RebuildResult(
-                    tenantId, businessDate, campaignRows, failureRows, watermark, calculatedAt);
+                        jdbc.update(
+                                """
+                                update communication_reporting_projection_state
+                                   set status = 'READY',
+                                       revision = revision + 1,
+                                       source_watermark = :sourceWatermark,
+                                       campaign_rows = :campaignRows,
+                                       failure_rows = :failureRows,
+                                       calculated_at = :calculatedAt,
+                                       error_message = null
+                                 where tenant_id = :tenantId
+                                   and business_date = :businessDate
+                                """,
+                                ready);
+
+                        return new RebuildResult(
+                                tenantId,
+                                businessDate,
+                                campaignRows,
+                                failureRows,
+                                watermark,
+                                calculatedAt);
+                    });
         } catch (RuntimeException ex) {
             stateService.markFailed(tenantId, businessDate, calculatedAt, ex.getMessage());
             throw ex;
