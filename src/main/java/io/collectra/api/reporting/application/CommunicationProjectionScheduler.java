@@ -30,7 +30,7 @@ public class CommunicationProjectionScheduler {
 
     @Scheduled(
             cron = "${collectra.reporting.projections.cron:0 20 1 * * *}",
-            zone = "${collectra.business-zone:Asia/Almaty}")
+            zone = "UTC")
     public void rebuildRecentClosedDays() {
         LocalDate today = rebuilds.currentBusinessDate();
         int days = properties.getReconciliationDays();
