@@ -117,7 +117,7 @@ describe('TemplateAssetsPage', () => {
     renderPage();
 
     const wrong = new File(['x'], 'vector.svg', { type: 'image/svg+xml' });
-    await user.upload(screen.getByLabelText('Файл'), wrong);
+    await user.upload(screen.getByLabelText('Файл'), wrong, { applyAccept: false });
     await user.type(screen.getByLabelText('Ключ asset'), 'vector');
     await user.click(screen.getByRole('button', { name: 'Загрузить asset' }));
 
