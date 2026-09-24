@@ -132,7 +132,12 @@ export function CampaignsPage() {
           <p>{t('campaigns.description')}</p>
         </div>
         {canManage ? (
-          <Button onClick={() => createMutation.reset() || setCreateOpen(true)}>
+          <Button
+            onClick={() => {
+              createMutation.reset();
+              setCreateOpen(true);
+            }}
+          >
             {t('campaigns.create')}
           </Button>
         ) : null}
