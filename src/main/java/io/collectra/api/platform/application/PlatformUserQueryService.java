@@ -256,7 +256,8 @@ public class PlatformUserQueryService {
                         .addValue("offset", page * size);
 
         UUID membership =
-                jdbc.query(
+                jdbc
+                        .query(
                                 """
                                 select id
                                   from tenant_memberships

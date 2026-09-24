@@ -103,8 +103,7 @@ public class PlatformAdministratorQueryService {
         String direction = parts.length == 1 ? "asc" : parts[1].toLowerCase();
         if (!"asc".equals(direction) && !"desc".equals(direction)) {
             throw new InvalidRequestException(
-                    "UNSUPPORTED_SORT",
-                    "Unsupported administrator sort direction: " + parts[1]);
+                    "UNSUPPORTED_SORT", "Unsupported administrator sort direction: " + parts[1]);
         }
         return column + " " + direction + ", ua.id " + direction;
     }

@@ -35,11 +35,7 @@ public class PlatformUserLifecycleService {
 
     @Transactional
     public TenantMembership changeMembershipStatus(
-            UUID actorId,
-            UUID membershipId,
-            boolean active,
-            long expectedRevision,
-            String reason) {
+            UUID actorId, UUID membershipId, boolean active, long expectedRevision, String reason) {
         TenantMembership membership =
                 memberships
                         .findByIdForUpdate(membershipId)
@@ -58,7 +54,9 @@ public class PlatformUserLifecycleService {
         UserAccount user =
                 users.findById(membership.getUserId())
                         .orElseThrow(
-                                () -> new java.util.NoSuchElementException("User account not found"));
+                                () ->
+                                        new java.util.NoSuchElementException(
+                                                "User account not found"));
 
         if (active) {
             if (membership.active()) {
@@ -116,7 +114,9 @@ public class PlatformUserLifecycleService {
         UserAccount user =
                 users.findById(membership.getUserId())
                         .orElseThrow(
-                                () -> new java.util.NoSuchElementException("User account not found"));
+                                () ->
+                                        new java.util.NoSuchElementException(
+                                                "User account not found"));
         user.authorizationChanged();
 
         audit.appendTransactional(

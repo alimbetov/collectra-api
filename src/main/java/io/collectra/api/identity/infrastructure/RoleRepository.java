@@ -10,13 +10,18 @@ import org.springframework.data.repository.query.Param;
 
 public interface RoleRepository extends JpaRepository<Role, UUID> {
     Optional<Role> findByCodeAndTenantIdIsNull(String code);
+
     Optional<Role> findByIdAndTenantId(UUID id, UUID tenantId);
+
     boolean existsByTenantIdAndCodeIgnoreCase(UUID tenantId, String code);
-    @Query("select role from Role role where role.tenantId = :tenantId or (role.tenantId is null and role.scopeType = 'TENANT')")
+
+    @Query(
+            "select role from Role role where role.tenantId = :tenantId or (role.tenantId is null and role.scopeType = 'TENANT')")
     List<Role> findAvailableTenantRoles(@Param("tenantId") UUID tenantId);
 
     @Query(
-            value = """
+            value =
+                    """
                     select distinct p.code
                       from membership_roles mr
                       join roles r on r.id = mr.role_id
@@ -28,7 +33,8 @@ public interface RoleRepository extends JpaRepository<Role, UUID> {
     List<String> findPermissionCodes(@Param("membershipId") UUID membershipId);
 
     @Query(
-            value = """
+            value =
+                    """
                     select distinct r.code
                       from membership_roles mr
                       join roles r on r.id = mr.role_id
@@ -38,7 +44,8 @@ public interface RoleRepository extends JpaRepository<Role, UUID> {
     List<String> findRoleCodes(@Param("membershipId") UUID membershipId);
 
     @Query(
-            value = """
+            value =
+                    """
                     select exists(
                         select 1 from membership_roles
                          where membership_id = :membershipId
@@ -49,7 +56,8 @@ public interface RoleRepository extends JpaRepository<Role, UUID> {
     boolean hasTenantAdminRole(@Param("membershipId") UUID membershipId);
 
     @Query(
-            value = """
+            value =
+                    """
                     select count(distinct tm.id)
                       from tenant_memberships tm
                       join membership_roles mr on mr.membership_id = tm.id
@@ -61,7 +69,8 @@ public interface RoleRepository extends JpaRepository<Role, UUID> {
     long countActiveTenantAdmins(@Param("tenantId") UUID tenantId);
 
     @Query(
-            value = """
+            value =
+                    """
                     select id
                       from roles
                      where id = '00000000-0000-0000-0000-000000000002'::uuid
@@ -70,4 +79,3 @@ public interface RoleRepository extends JpaRepository<Role, UUID> {
             nativeQuery = true)
     UUID lockTenantAdminRole();
 }
-

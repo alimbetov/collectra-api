@@ -1,15 +1,15 @@
 package io.collectra.api.identity.api;
 
 import io.collectra.api.identity.application.PlatformAdministratorQueryService;
-import io.collectra.api.identity.application.PlatformAdministratorQueryService.PageResponse;
 import io.collectra.api.identity.application.PlatformAdministratorQueryService.AdministratorItem;
+import io.collectra.api.identity.application.PlatformAdministratorQueryService.PageResponse;
 import io.collectra.api.identity.application.PlatformAdministratorService;
 import io.collectra.api.identity.domain.UserAccount;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import java.time.Instant;
 import java.util.UUID;
@@ -55,11 +55,14 @@ public class PlatformAdministratorController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     AdministratorResponse create(@Valid @RequestBody CreateRequest request) {
-        return AdministratorResponse.from(administrators.create(request.email(), request.password()));
+        return AdministratorResponse.from(
+                administrators.create(request.email(), request.password()));
     }
 
     @PatchMapping("/{id}/status")
-    AdministratorResponse changeStatus(JwtAuthenticationToken authentication, @PathVariable UUID id,
+    AdministratorResponse changeStatus(
+            JwtAuthenticationToken authentication,
+            @PathVariable UUID id,
             @RequestBody StatusRequest request) {
         return AdministratorResponse.from(
                 administrators.changeStatus(
@@ -85,10 +88,13 @@ public class PlatformAdministratorController {
         return UUID.fromString(authentication.getToken().getSubject());
     }
 
-    record CreateRequest(@Email @NotBlank String email,
-            @NotBlank @Size(min = 12, max = 72) String password) {}
+    record CreateRequest(
+            @Email @NotBlank String email, @NotBlank @Size(min = 12, max = 72) String password) {}
+
     record StatusRequest(boolean active, @Min(0) Long revision) {}
+
     record PasswordRequest(@NotBlank @Size(min = 12, max = 72) String password) {}
+
     record AdministratorResponse(
             UUID id,
             String email,

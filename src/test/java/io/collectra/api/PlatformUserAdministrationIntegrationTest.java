@@ -82,7 +82,8 @@ class PlatformUserAdministrationIntegrationTest extends AbstractIntegrationTest 
     @Test
     void blockMembershipInvalidatesAccessRefreshAndWritesAudit() throws Exception {
         TestUser user = createTenantUser();
-        AuthService.AuthTokens tokens = auth.login(user.tenantSlug(), user.email(), user.password());
+        AuthService.AuthTokens tokens =
+                auth.login(user.tenantSlug(), user.email(), user.password());
 
         JsonNode detail =
                 read(

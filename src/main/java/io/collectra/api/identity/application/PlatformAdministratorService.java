@@ -21,8 +21,10 @@ public class PlatformAdministratorService {
     private final PasswordEncoder passwords;
     private final RefreshSessionRepository sessions;
 
-    public PlatformAdministratorService(UserAccountRepository users,
-            PlatformUserRoleRepository platformRoles, PasswordEncoder passwords,
+    public PlatformAdministratorService(
+            UserAccountRepository users,
+            PlatformUserRoleRepository platformRoles,
+            PasswordEncoder passwords,
             RefreshSessionRepository sessions) {
         this.users = users;
         this.platformRoles = platformRoles;
@@ -73,8 +75,13 @@ public class PlatformAdministratorService {
         String normalized = email.trim().toLowerCase(Locale.ROOT);
         if (users.findByTenantIdIsNullAndEmailIgnoreCase(normalized).isPresent())
             throw new IllegalArgumentException("Platform email already exists");
-        UserAccount user = users.saveAndFlush(new UserAccount(null, normalized,
-                passwords.encode(password), SystemRole.PLATFORM_SUPER_ADMIN));
+        UserAccount user =
+                users.saveAndFlush(
+                        new UserAccount(
+                                null,
+                                normalized,
+                                passwords.encode(password),
+                                SystemRole.PLATFORM_SUPER_ADMIN));
         platformRoles.assignSuperAdmin(user.getId());
         return user;
     }
@@ -98,8 +105,9 @@ public class PlatformAdministratorService {
         }
         if (!active) {
             platformRoles.lockSuperAdminRole();
-            if (actorId.equals(userId) || ("ACTIVE".equals(user.getStatus())
-                    && platformRoles.activeSuperAdminCount() <= 1))
+            if (actorId.equals(userId)
+                    || ("ACTIVE".equals(user.getStatus())
+                            && platformRoles.activeSuperAdminCount() <= 1))
                 throw new IllegalArgumentException("The last platform administrator is protected");
             user.block();
             sessions.revokeAllPlatformByUserId(userId);
@@ -133,8 +141,9 @@ public class PlatformAdministratorService {
                             + user.getVersion());
         }
         platformRoles.lockSuperAdminRole();
-        if (actorId.equals(userId) || ("ACTIVE".equals(user.getStatus())
-                && platformRoles.activeSuperAdminCount() <= 1))
+        if (actorId.equals(userId)
+                || ("ACTIVE".equals(user.getStatus())
+                        && platformRoles.activeSuperAdminCount() <= 1))
             throw new IllegalArgumentException("The last platform administrator is protected");
         platformRoles.removeSuperAdmin(userId);
         user.authorizationChanged();
@@ -142,8 +151,12 @@ public class PlatformAdministratorService {
     }
 
     private UserAccount requireAdministrator(UUID userId) {
-        UserAccount user = users.findByIdAndTenantIdIsNull(userId)
-                .orElseThrow(() -> new NoSuchElementException("Platform administrator not found"));
+        UserAccount user =
+                users.findByIdAndTenantIdIsNull(userId)
+                        .orElseThrow(
+                                () ->
+                                        new NoSuchElementException(
+                                                "Platform administrator not found"));
         if (!platformRoles.hasSuperAdminRole(userId))
             throw new NoSuchElementException("Platform administrator not found");
         return user;
