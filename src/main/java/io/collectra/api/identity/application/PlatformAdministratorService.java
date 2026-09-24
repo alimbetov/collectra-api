@@ -81,7 +81,21 @@ public class PlatformAdministratorService {
 
     @Transactional
     public UserAccount changeStatus(UUID actorId, UUID userId, boolean active) {
+        return changeStatus(actorId, userId, active, null);
+    }
+
+    @Transactional
+    public UserAccount changeStatus(
+            UUID actorId, UUID userId, boolean active, Long expectedRevision) {
         UserAccount user = requireAdministrator(userId);
+        if (expectedRevision != null && user.getVersion() != expectedRevision) {
+            throw new io.collectra.api.shared.error.BusinessConflictException(
+                    "VERSION_CONFLICT",
+                    "Administrator revision conflict: expected "
+                            + expectedRevision
+                            + " but was "
+                            + user.getVersion());
+        }
         if (!active) {
             platformRoles.lockSuperAdminRole();
             if (actorId.equals(userId) || ("ACTIVE".equals(user.getStatus())
@@ -104,7 +118,20 @@ public class PlatformAdministratorService {
 
     @Transactional
     public void removeRole(UUID actorId, UUID userId) {
+        removeRole(actorId, userId, null);
+    }
+
+    @Transactional
+    public void removeRole(UUID actorId, UUID userId, Long expectedRevision) {
         UserAccount user = requireAdministrator(userId);
+        if (expectedRevision != null && user.getVersion() != expectedRevision) {
+            throw new io.collectra.api.shared.error.BusinessConflictException(
+                    "VERSION_CONFLICT",
+                    "Administrator revision conflict: expected "
+                            + expectedRevision
+                            + " but was "
+                            + user.getVersion());
+        }
         platformRoles.lockSuperAdminRole();
         if (actorId.equals(userId) || ("ACTIVE".equals(user.getStatus())
                 && platformRoles.activeSuperAdminCount() <= 1))
