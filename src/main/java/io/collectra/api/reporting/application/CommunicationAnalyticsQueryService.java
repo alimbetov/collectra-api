@@ -62,12 +62,12 @@ public class CommunicationAnalyticsQueryService {
     }
 
     @Transactional(readOnly = true)
-    public Summary summary(Scope scope, Filter filter) {
+    public CommunicationSummary summary(Scope scope, Filter filter) {
         ResolvedFilter resolved = resolve(scope, filter, false);
         BusinessTotals business = businessTotals(resolved);
         MessageStates states = messageStates(resolved);
         DocumentTotals documents = documentTotals(resolved);
-        return new Summary(
+        return new CommunicationSummary(
                 resolved.generatedAt(),
                 resolved.from(),
                 resolved.to(),
@@ -79,7 +79,7 @@ public class CommunicationAnalyticsQueryService {
     }
 
     @Transactional(readOnly = true)
-    public TimeSeries timeseries(Scope scope, Filter filter, Bucket bucket) {
+    public CommunicationTimeSeries timeseries(Scope scope, Filter filter, Bucket bucket) {
         ResolvedFilter resolved = resolve(scope, filter, true);
         validateBucketCount(resolved, bucket);
 
@@ -133,12 +133,12 @@ public class CommunicationAnalyticsQueryService {
                 """
                         .formatted(runBucket, runWhere, messageBucket, messageWhere);
 
-        List<TimePoint> points =
+        List<CommunicationTimePoint> points =
                 jdbc.query(
                         sql,
                         resolved.params(),
                         (rs, rowNum) ->
-                                new TimePoint(
+                                new CommunicationTimePoint(
                                         instant(rs, "bucket"),
                                         rs.getLong("recipient_count"),
                                         rs.getLong("sent_count"),
@@ -151,12 +151,12 @@ public class CommunicationAnalyticsQueryService {
                                         rs.getLong("message_sent_count"),
                                         rs.getLong("message_failed_count"),
                                         rs.getLong("unknown_count")));
-        return new TimeSeries(
+        return new CommunicationTimeSeries(
                 resolved.generatedAt(), resolved.from(), resolved.to(), bucket, points);
     }
 
     @Transactional(readOnly = true)
-    public ChannelReport channels(Scope scope, Filter filter) {
+    public CommunicationChannelReport channels(Scope scope, Filter filter) {
         ResolvedFilter resolved = resolve(scope, filter, false);
         String runWhere = where("cr", "c", resolved, true);
         String messageWhere = where("m", "c", resolved, true);
@@ -202,14 +202,14 @@ public class CommunicationAnalyticsQueryService {
                 """
                         .formatted(runWhere, messageWhere);
 
-        List<ChannelItem> items =
+        List<CommunicationChannelItem> items =
                 jdbc.query(
                         sql,
                         resolved.params(),
                         (rs, rowNum) -> {
                             long sent = rs.getLong("sent_count");
                             long failed = rs.getLong("failed_count");
-                            return new ChannelItem(
+                            return new CommunicationChannelItem(
                                     rs.getString("channel"),
                                     rs.getLong("message_count"),
                                     rs.getLong("recipient_count"),
@@ -221,11 +221,11 @@ public class CommunicationAnalyticsQueryService {
                                     rs.getLong("unknown_count"),
                                     rate(sent, failed));
                         });
-        return new ChannelReport(resolved.generatedAt(), resolved.from(), resolved.to(), items);
+        return new CommunicationChannelReport(resolved.generatedAt(), resolved.from(), resolved.to(), items);
     }
 
     @Transactional(readOnly = true)
-    public PageReport<UserItem> users(Scope scope, Filter filter, int page, int size, String sort) {
+    public CommunicationPageReport<CommunicationUserItem> users(Scope scope, Filter filter, int page, int size, String sort) {
         validatePage(page, size);
         ResolvedFilter resolved = resolve(scope, filter, false);
         String runWhere = where("cr", "c", resolved, true);
@@ -284,7 +284,7 @@ public class CommunicationAnalyticsQueryService {
                         .addValue("limit", size)
                         .addValue("offset", Math.multiplyExact(page, size));
 
-        List<UserItem> items =
+        List<CommunicationUserItem> items =
                 jdbc.query(
                         grouped
                                 + """
@@ -311,7 +311,7 @@ public class CommunicationAnalyticsQueryService {
                         (rs, rowNum) -> {
                             long sent = rs.getLong("sent_count");
                             long failed = rs.getLong("failed_count");
-                            return new UserItem(
+                            return new CommunicationUserItem(
                                     rs.getObject("user_id", UUID.class),
                                     rs.getString("email"),
                                     rs.getString("display_name"),
@@ -332,7 +332,7 @@ public class CommunicationAnalyticsQueryService {
     }
 
     @Transactional(readOnly = true)
-    public PageReport<CampaignItem> campaigns(
+    public CommunicationPageReport<CommunicationCampaignItem> campaigns(
             Scope scope, Filter filter, int page, int size, String sort) {
         validatePage(page, size);
         ResolvedFilter resolved = resolve(scope, filter, false);
@@ -361,7 +361,7 @@ public class CommunicationAnalyticsQueryService {
                         .addValue("limit", size)
                         .addValue("offset", Math.multiplyExact(page, size));
 
-        List<CampaignItem> items =
+        List<CommunicationCampaignItem> items =
                 jdbc.query(
                         """
                         select c.id campaign_id,
@@ -387,7 +387,7 @@ public class CommunicationAnalyticsQueryService {
                         (rs, rowNum) -> {
                             long sent = rs.getLong("sent_count");
                             long failed = rs.getLong("failed_count");
-                            return new CampaignItem(
+                            return new CommunicationCampaignItem(
                                     rs.getObject("campaign_id", UUID.class),
                                     rs.getString("campaign_name"),
                                     rs.getObject("tenant_id", UUID.class),
@@ -410,7 +410,7 @@ public class CommunicationAnalyticsQueryService {
     }
 
     @Transactional(readOnly = true)
-    public PageReport<FailureItem> failures(
+    public CommunicationPageReport<CommunicationFailureItem> failures(
             Scope scope, Filter filter, int page, int size, String sort) {
         validatePage(page, size);
         ResolvedFilter resolved = resolve(scope, filter, false);
@@ -440,7 +440,7 @@ public class CommunicationAnalyticsQueryService {
                         .addValue("limit", size)
                         .addValue("offset", Math.multiplyExact(page, size));
 
-        List<FailureItem> items =
+        List<CommunicationFailureItem> items =
                 jdbc.query(
                         """
                         select coalesce(a.error_code, 'UNCLASSIFIED') error_code,
@@ -455,7 +455,7 @@ public class CommunicationAnalyticsQueryService {
                                 + " limit :limit offset :offset",
                         params,
                         (rs, rowNum) ->
-                                new FailureItem(
+                                new CommunicationFailureItem(
                                         rs.getString("error_code"),
                                         rs.getLong("failure_count"),
                                         rs.getLong("retryable_count"),
@@ -467,14 +467,14 @@ public class CommunicationAnalyticsQueryService {
     }
 
     @Transactional(readOnly = true)
-    public DocumentReport documents(Scope scope, Filter filter) {
+    public CommunicationDocumentReport documents(Scope scope, Filter filter) {
         ResolvedFilter resolved = resolve(scope, filter, false);
         DocumentTotals totals = documentTotals(resolved);
-        return new DocumentReport(resolved.generatedAt(), resolved.from(), resolved.to(), totals);
+        return new CommunicationDocumentReport(resolved.generatedAt(), resolved.from(), resolved.to(), totals);
     }
 
     @Transactional(readOnly = true)
-    public PageReport<TenantItem> tenants(
+    public CommunicationPageReport<CommunicationTenantItem> tenants(
             Scope scope, Filter filter, int page, int size, String sort) {
         if (scope.tenantId() != null) {
             throw new InvalidRequestException(
@@ -533,7 +533,7 @@ public class CommunicationAnalyticsQueryService {
                         .addValue("limit", size)
                         .addValue("offset", Math.multiplyExact(page, size));
 
-        List<TenantItem> items =
+        List<CommunicationTenantItem> items =
                 jdbc.query(
                         grouped
                                 + """
@@ -557,7 +557,7 @@ public class CommunicationAnalyticsQueryService {
                         (rs, rowNum) -> {
                             long sent = rs.getLong("sent_count");
                             long failed = rs.getLong("failed_count");
-                            return new TenantItem(
+                            return new CommunicationTenantItem(
                                     rs.getObject("tenant_id", UUID.class),
                                     rs.getString("tenant_slug"),
                                     rs.getString("tenant_name"),
@@ -857,7 +857,7 @@ public class CommunicationAnalyticsQueryService {
         return copy;
     }
 
-    private <T> PageReport<T> page(
+    private <T> CommunicationPageReport<T> page(
             Instant generatedAt,
             Instant from,
             Instant to,
@@ -865,7 +865,7 @@ public class CommunicationAnalyticsQueryService {
             int page,
             int size,
             long total) {
-        return new PageReport<>(
+        return new CommunicationPageReport<>(
                 generatedAt,
                 from,
                 to,
@@ -921,7 +921,7 @@ public class CommunicationAnalyticsQueryService {
             long accessCount,
             long accessedLinks) {}
 
-    public record Summary(
+    public record CommunicationSummary(
             Instant generatedAt,
             Instant from,
             Instant to,
@@ -931,7 +931,7 @@ public class CommunicationAnalyticsQueryService {
             BigDecimal terminalFailureRate,
             DocumentTotals documents) {}
 
-    public record TimePoint(
+    public record CommunicationTimePoint(
             Instant bucketStart,
             long recipients,
             long sent,
@@ -945,10 +945,10 @@ public class CommunicationAnalyticsQueryService {
             long messageFailed,
             long unknown) {}
 
-    public record TimeSeries(
-            Instant generatedAt, Instant from, Instant to, Bucket bucket, List<TimePoint> items) {}
+    public record CommunicationTimeSeries(
+            Instant generatedAt, Instant from, Instant to, Bucket bucket, List<CommunicationTimePoint> items) {}
 
-    public record ChannelItem(
+    public record CommunicationChannelItem(
             String channel,
             long messageCount,
             long recipients,
@@ -960,10 +960,10 @@ public class CommunicationAnalyticsQueryService {
             long unknownCurrent,
             BigDecimal terminalSuccessRate) {}
 
-    public record ChannelReport(
-            Instant generatedAt, Instant from, Instant to, List<ChannelItem> items) {}
+    public record CommunicationChannelReport(
+            Instant generatedAt, Instant from, Instant to, List<CommunicationChannelItem> items) {}
 
-    public record UserItem(
+    public record CommunicationUserItem(
             UUID userId,
             String email,
             String displayName,
@@ -978,7 +978,7 @@ public class CommunicationAnalyticsQueryService {
             long unknownCurrent,
             BigDecimal terminalSuccessRate) {}
 
-    public record CampaignItem(
+    public record CommunicationCampaignItem(
             UUID campaignId,
             String name,
             UUID tenantId,
@@ -995,10 +995,10 @@ public class CommunicationAnalyticsQueryService {
             Instant lastRunAt,
             BigDecimal terminalSuccessRate) {}
 
-    public record FailureItem(
+    public record CommunicationFailureItem(
             String errorCode, long count, long retryable, long permanent, long unknown) {}
 
-    public record TenantItem(
+    public record CommunicationTenantItem(
             UUID tenantId,
             String tenantSlug,
             String tenantName,
@@ -1011,10 +1011,10 @@ public class CommunicationAnalyticsQueryService {
             long unknownCurrent,
             BigDecimal terminalSuccessRate) {}
 
-    public record DocumentReport(
+    public record CommunicationDocumentReport(
             Instant generatedAt, Instant from, Instant to, DocumentTotals totals) {}
 
-    public record PageReport<T>(
+    public record CommunicationPageReport<T>(
             Instant generatedAt,
             Instant from,
             Instant to,
