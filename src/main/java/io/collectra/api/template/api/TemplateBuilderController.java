@@ -205,7 +205,7 @@ public class TemplateBuilderController {
                         compiled.builderJson(),
                         compiled.contentHtml(),
                         request.stylesheet(),
-                        requiredRevision(request.revision())));
+                        request.revision()));
     }
 
     @GetMapping("/versions/{versionId}")
