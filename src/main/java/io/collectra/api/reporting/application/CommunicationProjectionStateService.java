@@ -18,29 +18,38 @@ public class CommunicationProjectionStateService {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void markBuilding(UUID tenantId, LocalDate businessDate, Instant calculatedAt) {
-        jdbc.update(
-                """
-                insert into communication_reporting_projection_state(
-                    tenant_id,
-                    business_date,
-                    status,
-                    revision,
-                    campaign_rows,
-                    failure_rows,
-                    calculated_at,
-                    error_message
-                )
-                values (?, ?, 'BUILDING', 0, 0, 0, ?, null)
-                on conflict (tenant_id, business_date)
-                do update set
-                    status = 'BUILDING',
-                    calculated_at = excluded.calculated_at,
-                    error_message = null
-                """,
-                tenantId,
-                businessDate,
-                Timestamp.from(calculatedAt));
+    public boolean tryMarkBuilding(
+            UUID tenantId,
+            LocalDate businessDate,
+            Instant calculatedAt,
+            Instant staleBefore) {
+        int changed =
+                jdbc.update(
+                        """
+                        insert into communication_reporting_projection_state(
+                            tenant_id,
+                            business_date,
+                            status,
+                            revision,
+                            campaign_rows,
+                            failure_rows,
+                            calculated_at,
+                            error_message
+                        )
+                        values (?, ?, 'BUILDING', 0, 0, 0, ?, null)
+                        on conflict (tenant_id, business_date)
+                        do update set
+                            status = 'BUILDING',
+                            calculated_at = excluded.calculated_at,
+                            error_message = null
+                        where communication_reporting_projection_state.status <> 'BUILDING'
+                           or communication_reporting_projection_state.calculated_at < ?
+                        """,
+                        tenantId,
+                        businessDate,
+                        Timestamp.from(calculatedAt),
+                        Timestamp.from(staleBefore));
+        return changed == 1;
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
