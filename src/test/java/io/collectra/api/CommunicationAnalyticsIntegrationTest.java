@@ -110,6 +110,24 @@ class CommunicationAnalyticsIntegrationTest extends AbstractIntegrationTest {
                                 .header("Authorization", bearer(platform)));
         assertThat(platformSecond.at("/business/recipients").asLong()).isEqualTo(4);
 
+        JsonNode systemUsers =
+                read(
+                        get("/api/v1/analytics/communication/users")
+                                .queryParam("from", from.toString())
+                                .queryParam("to", to.toString())
+                                .header("Authorization", bearer(first.accessToken())));
+        assertThat(systemUsers.findValuesAsText("email")).contains("SYSTEM");
+
+        JsonNode tenantBreakdown =
+                read(
+                        get("/api/v1/platform/analytics/communication/tenants")
+                                .queryParam("from", from.toString())
+                                .queryParam("to", to.toString())
+                                .queryParam("size", "200")
+                                .header("Authorization", bearer(platform)));
+        assertThat(tenantBreakdown.findValuesAsText("tenantId"))
+                .contains(first.tenantId().toString(), second.tenantId().toString());
+
         mockMvc.perform(
                         get("/api/v1/platform/analytics/communication/summary")
                                 .header("Authorization", bearer(first.accessToken())))
@@ -191,6 +209,38 @@ class CommunicationAnalyticsIntegrationTest extends AbstractIntegrationTest {
                                 .header("Authorization", bearer(fixture.accessToken())))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("UNSUPPORTED_SORT"));
+    }
+
+    @Test
+    void returnsNullRatesWhenNoTerminalBusinessOutcomeExists() throws Exception {
+        String slug = "r1-empty-" + UUID.randomUUID();
+        String email = UUID.randomUUID() + "@example.test";
+        JsonNode registration =
+                read(
+                        post("/api/v1/auth/tenants/register")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                                        {
+                                          "slug": "%s",
+                                          "companyName": "Empty reporting tenant",
+                                          "email": "%s",
+                                          "password": "StrongPassword123!"
+                                        }
+                                        """
+                                                .formatted(slug, email)));
+
+        JsonNode summary =
+                read(
+                        get("/api/v1/analytics/communication/summary")
+                                .header(
+                                        "Authorization",
+                                        bearer(registration.get("accessToken").asText())));
+
+        assertThat(summary.get("terminalSuccessRate").isNull()).isTrue();
+        assertThat(summary.get("terminalFailureRate").isNull()).isTrue();
+        assertThat(summary.at("/business/sent").asLong()).isZero();
+        assertThat(summary.at("/business/failed").asLong()).isZero();
     }
 
     @Test
