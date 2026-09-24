@@ -27,9 +27,11 @@ export const templateKeys = {
   version: (versionId: string) => [...templateKeys.all, 'version', versionId] as const,
   capabilities: () => [...templateKeys.all, 'builder-capabilities'] as const,
   fields: () => [...templateKeys.all, 'fields'] as const,
-  fieldPage: (page: number, size: number) => [...templateKeys.fields(), page, size] as const,
+  fieldPage: (page: number, size: number, search = '') =>
+    [...templateKeys.fields(), page, size, search] as const,
   assets: () => [...templateKeys.all, 'assets'] as const,
-  assetPage: (page: number, size: number) => [...templateKeys.assets(), page, size] as const,
+  assetPage: (page: number, size: number, search = '') =>
+    [...templateKeys.assets(), page, size, search] as const,
   options: (channel: string) => [...templateKeys.all, 'options', channel] as const,
   versions: (templateId: string, channel: string) =>
     [...templateKeys.all, 'campaign-versions', templateId, channel] as const,
@@ -65,15 +67,15 @@ export const templateQueries = {
       queryFn: getBuilderCapabilities,
       staleTime: 30 * 60 * 1000,
     }),
-  fields: (page = 0, size = 50) =>
+  fields: (page = 0, size = 50, search = '') =>
     queryOptions({
-      queryKey: templateKeys.fieldPage(page, size),
-      queryFn: () => getTemplateFields(page, size),
+      queryKey: templateKeys.fieldPage(page, size, search),
+      queryFn: () => getTemplateFields(page, size, search),
     }),
-  assets: (page = 0, size = 50) =>
+  assets: (page = 0, size = 50, search = '') =>
     queryOptions({
-      queryKey: templateKeys.assetPage(page, size),
-      queryFn: () => getTemplateAssets(page, size),
+      queryKey: templateKeys.assetPage(page, size, search),
+      queryFn: () => getTemplateAssets(page, size, search),
     }),
   options: (channel: string) =>
     queryOptions({
