@@ -8,6 +8,8 @@ import java.sql.SQLException;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneId;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -55,17 +57,61 @@ public class CommunicationAnalyticsQueryService {
 
     private final NamedParameterJdbcTemplate jdbc;
     private final Clock clock;
+    private final ZoneId businessZone;
+    private final CommunicationProjectionQueryService projections;
+    private final CommunicationProjectionProperties projectionProperties;
 
-    public CommunicationAnalyticsQueryService(NamedParameterJdbcTemplate jdbc, Clock clock) {
+    public CommunicationAnalyticsQueryService(
+            NamedParameterJdbcTemplate jdbc,
+            Clock clock,
+            ZoneId businessZone,
+            CommunicationProjectionQueryService projections,
+            CommunicationProjectionProperties projectionProperties) {
         this.jdbc = jdbc;
         this.clock = clock;
+        this.businessZone = businessZone;
+        this.projections = projections;
+        this.projectionProperties = projectionProperties;
     }
 
     @Transactional(readOnly = true)
     public CommunicationSummary summary(Scope scope, Filter filter) {
         ResolvedFilter resolved = resolve(scope, filter, false);
-        BusinessTotals business = businessTotals(resolved);
-        MessageStates states = messageStates(resolved);
+        BusinessTotals business;
+        MessageStates states;
+
+        HybridRange hybrid = hybridRange(resolved);
+        if (hybrid != null) {
+            BusinessTotals historicalBusiness =
+                    projections.businessTotals(
+                            resolved.tenantId(),
+                            hybrid.historicalFrom(),
+                            hybrid.historicalTo(),
+                            resolved.campaignId(),
+                            resolved.channel(),
+                            resolved.userId());
+            MessageStates historicalStates =
+                    projections.messageStates(
+                            resolved.tenantId(),
+                            hybrid.historicalFrom(),
+                            hybrid.historicalTo(),
+                            resolved.campaignId(),
+                            resolved.channel(),
+                            resolved.userId());
+
+            if (hybrid.liveFrom() != null) {
+                ResolvedFilter live = withRange(resolved, hybrid.liveFrom(), resolved.to());
+                business = add(historicalBusiness, businessTotals(live));
+                states = add(historicalStates, messageStates(live));
+            } else {
+                business = historicalBusiness;
+                states = historicalStates;
+            }
+        } else {
+            business = businessTotals(resolved);
+            states = messageStates(resolved);
+        }
+
         DocumentTotals documents = documentTotals(resolved);
         return new CommunicationSummary(
                 resolved.generatedAt(),
@@ -158,6 +204,34 @@ public class CommunicationAnalyticsQueryService {
     @Transactional(readOnly = true)
     public CommunicationChannelReport channels(Scope scope, Filter filter) {
         ResolvedFilter resolved = resolve(scope, filter, false);
+        List<CommunicationChannelItem> items;
+
+        HybridRange hybrid = hybridRange(resolved);
+        if (hybrid != null) {
+            List<CommunicationChannelItem> historical =
+                    projections.channels(
+                            resolved.tenantId(),
+                            hybrid.historicalFrom(),
+                            hybrid.historicalTo(),
+                            resolved.campaignId(),
+                            resolved.channel(),
+                            resolved.userId());
+            if (hybrid.liveFrom() != null) {
+                List<CommunicationChannelItem> live =
+                        rawChannels(withRange(resolved, hybrid.liveFrom(), resolved.to()));
+                items = mergeChannels(historical, live);
+            } else {
+                items = historical;
+            }
+        } else {
+            items = rawChannels(resolved);
+        }
+
+        return new CommunicationChannelReport(
+                resolved.generatedAt(), resolved.from(), resolved.to(), items);
+    }
+
+    private List<CommunicationChannelItem> rawChannels(ResolvedFilter resolved) {
         String runWhere = where("cr", "c", resolved, true);
         String messageWhere = where("m", "c", resolved, true);
 
@@ -202,27 +276,24 @@ public class CommunicationAnalyticsQueryService {
                 """
                         .formatted(runWhere, messageWhere);
 
-        List<CommunicationChannelItem> items =
-                jdbc.query(
-                        sql,
-                        resolved.params(),
-                        (rs, rowNum) -> {
-                            long sent = rs.getLong("sent_count");
-                            long failed = rs.getLong("failed_count");
-                            return new CommunicationChannelItem(
-                                    rs.getString("channel"),
-                                    rs.getLong("message_count"),
-                                    rs.getLong("recipient_count"),
-                                    sent,
-                                    failed,
-                                    rs.getLong("skipped_count"),
-                                    rs.getLong("retry_count"),
-                                    rs.getLong("retry_wait_count"),
-                                    rs.getLong("unknown_count"),
-                                    rate(sent, failed));
-                        });
-        return new CommunicationChannelReport(
-                resolved.generatedAt(), resolved.from(), resolved.to(), items);
+        return jdbc.query(
+                sql,
+                resolved.params(),
+                (rs, rowNum) -> {
+                    long sent = rs.getLong("sent_count");
+                    long failed = rs.getLong("failed_count");
+                    return new CommunicationChannelItem(
+                            rs.getString("channel"),
+                            rs.getLong("message_count"),
+                            rs.getLong("recipient_count"),
+                            sent,
+                            failed,
+                            rs.getLong("skipped_count"),
+                            rs.getLong("retry_count"),
+                            rs.getLong("retry_wait_count"),
+                            rs.getLong("unknown_count"),
+                            rate(sent, failed));
+                });
     }
 
     @Transactional(readOnly = true)
@@ -794,6 +865,116 @@ public class CommunicationAnalyticsQueryService {
                     "REPORT_RANGE_TOO_LARGE", "Requested time series contains too many buckets");
         }
     }
+
+    private HybridRange hybridRange(ResolvedFilter resolved) {
+        if (!projectionProperties.isEnabled()
+                || resolved.tenantId() == null
+                || resolved.runId() != null) {
+            return null;
+        }
+
+        Instant todayStart =
+                java.time.LocalDate.now(clock.withZone(businessZone))
+                        .atStartOfDay(businessZone)
+                        .toInstant();
+
+        Instant historicalTo = resolved.to().isBefore(todayStart) ? resolved.to() : todayStart;
+        if (!resolved.from().isBefore(historicalTo)) {
+            return null;
+        }
+        if (!projections.coversTenantRange(resolved.tenantId(), resolved.from(), historicalTo)) {
+            return null;
+        }
+
+        Instant liveFrom = historicalTo.isBefore(resolved.to()) ? historicalTo : null;
+        return new HybridRange(resolved.from(), historicalTo, liveFrom);
+    }
+
+    private ResolvedFilter withRange(ResolvedFilter source, Instant from, Instant to) {
+        MapSqlParameterSource params = copy(source.params());
+        params.addValue("from", java.sql.Timestamp.from(from));
+        params.addValue("to", java.sql.Timestamp.from(to));
+        return new ResolvedFilter(
+                source.generatedAt(),
+                from,
+                to,
+                source.tenantId(),
+                source.userId(),
+                source.campaignId(),
+                source.runId(),
+                source.channel(),
+                params);
+    }
+
+    private BusinessTotals add(BusinessTotals left, BusinessTotals right) {
+        return new BusinessTotals(
+                left.recipients() + right.recipients(),
+                left.sent() + right.sent(),
+                left.failed() + right.failed(),
+                left.skipped() + right.skipped(),
+                left.retries() + right.retries());
+    }
+
+    private MessageStates add(MessageStates left, MessageStates right) {
+        return new MessageStates(
+                left.queued() + right.queued(),
+                left.processing() + right.processing(),
+                left.retryWait() + right.retryWait(),
+                left.sent() + right.sent(),
+                left.failed() + right.failed(),
+                left.unknown() + right.unknown());
+    }
+
+    private List<CommunicationChannelItem> mergeChannels(
+            List<CommunicationChannelItem> historical, List<CommunicationChannelItem> live) {
+        Map<String, ChannelAccumulator> merged = new LinkedHashMap<>();
+        historical.forEach(item -> merged.computeIfAbsent(item.channel(), key -> new ChannelAccumulator()).add(item));
+        live.forEach(item -> merged.computeIfAbsent(item.channel(), key -> new ChannelAccumulator()).add(item));
+
+        return merged.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .map(
+                        entry -> {
+                            ChannelAccumulator value = entry.getValue();
+                            return new CommunicationChannelItem(
+                                    entry.getKey(),
+                                    value.messageCount,
+                                    value.recipients,
+                                    value.sent,
+                                    value.failed,
+                                    value.skipped,
+                                    value.retries,
+                                    value.retryWaitCurrent,
+                                    value.unknownCurrent,
+                                    rate(value.sent, value.failed));
+                        })
+                .toList();
+    }
+
+    private static final class ChannelAccumulator {
+        private long messageCount;
+        private long recipients;
+        private long sent;
+        private long failed;
+        private long skipped;
+        private long retries;
+        private long retryWaitCurrent;
+        private long unknownCurrent;
+
+        private void add(CommunicationChannelItem item) {
+            messageCount += item.messageCount();
+            recipients += item.recipients();
+            sent += item.sent();
+            failed += item.failed();
+            skipped += item.skipped();
+            retries += item.retries();
+            retryWaitCurrent += item.retryWaitCurrent();
+            unknownCurrent += item.unknownCurrent();
+        }
+    }
+
+    private record HybridRange(
+            Instant historicalFrom, Instant historicalTo, Instant liveFrom) {}
 
     private String orderBy(
             String sort,
