@@ -83,9 +83,9 @@ class PartitionMaintenanceIntegrationTest extends AbstractIntegrationTest {
         assertThat(result.created()).isEqualTo(3);
         assertThat(partitionNames())
                 .containsExactly(TABLE + "_202609", TABLE + "_202610", TABLE + "_202611");
-        assertThat(partitionBounds(TABLE + "_202609"))
-                .contains("2026-09-01")
-                .contains("2026-10-01");
+        assertThat(routeTimestamp("2026-09-01 00:00:00+05")).endsWith(TABLE + "_202609");
+        assertThat(routeTimestamp("2026-09-30 23:59:59+05")).endsWith(TABLE + "_202609");
+        assertThat(routeTimestamp("2026-10-01 00:00:00+05")).endsWith(TABLE + "_202610");
     }
 
     @Test
@@ -311,17 +311,13 @@ class PartitionMaintenanceIntegrationTest extends AbstractIntegrationTest {
                 TABLE);
     }
 
-    private String partitionBounds(String partitionName) {
+    private String routeTimestamp(String timestamp) {
         return jdbc.queryForObject(
-                """
-                SELECT pg_get_expr(child.relpartbound, child.oid)
-                FROM pg_class child
-                JOIN pg_namespace ns ON ns.oid = child.relnamespace
-                WHERE ns.nspname = 'public'
-                  AND child.relname = ?
-                """,
+                "INSERT INTO public."
+                        + TABLE
+                        + " (created_at) VALUES (?::timestamptz) RETURNING tableoid::regclass::text",
                 String.class,
-                partitionName);
+                timestamp);
     }
 
     private double counterValue(String name, String... tags) {
