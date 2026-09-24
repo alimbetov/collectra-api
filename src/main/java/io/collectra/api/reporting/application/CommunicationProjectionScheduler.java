@@ -5,6 +5,7 @@ import java.time.LocalDate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -35,29 +36,39 @@ public class CommunicationProjectionScheduler {
         LocalDate today = rebuilds.currentBusinessDate();
         int days = properties.getReconciliationDays();
 
-        tenants.findAll().stream()
-                .filter(tenant -> tenant.active())
-                .forEach(
-                        tenant -> {
-                            for (int offset = 1; offset <= days; offset++) {
-                                LocalDate date = today.minusDays(offset);
-                                try {
-                                    var result = rebuilds.rebuildTenantDay(tenant.getId(), date);
-                                    log.info(
-                                            "Communication projection rebuilt. tenantId={}, businessDate={}, campaignRows={}, failureRows={}, sourceWatermark={}",
-                                            result.tenantId(),
-                                            result.businessDate(),
-                                            result.campaignRows(),
-                                            result.failureRows(),
-                                            result.sourceWatermark());
-                                } catch (RuntimeException ex) {
-                                    log.error(
-                                            "Communication projection rebuild failed. tenantId={}, businessDate={}",
-                                            tenant.getId(),
-                                            date,
-                                            ex);
+        int page = 0;
+        while (true) {
+            var tenantPage =
+                    tenants.findAll(PageRequest.of(page, properties.getTenantBatchSize()));
+            tenantPage.stream()
+                    .filter(tenant -> tenant.active())
+                    .forEach(
+                            tenant -> {
+                                for (int offset = 1; offset <= days; offset++) {
+                                    LocalDate date = today.minusDays(offset);
+                                    try {
+                                        var result =
+                                                rebuilds.rebuildTenantDay(tenant.getId(), date);
+                                        log.info(
+                                                "Communication projection rebuilt. tenantId={}, businessDate={}, campaignRows={}, failureRows={}, sourceWatermark={}",
+                                                result.tenantId(),
+                                                result.businessDate(),
+                                                result.campaignRows(),
+                                                result.failureRows(),
+                                                result.sourceWatermark());
+                                    } catch (RuntimeException ex) {
+                                        log.error(
+                                                "Communication projection rebuild failed. tenantId={}, businessDate={}",
+                                                tenant.getId(),
+                                                date,
+                                                ex);
+                                    }
                                 }
-                            }
-                        });
+                            });
+            if (!tenantPage.hasNext()) {
+                break;
+            }
+            page++;
+        }
     }
 }
