@@ -36,6 +36,7 @@ export function TemplateVersionEditorPage() {
   const canPublish = hasPermission('TEMPLATE_PUBLISH');
   const client = useQueryClient();
 
+
   const version = useQuery(templateQueries.version(versionId));
   const capabilities = useQuery(templateQueries.capabilities());
   const fields = useQuery(templateQueries.fields(0, 50, fieldSearch));
@@ -376,7 +377,7 @@ export function TemplateVersionEditorPage() {
             >
               {t('templates.reloadServer')}
             </Button>
-            <Button variant="secondary" onClick={() => setConflict(false)}>{t('templates.keepDraft')}</Button>
+            <Button variant="secondary" onClick={() => setConflict(null)}>{t('templates.keepDraft')}</Button>
           </div>
         </Alert>
       ) : null}
