@@ -133,13 +133,6 @@ public class CommunicationProjectionRebuildService {
                     message_sent_count,
                     message_failed_count,
                     unknown_count,
-                    document_created_count,
-                    document_pending_count,
-                    document_ready_count,
-                    document_failed_count,
-                    document_expired_count,
-                    document_access_count,
-                    document_accessed_link_count,
                     last_run_at,
                     calculated_at
                 )
@@ -181,32 +174,10 @@ public class CommunicationProjectionRebuildService {
                        and m.created_at < :to
                      group by m.campaign_id
                 ),
-                document_agg as (
-                    select m.campaign_id,
-                           count(*) document_created_count,
-                           count(*) filter (
-                               where l.status = 'PENDING' and l.expires_at > :to
-                           ) document_pending_count,
-                           count(*) filter (
-                               where l.status = 'READY' and l.expires_at > :to
-                           ) document_ready_count,
-                           count(*) filter (where l.status = 'FAILED') document_failed_count,
-                           count(*) filter (where l.expires_at <= :to) document_expired_count,
-                           coalesce(sum(l.access_count), 0) document_access_count,
-                           count(*) filter (where l.access_count > 0) document_accessed_link_count
-                      from message_document_links l
-                      join messages m on m.id = l.message_id
-                     where l.tenant_id = :tenantId
-                       and l.created_at >= :from
-                       and l.created_at < :to
-                     group by m.campaign_id
-                ),
                 touched as (
                     select campaign_id from run_agg
                     union
                     select campaign_id from message_agg
-                    union
-                    select campaign_id from document_agg
                 )
                 select :businessDate,
                        c.tenant_id,
@@ -226,20 +197,12 @@ public class CommunicationProjectionRebuildService {
                        coalesce(m.message_sent_count, 0),
                        coalesce(m.message_failed_count, 0),
                        coalesce(m.unknown_count, 0),
-                       coalesce(d.document_created_count, 0),
-                       coalesce(d.document_pending_count, 0),
-                       coalesce(d.document_ready_count, 0),
-                       coalesce(d.document_failed_count, 0),
-                       coalesce(d.document_expired_count, 0),
-                       coalesce(d.document_access_count, 0),
-                       coalesce(d.document_accessed_link_count, 0),
                        r.last_run_at,
                        :calculatedAt
                   from touched t
                   join campaign_scope c on c.campaign_id = t.campaign_id
                   left join run_agg r on r.campaign_id = c.campaign_id
                   left join message_agg m on m.campaign_id = c.campaign_id
-                  left join document_agg d on d.campaign_id = c.campaign_id
                 """,
                 params);
     }
@@ -301,12 +264,6 @@ public class CommunicationProjectionRebuildService {
                                  where a.tenant_id = :tenantId
                                    and a.completed_at >= :from
                                    and a.completed_at < :to
-                                union all
-                                select max(greatest(l.updated_at, l.last_access_at))
-                                  from message_document_links l
-                                 where l.tenant_id = :tenantId
-                                   and l.created_at >= :from
-                                   and l.created_at < :to
                           ) x
                         """,
                         params,
