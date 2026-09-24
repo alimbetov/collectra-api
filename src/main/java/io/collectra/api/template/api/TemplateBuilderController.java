@@ -59,6 +59,16 @@ public class TemplateBuilderController {
         this.mutations = mutations;
     }
 
+    @GetMapping("/capabilities")
+    @PreAuthorize("hasAuthority('TEMPLATE_READ')")
+    BuilderCapabilitiesResponse capabilities() {
+        return new BuilderCapabilitiesResponse(
+                List.of(TemplateChannel.values()),
+                "{{#each items}}...{{/each}}",
+                "{{asset.<key>}}",
+                "1.0");
+    }
+
     @GetMapping("/catalog")
     @PreAuthorize("hasAuthority('TEMPLATE_READ') and hasAuthority('FIELD_READ')")
     BuilderCatalogResponse catalog() {
@@ -170,20 +180,13 @@ public class TemplateBuilderController {
         TemplateVersion existing = templates.getVersion(tenant(), versionId);
         ensureChannelUnchanged(request.channel(), existing);
         return VersionResponse.from(
-                request.revision() == null
-                        ? templates.update(
-                                tenant(),
-                                versionId,
-                                request.subject(),
-                                request.content(),
-                                request.stylesheet())
-                        : mutations.update(
-                                tenant(),
-                                versionId,
-                                request.subject(),
-                                request.content(),
-                                request.stylesheet(),
-                                request.revision()));
+                mutations.update(
+                        tenant(),
+                        versionId,
+                        request.subject(),
+                        request.content(),
+                        request.stylesheet(),
+                        request.revision()));
     }
 
     @PutMapping("/versions/{versionId}/builder")
@@ -194,22 +197,14 @@ public class TemplateBuilderController {
         ensureChannelUnchanged(request.channel(), existing);
         var compiled = builder.compileDocument(tenant(), request.toDraft());
         return VersionResponse.from(
-                request.revision() == null
-                        ? templates.updateBuilder(
-                                tenant(),
-                                versionId,
-                                request.subject(),
-                                compiled.builderJson(),
-                                compiled.contentHtml(),
-                                request.stylesheet())
-                        : mutations.updateBuilder(
-                                tenant(),
-                                versionId,
-                                request.subject(),
-                                compiled.builderJson(),
-                                compiled.contentHtml(),
-                                request.stylesheet(),
-                                request.revision()));
+                mutations.updateBuilder(
+                        tenant(),
+                        versionId,
+                        request.subject(),
+                        compiled.builderJson(),
+                        compiled.contentHtml(),
+                        request.stylesheet(),
+                        request.revision()));
     }
 
     @GetMapping("/versions/{versionId}")
@@ -221,20 +216,15 @@ public class TemplateBuilderController {
     @PostMapping("/versions/{versionId}/validate")
     @PreAuthorize("hasAuthority('TEMPLATE_MANAGE')")
     Object validateSavedDraft(
-            @PathVariable UUID versionId, @RequestParam(required = false) @Min(0) Long revision) {
-        return revision == null
-                ? templates.validate(tenant(), versionId)
-                : mutations.validate(tenant(), versionId, revision);
+            @PathVariable UUID versionId, @RequestParam @Min(0) long revision) {
+        return mutations.validate(tenant(), versionId, revision);
     }
 
     @PostMapping("/versions/{versionId}/publish")
     @PreAuthorize("hasAuthority('TEMPLATE_PUBLISH')")
     VersionResponse publish(
-            @PathVariable UUID versionId, @RequestParam(required = false) @Min(0) Long revision) {
-        return VersionResponse.from(
-                revision == null
-                        ? templates.publish(tenant(), versionId)
-                        : mutations.publish(tenant(), versionId, revision));
+            @PathVariable UUID versionId, @RequestParam @Min(0) long revision) {
+        return VersionResponse.from(mutations.publish(tenant(), versionId, revision));
     }
 
     @GetMapping("/assets")
@@ -275,7 +265,7 @@ public class TemplateBuilderController {
             @Size(max = 300) String subject,
             @NotBlank String content,
             String stylesheet,
-            @Min(0) Long revision) {
+            @NotNull @Min(0) Long revision) {
         TemplateBuilderService.BuilderDraft toDraft() {
             return new TemplateBuilderService.BuilderDraft(
                     channel, locale, subject, content, stylesheet);
@@ -288,7 +278,7 @@ public class TemplateBuilderController {
             @Size(max = 300) String subject,
             @NotNull JsonNode builderJson,
             String stylesheet,
-            @Min(0) Long revision) {
+            @NotNull @Min(0) Long revision) {
         TemplateBuilderService.BuilderDocumentDraft toDraft() {
             return new TemplateBuilderService.BuilderDocumentDraft(
                     channel, locale, subject, builderJson, stylesheet);
@@ -304,6 +294,12 @@ public class TemplateBuilderController {
             @NotBlank @Size(max = 64) String key,
             @NotNull UUID fileId,
             @Size(max = 300) String altText) {}
+
+    record BuilderCapabilitiesResponse(
+            List<TemplateChannel> channels,
+            String eachSyntax,
+            String assetSyntax,
+            String builderSchemaVersion) {}
 
     record BuilderCatalogResponse(
             List<FieldResponse> fields,
@@ -332,7 +328,10 @@ public class TemplateBuilderController {
             String category,
             boolean collection,
             boolean required,
-            boolean system) {
+            boolean system,
+            String description,
+            String exampleValue,
+            JsonNode validationRules) {
         static FieldResponse from(FieldDefinition field) {
             return new FieldResponse(
                     field.getId(),
@@ -342,7 +341,10 @@ public class TemplateBuilderController {
                     field.getCategory(),
                     field.isCollection(),
                     field.isRequired(),
-                    field.isSystem());
+                    field.isSystem(),
+                    field.getDescription(),
+                    field.getExampleValue(),
+                    field.getValidationRules());
         }
     }
 
