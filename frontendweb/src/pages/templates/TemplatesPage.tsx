@@ -110,11 +110,16 @@ export function TemplatesPage() {
           <h1>{t('templates.title')}</h1>
           <p>{t('templates.description')}</p>
         </div>
-        {canManage ? (
-          <Link className="ui-button ui-button--primary" to="/templates/new">
-            {t('templates.create')}
+        <div className="campaign-detail__actions">
+          <Link className="ui-button ui-button--secondary" to="/templates/assets">
+            {t('templates.assets')}
           </Link>
-        ) : null}
+          {canManage ? (
+            <Link className="ui-button ui-button--primary" to="/templates/new">
+              {t('templates.create')}
+            </Link>
+          ) : null}
+        </div>
       </header>
 
       <form className="platform-tenant-filters" onSubmit={submitSearch}>
