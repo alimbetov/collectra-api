@@ -43,11 +43,11 @@ public class CommunicationProjectionRebuildService {
                         .addValue("to", Timestamp.from(to))
                         .addValue("calculatedAt", Timestamp.from(calculatedAt));
 
+        stateService.markBuilding(tenantId, businessDate, calculatedAt);
+
         try {
             return transactions.execute(
                     status -> {
-                        markBuilding(params);
-
                         jdbc.update(
                                 """
                                 delete from communication_daily_campaign_metrics
@@ -109,38 +109,6 @@ public class CommunicationProjectionRebuildService {
 
     public LocalDate currentBusinessDate() {
         return LocalDate.now(clock.withZone(ZoneOffset.UTC));
-    }
-
-    private void markBuilding(MapSqlParameterSource params) {
-        jdbc.update(
-                """
-                insert into communication_reporting_projection_state(
-                    tenant_id,
-                    business_date,
-                    status,
-                    revision,
-                    campaign_rows,
-                    failure_rows,
-                    calculated_at,
-                    error_message
-                )
-                values(
-                    :tenantId,
-                    :businessDate,
-                    'BUILDING',
-                    0,
-                    0,
-                    0,
-                    :calculatedAt,
-                    null
-                )
-                on conflict (tenant_id, business_date)
-                do update set
-                    status = 'BUILDING',
-                    calculated_at = excluded.calculated_at,
-                    error_message = null
-                """,
-                params);
     }
 
     private int rebuildCampaignMetrics(MapSqlParameterSource params) {
