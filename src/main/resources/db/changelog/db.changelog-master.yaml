@@ -73,3 +73,5 @@ databaseChangeLog:
       file: db/changelog/changes/039-customer-channel-addresses.sql
   - include:
       file: db/changelog/changes/040-message-document-links.sql
+  - include:
+      file: db/changelog/changes/041-campaign-contract-closure.sql

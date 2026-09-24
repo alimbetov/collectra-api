@@ -13,6 +13,9 @@ import org.springframework.data.repository.query.Param;
 public interface CampaignRunRepository extends JpaRepository<CampaignRun, UUID> {
     Optional<CampaignRun> findByIdAndTenantId(UUID id, UUID tenantId);
 
+    Optional<CampaignRun> findByTenantIdAndCampaignIdAndPrepareCommandId(
+            UUID tenantId, UUID campaignId, UUID prepareCommandId);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select r from CampaignRun r where r.id = :runId and r.tenantId = :tenantId")
     Optional<CampaignRun> findLockedByIdAndTenantId(

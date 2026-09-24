@@ -134,6 +134,51 @@ public class CampaignFrontendQueryService {
     }
 
     @Transactional(readOnly = true)
+    public RunItem run(UUID tenantId, UUID campaignId, UUID runId) {
+        requireCampaign(tenantId, campaignId);
+        Map<String, Object> params =
+                Map.of("tenantId", tenantId, "campaignId", campaignId, "runId", runId);
+        List<RunItem> values =
+                jdbc.query(
+                        """
+                        SELECT id, campaign_id, status, recipient_count, sent_count, failed_count,
+                               skipped_count, retry_count, prepared_at, started_at, completed_at,
+                               created_at, updated_at, version
+                        FROM campaign_runs
+                        WHERE tenant_id = :tenantId
+                          AND campaign_id = :campaignId
+                          AND id = :runId
+                        """,
+                        params,
+                        (rs, rowNum) -> {
+                            int recipientCount = rs.getInt("recipient_count");
+                            int sent = rs.getInt("sent_count");
+                            int failed = rs.getInt("failed_count");
+                            int skipped = rs.getInt("skipped_count");
+                            return new RunItem(
+                                    rs.getObject("id", UUID.class),
+                                    rs.getObject("campaign_id", UUID.class),
+                                    rs.getString("status"),
+                                    recipientCount,
+                                    sent,
+                                    failed,
+                                    skipped,
+                                    rs.getInt("retry_count"),
+                                    Math.max(0, recipientCount - sent - failed - skipped),
+                                    instant(rs, "prepared_at"),
+                                    instant(rs, "started_at"),
+                                    instant(rs, "completed_at"),
+                                    instant(rs, "created_at"),
+                                    instant(rs, "updated_at"),
+                                    rs.getLong("version"));
+                        });
+        if (values.isEmpty()) {
+            throw new NoSuchElementException("Campaign run not found");
+        }
+        return values.get(0);
+    }
+
+    @Transactional(readOnly = true)
     public PageResponse<RecipientItem> recipients(
             UUID tenantId,
             UUID campaignId,

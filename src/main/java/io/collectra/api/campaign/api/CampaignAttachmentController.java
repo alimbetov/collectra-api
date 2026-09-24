@@ -4,6 +4,8 @@ import io.collectra.api.campaign.application.CampaignAttachmentService;
 import io.collectra.api.campaign.domain.Campaign;
 import io.collectra.api.shared.tenant.TenantContext;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
 import java.util.UUID;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -24,22 +26,25 @@ public class CampaignAttachmentController {
 
     @PutMapping
     Response configure(@PathVariable UUID campaignId, @Valid @RequestBody Request request) {
-        return Response.from(
+        Campaign campaign =
                 attachments.configureGeneratedPdf(
                         TenantContext.requireTenantId(),
                         campaignId,
                         request.enabled(),
-                        request.required()));
+                        request.required(),
+                        request.revision());
+        return Response.from(campaign);
     }
 
-    record Request(boolean enabled, boolean required) {}
+    record Request(boolean enabled, boolean required, @NotNull @Min(0) Long revision) {}
 
-    record Response(UUID campaignId, boolean enabled, boolean required) {
+    record Response(UUID campaignId, boolean enabled, boolean required, long revision) {
         static Response from(Campaign campaign) {
             return new Response(
                     campaign.getId(),
                     campaign.isGeneratedPdfAttachment(),
-                    campaign.isGeneratedPdfAttachmentRequired());
+                    campaign.isGeneratedPdfAttachmentRequired(),
+                    campaign.getVersion());
         }
     }
 }

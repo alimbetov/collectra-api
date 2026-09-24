@@ -16,9 +16,11 @@ import io.collectra.api.customer.domain.CustomerSegmentMember;
 import io.collectra.api.localization.application.TenantLocaleService;
 import io.collectra.api.receivable.application.ReceivableService;
 import io.collectra.api.receivable.domain.Invoice;
+import io.collectra.api.shared.error.BusinessConflictException;
 import io.collectra.api.template.domain.TemplateChannel;
 import io.collectra.api.template.domain.TemplateVersionStatus;
 import io.collectra.api.template.infrastructure.TemplateVersionRepository;
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -158,10 +160,63 @@ public class CampaignService {
         return value;
     }
 
+    @Transactional
+    public Campaign activate(UUID tenantId, UUID campaignId, long revision) {
+        Campaign value = lockedCampaign(tenantId, campaignId);
+        requireRevision(value.getVersion(), revision);
+        ValidationResult validation = validate(value);
+        if (!validation.valid()) {
+            throw new IllegalArgumentException("Campaign is invalid: " + validation.errors());
+        }
+        value.activate();
+        return value;
+    }
+
+    @Transactional
+    public Campaign updateDraft(
+            UUID tenantId,
+            UUID campaignId,
+            String name,
+            UUID templateVersionId,
+            String channel,
+            Instant scheduledAt,
+            CampaignSelection selection,
+            UUID documentTemplateVersionId,
+            boolean generatedPdfLink,
+            long revision) {
+        Campaign value = lockedCampaign(tenantId, campaignId);
+        requireRevision(value.getVersion(), revision);
+        validateTemplateConfiguration(
+                tenantId, templateVersionId, channel, documentTemplateVersionId, generatedPdfLink);
+        JsonNode criteria = json.valueToTree(selection == null ? emptySelection() : selection);
+        value.updateDraft(name, templateVersionId, channel, scheduledAt, criteria);
+        value.configureGeneratedPdfLink(documentTemplateVersionId, generatedPdfLink);
+        return value;
+    }
+
+    @Transactional
+    public Campaign configureGeneratedPdfAttachment(
+            UUID tenantId, UUID campaignId, boolean enabled, boolean required, long revision) {
+        Campaign value = lockedCampaign(tenantId, campaignId);
+        requireRevision(value.getVersion(), revision);
+        if (enabled && communicationChannel(value.getChannel()) != CommunicationChannel.EMAIL) {
+            throw new IllegalArgumentException(
+                    "Generated PDF attachment is supported for EMAIL campaigns only");
+        }
+        value.configureGeneratedPdfAttachment(enabled, required);
+        return value;
+    }
+
     @Transactional(readOnly = true)
     public Campaign campaign(UUID tenantId, UUID campaignId) {
         return campaigns
                 .findByIdAndTenantId(campaignId, tenantId)
+                .orElseThrow(() -> new NoSuchElementException("Campaign not found"));
+    }
+
+    private Campaign lockedCampaign(UUID tenantId, UUID campaignId) {
+        return campaigns
+                .findLockedByIdAndTenantId(campaignId, tenantId)
                 .orElseThrow(() -> new NoSuchElementException("Campaign not found"));
     }
 
@@ -172,20 +227,58 @@ public class CampaignService {
 
     @Transactional
     public PrepareResult prepare(UUID tenantId, UUID campaignId) {
-        Campaign campaign = campaign(tenantId, campaignId);
+        return prepare(tenantId, campaignId, UUID.randomUUID());
+    }
+
+    @Transactional
+    public PrepareResult prepare(UUID tenantId, UUID campaignId, UUID commandId) {
+        if (commandId == null) {
+            throw new IllegalArgumentException("X-Command-Id is required");
+        }
+
+        Campaign campaign = lockedCampaign(tenantId, campaignId);
         if (campaign.getStatus() != CampaignStatus.ACTIVE) {
             throw new IllegalStateException("Only active campaign can be prepared");
         }
 
-        CampaignRun run = runs.save(new CampaignRun(tenantId, campaignId));
+        UUID effectiveCommandId =
+                campaign.getScheduledAt() == null ? commandId : scheduledCommandId(campaign);
+        var existing =
+                runs.findByTenantIdAndCampaignIdAndPrepareCommandId(
+                        tenantId, campaignId, effectiveCommandId);
+        if (existing.isPresent()) {
+            CampaignRun value = existing.get();
+            return new PrepareResult(value.getId(), value.getRecipientCount());
+        }
+
+        ValidationResult validation = validate(campaign);
+        if (!validation.valid()) {
+            throw new IllegalArgumentException("Campaign is invalid: " + validation.errors());
+        }
+
+        CampaignRun run = runs.save(new CampaignRun(tenantId, campaignId, effectiveCommandId));
         CampaignSelection selection = selection(campaign.getSelectionCriteria());
         int created =
                 selection.audienceSelectionType() == AudienceSelectionType.CUSTOMER
                         ? prepareCustomerAudience(tenantId, campaign, run, selection)
                         : prepareReceivableAudience(tenantId, campaign, run, selection);
 
-        run.ready(created, Instant.now(clock));
+        Instant now = clock.instant();
+        run.ready(created, now);
+        if (campaign.getScheduledAt() != null) {
+            campaign.markScheduledDispatched(now);
+        }
         return new PrepareResult(run.getId(), created);
+    }
+
+    @Transactional
+    public PrepareResult dispatchScheduled(UUID tenantId, UUID campaignId) {
+        Campaign campaign = lockedCampaign(tenantId, campaignId);
+        if (campaign.getScheduledAt() == null
+                || campaign.getScheduledAt().isAfter(clock.instant())) {
+            throw new IllegalStateException("Campaign is not due for scheduled dispatch");
+        }
+        return prepare(tenantId, campaignId, scheduledCommandId(campaign));
     }
 
     private int prepareCustomerAudience(
@@ -377,6 +470,108 @@ public class CampaignService {
         return selection.segmentIds().stream().anyMatch(assigned::contains);
     }
 
+    @Transactional(readOnly = true)
+    public ValidationResult validate(UUID tenantId, UUID campaignId) {
+        return validate(campaign(tenantId, campaignId));
+    }
+
+    private ValidationResult validate(Campaign campaign) {
+        java.util.ArrayList<ValidationIssue> errors = new java.util.ArrayList<>();
+        try {
+            validateTemplateConfiguration(
+                    campaign.getTenantId(),
+                    campaign.getTemplateVersionId(),
+                    campaign.getChannel(),
+                    campaign.getDocumentTemplateVersionId(),
+                    campaign.isGeneratedPdfLink());
+        } catch (RuntimeException ex) {
+            errors.add(new ValidationIssue("CAMPAIGN_CONFIGURATION_INVALID", ex.getMessage()));
+        }
+        if (campaign.isGeneratedPdfAttachment()
+                && communicationChannel(campaign.getChannel()) != CommunicationChannel.EMAIL) {
+            errors.add(
+                    new ValidationIssue(
+                            "ATTACHMENT_CHANNEL_UNSUPPORTED",
+                            "Generated PDF attachment is supported for EMAIL campaigns only"));
+        }
+        if (campaign.getScheduledAt() != null
+                && campaign.getStatus() == CampaignStatus.DRAFT
+                && campaign.getScheduledAt().isBefore(clock.instant())) {
+            errors.add(
+                    new ValidationIssue("SCHEDULE_IN_PAST", "scheduledAt must not be in the past"));
+        }
+        return new ValidationResult(errors.isEmpty(), List.copyOf(errors), List.of());
+    }
+
+    private void validateTemplateConfiguration(
+            UUID tenantId,
+            UUID templateVersionId,
+            String channel,
+            UUID documentTemplateVersionId,
+            boolean generatedPdfLink) {
+        var template =
+                templates
+                        .findByIdAndTenantId(templateVersionId, tenantId)
+                        .orElseThrow(
+                                () -> new NoSuchElementException("Template version not found"));
+        if (template.getStatus() != TemplateVersionStatus.PUBLISHED) {
+            throw new IllegalArgumentException("Campaign requires a published template version");
+        }
+        if (!template.getChannel().name().equalsIgnoreCase(channel)) {
+            throw new IllegalArgumentException("Campaign channel differs from template channel");
+        }
+        communicationChannel(template.getChannel());
+
+        boolean referencesDocumentUrl =
+                template.getContentHtml() != null
+                        && template.getContentHtml().contains("{{document.url}}");
+        if (referencesDocumentUrl && !generatedPdfLink) {
+            throw new IllegalArgumentException(
+                    "Template references document.url but generatedPdfLink is disabled");
+        }
+
+        if (generatedPdfLink) {
+            if (documentTemplateVersionId == null) {
+                throw new IllegalArgumentException(
+                        "documentTemplateVersionId is required for generated PDF link");
+            }
+            var documentTemplate =
+                    templates
+                            .findByIdAndTenantId(documentTemplateVersionId, tenantId)
+                            .orElseThrow(
+                                    () ->
+                                            new NoSuchElementException(
+                                                    "Document template version not found"));
+            if (documentTemplate.getStatus() != TemplateVersionStatus.PUBLISHED) {
+                throw new IllegalArgumentException(
+                        "Generated PDF link requires a published document template version");
+            }
+            if (documentTemplate.getChannel() != TemplateChannel.PDF) {
+                throw new IllegalArgumentException(
+                        "Generated PDF link requires a PDF document template version");
+            }
+        }
+    }
+
+    private UUID scheduledCommandId(Campaign campaign) {
+        String value =
+                "campaign-scheduled:"
+                        + campaign.getTenantId()
+                        + ":"
+                        + campaign.getId()
+                        + ":"
+                        + campaign.getScheduledAt();
+        return UUID.nameUUIDFromBytes(value.getBytes(StandardCharsets.UTF_8));
+    }
+
+    private void requireRevision(long actual, long expected) {
+        if (actual != expected) {
+            throw new BusinessConflictException(
+                    "VERSION_CONFLICT",
+                    "Campaign revision conflict: expected " + expected + " but was " + actual);
+        }
+    }
+
     private CommunicationChannel communicationChannel(String value) {
         try {
             return CommunicationChannel.valueOf(value);
@@ -410,6 +605,10 @@ public class CampaignService {
         return today.minusDays(minimumDaysOverdue);
     }
 
+    public CampaignSelection selection(Campaign campaign) {
+        return selection(campaign.getSelectionCriteria());
+    }
+
     private CampaignSelection selection(JsonNode value) {
         try {
             return json.treeToValue(value, CampaignSelection.class);
@@ -423,4 +622,9 @@ public class CampaignService {
     }
 
     public record PrepareResult(UUID runId, int recipients) {}
+
+    public record ValidationIssue(String code, String message) {}
+
+    public record ValidationResult(
+            boolean valid, List<ValidationIssue> errors, List<ValidationIssue> warnings) {}
 }
