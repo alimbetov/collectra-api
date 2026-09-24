@@ -135,3 +135,17 @@ export interface CampaignRecipientDto {
 }
 
 export type CampaignRecipientPageDto = PageDto<CampaignRecipientDto>;
+
+
+export interface CampaignAttachmentCommand {
+  enabled: boolean;
+  required: boolean;
+  revision: number;
+}
+
+export interface CampaignAttachmentDto {
+  campaignId: UUID;
+  enabled: boolean;
+  required: boolean;
+  revision: number;
+}
