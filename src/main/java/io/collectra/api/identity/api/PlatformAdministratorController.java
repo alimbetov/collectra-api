@@ -10,6 +10,7 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.time.Instant;
 import java.util.UUID;
@@ -63,7 +64,7 @@ public class PlatformAdministratorController {
     AdministratorResponse changeStatus(
             JwtAuthenticationToken authentication,
             @PathVariable UUID id,
-            @RequestBody StatusRequest request) {
+            @Valid @RequestBody StatusRequest request) {
         return AdministratorResponse.from(
                 administrators.changeStatus(
                         actorId(authentication), id, request.active(), request.revision()));
@@ -80,7 +81,7 @@ public class PlatformAdministratorController {
     void removeRole(
             JwtAuthenticationToken authentication,
             @PathVariable UUID id,
-            @RequestParam(required = false) @Min(0) Long revision) {
+            @RequestParam @Min(0) long revision) {
         administrators.removeRole(actorId(authentication), id, revision);
     }
 
@@ -91,7 +92,7 @@ public class PlatformAdministratorController {
     record CreateRequest(
             @Email @NotBlank String email, @NotBlank @Size(min = 12, max = 72) String password) {}
 
-    record StatusRequest(boolean active, @Min(0) Long revision) {}
+    record StatusRequest(@NotNull Boolean active, @NotNull @Min(0) Long revision) {}
 
     record PasswordRequest(@NotBlank @Size(min = 12, max = 72) String password) {}
 
