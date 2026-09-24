@@ -1,5 +1,7 @@
 import { apiRequest } from '../../../shared/api/http-client';
 import type {
+  CampaignAttachmentCommand,
+  CampaignAttachmentDto,
   CampaignDetailDto,
   CampaignListQuery,
   CampaignPageDto,
@@ -80,4 +82,14 @@ export const getCampaignRun = (campaignId: string, runId: string) =>
 export const getCampaignRecipients = (campaignId: string, runId: string, page = 0) =>
   apiRequest<CampaignRecipientPageDto>(
     `/api/v1/campaigns/${encodeURIComponent(campaignId)}/runs/${encodeURIComponent(runId)}/recipients?page=${page}&size=50`,
+  );
+
+
+export const configureCampaignPdfAttachment = (
+  campaignId: string,
+  command: CampaignAttachmentCommand,
+) =>
+  apiRequest<CampaignAttachmentDto>(
+    `/api/v1/campaigns/${encodeURIComponent(campaignId)}/generated-pdf-attachment`,
+    { method: 'PUT', body: command },
   );
