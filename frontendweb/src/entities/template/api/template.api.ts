@@ -19,6 +19,8 @@ import type {
   TemplateVersionListParams,
   TemplateVersionOptionPageDto,
   TextDraftCommand,
+  FileMetadataDto,
+  RegisterTemplateAssetCommand,
 } from '../model/template.types';
 import type { PageDto } from '../../../shared/api/contracts';
 
@@ -102,6 +104,27 @@ export const getTemplateAssets = (page = 0, size = 50) =>
   apiRequest<BuilderPageDto<TemplateAssetDto>>(
     `/api/v1/template-builder/catalog/assets?page=${page}&size=${size}`,
   );
+
+export const uploadTemplateAssetFile = (file: File) => {
+  const form = new FormData();
+  form.append('file', file);
+  return apiRequest<FileMetadataDto>('/api/v1/files?category=ASSET', {
+    method: 'POST',
+    body: form,
+  });
+};
+
+export const registerTemplateAsset = (command: RegisterTemplateAssetCommand) =>
+  apiRequest<TemplateAssetDto>('/api/v1/template-builder/assets', {
+    method: 'POST',
+    body: command,
+  });
+
+export const archiveTemplateAsset = (assetId: string) =>
+  apiRequest<void>(`/api/v1/template-builder/assets/${encodeURIComponent(assetId)}`, {
+    method: 'DELETE',
+  });
+
 
 export const getTemplateVersion = (versionId: string) =>
   apiRequest<BuilderVersionDto>(
