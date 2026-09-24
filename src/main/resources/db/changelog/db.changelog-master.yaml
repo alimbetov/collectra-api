@@ -77,3 +77,5 @@ databaseChangeLog:
       file: db/changelog/changes/041-campaign-contract-closure.sql
   - include:
       file: db/changelog/changes/042-communication-reporting-core.sql
+  - include:
+      file: db/changelog/changes/043-communication-reporting-projections.sql
