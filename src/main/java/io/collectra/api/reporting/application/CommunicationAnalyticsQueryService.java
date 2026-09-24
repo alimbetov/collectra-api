@@ -8,7 +8,7 @@ import java.sql.SQLException;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -57,19 +57,16 @@ public class CommunicationAnalyticsQueryService {
 
     private final NamedParameterJdbcTemplate jdbc;
     private final Clock clock;
-    private final ZoneId businessZone;
     private final CommunicationProjectionQueryService projections;
     private final CommunicationProjectionProperties projectionProperties;
 
     public CommunicationAnalyticsQueryService(
             NamedParameterJdbcTemplate jdbc,
             Clock clock,
-            ZoneId businessZone,
             CommunicationProjectionQueryService projections,
             CommunicationProjectionProperties projectionProperties) {
         this.jdbc = jdbc;
         this.clock = clock;
-        this.businessZone = businessZone;
         this.projections = projections;
         this.projectionProperties = projectionProperties;
     }
@@ -891,8 +888,8 @@ public class CommunicationAnalyticsQueryService {
         }
 
         Instant todayStart =
-                java.time.LocalDate.now(clock.withZone(businessZone))
-                        .atStartOfDay(businessZone)
+                java.time.LocalDate.now(clock.withZone(ZoneOffset.UTC))
+                        .atStartOfDay(ZoneOffset.UTC)
                         .toInstant();
         Instant historicalLimit = resolved.to().isBefore(todayStart) ? resolved.to() : todayStart;
 
@@ -918,7 +915,7 @@ public class CommunicationAnalyticsQueryService {
     }
 
     private Instant floorBusinessDay(Instant value) {
-        return value.atZone(businessZone).toLocalDate().atStartOfDay(businessZone).toInstant();
+        return value.atZone(ZoneOffset.UTC).toLocalDate().atStartOfDay(ZoneOffset.UTC).toInstant();
     }
 
     private Instant ceilBusinessDay(Instant value) {
@@ -926,10 +923,10 @@ public class CommunicationAnalyticsQueryService {
         if (floor.equals(value)) {
             return value;
         }
-        return value.atZone(businessZone)
+        return value.atZone(ZoneOffset.UTC)
                 .toLocalDate()
                 .plusDays(1)
-                .atStartOfDay(businessZone)
+                .atStartOfDay(ZoneOffset.UTC)
                 .toInstant();
     }
 
