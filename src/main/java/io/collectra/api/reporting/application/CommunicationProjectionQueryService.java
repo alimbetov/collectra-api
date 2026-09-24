@@ -94,7 +94,7 @@ public class CommunicationProjectionQueryService {
                        coalesce(sum(failed_count), 0) failed_count,
                        coalesce(sum(skipped_count), 0) skipped_count,
                        coalesce(sum(retry_count), 0) retry_count
-                  from communication_daily_campaign_metrics
+                  from communication_daily_campaign_metrics x
                 """
                         + query.where(),
                 query.params(),
@@ -139,7 +139,7 @@ public class CommunicationProjectionQueryService {
         Query query = campaignQuery(tenantId, from, to, campaignId, channel, userId);
         return jdbc.query(
                 """
-                select channel,
+                select x.channel channel,
                        coalesce(sum(message_count), 0) message_count,
                        coalesce(sum(recipient_count), 0) recipient_count,
                        coalesce(sum(sent_count), 0) sent_count,
@@ -148,10 +148,10 @@ public class CommunicationProjectionQueryService {
                        coalesce(sum(retry_count), 0) retry_count,
                        coalesce(sum(retry_wait_count), 0) retry_wait_count,
                        coalesce(sum(unknown_count), 0) unknown_count
-                  from communication_daily_campaign_metrics
+                  from communication_daily_campaign_metrics x
                 """
                         + query.where()
-                        + " group by channel order by channel",
+                        + " group by x.channel order by x.channel",
                 query.params(),
                 (rs, rowNum) -> {
                     long sent = rs.getLong("sent_count");
@@ -182,8 +182,8 @@ public class CommunicationProjectionQueryService {
         Query query = campaignQuery(tenantId, from, to, campaignId, channel, userId);
         String bucketExpression =
                 switch (bucket) {
-                    case DAY -> "business_date::timestamp at time zone 'UTC'";
-                    case WEEK -> "date_trunc('week', business_date::timestamp) at time zone 'UTC'";
+                    case DAY -> "x.business_date::timestamp at time zone 'UTC'";
+                    case WEEK -> "date_trunc('week', x.business_date::timestamp) at time zone 'UTC'";
                     case HOUR ->
                             throw new IllegalArgumentException(
                                     "Hourly projection timeseries is not supported");
@@ -485,20 +485,20 @@ public class CommunicationProjectionQueryService {
                         .addValue("toDate", toDate);
         StringBuilder where =
                 new StringBuilder(
-                        " where tenant_id = :tenantId"
-                                + " and business_date >= :fromDate"
-                                + " and business_date < :toDate");
+                        " where x.tenant_id = :tenantId"
+                                + " and x.business_date >= :fromDate"
+                                + " and x.business_date < :toDate");
         if (campaignId != null) {
             params.addValue("campaignId", campaignId);
-            where.append(" and campaign_id = :campaignId");
+            where.append(" and x.campaign_id = :campaignId");
         }
         if (channel != null && !channel.isBlank()) {
             params.addValue("channel", channel.trim().toUpperCase());
-            where.append(" and channel = :channel");
+            where.append(" and x.channel = :channel");
         }
         if (userId != null) {
             params.addValue("userId", userId);
-            where.append(" and created_by_user_id = :userId");
+            where.append(" and x.created_by_user_id = :userId");
         }
         return new Query(where.toString(), params);
     }
