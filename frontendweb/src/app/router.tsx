@@ -30,6 +30,7 @@ import { TemplatesPage } from '../pages/templates/TemplatesPage';
 import { TemplateCreatePage } from '../pages/templates/TemplateCreatePage';
 import { TemplateDetailPage } from '../pages/templates/TemplateDetailPage';
 import { TemplateVersionEditorPage } from '../pages/templates/TemplateVersionEditorPage';
+import { TemplateAssetsPage } from '../pages/templates/TemplateAssetsPage';
 
 function PlaceholderPage({ titleKey }: { titleKey: MessageKey }) {
   const { t } = useI18n();
@@ -135,6 +136,14 @@ export const router = createBrowserRouter([
         element: (
           <RequirePermission permission="TEMPLATE_MANAGE">
             <TemplateCreatePage />
+          </RequirePermission>
+        ),
+      },
+      {
+        path: 'templates/assets',
+        element: (
+          <RequirePermission permission="TEMPLATE_READ">
+            <TemplateAssetsPage />
           </RequirePermission>
         ),
       },
