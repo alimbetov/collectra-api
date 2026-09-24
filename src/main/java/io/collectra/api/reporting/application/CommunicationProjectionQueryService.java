@@ -119,7 +119,7 @@ public class CommunicationProjectionQueryService {
                        coalesce(sum(message_sent_count), 0) sent_count,
                        coalesce(sum(message_failed_count), 0) failed_count,
                        coalesce(sum(unknown_count), 0) unknown_count
-                  from communication_daily_campaign_metrics
+                  from communication_daily_campaign_metrics x
                 """
                         + query.where(),
                 query.params(),
@@ -204,7 +204,7 @@ public class CommunicationProjectionQueryService {
                        coalesce(sum(message_sent_count), 0) message_sent_count,
                        coalesce(sum(message_failed_count), 0) message_failed_count,
                        coalesce(sum(unknown_count), 0) unknown_count
-                  from communication_daily_campaign_metrics
+                  from communication_daily_campaign_metrics x
                 """
                                 .formatted(bucketExpression)
                         + query.where()
