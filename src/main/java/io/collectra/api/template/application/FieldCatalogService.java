@@ -31,8 +31,12 @@ public class FieldCatalogService {
     }
 
     @Transactional(readOnly = true)
-    public Page<FieldDefinition> catalog(UUID tenantId, int page, int size) {
-        return fields.findAvailable(tenantId, PageRequest.of(page, size));
+    public Page<FieldDefinition> catalog(UUID tenantId, String search, int page, int size) {
+        String normalized =
+                search == null || search.isBlank()
+                        ? null
+                        : "%" + search.trim().toLowerCase(Locale.ROOT) + "%";
+        return fields.findAvailable(tenantId, normalized, PageRequest.of(page, size));
     }
 
     @Transactional
