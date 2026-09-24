@@ -186,7 +186,7 @@ public class TemplateBuilderController {
                         request.subject(),
                         request.content(),
                         request.stylesheet(),
-                        request.revision()));
+                        requiredRevision(request.revision())));
     }
 
     @PutMapping("/versions/{versionId}/builder")
@@ -204,7 +204,7 @@ public class TemplateBuilderController {
                         compiled.builderJson(),
                         compiled.contentHtml(),
                         request.stylesheet(),
-                        request.revision()));
+                        requiredRevision(request.revision())));
     }
 
     @GetMapping("/versions/{versionId}")
@@ -248,6 +248,13 @@ public class TemplateBuilderController {
         assets.archive(tenant(), assetId);
     }
 
+    private long requiredRevision(Long revision) {
+        if (revision == null) {
+            throw new IllegalArgumentException("revision is required for updating a saved version");
+        }
+        return revision;
+    }
+
     private void ensureChannelUnchanged(TemplateChannel requested, TemplateVersion existing) {
         if (requested != null && requested != existing.getChannel()) {
             throw new IllegalArgumentException(
@@ -265,7 +272,7 @@ public class TemplateBuilderController {
             @Size(max = 300) String subject,
             @NotBlank String content,
             String stylesheet,
-            @NotNull @Min(0) Long revision) {
+            @Min(0) Long revision) {
         TemplateBuilderService.BuilderDraft toDraft() {
             return new TemplateBuilderService.BuilderDraft(
                     channel, locale, subject, content, stylesheet);
@@ -278,7 +285,7 @@ public class TemplateBuilderController {
             @Size(max = 300) String subject,
             @NotNull JsonNode builderJson,
             String stylesheet,
-            @NotNull @Min(0) Long revision) {
+            @Min(0) Long revision) {
         TemplateBuilderService.BuilderDocumentDraft toDraft() {
             return new TemplateBuilderService.BuilderDocumentDraft(
                     channel, locale, subject, builderJson, stylesheet);
