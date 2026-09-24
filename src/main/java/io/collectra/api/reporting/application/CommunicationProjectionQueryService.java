@@ -18,8 +18,7 @@ public class CommunicationProjectionQueryService {
     private final NamedParameterJdbcTemplate jdbc;
     private final Clock clock;
 
-    public CommunicationProjectionQueryService(
-            NamedParameterJdbcTemplate jdbc, Clock clock) {
+    public CommunicationProjectionQueryService(NamedParameterJdbcTemplate jdbc, Clock clock) {
         this.jdbc = jdbc;
         this.clock = clock;
     }
