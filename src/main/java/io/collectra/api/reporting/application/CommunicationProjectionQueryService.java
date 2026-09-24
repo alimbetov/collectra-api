@@ -5,7 +5,7 @@ import java.math.RoundingMode;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -16,26 +16,24 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class CommunicationProjectionQueryService {
     private final NamedParameterJdbcTemplate jdbc;
-    private final ZoneId businessZone;
     private final Clock clock;
 
     public CommunicationProjectionQueryService(
-            NamedParameterJdbcTemplate jdbc, ZoneId businessZone, Clock clock) {
+            NamedParameterJdbcTemplate jdbc, Clock clock) {
         this.jdbc = jdbc;
-        this.businessZone = businessZone;
         this.clock = clock;
     }
 
     @Transactional(readOnly = true)
     public boolean coversTenantRange(UUID tenantId, Instant from, Instant to) {
-        LocalDate first = from.atZone(businessZone).toLocalDate();
-        LocalDate lastExclusive = to.atZone(businessZone).toLocalDate();
+        LocalDate first = from.atZone(ZoneOffset.UTC).toLocalDate();
+        LocalDate lastExclusive = to.atZone(ZoneOffset.UTC).toLocalDate();
 
-        if (!to.atZone(businessZone).toLocalTime().equals(java.time.LocalTime.MIDNIGHT)) {
+        if (!to.atZone(ZoneOffset.UTC).toLocalTime().equals(java.time.LocalTime.MIDNIGHT)) {
             lastExclusive = lastExclusive.plusDays(1);
         }
 
-        LocalDate today = LocalDate.now(clock.withZone(businessZone));
+        LocalDate today = LocalDate.now(clock.withZone(ZoneOffset.UTC));
         if (!lastExclusive.isBefore(today.plusDays(1))) {
             return false;
         }
@@ -153,9 +151,9 @@ public class CommunicationProjectionQueryService {
 
     private Query campaignQuery(
             UUID tenantId, Instant from, Instant to, UUID campaignId, String channel, UUID userId) {
-        LocalDate fromDate = from.atZone(businessZone).toLocalDate();
-        LocalDate toDate = to.atZone(businessZone).toLocalDate();
-        if (!to.atZone(businessZone).toLocalTime().equals(java.time.LocalTime.MIDNIGHT)) {
+        LocalDate fromDate = from.atZone(ZoneOffset.UTC).toLocalDate();
+        LocalDate toDate = to.atZone(ZoneOffset.UTC).toLocalDate();
+        if (!to.atZone(ZoneOffset.UTC).toLocalTime().equals(java.time.LocalTime.MIDNIGHT)) {
             toDate = toDate.plusDays(1);
         }
 
