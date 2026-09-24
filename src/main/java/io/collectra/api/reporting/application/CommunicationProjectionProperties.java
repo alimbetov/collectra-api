@@ -1,6 +1,5 @@
 package io.collectra.api.reporting.application;
 
-import java.time.Duration;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
@@ -11,7 +10,6 @@ public class CommunicationProjectionProperties {
     private String cron = "0 20 1 * * *";
     private int reconciliationDays = 7;
     private int tenantBatchSize = 100;
-    private Duration cacheTtl = Duration.ofMinutes(5);
 
     public boolean isEnabled() {
         return enabled;
@@ -51,14 +49,5 @@ public class CommunicationProjectionProperties {
         this.tenantBatchSize = tenantBatchSize;
     }
 
-    public Duration getCacheTtl() {
-        return cacheTtl;
-    }
 
-    public void setCacheTtl(Duration cacheTtl) {
-        if (cacheTtl == null || cacheTtl.isZero() || cacheTtl.isNegative()) {
-            throw new IllegalArgumentException("cache-ttl must be positive");
-        }
-        this.cacheTtl = cacheTtl;
-    }
 }
