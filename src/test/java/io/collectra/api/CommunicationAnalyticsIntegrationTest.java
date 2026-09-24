@@ -226,6 +226,38 @@ class CommunicationAnalyticsIntegrationTest extends AbstractIntegrationTest {
                                 .queryParam("to", to.toString())
                                 .header("Authorization", bearer(second.accessToken())));
 
+        JsonNode rawChannels =
+                read(
+                        get("/api/v1/analytics/communication/channels")
+                                .queryParam("from", from.toString())
+                                .queryParam("to", to.toString())
+                                .header("Authorization", bearer(first.accessToken())));
+        JsonNode rawTimeseries =
+                read(
+                        get("/api/v1/analytics/communication/timeseries")
+                                .queryParam("from", from.toString())
+                                .queryParam("to", to.toString())
+                                .queryParam("bucket", "DAY")
+                                .header("Authorization", bearer(first.accessToken())));
+        JsonNode rawUsers =
+                read(
+                        get("/api/v1/analytics/communication/users")
+                                .queryParam("from", from.toString())
+                                .queryParam("to", to.toString())
+                                .header("Authorization", bearer(first.accessToken())));
+        JsonNode rawCampaigns =
+                read(
+                        get("/api/v1/analytics/communication/campaigns")
+                                .queryParam("from", from.toString())
+                                .queryParam("to", to.toString())
+                                .header("Authorization", bearer(first.accessToken())));
+        JsonNode rawFailures =
+                read(
+                        get("/api/v1/analytics/communication/failures")
+                                .queryParam("from", from.toString())
+                                .queryParam("to", to.toString())
+                                .header("Authorization", bearer(first.accessToken())));
+
         projectionRebuilds.rebuildTenantDay(first.tenantId(), day);
 
         JsonNode projectedFirst =
@@ -253,7 +285,44 @@ class CommunicationAnalyticsIntegrationTest extends AbstractIntegrationTest {
                                 .queryParam("from", from.toString())
                                 .queryParam("to", to.toString())
                                 .header("Authorization", bearer(first.accessToken())));
-        assertThat(projectedChannels.findValuesAsText("channel")).contains("EMAIL");
+        JsonNode projectedTimeseries =
+                read(
+                        get("/api/v1/analytics/communication/timeseries")
+                                .queryParam("from", from.toString())
+                                .queryParam("to", to.toString())
+                                .queryParam("bucket", "DAY")
+                                .header("Authorization", bearer(first.accessToken())));
+        JsonNode projectedUsers =
+                read(
+                        get("/api/v1/analytics/communication/users")
+                                .queryParam("from", from.toString())
+                                .queryParam("to", to.toString())
+                                .header("Authorization", bearer(first.accessToken())));
+        JsonNode projectedCampaigns =
+                read(
+                        get("/api/v1/analytics/communication/campaigns")
+                                .queryParam("from", from.toString())
+                                .queryParam("to", to.toString())
+                                .header("Authorization", bearer(first.accessToken())));
+        JsonNode projectedFailures =
+                read(
+                        get("/api/v1/analytics/communication/failures")
+                                .queryParam("from", from.toString())
+                                .queryParam("to", to.toString())
+                                .header("Authorization", bearer(first.accessToken())));
+
+        assertThat(projectedChannels.get("items")).isEqualTo(rawChannels.get("items"));
+        assertThat(projectedTimeseries.get("items")).isEqualTo(rawTimeseries.get("items"));
+        assertThat(projectedUsers.get("items")).isEqualTo(rawUsers.get("items"));
+        assertThat(projectedUsers.get("totalElements")).isEqualTo(rawUsers.get("totalElements"));
+        assertThat(projectedCampaigns.get("items")).isEqualTo(rawCampaigns.get("items"));
+        assertThat(projectedCampaigns.get("totalElements"))
+                .isEqualTo(rawCampaigns.get("totalElements"));
+        assertThat(projectedFailures.get("items")).isEqualTo(rawFailures.get("items"));
+        assertThat(projectedFailures.get("totalElements"))
+                .isEqualTo(rawFailures.get("totalElements"));
+
+        projectionRebuilds.rebuildTenantDay(first.tenantId(), day);
 
         Integer firstState =
                 jdbc.queryForObject(
@@ -265,6 +334,17 @@ class CommunicationAnalyticsIntegrationTest extends AbstractIntegrationTest {
                            and status = 'READY'
                         """,
                         Integer.class,
+                        first.tenantId(),
+                        day);
+        Long firstRevision =
+                jdbc.queryForObject(
+                        """
+                        select revision
+                          from communication_reporting_projection_state
+                         where tenant_id = ?
+                           and business_date = ?
+                        """,
+                        Long.class,
                         first.tenantId(),
                         day);
         Integer secondState =
@@ -281,6 +361,7 @@ class CommunicationAnalyticsIntegrationTest extends AbstractIntegrationTest {
                         day);
 
         assertThat(firstState).isEqualTo(1);
+        assertThat(firstRevision).isEqualTo(2L);
         assertThat(secondState).isZero();
     }
 
