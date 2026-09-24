@@ -828,3 +828,127 @@ button:disabled {
     flex-direction: column;
   }
 }
+
+
+/* T2 React Template Studio */
+.templates-page,
+.template-detail,
+.template-editor {
+  display: grid;
+  gap: 20px;
+}
+
+.template-editor__layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.75fr) minmax(360px, 1.6fr) minmax(280px, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.template-editor__layout > * {
+  min-width: 0;
+}
+
+.template-editor__catalog-item {
+  width: 100%;
+  display: grid;
+  justify-items: start;
+  gap: 3px;
+  margin-bottom: 6px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 9px 10px;
+  background: #fff;
+  cursor: pointer;
+  text-align: left;
+}
+
+.template-editor__catalog-item code {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.template-editor__blocks {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.template-editor__block {
+  display: grid;
+  gap: 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  padding: 12px;
+  background: #f9fafb;
+}
+
+.template-editor__block > header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.template-editor__block textarea,
+.template-editor__block input,
+.template-editor__layout textarea,
+.template-editor__layout input {
+  width: 100%;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 9px 10px;
+  font: inherit;
+}
+
+.template-editor__block textarea,
+.template-editor__layout textarea {
+  resize: vertical;
+}
+
+.template-editor__preview-frame {
+  width: 100%;
+  min-height: 420px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.template-editor__text-preview {
+  min-height: 160px;
+  overflow: auto;
+  margin: 0;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 12px;
+  background: #f9fafb;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 1180px) {
+  .template-editor__layout {
+    grid-template-columns: minmax(220px, 0.8fr) minmax(0, 1.7fr);
+  }
+
+  .template-editor__layout > aside:last-child {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 760px) {
+  .template-editor__layout {
+    grid-template-columns: 1fr;
+  }
+
+  .template-editor__layout > aside:last-child {
+    grid-column: auto;
+  }
+
+  .template-editor__block > header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
