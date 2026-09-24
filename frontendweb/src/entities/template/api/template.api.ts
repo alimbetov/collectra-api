@@ -1,4 +1,4 @@
-import { apiRequest } from '../../../shared/api/http-client';
+import { apiBlobRequest, apiRequest } from '../../../shared/api/http-client';
 import type {
   BuilderCapabilitiesDto,
   BuilderDraftCommand,
@@ -166,18 +166,12 @@ export const transitionTemplateVersion = (
     { method: 'POST' },
   );
 
-export const previewPdf = async (command: BuilderDraftCommand, payload: unknown) => {
-  const response = await fetch('/api/v1/template-builder/documents/preview-pdf', {
+export const previewPdf = (command: BuilderDraftCommand, payload: unknown) =>
+  apiBlobRequest('/api/v1/template-builder/documents/preview-pdf', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    credentials: 'include',
-    body: JSON.stringify({ draft: command, payload }),
+    headers: { Accept: 'application/pdf' },
+    body: { draft: command, payload },
   });
-  if (!response.ok) throw new Error(`PDF preview failed with status ${response.status}`);
-  return response.blob();
-};
 
 export const getTemplateOptions = (channel: string) => {
   const params = new URLSearchParams({
