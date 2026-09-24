@@ -4,7 +4,6 @@ import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 import {
   archiveTemplate,
   createBuilderVersion,
-  createTemplateVersion,
   renameTemplate,
 } from '../../entities/template/api/template.api';
 import { templateKeys, templateQueries } from '../../entities/template/api/template.queries';
@@ -105,24 +104,14 @@ export function TemplateDetailPage() {
   });
 
   const createVersionMutation = useMutation({
-    mutationFn: async () => {
-      if (channel === 'EMAIL' || channel === 'PDF') {
-        return createBuilderVersion(templateId, {
-          channel,
-          locale: versionLocale.trim(),
-          subject: channel === 'EMAIL' ? subject.trim() : null,
-          builderJson: emptyBuilderDocument(),
-          stylesheet: null,
-        });
-      }
-      return createTemplateVersion(templateId, {
+    mutationFn: () =>
+      createBuilderVersion(templateId, {
         channel,
         locale: versionLocale.trim(),
-        subject: null,
-        contentHtml: ' ',
+        subject: channel === 'EMAIL' ? subject.trim() : null,
+        builderJson: emptyBuilderDocument(),
         stylesheet: null,
-      });
-    },
+      }),
     onSuccess: async (created) => {
       await client.invalidateQueries({ queryKey: templateKeys.versionLists(templateId) });
       setCreateOpen(false);
