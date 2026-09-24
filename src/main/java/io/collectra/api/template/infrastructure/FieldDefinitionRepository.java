@@ -27,9 +27,7 @@ public interface FieldDefinitionRepository extends JpaRepository<FieldDefinition
                             + "and (:search is null or lower(f.key) like :search or lower(f.label) like :search "
                             + "or lower(f.category) like :search)")
     Page<FieldDefinition> findAvailable(
-            @Param("tenantId") UUID tenantId,
-            @Param("search") String search,
-            Pageable pageable);
+            @Param("tenantId") UUID tenantId, @Param("search") String search, Pageable pageable);
 
     boolean existsByTenantIdAndKeyIgnoreCase(UUID tenantId, String key);
 

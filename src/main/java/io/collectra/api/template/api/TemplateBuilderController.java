@@ -69,12 +69,29 @@ public class TemplateBuilderController {
                 "1.0",
                 java.util.Map.of(
                         TemplateChannel.EMAIL,
-                                List.of("header", "footer", "row", "column", "richText", "itemsTable", "image", "spacer"),
+                                List.of(
+                                        "header",
+                                        "footer",
+                                        "row",
+                                        "column",
+                                        "richText",
+                                        "itemsTable",
+                                        "image",
+                                        "spacer"),
                         TemplateChannel.PDF,
-                                List.of("header", "footer", "row", "column", "richText", "itemsTable", "image", "spacer"),
+                                List.of(
+                                        "header",
+                                        "footer",
+                                        "row",
+                                        "column",
+                                        "richText",
+                                        "itemsTable",
+                                        "image",
+                                        "spacer"),
                         TemplateChannel.SMS, List.of("header", "footer", "richText", "spacer"),
                         TemplateChannel.WHATSAPP, List.of("header", "footer", "richText", "spacer"),
-                        TemplateChannel.TELEGRAM, List.of("header", "footer", "richText", "spacer")));
+                        TemplateChannel.TELEGRAM,
+                                List.of("header", "footer", "richText", "spacer")));
     }
 
     @GetMapping("/catalog")
