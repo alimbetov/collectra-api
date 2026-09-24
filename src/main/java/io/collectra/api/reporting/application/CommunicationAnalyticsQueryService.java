@@ -355,8 +355,7 @@ public class CommunicationAnalyticsQueryService {
         }
         String runWhere = where("cr", "c", resolved, true);
         String messageWhere = where("m", "c", resolved, true);
-        String order =
-                stableOrder(orderBy(sort, USER_SORT, "sent", "desc"), "user_id");
+        String order = stableOrder(orderBy(sort, USER_SORT, "sent", "desc"), "user_id");
 
         String grouped =
                 """
@@ -486,9 +485,7 @@ public class CommunicationAnalyticsQueryService {
         }
         String where = where("cr", "c", resolved, true);
         String order =
-                stableOrder(
-                        orderBy(sort, CAMPAIGN_SORT, "lastRunAt", "desc"),
-                        "campaign_id");
+                stableOrder(orderBy(sort, CAMPAIGN_SORT, "lastRunAt", "desc"), "campaign_id");
 
         String grouped =
                 """
@@ -588,10 +585,7 @@ public class CommunicationAnalyticsQueryService {
                     projected.totalElements());
         }
         String where = attemptWhere(resolved);
-        String order =
-                stableOrder(
-                        orderBy(sort, FAILURE_SORT, "count", "desc"),
-                        "error_code");
+        String order = stableOrder(orderBy(sort, FAILURE_SORT, "count", "desc"), "error_code");
 
         String grouped =
                 """
@@ -661,10 +655,7 @@ public class CommunicationAnalyticsQueryService {
         ResolvedFilter resolved = resolve(scope, filter, false);
         String runWhere = where("cr", "c", resolved, true);
         String messageWhere = where("m", "c", resolved, true);
-        String order =
-                stableOrder(
-                        orderBy(sort, TENANT_SORT, "sent", "desc"),
-                        "tenant_id");
+        String order = stableOrder(orderBy(sort, TENANT_SORT, "sent", "desc"), "tenant_id");
 
         String grouped =
                 """

@@ -278,9 +278,7 @@ public class CommunicationProjectionQueryService {
                         """
                                 + grouped
                                 + " order by "
-                                + stableOrder(
-                                        orderBy(sort, USER_SORT, "sent", "desc"),
-                                        "user_id")
+                                + stableOrder(orderBy(sort, USER_SORT, "sent", "desc"), "user_id")
                                 + " limit :limit offset :offset",
                         params,
                         (rs, rowNum) -> {
@@ -362,11 +360,7 @@ public class CommunicationProjectionQueryService {
                                 + grouped
                                 + " order by "
                                 + stableOrder(
-                                        orderBy(
-                                                sort,
-                                                CAMPAIGN_SORT,
-                                                "lastRunAt",
-                                                "desc"),
+                                        orderBy(sort, CAMPAIGN_SORT, "lastRunAt", "desc"),
                                         "campaign_id")
                                 + " limit :limit offset :offset",
                         params,
@@ -463,8 +457,7 @@ public class CommunicationProjectionQueryService {
                                 + grouped
                                 + " order by "
                                 + stableOrder(
-                                        orderBy(sort, FAILURE_SORT, "count", "desc"),
-                                        "error_code")
+                                        orderBy(sort, FAILURE_SORT, "count", "desc"), "error_code")
                                 + " limit :limit offset :offset",
                         paged,
                         (rs, rowNum) ->
