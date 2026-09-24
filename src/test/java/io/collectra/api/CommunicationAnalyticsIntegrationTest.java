@@ -203,7 +203,7 @@ class CommunicationAnalyticsIntegrationTest extends AbstractIntegrationTest {
         Fixture first = fixture("r11-projection-one", true);
         Fixture second = fixture("r11-projection-two", true);
 
-        ZoneId zone = ZoneId.of("Asia/Almaty");
+        ZoneId zone = ZoneId.of("UTC");
         LocalDate day = LocalDate.now(zone).minusDays(1);
         Instant from = day.atStartOfDay(zone).toInstant();
         Instant to = day.plusDays(1).atStartOfDay(zone).toInstant();
