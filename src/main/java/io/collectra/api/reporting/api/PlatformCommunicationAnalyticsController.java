@@ -28,7 +28,7 @@ public class PlatformCommunicationAnalyticsController {
     }
 
     @GetMapping("/summary")
-    public CommunicationAnalyticsQueryService.Summary summary(
+    public CommunicationAnalyticsQueryService.CommunicationSummary summary(
             @RequestParam(required = false) UUID tenantId,
             @RequestParam(required = false) UUID userId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
@@ -43,7 +43,7 @@ public class PlatformCommunicationAnalyticsController {
     }
 
     @GetMapping("/timeseries")
-    public CommunicationAnalyticsQueryService.TimeSeries timeseries(
+    public CommunicationAnalyticsQueryService.CommunicationTimeSeries timeseries(
             @RequestParam(required = false) UUID tenantId,
             @RequestParam(required = false) UUID userId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
@@ -59,7 +59,7 @@ public class PlatformCommunicationAnalyticsController {
     }
 
     @GetMapping("/channels")
-    public CommunicationAnalyticsQueryService.ChannelReport channels(
+    public CommunicationAnalyticsQueryService.CommunicationChannelReport channels(
             @RequestParam(required = false) UUID tenantId,
             @RequestParam(required = false) UUID userId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
@@ -74,8 +74,8 @@ public class PlatformCommunicationAnalyticsController {
     }
 
     @GetMapping("/users")
-    public CommunicationAnalyticsQueryService.PageReport<
-                    CommunicationAnalyticsQueryService.UserItem>
+    public CommunicationAnalyticsQueryService.CommunicationPageReport<
+                    CommunicationAnalyticsQueryService.CommunicationUserItem>
             users(
                     @RequestParam(required = false) UUID tenantId,
                     @RequestParam(required = false) UUID userId,
@@ -100,8 +100,8 @@ public class PlatformCommunicationAnalyticsController {
     }
 
     @GetMapping("/campaigns")
-    public CommunicationAnalyticsQueryService.PageReport<
-                    CommunicationAnalyticsQueryService.CampaignItem>
+    public CommunicationAnalyticsQueryService.CommunicationPageReport<
+                    CommunicationAnalyticsQueryService.CommunicationCampaignItem>
             campaigns(
                     @RequestParam(required = false) UUID tenantId,
                     @RequestParam(required = false) UUID userId,
@@ -126,8 +126,8 @@ public class PlatformCommunicationAnalyticsController {
     }
 
     @GetMapping("/failures")
-    public CommunicationAnalyticsQueryService.PageReport<
-                    CommunicationAnalyticsQueryService.FailureItem>
+    public CommunicationAnalyticsQueryService.CommunicationPageReport<
+                    CommunicationAnalyticsQueryService.CommunicationFailureItem>
             failures(
                     @RequestParam(required = false) UUID tenantId,
                     @RequestParam(required = false) UUID userId,
@@ -152,7 +152,7 @@ public class PlatformCommunicationAnalyticsController {
     }
 
     @GetMapping("/documents")
-    public CommunicationAnalyticsQueryService.DocumentReport documents(
+    public CommunicationAnalyticsQueryService.CommunicationDocumentReport documents(
             @RequestParam(required = false) UUID tenantId,
             @RequestParam(required = false) UUID userId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
@@ -167,8 +167,8 @@ public class PlatformCommunicationAnalyticsController {
     }
 
     @GetMapping("/tenants")
-    public CommunicationAnalyticsQueryService.PageReport<
-                    CommunicationAnalyticsQueryService.TenantItem>
+    public CommunicationAnalyticsQueryService.CommunicationPageReport<
+                    CommunicationAnalyticsQueryService.CommunicationTenantItem>
             tenants(
                     @RequestParam(required = false) UUID tenantId,
                     @RequestParam(required = false) UUID userId,
