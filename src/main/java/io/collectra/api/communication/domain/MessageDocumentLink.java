@@ -109,6 +109,10 @@ public class MessageDocumentLink {
         return true;
     }
 
+    public UUID getId() {
+        return id;
+    }
+
     public UUID getTenantId() {
         return tenantId;
     }
