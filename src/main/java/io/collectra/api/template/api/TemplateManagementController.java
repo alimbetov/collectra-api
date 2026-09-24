@@ -18,6 +18,7 @@ import io.collectra.api.template.domain.TemplateVersionStatus;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.time.Instant;
 import java.util.UUID;
@@ -97,21 +98,14 @@ public class TemplateManagementController {
     @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('TEMPLATE_MANAGE')")
     TemplateResponse rename(@PathVariable UUID id, @Valid @RequestBody RenameRequest request) {
         return TemplateResponse.from(
-                request.revision() == null
-                        ? service.rename(tenant(), id, request.name())
-                        : mutations.rename(tenant(), id, request.name(), request.revision()));
+                mutations.rename(tenant(), id, request.name(), request.revision()));
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('TEMPLATE_MANAGE')")
-    void archiveTemplate(
-            @PathVariable UUID id, @RequestParam(required = false) @Min(0) Long revision) {
-        if (revision == null) {
-            service.archiveTemplate(tenant(), id);
-        } else {
-            mutations.archiveTemplate(tenant(), id, revision);
-        }
+    void archiveTemplate(@PathVariable UUID id, @RequestParam @Min(0) long revision) {
+        mutations.archiveTemplate(tenant(), id, revision);
     }
 
     @GetMapping("/{id}/versions")
@@ -151,29 +145,20 @@ public class TemplateManagementController {
     @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('TEMPLATE_MANAGE')")
     VersionResponse update(@PathVariable UUID id, @Valid @RequestBody VersionContent request) {
         return VersionResponse.from(
-                request.revision() == null
-                        ? service.update(
-                                tenant(),
-                                id,
-                                request.subject(),
-                                request.contentHtml(),
-                                request.stylesheet())
-                        : mutations.update(
-                                tenant(),
-                                id,
-                                request.subject(),
-                                request.contentHtml(),
-                                request.stylesheet(),
-                                request.revision()));
+                mutations.update(
+                        tenant(),
+                        id,
+                        request.subject(),
+                        request.contentHtml(),
+                        request.stylesheet(),
+                        request.revision()));
     }
 
     @PostMapping("/versions/{id}/validate")
     @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('TEMPLATE_MANAGE')")
     SourceSchemaManagementService.ValidationResult validate(
-            @PathVariable UUID id, @RequestParam(required = false) @Min(0) Long revision) {
-        return revision == null
-                ? service.validate(tenant(), id)
-                : mutations.validate(tenant(), id, revision);
+            @PathVariable UUID id, @RequestParam @Min(0) long revision) {
+        return mutations.validate(tenant(), id, revision);
     }
 
     @PostMapping("/versions/{id}/preview")
@@ -187,21 +172,12 @@ public class TemplateManagementController {
     VersionResponse transition(
             @PathVariable UUID id,
             @PathVariable String action,
-            @RequestParam(required = false) @Min(0) Long revision) {
+            @RequestParam @Min(0) long revision) {
         TemplateVersion value =
                 switch (action) {
-                    case "publish" ->
-                            revision == null
-                                    ? service.publish(tenant(), id)
-                                    : mutations.publish(tenant(), id, revision);
-                    case "reopen" ->
-                            revision == null
-                                    ? service.reopen(tenant(), id)
-                                    : mutations.reopen(tenant(), id, revision);
-                    case "archive" ->
-                            revision == null
-                                    ? service.archive(tenant(), id)
-                                    : mutations.archive(tenant(), id, revision);
+                    case "publish" -> mutations.publish(tenant(), id, revision);
+                    case "reopen" -> mutations.reopen(tenant(), id, revision);
+                    case "archive" -> mutations.archive(tenant(), id, revision);
                     default -> throw new IllegalArgumentException("Unsupported transition");
                 };
         return VersionResponse.from(value);
@@ -216,7 +192,7 @@ public class TemplateManagementController {
             @NotBlank @Size(max = 200) String name,
             @NotBlank @Size(max = 50) String documentType) {}
 
-    record RenameRequest(@NotBlank @Size(max = 200) String name, @Min(0) Long revision) {}
+    record RenameRequest(@NotBlank @Size(max = 200) String name, @NotNull @Min(0) Long revision) {}
 
     record VersionRequest(
             @NotBlank @Size(max = 35) String locale,
@@ -229,7 +205,7 @@ public class TemplateManagementController {
             @Size(max = 300) String subject,
             @NotBlank String contentHtml,
             String stylesheet,
-            @Min(0) Long revision) {}
+            @NotNull @Min(0) Long revision) {}
 
     record TemplateResponse(
             UUID id,

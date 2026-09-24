@@ -1,7 +1,7 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
-import { ApiError, apiRequest } from './http-client';
+import { ApiError, apiBlobRequest, apiRequest } from './http-client';
 
 const server = setupServer();
 
@@ -67,5 +67,29 @@ describe('apiRequest', () => {
     await expect(
       apiRequest<void>('http://localhost/api/test', { method: 'DELETE' }),
     ).resolves.toBeUndefined();
+  });
+});
+
+
+describe('apiBlobRequest', () => {
+  it('preserves explicit Accept header and returns binary content', async () => {
+    server.use(
+      http.post('http://localhost/api/pdf', async ({ request }) => {
+        expect(request.headers.get('accept')).toBe('application/pdf');
+        return new HttpResponse(new Uint8Array([37, 80, 68, 70]), {
+          status: 200,
+          headers: { 'Content-Type': 'application/pdf' },
+        });
+      }),
+    );
+
+    const blob = await apiBlobRequest('http://localhost/api/pdf', {
+      method: 'POST',
+      headers: { Accept: 'application/pdf' },
+      body: { draft: {}, payload: {} },
+    });
+
+    expect(blob.type).toBe('application/pdf');
+    expect(blob.size).toBe(4);
   });
 });

@@ -26,6 +26,11 @@ import { ContractDetailPage } from '../pages/contracts/ContractDetailPage';
 import { CampaignsPage } from '../pages/campaigns/CampaignsPage';
 import { CampaignDetailPage } from '../pages/campaigns/CampaignDetailPage';
 import { CampaignRunPage } from '../pages/campaigns/CampaignRunPage';
+import { TemplatesPage } from '../pages/templates/TemplatesPage';
+import { TemplateCreatePage } from '../pages/templates/TemplateCreatePage';
+import { TemplateDetailPage } from '../pages/templates/TemplateDetailPage';
+import { TemplateVersionEditorPage } from '../pages/templates/TemplateVersionEditorPage';
+import { TemplateAssetsPage } from '../pages/templates/TemplateAssetsPage';
 
 function PlaceholderPage({ titleKey }: { titleKey: MessageKey }) {
   const { t } = useI18n();
@@ -122,7 +127,47 @@ export const router = createBrowserRouter([
         path: 'templates',
         element: (
           <RequirePermission permission="TEMPLATE_READ">
-            <PlaceholderPage titleKey="navigation.templates" />
+            <TemplatesPage />
+          </RequirePermission>
+        ),
+      },
+      {
+        path: 'templates/new',
+        element: (
+          <RequirePermission permission="TEMPLATE_MANAGE">
+            <TemplateCreatePage />
+          </RequirePermission>
+        ),
+      },
+      {
+        path: 'templates/assets',
+        element: (
+          <RequirePermission permission="TEMPLATE_READ">
+            <TemplateAssetsPage />
+          </RequirePermission>
+        ),
+      },
+      {
+        path: 'templates/:templateId',
+        element: (
+          <RequirePermission permission="TEMPLATE_READ">
+            <TemplateDetailPage />
+          </RequirePermission>
+        ),
+      },
+      {
+        path: 'templates/:templateId/versions/:versionId',
+        element: (
+          <RequirePermission permission="TEMPLATE_READ">
+            <TemplateVersionEditorPage />
+          </RequirePermission>
+        ),
+      },
+      {
+        path: 'templates/:templateId/versions/:versionId/builder',
+        element: (
+          <RequirePermission permission="TEMPLATE_READ">
+            <TemplateVersionEditorPage />
           </RequirePermission>
         ),
       },
