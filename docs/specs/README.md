@@ -4,8 +4,15 @@
 
 Главный roadmap: [`../roadmap/backend-mvp-roadmap.md`](../roadmap/backend-mvp-roadmap.md).
 
-Next frontend implementation contract:
-[`frontendweb-fw05-receivables.md`](frontendweb-fw05-receivables.md).
+Next active self-service implementation contract:
+
+[React Template Studio — T2 implementation-ready](template-studio-t2-implementation-ready.md).
+
+Readiness audit against current `main`:
+[Template Studio T2 readiness audit — 2026-09-24](template-studio-t2-readiness-audit-2026-09-24.md).
+
+Historical FW9/F2 documents remain reference material only and MUST NOT override the T2 implementation-ready contract above.
+
 
 Business frontend implementation plan:
 [`frontendweb-fw03-fw12-plan.md`](frontendweb-fw03-fw12-plan.md). Он индексирует
