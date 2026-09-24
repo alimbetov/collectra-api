@@ -105,7 +105,7 @@ public class PlatformUserLifecycleService {
     }
 
     @Transactional
-    public int revokeAllSessions(UUID actorId, UUID membershipId, String reason) {
+    public TenantMembership revokeAllSessions(UUID actorId, UUID membershipId, String reason) {
         TenantMembership membership =
                 memberships
                         .findByIdForUpdate(membershipId)
@@ -130,6 +130,6 @@ public class PlatformUserLifecycleService {
                 "TENANT_MEMBERSHIP_SESSIONS_REVOKED",
                 "SUCCEEDED",
                 reason);
-        return revoked;
+        return membership;
     }
 }
