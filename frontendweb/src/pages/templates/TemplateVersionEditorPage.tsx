@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, Navigate, useParams } from 'react-router-dom';
+import { Link, Navigate, useBlocker, useParams } from 'react-router-dom';
 import {
   previewBuilderDraft,
   previewPdf,
@@ -24,7 +24,7 @@ import { useAuth } from '../../features/auth/model/auth-context';
 import { ApiError } from '../../shared/api/http-client';
 import { ProblemDetailPanel } from '../../shared/errors/ProblemDetailPanel';
 import { useI18n } from '../../shared/i18n/i18n-context';
-import { Alert, Button, Spinner, StatusBadge } from '../../shared/ui';
+import { Alert, Button, ConfirmDialog, Spinner, StatusBadge } from '../../shared/ui';
 
 const DEFAULT_SAMPLE = '{\\n  "customer": {"name":"ACME","displayName":"ACME"},\\n  "invoice": {"invoiceNumber":"INV-2026-001","outstandingAmount":125000,"currency":"KZT"},\\n  "items": [{"name":"Service A","amount":125000}]\\n}';
 
@@ -38,8 +38,8 @@ export function TemplateVersionEditorPage() {
 
   const version = useQuery(templateQueries.version(versionId));
   const capabilities = useQuery(templateQueries.capabilities());
-  const fields = useQuery(templateQueries.fields(0, 200));
-  const assets = useQuery(templateQueries.assets(0, 200));
+  const fields = useQuery(templateQueries.fields(0, 50, fieldSearch));
+  const assets = useQuery(templateQueries.assets(0, 50, assetSearch));
 
   const [document, setDocument] = useState<BuilderDocumentDto | null>(null);
   const [subject, setSubject] = useState('');
@@ -50,6 +50,8 @@ export function TemplateVersionEditorPage() {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [conflict, setConflict] = useState(false);
   const [operationError, setOperationError] = useState<unknown>(null);
+  const [fieldSearch, setFieldSearch] = useState('');
+  const [assetSearch, setAssetSearch] = useState('');
   const initializedVersionRef = useRef<string | null>(null);
   const previewSequence = useRef(0);
 
@@ -85,6 +87,10 @@ export function TemplateVersionEditorPage() {
   );
   const dirty = Boolean(serverProjection && localProjection && serverProjection !== localProjection);
   const readOnly = version.data?.status !== 'DRAFT' || !canManage;
+
+  const blocker = useBlocker(({ currentLocation, nextLocation }) =>
+    dirty && currentLocation.pathname !== nextLocation.pathname,
+  );
 
   useEffect(() => {
     if (!dirty) return;
@@ -330,6 +336,12 @@ export function TemplateVersionEditorPage() {
         <Alert variant="danger">
           <strong>{t('templates.conflictTitle')}</strong>
           <p>{t('templates.conflictDescription')}</p>
+          <p className="muted-text">
+            {t('templates.conflictMeta')
+              .replace('{local}', String(data.revision))
+              .replace('{server}', String(version.data?.revision ?? data.revision))
+              .replace('{updatedAt}', version.data?.updatedAt ?? data.updatedAt)}
+          </p>
           <div className="campaign-form__actions">
             <Button
               variant="secondary"
@@ -356,7 +368,7 @@ export function TemplateVersionEditorPage() {
         <aside className="customer-detail-card">
           <h2>{t('templates.blocks')}</h2>
           <div className="campaign-form__actions">
-            {availableBlocks(data.channel).map((type) => (
+            {(capabilities.data?.blockSupport[data.channel] ?? []).map((type) => (
               <Button key={type} type="button" variant="secondary" disabled={readOnly} onClick={() => addBlock(type)}>
                 {'+ ' + type}
               </Button>
@@ -364,6 +376,11 @@ export function TemplateVersionEditorPage() {
           </div>
 
           <h2>{t('templates.variables')}</h2>
+          <input
+            value={fieldSearch}
+            placeholder={t('templates.catalogSearch')}
+            onChange={(event) => setFieldSearch(event.target.value)}
+          />
           {fields.isLoading ? <Spinner label={t('templates.loadingFields')} /> : null}
           {fields.data?.items.map((field) => (
             <button
@@ -382,6 +399,11 @@ export function TemplateVersionEditorPage() {
           {!isText(data.channel) ? (
             <>
               <h2>{t('templates.assets')}</h2>
+              <input
+                value={assetSearch}
+                placeholder={t('templates.catalogSearch')}
+                onChange={(event) => setAssetSearch(event.target.value)}
+              />
               {assets.data?.items.map((asset) => (
                 <button
                   key={asset.id}
@@ -490,6 +512,18 @@ export function TemplateVersionEditorPage() {
           ) : null}
         </aside>
       </div>
+      <ConfirmDialog
+        open={blocker.state === 'blocked'}
+        title={t('templates.leaveTitle')}
+        confirmLabel={t('templates.leaveConfirm')}
+        cancelLabel={t('templates.cancel')}
+        closeLabel={t('templates.close')}
+        destructive
+        onCancel={() => blocker.reset?.()}
+        onConfirm={() => blocker.proceed?.()}
+      >
+        <p>{t('templates.leaveDescription')}</p>
+      </ConfirmDialog>
     </div>
   );
 }
@@ -565,12 +599,6 @@ function projection(value: BuilderVersionDto): string {
 
 function isText(channel: TemplateChannel) {
   return channel === 'SMS' || channel === 'WHATSAPP' || channel === 'TELEGRAM';
-}
-
-function availableBlocks(channel: TemplateChannel): BuilderBlockDto['type'][] {
-  return isText(channel)
-    ? ['richText', 'spacer']
-    : ['richText', 'itemsTable', 'spacer'];
 }
 
 function newBlock(type: BuilderBlockDto['type'], channel: TemplateChannel): BuilderBlockDto {
