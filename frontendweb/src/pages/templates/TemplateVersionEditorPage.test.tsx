@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   getBuilderCapabilities,
@@ -70,6 +70,13 @@ beforeEach(() => {
     eachSyntax: '{{#each items}}...{{/each}}',
     assetSyntax: '{{asset.<key>}}',
     builderSchemaVersion: '1.0',
+    blockSupport: {
+      EMAIL: ['header', 'footer', 'row', 'column', 'richText', 'itemsTable', 'image', 'spacer'],
+      PDF: ['header', 'footer', 'row', 'column', 'richText', 'itemsTable', 'image', 'spacer'],
+      SMS: ['header', 'footer', 'richText', 'spacer'],
+      WHATSAPP: ['header', 'footer', 'richText', 'spacer'],
+      TELEGRAM: ['header', 'footer', 'richText', 'spacer'],
+    },
   });
   vi.mocked(getTemplateFields).mockResolvedValue({
     items: [],
@@ -89,21 +96,24 @@ beforeEach(() => {
 
 function renderPage() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const router = createMemoryRouter(
+    [
+      {
+        path: '/templates/:templateId/versions/:versionId/builder',
+        element: <TemplateVersionEditorPage />,
+      },
+      { path: '/templates/:templateId', element: <div>Template detail</div> },
+    ],
+    {
+      initialEntries: [
+        '/templates/11111111-1111-1111-1111-111111111111/versions/22222222-2222-2222-2222-222222222222/builder',
+      ],
+    },
+  );
   return render(
     <QueryClientProvider client={client}>
       <I18nProvider requestedLocale="ru" requestedTimeZone="UTC">
-        <MemoryRouter
-          initialEntries={[
-            '/templates/11111111-1111-1111-1111-111111111111/versions/22222222-2222-2222-2222-222222222222/builder',
-          ]}
-        >
-          <Routes>
-            <Route
-              path="/templates/:templateId/versions/:versionId/builder"
-              element={<TemplateVersionEditorPage />}
-            />
-          </Routes>
-        </MemoryRouter>
+        <RouterProvider router={router} />
       </I18nProvider>
     </QueryClientProvider>,
   );
