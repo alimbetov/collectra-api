@@ -48,7 +48,11 @@ export function TemplateVersionEditorPage() {
   const [validation, setValidation] = useState<TemplateValidationResultDto | null>(null);
   const [preview, setPreview] = useState<TemplatePreviewDto | null>(null);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
-  const [conflict, setConflict] = useState(false);
+  const [conflict, setConflict] = useState<{
+    localRevision: number;
+    serverRevision: number;
+    serverUpdatedAt: string;
+  } | null>(null);
   const [operationError, setOperationError] = useState<unknown>(null);
   const [fieldSearch, setFieldSearch] = useState('');
   const [assetSearch, setAssetSearch] = useState('');
@@ -67,7 +71,7 @@ export function TemplateVersionEditorPage() {
     );
     setSubject(data.subject ?? '');
     setStylesheet(data.stylesheet ?? '');
-    setConflict(false);
+    setConflict(null);
   }, [version.data]);
 
   useEffect(
@@ -119,7 +123,7 @@ export function TemplateVersionEditorPage() {
     onSuccess: async (saved) => {
       client.setQueryData(templateKeys.version(versionId), saved);
       initializedVersionRef.current = null;
-      setConflict(false);
+      setConflict(null);
       setValidation(null);
       setOperationError(null);
       await Promise.all([
@@ -130,8 +134,13 @@ export function TemplateVersionEditorPage() {
     onError: async (error) => {
       setOperationError(error);
       if (error instanceof ApiError && error.problem?.code === 'VERSION_CONFLICT') {
-        setConflict(true);
-        await version.refetch();
+        const localRevision = version.data?.revision ?? 0;
+        const refreshed = await version.refetch();
+        setConflict({
+          localRevision,
+          serverRevision: refreshed.data?.revision ?? localRevision,
+          serverUpdatedAt: refreshed.data?.updatedAt ?? version.data?.updatedAt ?? '',
+        });
       }
     },
   });
@@ -158,8 +167,13 @@ export function TemplateVersionEditorPage() {
     onError: async (error) => {
       setOperationError(error);
       if (error instanceof ApiError && error.problem?.code === 'VERSION_CONFLICT') {
-        setConflict(true);
-        await version.refetch();
+        const localRevision = version.data?.revision ?? 0;
+        const refreshed = await version.refetch();
+        setConflict({
+          localRevision,
+          serverRevision: refreshed.data?.revision ?? localRevision,
+          serverUpdatedAt: refreshed.data?.updatedAt ?? version.data?.updatedAt ?? '',
+        });
       }
     },
   });
@@ -203,7 +217,7 @@ export function TemplateVersionEditorPage() {
     onSuccess: async (updated) => {
       client.setQueryData(templateKeys.version(versionId), updated);
       initializedVersionRef.current = null;
-      setConflict(false);
+      setConflict(null);
       await Promise.all([
         client.invalidateQueries({ queryKey: templateKeys.versionLists(templateId) }),
         client.invalidateQueries({ queryKey: templateKeys.lists() }),
@@ -214,8 +228,13 @@ export function TemplateVersionEditorPage() {
     onError: async (error) => {
       setOperationError(error);
       if (error instanceof ApiError && error.problem?.code === 'VERSION_CONFLICT') {
-        setConflict(true);
-        await version.refetch();
+        const localRevision = version.data?.revision ?? 0;
+        const refreshed = await version.refetch();
+        setConflict({
+          localRevision,
+          serverRevision: refreshed.data?.revision ?? localRevision,
+          serverUpdatedAt: refreshed.data?.updatedAt ?? version.data?.updatedAt ?? '',
+        });
       }
     },
   });
@@ -312,7 +331,7 @@ export function TemplateVersionEditorPage() {
               <Button variant="secondary" loading={previewMutation.isPending} onClick={() => previewMutation.mutate()}>
                 {t('templates.preview')}
               </Button>
-              <Button loading={saveMutation.isPending} disabled={!dirty || conflict} onClick={() => saveMutation.mutate()}>
+              <Button loading={saveMutation.isPending} disabled={!dirty || Boolean(conflict)} onClick={() => saveMutation.mutate()}>
                 {t('templates.save')}
               </Button>
               <Button variant="secondary" loading={savedValidationMutation.isPending} disabled={dirty} onClick={() => savedValidationMutation.mutate()}>
@@ -338,9 +357,9 @@ export function TemplateVersionEditorPage() {
           <p>{t('templates.conflictDescription')}</p>
           <p className="muted-text">
             {t('templates.conflictMeta')
-              .replace('{local}', String(data.revision))
-              .replace('{server}', String(version.data?.revision ?? data.revision))
-              .replace('{updatedAt}', version.data?.updatedAt ?? data.updatedAt)}
+              .replace('{local}', String(conflict.localRevision))
+              .replace('{server}', String(conflict.serverRevision))
+              .replace('{updatedAt}', conflict.serverUpdatedAt)}
           </p>
           <div className="campaign-form__actions">
             <Button
@@ -352,7 +371,7 @@ export function TemplateVersionEditorPage() {
                   setSubject(version.data.subject ?? '');
                   setStylesheet(version.data.stylesheet ?? '');
                 }
-                setConflict(false);
+                setConflict(null);
               }}
             >
               {t('templates.reloadServer')}
