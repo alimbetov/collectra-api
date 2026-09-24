@@ -2,7 +2,6 @@ package io.collectra.api.reporting.application;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -67,12 +66,7 @@ public class CommunicationProjectionQueryService {
 
     @Transactional(readOnly = true)
     public CommunicationAnalyticsQueryService.BusinessTotals businessTotals(
-            UUID tenantId,
-            Instant from,
-            Instant to,
-            UUID campaignId,
-            String channel,
-            UUID userId) {
+            UUID tenantId, Instant from, Instant to, UUID campaignId, String channel, UUID userId) {
         Query query = campaignQuery(tenantId, from, to, campaignId, channel, userId);
         return jdbc.queryForObject(
                 """
@@ -96,12 +90,7 @@ public class CommunicationProjectionQueryService {
 
     @Transactional(readOnly = true)
     public CommunicationAnalyticsQueryService.MessageStates messageStates(
-            UUID tenantId,
-            Instant from,
-            Instant to,
-            UUID campaignId,
-            String channel,
-            UUID userId) {
+            UUID tenantId, Instant from, Instant to, UUID campaignId, String channel, UUID userId) {
         Query query = campaignQuery(tenantId, from, to, campaignId, channel, userId);
         return jdbc.queryForObject(
                 """
@@ -127,12 +116,7 @@ public class CommunicationProjectionQueryService {
 
     @Transactional(readOnly = true)
     public List<CommunicationAnalyticsQueryService.CommunicationChannelItem> channels(
-            UUID tenantId,
-            Instant from,
-            Instant to,
-            UUID campaignId,
-            String channel,
-            UUID userId) {
+            UUID tenantId, Instant from, Instant to, UUID campaignId, String channel, UUID userId) {
         Query query = campaignQuery(tenantId, from, to, campaignId, channel, userId);
         return jdbc.query(
                 """
@@ -168,12 +152,7 @@ public class CommunicationProjectionQueryService {
     }
 
     private Query campaignQuery(
-            UUID tenantId,
-            Instant from,
-            Instant to,
-            UUID campaignId,
-            String channel,
-            UUID userId) {
+            UUID tenantId, Instant from, Instant to, UUID campaignId, String channel, UUID userId) {
         LocalDate fromDate = from.atZone(businessZone).toLocalDate();
         LocalDate toDate = to.atZone(businessZone).toLocalDate();
         if (!to.atZone(businessZone).toLocalTime().equals(java.time.LocalTime.MIDNIGHT)) {

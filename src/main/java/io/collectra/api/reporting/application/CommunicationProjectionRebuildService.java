@@ -90,12 +90,7 @@ public class CommunicationProjectionRebuildService {
                     ready);
 
             return new RebuildResult(
-                    tenantId,
-                    businessDate,
-                    campaignRows,
-                    failureRows,
-                    watermark,
-                    calculatedAt);
+                    tenantId, businessDate, campaignRows, failureRows, watermark, calculatedAt);
         } catch (RuntimeException ex) {
             stateService.markFailed(tenantId, businessDate, calculatedAt, ex.getMessage());
             throw ex;

@@ -10,11 +10,10 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 @Component
-@ConditionalOnProperty(
-        name = "collectra.reporting.projections.enabled",
-        havingValue = "true")
+@ConditionalOnProperty(name = "collectra.reporting.projections.enabled", havingValue = "true")
 public class CommunicationProjectionScheduler {
-    private static final Logger log = LoggerFactory.getLogger(CommunicationProjectionScheduler.class);
+    private static final Logger log =
+            LoggerFactory.getLogger(CommunicationProjectionScheduler.class);
 
     private final TenantRepository tenants;
     private final CommunicationProjectionRebuildService rebuilds;
@@ -38,8 +37,7 @@ public class CommunicationProjectionScheduler {
 
         int page = 0;
         while (true) {
-            var tenantPage =
-                    tenants.findAll(PageRequest.of(page, properties.getTenantBatchSize()));
+            var tenantPage = tenants.findAll(PageRequest.of(page, properties.getTenantBatchSize()));
             tenantPage.stream()
                     .filter(tenant -> tenant.active())
                     .forEach(

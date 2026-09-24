@@ -101,19 +101,13 @@ public class CommunicationAnalyticsQueryService {
 
             if (hybrid.leading() != null) {
                 ResolvedFilter leading =
-                        withRange(
-                                resolved,
-                                hybrid.leading().from(),
-                                hybrid.leading().to());
+                        withRange(resolved, hybrid.leading().from(), hybrid.leading().to());
                 business = add(business, businessTotals(leading));
                 states = add(states, messageStates(leading));
             }
             if (hybrid.trailing() != null) {
                 ResolvedFilter trailing =
-                        withRange(
-                                resolved,
-                                hybrid.trailing().from(),
-                                hybrid.trailing().to());
+                        withRange(resolved, hybrid.trailing().from(), hybrid.trailing().to());
                 business = add(business, businessTotals(trailing));
                 states = add(states, messageStates(trailing));
             }
@@ -900,8 +894,7 @@ public class CommunicationAnalyticsQueryService {
                 java.time.LocalDate.now(clock.withZone(businessZone))
                         .atStartOfDay(businessZone)
                         .toInstant();
-        Instant historicalLimit =
-                resolved.to().isBefore(todayStart) ? resolved.to() : todayStart;
+        Instant historicalLimit = resolved.to().isBefore(todayStart) ? resolved.to() : todayStart;
 
         Instant historicalFrom = ceilBusinessDay(resolved.from());
         Instant historicalTo = floorBusinessDay(historicalLimit);
@@ -909,8 +902,7 @@ public class CommunicationAnalyticsQueryService {
         if (!historicalFrom.isBefore(historicalTo)) {
             return null;
         }
-        if (!projections.coversTenantRange(
-                resolved.tenantId(), historicalFrom, historicalTo)) {
+        if (!projections.coversTenantRange(resolved.tenantId(), historicalFrom, historicalTo)) {
             return null;
         }
 
@@ -979,8 +971,14 @@ public class CommunicationAnalyticsQueryService {
     private List<CommunicationChannelItem> mergeChannels(
             List<CommunicationChannelItem> historical, List<CommunicationChannelItem> live) {
         Map<String, ChannelAccumulator> merged = new LinkedHashMap<>();
-        historical.forEach(item -> merged.computeIfAbsent(item.channel(), key -> new ChannelAccumulator()).add(item));
-        live.forEach(item -> merged.computeIfAbsent(item.channel(), key -> new ChannelAccumulator()).add(item));
+        historical.forEach(
+                item ->
+                        merged.computeIfAbsent(item.channel(), key -> new ChannelAccumulator())
+                                .add(item));
+        live.forEach(
+                item ->
+                        merged.computeIfAbsent(item.channel(), key -> new ChannelAccumulator())
+                                .add(item));
 
         return merged.entrySet().stream()
                 .sorted(Map.Entry.comparingByKey())
