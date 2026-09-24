@@ -17,16 +17,19 @@ public class CommunicationProjectionRebuildService {
     private final NamedParameterJdbcTemplate jdbc;
     private final Clock clock;
     private final CommunicationProjectionStateService stateService;
+    private final CommunicationProjectionProperties properties;
     private final TransactionTemplate transactions;
 
     public CommunicationProjectionRebuildService(
             NamedParameterJdbcTemplate jdbc,
             Clock clock,
             CommunicationProjectionStateService stateService,
+            CommunicationProjectionProperties properties,
             PlatformTransactionManager transactionManager) {
         this.jdbc = jdbc;
         this.clock = clock;
         this.stateService = stateService;
+        this.properties = properties;
         this.transactions = new TransactionTemplate(transactionManager);
     }
 
@@ -43,7 +46,15 @@ public class CommunicationProjectionRebuildService {
                         .addValue("to", Timestamp.from(to))
                         .addValue("calculatedAt", Timestamp.from(calculatedAt));
 
-        stateService.markBuilding(tenantId, businessDate, calculatedAt);
+        boolean claimed =
+                stateService.tryMarkBuilding(
+                        tenantId,
+                        businessDate,
+                        calculatedAt,
+                        calculatedAt.minus(properties.getBuildingTimeout()));
+        if (!claimed) {
+            return RebuildResult.skipped(tenantId, businessDate, calculatedAt);
+        }
 
         try {
             return transactions.execute(
@@ -285,5 +296,29 @@ public class CommunicationProjectionRebuildService {
             int campaignRows,
             int failureRows,
             Instant sourceWatermark,
-            Instant calculatedAt) {}
+            Instant calculatedAt,
+            boolean lockSkipped) {
+        public RebuildResult(
+                UUID tenantId,
+                LocalDate businessDate,
+                int campaignRows,
+                int failureRows,
+                Instant sourceWatermark,
+                Instant calculatedAt) {
+            this(
+                    tenantId,
+                    businessDate,
+                    campaignRows,
+                    failureRows,
+                    sourceWatermark,
+                    calculatedAt,
+                    false);
+        }
+
+        static RebuildResult skipped(
+                UUID tenantId, LocalDate businessDate, Instant calculatedAt) {
+            return new RebuildResult(
+                    tenantId, businessDate, 0, 0, null, calculatedAt, true);
+        }
+    }
 }
