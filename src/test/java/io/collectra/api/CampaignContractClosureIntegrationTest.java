@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.collectra.api.campaign.application.CampaignFrontendQueryService;
+import io.collectra.api.campaign.application.CampaignPreviewService;
 import io.collectra.api.campaign.application.CampaignSelection;
 import io.collectra.api.campaign.application.CampaignService;
 import io.collectra.api.campaign.infrastructure.CampaignRepository;
@@ -33,6 +35,8 @@ class CampaignContractClosureIntegrationTest extends AbstractIntegrationTest {
     @Autowired TemplateVersionRepository versions;
     @Autowired CustomerService customers;
     @Autowired CampaignService campaigns;
+    @Autowired CampaignFrontendQueryService campaignQueries;
+    @Autowired CampaignPreviewService campaignPreview;
     @Autowired CampaignRepository campaignRepository;
     @Autowired ObjectMapper json;
 
@@ -107,6 +111,41 @@ class CampaignContractClosureIntegrationTest extends AbstractIntegrationTest {
                 .isInstanceOf(BusinessConflictException.class)
                 .extracting("code")
                 .isEqualTo("VERSION_CONFLICT");
+    }
+
+    @Test
+    @Transactional
+    void previewValidationAndDirectRunAreEndToEndConsistent() {
+        Fixture fixture = fixture();
+
+        var campaign =
+                campaigns.create(
+                        fixture.tenantId(),
+                        "End-to-end campaign",
+                        fixture.templateVersionId(),
+                        "EMAIL",
+                        null,
+                        CampaignSelection.customer(Set.of(fixture.customerId()), Set.of()),
+                        null);
+
+        var validation = campaigns.validate(fixture.tenantId(), campaign.getId());
+        assertThat(validation.valid()).isTrue();
+        assertThat(validation.errors()).isEmpty();
+
+        var preview = campaignPreview.preview(fixture.tenantId(), campaign.getId(), null, null);
+        assertThat(preview.customerId()).isEqualTo(fixture.customerId());
+        assertThat(preview.channel().name()).isEqualTo("EMAIL");
+        assertThat(preview.destination()).contains("***");
+        assertThat(preview.body()).contains("Customer");
+
+        campaigns.activate(fixture.tenantId(), campaign.getId(), campaign.getVersion());
+        UUID commandId = UUID.randomUUID();
+        var prepared = campaigns.prepare(fixture.tenantId(), campaign.getId(), commandId);
+        var run = campaignQueries.run(fixture.tenantId(), campaign.getId(), prepared.runId());
+
+        assertThat(run.campaignId()).isEqualTo(campaign.getId());
+        assertThat(run.recipientCount()).isEqualTo(1);
+        assertThat(run.pendingCount()).isEqualTo(1);
     }
 
     private Fixture fixture() {
