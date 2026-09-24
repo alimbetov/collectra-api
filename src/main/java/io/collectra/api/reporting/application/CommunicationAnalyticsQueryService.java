@@ -82,7 +82,7 @@ public class CommunicationAnalyticsQueryService {
 
         HybridRange hybrid = hybridRange(resolved);
         if (hybrid != null) {
-            BusinessTotals historicalBusiness =
+            business =
                     projections.businessTotals(
                             resolved.tenantId(),
                             hybrid.historicalFrom(),
@@ -90,7 +90,7 @@ public class CommunicationAnalyticsQueryService {
                             resolved.campaignId(),
                             resolved.channel(),
                             resolved.userId());
-            MessageStates historicalStates =
+            states =
                     projections.messageStates(
                             resolved.tenantId(),
                             hybrid.historicalFrom(),
@@ -99,13 +99,23 @@ public class CommunicationAnalyticsQueryService {
                             resolved.channel(),
                             resolved.userId());
 
-            if (hybrid.liveFrom() != null) {
-                ResolvedFilter live = withRange(resolved, hybrid.liveFrom(), resolved.to());
-                business = add(historicalBusiness, businessTotals(live));
-                states = add(historicalStates, messageStates(live));
-            } else {
-                business = historicalBusiness;
-                states = historicalStates;
+            if (hybrid.leading() != null) {
+                ResolvedFilter leading =
+                        withRange(
+                                resolved,
+                                hybrid.leading().from(),
+                                hybrid.leading().to());
+                business = add(business, businessTotals(leading));
+                states = add(states, messageStates(leading));
+            }
+            if (hybrid.trailing() != null) {
+                ResolvedFilter trailing =
+                        withRange(
+                                resolved,
+                                hybrid.trailing().from(),
+                                hybrid.trailing().to());
+                business = add(business, businessTotals(trailing));
+                states = add(states, messageStates(trailing));
             }
         } else {
             business = businessTotals(resolved);
@@ -208,7 +218,7 @@ public class CommunicationAnalyticsQueryService {
 
         HybridRange hybrid = hybridRange(resolved);
         if (hybrid != null) {
-            List<CommunicationChannelItem> historical =
+            items =
                     projections.channels(
                             resolved.tenantId(),
                             hybrid.historicalFrom(),
@@ -216,12 +226,25 @@ public class CommunicationAnalyticsQueryService {
                             resolved.campaignId(),
                             resolved.channel(),
                             resolved.userId());
-            if (hybrid.liveFrom() != null) {
-                List<CommunicationChannelItem> live =
-                        rawChannels(withRange(resolved, hybrid.liveFrom(), resolved.to()));
-                items = mergeChannels(historical, live);
-            } else {
-                items = historical;
+            if (hybrid.leading() != null) {
+                items =
+                        mergeChannels(
+                                items,
+                                rawChannels(
+                                        withRange(
+                                                resolved,
+                                                hybrid.leading().from(),
+                                                hybrid.leading().to())));
+            }
+            if (hybrid.trailing() != null) {
+                items =
+                        mergeChannels(
+                                items,
+                                rawChannels(
+                                        withRange(
+                                                resolved,
+                                                hybrid.trailing().from(),
+                                                hybrid.trailing().to())));
             }
         } else {
             items = rawChannels(resolved);
@@ -877,17 +900,45 @@ public class CommunicationAnalyticsQueryService {
                 java.time.LocalDate.now(clock.withZone(businessZone))
                         .atStartOfDay(businessZone)
                         .toInstant();
+        Instant historicalLimit =
+                resolved.to().isBefore(todayStart) ? resolved.to() : todayStart;
 
-        Instant historicalTo = resolved.to().isBefore(todayStart) ? resolved.to() : todayStart;
-        if (!resolved.from().isBefore(historicalTo)) {
+        Instant historicalFrom = ceilBusinessDay(resolved.from());
+        Instant historicalTo = floorBusinessDay(historicalLimit);
+
+        if (!historicalFrom.isBefore(historicalTo)) {
             return null;
         }
-        if (!projections.coversTenantRange(resolved.tenantId(), resolved.from(), historicalTo)) {
+        if (!projections.coversTenantRange(
+                resolved.tenantId(), historicalFrom, historicalTo)) {
             return null;
         }
 
-        Instant liveFrom = historicalTo.isBefore(resolved.to()) ? historicalTo : null;
-        return new HybridRange(resolved.from(), historicalTo, liveFrom);
+        Range leading =
+                resolved.from().isBefore(historicalFrom)
+                        ? new Range(resolved.from(), historicalFrom)
+                        : null;
+        Range trailing =
+                historicalTo.isBefore(resolved.to())
+                        ? new Range(historicalTo, resolved.to())
+                        : null;
+        return new HybridRange(historicalFrom, historicalTo, leading, trailing);
+    }
+
+    private Instant floorBusinessDay(Instant value) {
+        return value.atZone(businessZone).toLocalDate().atStartOfDay(businessZone).toInstant();
+    }
+
+    private Instant ceilBusinessDay(Instant value) {
+        Instant floor = floorBusinessDay(value);
+        if (floor.equals(value)) {
+            return value;
+        }
+        return value.atZone(businessZone)
+                .toLocalDate()
+                .plusDays(1)
+                .atStartOfDay(businessZone)
+                .toInstant();
     }
 
     private ResolvedFilter withRange(ResolvedFilter source, Instant from, Instant to) {
@@ -973,8 +1024,10 @@ public class CommunicationAnalyticsQueryService {
         }
     }
 
+    private record Range(Instant from, Instant to) {}
+
     private record HybridRange(
-            Instant historicalFrom, Instant historicalTo, Instant liveFrom) {}
+            Instant historicalFrom, Instant historicalTo, Range leading, Range trailing) {}
 
     private String orderBy(
             String sort,
