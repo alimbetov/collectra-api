@@ -32,7 +32,8 @@ class TemplateStudioContractIntegrationTest extends AbstractIntegrationTest {
                                 .header("Authorization", bearer(token)));
 
         assertThat(capabilities.get("builderSchemaVersion").asText()).isEqualTo("1.0");
-        assertThat(capabilities.get("channels").findValuesAsText(""))
+        assertThat(capabilities.get("channels"))
+                .extracting(JsonNode::asText)
                 .contains("EMAIL", "PDF", "SMS", "WHATSAPP", "TELEGRAM");
 
         JsonNode fields =
