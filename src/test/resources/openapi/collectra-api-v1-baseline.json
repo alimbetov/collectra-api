@@ -78,6 +78,15 @@
             "type" : "string",
             "format" : "uuid"
           }
+        }, {
+          "name" : "revision",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64",
+            "minimum" : 0
+          }
         } ],
         "responses" : {
           "204" : {
@@ -823,6 +832,68 @@
         }
       }
     },
+    "/api/v1/campaigns/{campaignId}" : {
+      "get" : {
+        "tags" : [ "campaign-controller" ],
+        "operationId" : "get_3",
+        "parameters" : [ {
+          "name" : "campaignId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CampaignResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put" : {
+        "tags" : [ "campaign-controller" ],
+        "operationId" : "update_6",
+        "parameters" : [ {
+          "name" : "campaignId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UpdateCampaignRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CampaignResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/campaigns/{campaignId}/generated-pdf-attachment" : {
       "put" : {
         "tags" : [ "campaign-attachment-controller" ],
@@ -1156,6 +1227,15 @@
           "schema" : {
             "type" : "string"
           }
+        }, {
+          "name" : "revision",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64",
+            "minimum" : 0
+          }
         } ],
         "responses" : {
           "200" : {
@@ -1182,6 +1262,15 @@
           "schema" : {
             "type" : "string",
             "format" : "uuid"
+          }
+        }, {
+          "name" : "revision",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64",
+            "minimum" : 0
           }
         } ],
         "responses" : {
@@ -1368,6 +1457,15 @@
             "type" : "string",
             "format" : "uuid"
           }
+        }, {
+          "name" : "revision",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64",
+            "minimum" : 0
+          }
         } ],
         "responses" : {
           "200" : {
@@ -1394,6 +1492,15 @@
           "schema" : {
             "type" : "string",
             "format" : "uuid"
+          }
+        }, {
+          "name" : "revision",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64",
+            "minimum" : 0
           }
         } ],
         "responses" : {
@@ -1589,6 +1696,35 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/PreviewResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/template-builder/documents/preview-pdf" : {
+      "post" : {
+        "tags" : [ "template-builder-controller" ],
+        "operationId" : "previewDocumentPdf",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/BuilderDocumentPreviewRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/pdf" : {
+                "schema" : {
+                  "type" : "string",
+                  "format" : "byte"
                 }
               }
             }
@@ -4873,7 +5009,8 @@
           "schema" : {
             "type" : "integer",
             "format" : "int32",
-            "default" : 0
+            "default" : 0,
+            "minimum" : 0
           }
         }, {
           "name" : "size",
@@ -4882,7 +5019,9 @@
           "schema" : {
             "type" : "integer",
             "format" : "int32",
-            "default" : 50
+            "default" : 50,
+            "maximum" : 200,
+            "minimum" : 1
           }
         }, {
           "name" : "sort",
@@ -4933,6 +5072,33 @@
         }
       }
     },
+    "/api/v1/campaigns/{campaignId}/validate" : {
+      "post" : {
+        "tags" : [ "campaign-controller" ],
+        "operationId" : "validate_4",
+        "parameters" : [ {
+          "name" : "campaignId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ValidationResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/campaigns/{campaignId}/runs" : {
       "get" : {
         "tags" : [ "campaign-controller" ],
@@ -4959,7 +5125,8 @@
           "schema" : {
             "type" : "integer",
             "format" : "int32",
-            "default" : 0
+            "default" : 0,
+            "minimum" : 0
           }
         }, {
           "name" : "size",
@@ -4968,7 +5135,9 @@
           "schema" : {
             "type" : "integer",
             "format" : "int32",
-            "default" : 50
+            "default" : 50,
+            "maximum" : 200,
+            "minimum" : 1
           }
         } ],
         "responses" : {
@@ -4995,6 +5164,14 @@
             "type" : "string",
             "format" : "uuid"
           }
+        }, {
+          "name" : "X-Command-Id",
+          "in" : "header",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
         } ],
         "responses" : {
           "201" : {
@@ -5003,6 +5180,42 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/PrepareResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/campaigns/{campaignId}/preview" : {
+      "post" : {
+        "tags" : [ "campaign-controller" ],
+        "operationId" : "preview_3",
+        "parameters" : [ {
+          "name" : "campaignId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PreviewRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PreviewResult"
                 }
               }
             }
@@ -5021,6 +5234,15 @@
           "schema" : {
             "type" : "string",
             "format" : "uuid"
+          }
+        }, {
+          "name" : "revision",
+          "in" : "query",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64",
+            "minimum" : 0
           }
         } ],
         "responses" : {
@@ -5393,10 +5615,47 @@
         }
       }
     },
+    "/api/v1/platform/tenants/{tenantId}/status" : {
+      "patch" : {
+        "tags" : [ "platform-tenant-controller" ],
+        "operationId" : "changeStatus",
+        "parameters" : [ {
+          "name" : "tenantId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PlatformTenantStatusRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TenantDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/platform/administrators/{id}/status" : {
       "patch" : {
         "tags" : [ "platform-administrator-controller" ],
-        "operationId" : "changeStatus",
+        "operationId" : "changeStatus_1",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -5433,7 +5692,7 @@
     "/api/v1/identity/memberships/{id}/status" : {
       "patch" : {
         "tags" : [ "tenant-membership-controller" ],
-        "operationId" : "changeStatus_1",
+        "operationId" : "changeStatus_2",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -5479,7 +5738,7 @@
       },
       "patch" : {
         "tags" : [ "current-user-controller" ],
-        "operationId" : "update_6",
+        "operationId" : "update_7",
         "requestBody" : {
           "content" : {
             "application/json" : {
@@ -5634,7 +5893,7 @@
     "/api/v1/customer-segments/{segmentId}" : {
       "get" : {
         "tags" : [ "customer-segment-controller" ],
-        "operationId" : "get_3",
+        "operationId" : "get_4",
         "parameters" : [ {
           "name" : "segmentId",
           "in" : "path",
@@ -5659,7 +5918,7 @@
       },
       "patch" : {
         "tags" : [ "customer-segment-controller" ],
-        "operationId" : "update_7",
+        "operationId" : "update_8",
         "parameters" : [ {
           "name" : "segmentId",
           "in" : "path",
@@ -5722,6 +5981,86 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/BuilderCatalogResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/template-builder/catalog/fields" : {
+      "get" : {
+        "tags" : [ "template-builder-controller" ],
+        "operationId" : "catalogFields",
+        "parameters" : [ {
+          "name" : "page",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0,
+            "minimum" : 0
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 50,
+            "maximum" : 200,
+            "minimum" : 1
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PageResponseFieldResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/template-builder/catalog/assets" : {
+      "get" : {
+        "tags" : [ "template-builder-controller" ],
+        "operationId" : "catalogAssets",
+        "parameters" : [ {
+          "name" : "page",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0,
+            "minimum" : 0
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 50,
+            "maximum" : 200,
+            "minimum" : 1
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PageResponseAssetResponse"
                 }
               }
             }
@@ -5861,6 +6200,129 @@
         }
       }
     },
+    "/api/v1/platform/tenants" : {
+      "get" : {
+        "tags" : [ "platform-tenant-controller" ],
+        "operationId" : "list_12",
+        "parameters" : [ {
+          "name" : "search",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "status",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "createdFrom",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "createdTo",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "page",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0,
+            "minimum" : 0
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 50,
+            "maximum" : 200,
+            "minimum" : 1
+          }
+        }, {
+          "name" : "sort",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "default" : "createdAt,desc"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PageResponseTenantItem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/platform/tenants/{tenantId}" : {
+      "get" : {
+        "tags" : [ "platform-tenant-controller" ],
+        "operationId" : "detail_1",
+        "parameters" : [ {
+          "name" : "tenantId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TenantDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/platform/overview" : {
+      "get" : {
+        "tags" : [ "platform-overview-controller" ],
+        "operationId" : "overview",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Overview"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/platform/me" : {
       "get" : {
         "tags" : [ "platform-access-controller" ],
@@ -5966,7 +6428,7 @@
     "/api/v1/imports" : {
       "get" : {
         "tags" : [ "import-history-controller" ],
-        "operationId" : "list_12",
+        "operationId" : "list_13",
         "parameters" : [ {
           "name" : "status",
           "in" : "query",
@@ -6026,7 +6488,7 @@
     "/api/v1/imports/{importId}" : {
       "get" : {
         "tags" : [ "import-history-controller" ],
-        "operationId" : "get_4",
+        "operationId" : "get_5",
         "parameters" : [ {
           "name" : "importId",
           "in" : "path",
@@ -6098,7 +6560,7 @@
     "/api/v1/import-batches/{batchId}" : {
       "get" : {
         "tags" : [ "import-batch-controller" ],
-        "operationId" : "get_5",
+        "operationId" : "get_6",
         "parameters" : [ {
           "name" : "batchId",
           "in" : "path",
@@ -6204,7 +6666,7 @@
     "/api/v1/identity/permissions" : {
       "get" : {
         "tags" : [ "tenant-permission-controller" ],
-        "operationId" : "list_13",
+        "operationId" : "list_14",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -6294,7 +6756,7 @@
     "/api/v1/generated-documents" : {
       "get" : {
         "tags" : [ "generated-document-query-controller" ],
-        "operationId" : "list_14",
+        "operationId" : "list_15",
         "parameters" : [ {
           "name" : "format",
           "in" : "query",
@@ -6362,7 +6824,7 @@
     "/api/v1/generated-documents/{documentId}" : {
       "get" : {
         "tags" : [ "generated-document-query-controller" ],
-        "operationId" : "get_6",
+        "operationId" : "get_7",
         "parameters" : [ {
           "name" : "documentId",
           "in" : "path",
@@ -6389,7 +6851,7 @@
     "/api/v1/files/{fileId}" : {
       "get" : {
         "tags" : [ "file-controller" ],
-        "operationId" : "get_7",
+        "operationId" : "get_8",
         "parameters" : [ {
           "name" : "fileId",
           "in" : "path",
@@ -6489,7 +6951,7 @@
     "/api/v1/documents/generation-jobs/{jobId}" : {
       "get" : {
         "tags" : [ "generation-job-controller" ],
-        "operationId" : "get_8",
+        "operationId" : "get_9",
         "parameters" : [ {
           "name" : "jobId",
           "in" : "path",
@@ -6681,12 +7143,20 @@
         }
       }
     },
-    "/api/v1/campaigns/{campaignId}" : {
+    "/api/v1/campaigns/{campaignId}/runs/{runId}" : {
       "get" : {
         "tags" : [ "campaign-controller" ],
-        "operationId" : "get_9",
+        "operationId" : "run",
         "parameters" : [ {
           "name" : "campaignId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "runId",
           "in" : "path",
           "required" : true,
           "schema" : {
@@ -6700,7 +7170,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/CampaignResponse"
+                  "$ref" : "#/components/schemas/RunItem"
                 }
               }
             }
@@ -6757,7 +7227,8 @@
           "schema" : {
             "type" : "integer",
             "format" : "int32",
-            "default" : 0
+            "default" : 0,
+            "minimum" : 0
           }
         }, {
           "name" : "size",
@@ -6766,7 +7237,9 @@
           "schema" : {
             "type" : "integer",
             "format" : "int32",
-            "default" : 50
+            "default" : 50,
+            "maximum" : 200,
+            "minimum" : 1
           }
         } ],
         "responses" : {
@@ -6786,7 +7259,7 @@
     "/api/v1/campaigns/{campaignId}/runs/{runId}/messages" : {
       "get" : {
         "tags" : [ "message-controller" ],
-        "operationId" : "list_15",
+        "operationId" : "list_16",
         "parameters" : [ {
           "name" : "campaignId",
           "in" : "path",
@@ -6866,7 +7339,7 @@
     "/api/v1/campaigns/{campaignId}/runs/{runId}/messages/{messageId}" : {
       "get" : {
         "tags" : [ "message-controller" ],
-        "operationId" : "detail_1",
+        "operationId" : "detail_2",
         "parameters" : [ {
           "name" : "campaignId",
           "in" : "path",
@@ -7055,6 +7528,11 @@
             "type" : "string",
             "maxLength" : 200,
             "minLength" : 0
+          },
+          "revision" : {
+            "type" : "integer",
+            "format" : "int64",
+            "minimum" : 0
           }
         },
         "required" : [ "name" ]
@@ -7106,6 +7584,11 @@
           },
           "stylesheet" : {
             "type" : "string"
+          },
+          "revision" : {
+            "type" : "integer",
+            "format" : "int64",
+            "minimum" : 0
           }
         },
         "required" : [ "contentHtml" ]
@@ -7269,6 +7752,11 @@
           },
           "stylesheet" : {
             "type" : "string"
+          },
+          "revision" : {
+            "type" : "integer",
+            "format" : "int64",
+            "minimum" : 0
           }
         },
         "required" : [ "content", "locale" ]
@@ -7295,6 +7783,11 @@
           },
           "stylesheet" : {
             "type" : "string"
+          },
+          "revision" : {
+            "type" : "integer",
+            "format" : "int64",
+            "minimum" : 0
           }
         },
         "required" : [ "builderJson", "locale" ]
@@ -7804,6 +8297,182 @@
           }
         }
       },
+      "CampaignSelection" : {
+        "type" : "object",
+        "properties" : {
+          "customerIds" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "format" : "uuid"
+            },
+            "uniqueItems" : true
+          },
+          "segmentIds" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "format" : "uuid"
+            },
+            "uniqueItems" : true
+          },
+          "daysOverdueFrom" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "daysOverdueTo" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "amountFrom" : {
+            "type" : "string",
+            "pattern" : "^-?(0|[1-9][0-9]{0,14})(\\.[0-9]{1,4})?$"
+          },
+          "amountTo" : {
+            "type" : "string",
+            "pattern" : "^-?(0|[1-9][0-9]{0,14})(\\.[0-9]{1,4})?$"
+          }
+        }
+      },
+      "UpdateCampaignRequest" : {
+        "type" : "object",
+        "properties" : {
+          "name" : {
+            "type" : "string",
+            "maxLength" : 200,
+            "minLength" : 0
+          },
+          "templateVersionId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "channel" : {
+            "type" : "string",
+            "maxLength" : 30,
+            "minLength" : 0
+          },
+          "scheduledAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "audienceSelectionType" : {
+            "type" : "string",
+            "enum" : [ "CUSTOMER", "RECEIVABLE" ]
+          },
+          "selection" : {
+            "$ref" : "#/components/schemas/CampaignSelection"
+          },
+          "documentTemplateVersionId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "generatedPdfLink" : {
+            "type" : "boolean"
+          },
+          "revision" : {
+            "type" : "integer",
+            "format" : "int64",
+            "minimum" : 0
+          }
+        },
+        "required" : [ "channel", "name", "revision", "templateVersionId" ]
+      },
+      "CampaignResponse" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "DRAFT", "ACTIVE", "ARCHIVED" ]
+          },
+          "channel" : {
+            "type" : "string"
+          },
+          "audienceSelectionType" : {
+            "type" : "string",
+            "enum" : [ "CUSTOMER", "RECEIVABLE" ]
+          },
+          "selection" : {
+            "$ref" : "#/components/schemas/CampaignSelectionResponse"
+          },
+          "messageTemplateVersionId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "documentTemplateVersionId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "generatedPdfLink" : {
+            "type" : "boolean"
+          },
+          "generatedPdfAttachment" : {
+            "type" : "boolean"
+          },
+          "generatedPdfAttachmentRequired" : {
+            "type" : "boolean"
+          },
+          "scheduledAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "revision" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "CampaignSelectionResponse" : {
+        "type" : "object",
+        "properties" : {
+          "customerIds" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "format" : "uuid"
+            },
+            "uniqueItems" : true
+          },
+          "segmentIds" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "format" : "uuid"
+            },
+            "uniqueItems" : true
+          },
+          "daysOverdueFrom" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "daysOverdueTo" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "amountFrom" : {
+            "type" : "string",
+            "pattern" : "^-?(0|[1-9][0-9]{0,14})(\\.[0-9]{1,4})?$"
+          },
+          "amountTo" : {
+            "type" : "string",
+            "pattern" : "^-?(0|[1-9][0-9]{0,14})(\\.[0-9]{1,4})?$"
+          }
+        }
+      },
       "Request" : {
         "type" : "object",
         "properties" : {
@@ -7812,8 +8481,14 @@
           },
           "required" : {
             "type" : "boolean"
+          },
+          "revision" : {
+            "type" : "integer",
+            "format" : "int64",
+            "minimum" : 0
           }
-        }
+        },
+        "required" : [ "revision" ]
       },
       "Response" : {
         "type" : "object",
@@ -7827,6 +8502,10 @@
           },
           "required" : {
             "type" : "boolean"
+          },
+          "revision" : {
+            "type" : "integer",
+            "format" : "int64"
           }
         }
       },
@@ -9306,43 +9985,6 @@
           }
         }
       },
-      "CampaignSelection" : {
-        "type" : "object",
-        "properties" : {
-          "customerIds" : {
-            "type" : "array",
-            "items" : {
-              "type" : "string",
-              "format" : "uuid"
-            },
-            "uniqueItems" : true
-          },
-          "segmentIds" : {
-            "type" : "array",
-            "items" : {
-              "type" : "string",
-              "format" : "uuid"
-            },
-            "uniqueItems" : true
-          },
-          "daysOverdueFrom" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "daysOverdueTo" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "amountFrom" : {
-            "type" : "string",
-            "pattern" : "^-?(0|[1-9][0-9]{0,14})(\\.[0-9]{1,4})?$"
-          },
-          "amountTo" : {
-            "type" : "string",
-            "pattern" : "^-?(0|[1-9][0-9]{0,14})(\\.[0-9]{1,4})?$"
-          }
-        }
-      },
       "CreateCampaignRequest" : {
         "type" : "object",
         "properties" : {
@@ -9380,40 +10022,6 @@
           }
         },
         "required" : [ "channel", "name", "templateVersionId" ]
-      },
-      "CampaignResponse" : {
-        "type" : "object",
-        "properties" : {
-          "id" : {
-            "type" : "string",
-            "format" : "uuid"
-          },
-          "name" : {
-            "type" : "string"
-          },
-          "status" : {
-            "type" : "string",
-            "enum" : [ "DRAFT", "ACTIVE", "ARCHIVED" ]
-          },
-          "templateVersionId" : {
-            "type" : "string",
-            "format" : "uuid"
-          },
-          "channel" : {
-            "type" : "string"
-          },
-          "scheduledAt" : {
-            "type" : "string",
-            "format" : "date-time"
-          },
-          "documentTemplateVersionId" : {
-            "type" : "string",
-            "format" : "uuid"
-          },
-          "generatedPdfLink" : {
-            "type" : "boolean"
-          }
-        }
       },
       "PrepareResult" : {
         "type" : "object",
@@ -9666,6 +10274,83 @@
           }
         },
         "required" : [ "displayName", "token" ]
+      },
+      "PlatformTenantStatusRequest" : {
+        "type" : "object",
+        "properties" : {
+          "active" : {
+            "type" : "boolean"
+          },
+          "revision" : {
+            "type" : "integer",
+            "format" : "int64",
+            "minimum" : 0
+          },
+          "reason" : {
+            "type" : "string",
+            "maxLength" : 255,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "active", "reason", "revision" ]
+      },
+      "TenantDetail" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "slug" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "revision" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "activeUsers" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "blockedUsers" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "customers" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "campaigns" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "messages" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "generatedDocuments" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "files" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
       },
       "StatusRequest" : {
         "type" : "object",
@@ -10109,6 +10794,60 @@
           }
         }
       },
+      "PageResponseFieldResponse" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldResponse"
+            }
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "totalElements" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "totalPages" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "PageResponseAssetResponse" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/AssetResponse"
+            }
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "totalElements" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "totalPages" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
       "LocaleItem" : {
         "type" : "object",
         "properties" : {
@@ -10154,6 +10893,154 @@
               "items" : {
                 "type" : "string"
               }
+            }
+          }
+        }
+      },
+      "PageResponseTenantItem" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/TenantItem"
+            }
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "totalElements" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "totalPages" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "TenantItem" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "slug" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "revision" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "activeUsers" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "campaignsLast30d" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "messagesLast30d" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "ChannelCount" : {
+        "type" : "object",
+        "properties" : {
+          "channel" : {
+            "type" : "string"
+          },
+          "messages" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "Overview" : {
+        "type" : "object",
+        "properties" : {
+          "generatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "periodFrom" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "tenantsTotal" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "tenantsActive" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "tenantsBlocked" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "usersTotal" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "usersActive" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "usersBlocked" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "campaignsLast30Days" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "messagesLast30Days" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "sentLast30Days" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "failedLast30Days" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "retryWaitCurrent" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "unknownCurrent" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "channels" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ChannelCount"
             }
           }
         }
