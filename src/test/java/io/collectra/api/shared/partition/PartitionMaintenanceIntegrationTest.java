@@ -129,9 +129,7 @@ class PartitionMaintenanceIntegrationTest extends AbstractIntegrationTest {
         var result = service.maintain(policy, LocalDate.of(2026, 9, 23));
 
         assertThat(result.dropped()).isEqualTo(1);
-        assertThat(partitionNames())
-                .doesNotContain(TABLE + "_202508")
-                .contains(TABLE + "_202509");
+        assertThat(partitionNames()).doesNotContain(TABLE + "_202508").contains(TABLE + "_202509");
     }
 
     @Test

@@ -159,9 +159,7 @@ public class PartitionMaintenanceService {
                         findManagedPartitions(connection, policy.getSchema(), policy.getTable())) {
                     LocalDate partitionStart =
                             partitionDate(
-                                    policy.getTable(),
-                                    partition.name(),
-                                    policy.getGranularity());
+                                    policy.getTable(), partition.name(), policy.getGranularity());
                     if (partitionStart == null) {
                         continue;
                     }
@@ -169,8 +167,7 @@ public class PartitionMaintenanceService {
                     if (partitionEnd.isAfter(cutoff)) {
                         continue;
                     }
-                    if (!boundsMatch(
-                            partition.boundExpression(), partitionStart, partitionEnd)) {
+                    if (!boundsMatch(partition.boundExpression(), partitionStart, partitionEnd)) {
                         log.warn(
                                 "Partition bounds do not match managed name. table={}.{}, bound={}",
                                 policy.getSchema(),
@@ -494,8 +491,7 @@ public class PartitionMaintenanceService {
         }
     }
 
-    private static boolean boundsMatch(
-            String expression, LocalDate start, LocalDate end) {
+    private static boolean boundsMatch(String expression, LocalDate start, LocalDate end) {
         return expression != null
                 && expression.contains(start.toString())
                 && expression.contains(end.toString());
@@ -525,16 +521,17 @@ public class PartitionMaintenanceService {
             return;
         }
         meterRegistry
-                .counter("collectra.partition.maintenance.operations", "table", table, "action", action)
+                .counter(
+                        "collectra.partition.maintenance.operations",
+                        "table",
+                        table,
+                        "action",
+                        action)
                 .increment(amount);
     }
 
     private static String qualified(String schema, String table) {
-        return "\""
-                + schema.replace("\"", "\"\"")
-                + "\".\""
-                + table.replace("\"", "\"\"")
-                + "\"";
+        return "\"" + schema.replace("\"", "\"\"") + "\".\"" + table.replace("\"", "\"\"") + "\"";
     }
 
     private static void validateIdentifier(String value, String field) {

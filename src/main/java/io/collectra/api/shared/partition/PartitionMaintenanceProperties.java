@@ -47,8 +47,7 @@ public class PartitionMaintenanceProperties {
 
     public void setMaxPartitionsPerRun(int maxPartitionsPerRun) {
         if (maxPartitionsPerRun < 1 || maxPartitionsPerRun > 5000) {
-            throw new IllegalArgumentException(
-                    "max-partitions-per-run must be between 1 and 5000");
+            throw new IllegalArgumentException("max-partitions-per-run must be between 1 and 5000");
         }
         this.maxPartitionsPerRun = maxPartitionsPerRun;
     }

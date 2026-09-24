@@ -23,15 +23,17 @@ public class PartitionMaintenanceScheduler {
     public void maintain() {
         PartitionMaintenanceService.RunResult result = service.maintainConfiguredTables();
 
-        int failed = result.tables().stream().mapToInt(PartitionMaintenanceService.TableResult::failed).sum();
+        int failed =
+                result.tables().stream()
+                        .mapToInt(PartitionMaintenanceService.TableResult::failed)
+                        .sum();
         int lockSkipped =
                 result.tables().stream()
                         .mapToInt(PartitionMaintenanceService.TableResult::lockSkipped)
                         .sum();
         int planned =
                 result.tables().stream()
-                        .mapToInt(
-                                table -> table.plannedCreates() + table.plannedDrops())
+                        .mapToInt(table -> table.plannedCreates() + table.plannedDrops())
                         .sum();
 
         if (failed > 0) {
