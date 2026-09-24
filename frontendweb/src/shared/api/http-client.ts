@@ -182,3 +182,30 @@ export async function apiRequest<T>(
 
   return (await response.json()) as T;
 }
+
+
+export async function apiBlobRequest(
+  path: string,
+  options: ApiRequestOptions = {},
+): Promise<Blob> {
+  const auth = options.auth ?? true;
+  const retryOnUnauthorized = options.retryOnUnauthorized ?? true;
+  let response = await execute(path, options);
+
+  if (response.status === 401 && auth && retryOnUnauthorized && getRefreshToken()) {
+    const refreshed = await refreshAccessToken();
+    if (refreshed) {
+      response = await execute(path, { ...options, retryOnUnauthorized: false });
+    }
+  }
+
+  if (response.status === 401 && auth) {
+    invalidateSession();
+  }
+
+  if (!response.ok) {
+    throw new ApiError(response.status, await readProblem(response));
+  }
+
+  return response.blob();
+}
