@@ -183,7 +183,8 @@ public class CommunicationProjectionQueryService {
         String bucketExpression =
                 switch (bucket) {
                     case DAY -> "x.business_date::timestamp at time zone 'UTC'";
-                    case WEEK -> "date_trunc('week', x.business_date::timestamp) at time zone 'UTC'";
+                    case WEEK ->
+                            "date_trunc('week', x.business_date::timestamp) at time zone 'UTC'";
                     case HOUR ->
                             throw new IllegalArgumentException(
                                     "Hourly projection timeseries is not supported");
