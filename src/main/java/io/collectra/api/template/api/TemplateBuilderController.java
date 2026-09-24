@@ -192,7 +192,8 @@ public class TemplateBuilderController {
     @PutMapping("/versions/{versionId}/builder")
     @PreAuthorize("hasAuthority('TEMPLATE_MANAGE')")
     VersionResponse updateBuilderDraft(
-            @PathVariable UUID versionId, @Valid @RequestBody BuilderDocumentUpdateRequest request) {
+            @PathVariable UUID versionId,
+            @Valid @RequestBody BuilderDocumentUpdateRequest request) {
         TemplateVersion existing = templates.getVersion(tenant(), versionId);
         ensureChannelUnchanged(request.channel(), existing);
         var compiled = builder.compileDocument(tenant(), request.toDraft());
