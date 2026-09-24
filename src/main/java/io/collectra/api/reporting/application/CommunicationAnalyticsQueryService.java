@@ -8,6 +8,8 @@ import java.sql.SQLException;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneOffset;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -55,17 +57,62 @@ public class CommunicationAnalyticsQueryService {
 
     private final NamedParameterJdbcTemplate jdbc;
     private final Clock clock;
+    private final CommunicationProjectionQueryService projections;
+    private final CommunicationProjectionProperties projectionProperties;
 
-    public CommunicationAnalyticsQueryService(NamedParameterJdbcTemplate jdbc, Clock clock) {
+    public CommunicationAnalyticsQueryService(
+            NamedParameterJdbcTemplate jdbc,
+            Clock clock,
+            CommunicationProjectionQueryService projections,
+            CommunicationProjectionProperties projectionProperties) {
         this.jdbc = jdbc;
         this.clock = clock;
+        this.projections = projections;
+        this.projectionProperties = projectionProperties;
     }
 
     @Transactional(readOnly = true)
     public CommunicationSummary summary(Scope scope, Filter filter) {
         ResolvedFilter resolved = resolve(scope, filter, false);
-        BusinessTotals business = businessTotals(resolved);
-        MessageStates states = messageStates(resolved);
+        BusinessTotals business;
+        MessageStates states;
+
+        HybridRange hybrid = hybridRange(resolved);
+        if (hybrid != null) {
+            business =
+                    projections.businessTotals(
+                            resolved.tenantId(),
+                            hybrid.historicalFrom(),
+                            hybrid.historicalTo(),
+                            resolved.campaignId(),
+                            resolved.channel(),
+                            resolved.userId());
+            states =
+                    projections.messageStates(
+                            resolved.tenantId(),
+                            hybrid.historicalFrom(),
+                            hybrid.historicalTo(),
+                            resolved.campaignId(),
+                            resolved.channel(),
+                            resolved.userId());
+
+            if (hybrid.leading() != null) {
+                ResolvedFilter leading =
+                        withRange(resolved, hybrid.leading().from(), hybrid.leading().to());
+                business = add(business, businessTotals(leading));
+                states = add(states, messageStates(leading));
+            }
+            if (hybrid.trailing() != null) {
+                ResolvedFilter trailing =
+                        withRange(resolved, hybrid.trailing().from(), hybrid.trailing().to());
+                business = add(business, businessTotals(trailing));
+                states = add(states, messageStates(trailing));
+            }
+        } else {
+            business = businessTotals(resolved);
+            states = messageStates(resolved);
+        }
+
         DocumentTotals documents = documentTotals(resolved);
         return new CommunicationSummary(
                 resolved.generatedAt(),
@@ -82,6 +129,22 @@ public class CommunicationAnalyticsQueryService {
     public CommunicationTimeSeries timeseries(Scope scope, Filter filter, Bucket bucket) {
         ResolvedFilter resolved = resolve(scope, filter, true);
         validateBucketCount(resolved, bucket);
+
+        if (bucket != Bucket.HOUR && fullProjectionRange(resolved)) {
+            return new CommunicationTimeSeries(
+                    resolved.generatedAt(),
+                    resolved.from(),
+                    resolved.to(),
+                    bucket,
+                    projections.timeseries(
+                            resolved.tenantId(),
+                            resolved.from(),
+                            resolved.to(),
+                            resolved.campaignId(),
+                            resolved.channel(),
+                            resolved.userId(),
+                            bucket));
+        }
 
         String runWhere = where("cr", "c", resolved, true);
         String messageWhere = where("m", "c", resolved, true);
@@ -158,6 +221,47 @@ public class CommunicationAnalyticsQueryService {
     @Transactional(readOnly = true)
     public CommunicationChannelReport channels(Scope scope, Filter filter) {
         ResolvedFilter resolved = resolve(scope, filter, false);
+        List<CommunicationChannelItem> items;
+
+        HybridRange hybrid = hybridRange(resolved);
+        if (hybrid != null) {
+            items =
+                    projections.channels(
+                            resolved.tenantId(),
+                            hybrid.historicalFrom(),
+                            hybrid.historicalTo(),
+                            resolved.campaignId(),
+                            resolved.channel(),
+                            resolved.userId());
+            if (hybrid.leading() != null) {
+                items =
+                        mergeChannels(
+                                items,
+                                rawChannels(
+                                        withRange(
+                                                resolved,
+                                                hybrid.leading().from(),
+                                                hybrid.leading().to())));
+            }
+            if (hybrid.trailing() != null) {
+                items =
+                        mergeChannels(
+                                items,
+                                rawChannels(
+                                        withRange(
+                                                resolved,
+                                                hybrid.trailing().from(),
+                                                hybrid.trailing().to())));
+            }
+        } else {
+            items = rawChannels(resolved);
+        }
+
+        return new CommunicationChannelReport(
+                resolved.generatedAt(), resolved.from(), resolved.to(), items);
+    }
+
+    private List<CommunicationChannelItem> rawChannels(ResolvedFilter resolved) {
         String runWhere = where("cr", "c", resolved, true);
         String messageWhere = where("m", "c", resolved, true);
 
@@ -202,27 +306,24 @@ public class CommunicationAnalyticsQueryService {
                 """
                         .formatted(runWhere, messageWhere);
 
-        List<CommunicationChannelItem> items =
-                jdbc.query(
-                        sql,
-                        resolved.params(),
-                        (rs, rowNum) -> {
-                            long sent = rs.getLong("sent_count");
-                            long failed = rs.getLong("failed_count");
-                            return new CommunicationChannelItem(
-                                    rs.getString("channel"),
-                                    rs.getLong("message_count"),
-                                    rs.getLong("recipient_count"),
-                                    sent,
-                                    failed,
-                                    rs.getLong("skipped_count"),
-                                    rs.getLong("retry_count"),
-                                    rs.getLong("retry_wait_count"),
-                                    rs.getLong("unknown_count"),
-                                    rate(sent, failed));
-                        });
-        return new CommunicationChannelReport(
-                resolved.generatedAt(), resolved.from(), resolved.to(), items);
+        return jdbc.query(
+                sql,
+                resolved.params(),
+                (rs, rowNum) -> {
+                    long sent = rs.getLong("sent_count");
+                    long failed = rs.getLong("failed_count");
+                    return new CommunicationChannelItem(
+                            rs.getString("channel"),
+                            rs.getLong("message_count"),
+                            rs.getLong("recipient_count"),
+                            sent,
+                            failed,
+                            rs.getLong("skipped_count"),
+                            rs.getLong("retry_count"),
+                            rs.getLong("retry_wait_count"),
+                            rs.getLong("unknown_count"),
+                            rate(sent, failed));
+                });
     }
 
     @Transactional(readOnly = true)
@@ -230,9 +331,31 @@ public class CommunicationAnalyticsQueryService {
             Scope scope, Filter filter, int page, int size, String sort) {
         validatePage(page, size);
         ResolvedFilter resolved = resolve(scope, filter, false);
+        orderBy(sort, USER_SORT, "sent", "desc");
+        if (fullProjectionRange(resolved)) {
+            var projected =
+                    projections.users(
+                            resolved.tenantId(),
+                            resolved.from(),
+                            resolved.to(),
+                            resolved.campaignId(),
+                            resolved.channel(),
+                            resolved.userId(),
+                            page,
+                            size,
+                            sort);
+            return page(
+                    resolved.generatedAt(),
+                    resolved.from(),
+                    resolved.to(),
+                    projected.items(),
+                    page,
+                    size,
+                    projected.totalElements());
+        }
         String runWhere = where("cr", "c", resolved, true);
         String messageWhere = where("m", "c", resolved, true);
-        String order = orderBy(sort, USER_SORT, "sent", "desc");
+        String order = stableOrder(orderBy(sort, USER_SORT, "sent", "desc"), "user_id");
 
         String grouped =
                 """
@@ -338,8 +461,31 @@ public class CommunicationAnalyticsQueryService {
             Scope scope, Filter filter, int page, int size, String sort) {
         validatePage(page, size);
         ResolvedFilter resolved = resolve(scope, filter, false);
+        orderBy(sort, CAMPAIGN_SORT, "lastRunAt", "desc");
+        if (fullProjectionRange(resolved)) {
+            var projected =
+                    projections.campaigns(
+                            resolved.tenantId(),
+                            resolved.from(),
+                            resolved.to(),
+                            resolved.campaignId(),
+                            resolved.channel(),
+                            resolved.userId(),
+                            page,
+                            size,
+                            sort);
+            return page(
+                    resolved.generatedAt(),
+                    resolved.from(),
+                    resolved.to(),
+                    projected.items(),
+                    page,
+                    size,
+                    projected.totalElements());
+        }
         String where = where("cr", "c", resolved, true);
-        String order = orderBy(sort, CAMPAIGN_SORT, "lastRunAt", "desc");
+        String order =
+                stableOrder(orderBy(sort, CAMPAIGN_SORT, "lastRunAt", "desc"), "campaign_id");
 
         String grouped =
                 """
@@ -416,8 +562,30 @@ public class CommunicationAnalyticsQueryService {
             Scope scope, Filter filter, int page, int size, String sort) {
         validatePage(page, size);
         ResolvedFilter resolved = resolve(scope, filter, false);
+        orderBy(sort, FAILURE_SORT, "count", "desc");
+        if (fullProjectionRange(resolved)) {
+            var projected =
+                    projections.failures(
+                            resolved.tenantId(),
+                            resolved.from(),
+                            resolved.to(),
+                            resolved.campaignId(),
+                            resolved.channel(),
+                            resolved.userId(),
+                            page,
+                            size,
+                            sort);
+            return page(
+                    resolved.generatedAt(),
+                    resolved.from(),
+                    resolved.to(),
+                    projected.items(),
+                    page,
+                    size,
+                    projected.totalElements());
+        }
         String where = attemptWhere(resolved);
-        String order = orderBy(sort, FAILURE_SORT, "count", "desc");
+        String order = stableOrder(orderBy(sort, FAILURE_SORT, "count", "desc"), "error_code");
 
         String grouped =
                 """
@@ -487,7 +655,7 @@ public class CommunicationAnalyticsQueryService {
         ResolvedFilter resolved = resolve(scope, filter, false);
         String runWhere = where("cr", "c", resolved, true);
         String messageWhere = where("m", "c", resolved, true);
-        String order = orderBy(sort, TENANT_SORT, "sent", "desc");
+        String order = stableOrder(orderBy(sort, TENANT_SORT, "sent", "desc"), "tenant_id");
 
         String grouped =
                 """
@@ -793,6 +961,175 @@ public class CommunicationAnalyticsQueryService {
             throw new InvalidRequestException(
                     "REPORT_RANGE_TOO_LARGE", "Requested time series contains too many buckets");
         }
+    }
+
+    private boolean fullProjectionRange(ResolvedFilter resolved) {
+        if (!projectionProperties.isEnabled()
+                || resolved.tenantId() == null
+                || resolved.runId() != null) {
+            return false;
+        }
+        if (!floorProjectionDay(resolved.from()).equals(resolved.from())
+                || !floorProjectionDay(resolved.to()).equals(resolved.to())) {
+            return false;
+        }
+
+        Instant todayStart =
+                java.time.LocalDate.now(clock.withZone(ZoneOffset.UTC))
+                        .atStartOfDay(ZoneOffset.UTC)
+                        .toInstant();
+        if (resolved.to().isAfter(todayStart)) {
+            return false;
+        }
+        return projections.coversTenantRange(resolved.tenantId(), resolved.from(), resolved.to());
+    }
+
+    private HybridRange hybridRange(ResolvedFilter resolved) {
+        if (!projectionProperties.isEnabled()
+                || resolved.tenantId() == null
+                || resolved.runId() != null) {
+            return null;
+        }
+
+        Instant todayStart =
+                java.time.LocalDate.now(clock.withZone(ZoneOffset.UTC))
+                        .atStartOfDay(ZoneOffset.UTC)
+                        .toInstant();
+        Instant historicalLimit = resolved.to().isBefore(todayStart) ? resolved.to() : todayStart;
+
+        Instant historicalFrom = ceilProjectionDay(resolved.from());
+        Instant historicalTo = floorProjectionDay(historicalLimit);
+
+        if (!historicalFrom.isBefore(historicalTo)) {
+            return null;
+        }
+        if (!projections.coversTenantRange(resolved.tenantId(), historicalFrom, historicalTo)) {
+            return null;
+        }
+
+        Range leading =
+                resolved.from().isBefore(historicalFrom)
+                        ? new Range(resolved.from(), historicalFrom)
+                        : null;
+        Range trailing =
+                historicalTo.isBefore(resolved.to())
+                        ? new Range(historicalTo, resolved.to())
+                        : null;
+        return new HybridRange(historicalFrom, historicalTo, leading, trailing);
+    }
+
+    private Instant floorProjectionDay(Instant value) {
+        return value.atZone(ZoneOffset.UTC).toLocalDate().atStartOfDay(ZoneOffset.UTC).toInstant();
+    }
+
+    private Instant ceilProjectionDay(Instant value) {
+        Instant floor = floorProjectionDay(value);
+        if (floor.equals(value)) {
+            return value;
+        }
+        return value.atZone(ZoneOffset.UTC)
+                .toLocalDate()
+                .plusDays(1)
+                .atStartOfDay(ZoneOffset.UTC)
+                .toInstant();
+    }
+
+    private ResolvedFilter withRange(ResolvedFilter source, Instant from, Instant to) {
+        MapSqlParameterSource params = copy(source.params());
+        params.addValue("from", java.sql.Timestamp.from(from));
+        params.addValue("to", java.sql.Timestamp.from(to));
+        return new ResolvedFilter(
+                source.generatedAt(),
+                from,
+                to,
+                source.tenantId(),
+                source.userId(),
+                source.campaignId(),
+                source.runId(),
+                source.channel(),
+                params);
+    }
+
+    private BusinessTotals add(BusinessTotals left, BusinessTotals right) {
+        return new BusinessTotals(
+                left.recipients() + right.recipients(),
+                left.sent() + right.sent(),
+                left.failed() + right.failed(),
+                left.skipped() + right.skipped(),
+                left.retries() + right.retries());
+    }
+
+    private MessageStates add(MessageStates left, MessageStates right) {
+        return new MessageStates(
+                left.queued() + right.queued(),
+                left.processing() + right.processing(),
+                left.retryWait() + right.retryWait(),
+                left.sent() + right.sent(),
+                left.failed() + right.failed(),
+                left.unknown() + right.unknown());
+    }
+
+    private List<CommunicationChannelItem> mergeChannels(
+            List<CommunicationChannelItem> historical, List<CommunicationChannelItem> live) {
+        Map<String, ChannelAccumulator> merged = new LinkedHashMap<>();
+        historical.forEach(
+                item ->
+                        merged.computeIfAbsent(item.channel(), key -> new ChannelAccumulator())
+                                .add(item));
+        live.forEach(
+                item ->
+                        merged.computeIfAbsent(item.channel(), key -> new ChannelAccumulator())
+                                .add(item));
+
+        return merged.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .map(
+                        entry -> {
+                            ChannelAccumulator value = entry.getValue();
+                            return new CommunicationChannelItem(
+                                    entry.getKey(),
+                                    value.messageCount,
+                                    value.recipients,
+                                    value.sent,
+                                    value.failed,
+                                    value.skipped,
+                                    value.retries,
+                                    value.retryWaitCurrent,
+                                    value.unknownCurrent,
+                                    rate(value.sent, value.failed));
+                        })
+                .toList();
+    }
+
+    private static final class ChannelAccumulator {
+        private long messageCount;
+        private long recipients;
+        private long sent;
+        private long failed;
+        private long skipped;
+        private long retries;
+        private long retryWaitCurrent;
+        private long unknownCurrent;
+
+        private void add(CommunicationChannelItem item) {
+            messageCount += item.messageCount();
+            recipients += item.recipients();
+            sent += item.sent();
+            failed += item.failed();
+            skipped += item.skipped();
+            retries += item.retries();
+            retryWaitCurrent += item.retryWaitCurrent();
+            unknownCurrent += item.unknownCurrent();
+        }
+    }
+
+    private record Range(Instant from, Instant to) {}
+
+    private record HybridRange(
+            Instant historicalFrom, Instant historicalTo, Range leading, Range trailing) {}
+
+    private String stableOrder(String order, String tieBreak) {
+        return order + ", " + tieBreak + " asc nulls last";
     }
 
     private String orderBy(

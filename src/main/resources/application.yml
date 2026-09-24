@@ -26,6 +26,13 @@ management:
 springdoc:
   swagger-ui.path: /swagger-ui.html
 collectra:
+  reporting:
+    projections:
+      enabled: false
+      cron: "0 20 1 * * *"
+      reconciliation-days: 7
+      tenant-batch-size: 100
+      building-timeout: 30m
   partition-maintenance:
     enabled: false
     dry-run: true
