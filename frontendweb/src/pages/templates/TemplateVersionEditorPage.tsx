@@ -569,8 +569,8 @@ function isText(channel: TemplateChannel) {
 
 function availableBlocks(channel: TemplateChannel): BuilderBlockDto['type'][] {
   return isText(channel)
-    ? ['header', 'footer', 'richText', 'spacer']
-    : ['header', 'footer', 'row', 'column', 'richText', 'itemsTable', 'image', 'spacer'];
+    ? ['richText', 'spacer']
+    : ['richText', 'itemsTable', 'spacer'];
 }
 
 function newBlock(type: BuilderBlockDto['type'], channel: TemplateChannel): BuilderBlockDto {
