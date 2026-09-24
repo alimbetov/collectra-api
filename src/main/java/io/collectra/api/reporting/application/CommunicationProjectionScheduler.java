@@ -28,9 +28,7 @@ public class CommunicationProjectionScheduler {
         this.properties = properties;
     }
 
-    @Scheduled(
-            cron = "${collectra.reporting.projections.cron:0 20 1 * * *}",
-            zone = "UTC")
+    @Scheduled(cron = "${collectra.reporting.projections.cron:0 20 1 * * *}", zone = "UTC")
     public void rebuildRecentClosedDays() {
         LocalDate today = rebuilds.currentBusinessDate();
         int days = properties.getReconciliationDays();

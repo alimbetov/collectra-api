@@ -48,6 +48,4 @@ public class CommunicationProjectionProperties {
         }
         this.tenantBatchSize = tenantBatchSize;
     }
-
-
 }
