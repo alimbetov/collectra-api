@@ -10,9 +10,9 @@ import org.springframework.stereotype.Component;
 @ConfigurationProperties(prefix = "collectra.partition-maintenance")
 public class PartitionMaintenanceProperties {
     private boolean enabled = false;
+    private boolean dryRun = true;
     private String cron = "0 15 2 * * *";
-    private int daysAhead = 14;
-    private int retentionYears = 4;
+    private int maxPartitionsPerRun = 400;
     private Duration lockTimeout = Duration.ofSeconds(5);
     private Duration statementTimeout = Duration.ofSeconds(30);
     private List<TablePolicy> tables = new ArrayList<>();
@@ -25,6 +25,14 @@ public class PartitionMaintenanceProperties {
         this.enabled = enabled;
     }
 
+    public boolean isDryRun() {
+        return dryRun;
+    }
+
+    public void setDryRun(boolean dryRun) {
+        this.dryRun = dryRun;
+    }
+
     public String getCron() {
         return cron;
     }
@@ -33,26 +41,15 @@ public class PartitionMaintenanceProperties {
         this.cron = cron;
     }
 
-    public int getDaysAhead() {
-        return daysAhead;
+    public int getMaxPartitionsPerRun() {
+        return maxPartitionsPerRun;
     }
 
-    public void setDaysAhead(int daysAhead) {
-        if (daysAhead < 1 || daysAhead > 31) {
-            throw new IllegalArgumentException("days-ahead must be between 1 and 31");
+    public void setMaxPartitionsPerRun(int maxPartitionsPerRun) {
+        if (maxPartitionsPerRun < 1 || maxPartitionsPerRun > 5000) {
+            throw new IllegalArgumentException("max-partitions-per-run must be between 1 and 5000");
         }
-        this.daysAhead = daysAhead;
-    }
-
-    public int getRetentionYears() {
-        return retentionYears;
-    }
-
-    public void setRetentionYears(int retentionYears) {
-        if (retentionYears < 1 || retentionYears > 20) {
-            throw new IllegalArgumentException("retention-years must be between 1 and 20");
-        }
-        this.retentionYears = retentionYears;
+        this.maxPartitionsPerRun = maxPartitionsPerRun;
     }
 
     public Duration getLockTimeout() {
@@ -86,11 +83,33 @@ public class PartitionMaintenanceProperties {
         return value;
     }
 
+    public enum Granularity {
+        DAY,
+        MONTH
+    }
+
+    public enum MaintenanceMode {
+        CREATE_ONLY,
+        CREATE_AND_DROP
+    }
+
+    public enum RetentionUnit {
+        DAYS,
+        MONTHS,
+        YEARS
+    }
+
     public static class TablePolicy {
         private boolean enabled = true;
         private String schema = "public";
         private String table;
         private String partitionColumn = "created_at";
+        private Granularity granularity = Granularity.DAY;
+        private MaintenanceMode mode = MaintenanceMode.CREATE_ONLY;
+        private int createAhead = 14;
+        private int retention = 4;
+        private RetentionUnit retentionUnit = RetentionUnit.YEARS;
+        private Boolean dryRun;
 
         public boolean isEnabled() {
             return enabled;
@@ -122,6 +141,60 @@ public class PartitionMaintenanceProperties {
 
         public void setPartitionColumn(String partitionColumn) {
             this.partitionColumn = partitionColumn;
+        }
+
+        public Granularity getGranularity() {
+            return granularity;
+        }
+
+        public void setGranularity(Granularity granularity) {
+            this.granularity = granularity == null ? Granularity.DAY : granularity;
+        }
+
+        public MaintenanceMode getMode() {
+            return mode;
+        }
+
+        public void setMode(MaintenanceMode mode) {
+            this.mode = mode == null ? MaintenanceMode.CREATE_ONLY : mode;
+        }
+
+        public int getCreateAhead() {
+            return createAhead;
+        }
+
+        public void setCreateAhead(int createAhead) {
+            if (createAhead < 0 || createAhead > 120) {
+                throw new IllegalArgumentException("create-ahead must be between 0 and 120");
+            }
+            this.createAhead = createAhead;
+        }
+
+        public int getRetention() {
+            return retention;
+        }
+
+        public void setRetention(int retention) {
+            if (retention < 1 || retention > 10000) {
+                throw new IllegalArgumentException("retention must be between 1 and 10000");
+            }
+            this.retention = retention;
+        }
+
+        public RetentionUnit getRetentionUnit() {
+            return retentionUnit;
+        }
+
+        public void setRetentionUnit(RetentionUnit retentionUnit) {
+            this.retentionUnit = retentionUnit == null ? RetentionUnit.YEARS : retentionUnit;
+        }
+
+        public Boolean getDryRun() {
+            return dryRun;
+        }
+
+        public void setDryRun(Boolean dryRun) {
+            this.dryRun = dryRun;
         }
     }
 }

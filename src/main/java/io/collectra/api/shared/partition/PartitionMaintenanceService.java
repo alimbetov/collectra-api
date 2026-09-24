@@ -1,5 +1,6 @@
 package io.collectra.api.shared.partition;
 
+import io.micrometer.core.instrument.MeterRegistry;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -23,21 +24,25 @@ import org.springframework.stereotype.Service;
 @Service
 public class PartitionMaintenanceService {
     private static final Logger log = LoggerFactory.getLogger(PartitionMaintenanceService.class);
-    private static final DateTimeFormatter PARTITION_DATE = DateTimeFormatter.BASIC_ISO_DATE;
+    private static final DateTimeFormatter DAY_SUFFIX = DateTimeFormatter.BASIC_ISO_DATE;
+    private static final DateTimeFormatter MONTH_SUFFIX = DateTimeFormatter.ofPattern("yyyyMM");
     private static final Pattern IDENTIFIER = Pattern.compile("^[A-Za-z_][A-Za-z0-9_]{0,62}$");
 
     private final JdbcTemplate jdbc;
     private final PartitionMaintenanceProperties properties;
+    private final MeterRegistry meterRegistry;
     private final Clock clock;
     private final ZoneId businessZone;
 
     public PartitionMaintenanceService(
             JdbcTemplate jdbc,
             PartitionMaintenanceProperties properties,
+            MeterRegistry meterRegistry,
             Clock clock,
             ZoneId businessZone) {
         this.jdbc = jdbc;
         this.properties = properties;
+        this.meterRegistry = meterRegistry;
         this.clock = clock;
         this.businessZone = businessZone;
     }
@@ -50,7 +55,18 @@ public class PartitionMaintenanceService {
             if (!policy.isEnabled()) {
                 continue;
             }
-            results.add(maintain(policy, today));
+            try {
+                results.add(maintain(policy, today));
+            } catch (RuntimeException ex) {
+                log.error(
+                        "Partition maintenance failed for configured table {}.{}",
+                        policy.getSchema(),
+                        policy.getTable(),
+                        ex);
+                TableResult failed = TableResult.failed(policy, effectiveDryRun(policy), ex);
+                recordMetrics(failed);
+                results.add(failed);
+            }
         }
         return new RunResult(today, List.copyOf(results));
     }
@@ -61,10 +77,14 @@ public class PartitionMaintenanceService {
         validateIdentifier(policy.getSchema(), "schema");
         validateIdentifier(policy.getTable(), "table");
         validateIdentifier(policy.getPartitionColumn(), "partitionColumn");
+        validatePolicy(policy);
 
-        return jdbc.execute(
-                (ConnectionCallback<TableResult>)
-                        connection -> maintainLocked(connection, policy, today));
+        TableResult result =
+                jdbc.execute(
+                        (ConnectionCallback<TableResult>)
+                                connection -> maintainLocked(connection, policy, today));
+        recordMetrics(result);
+        return result;
     }
 
     private TableResult maintainLocked(
@@ -73,32 +93,55 @@ public class PartitionMaintenanceService {
             LocalDate today)
             throws SQLException {
         String lockName = "partition:" + policy.getSchema() + "." + policy.getTable();
+        boolean dryRun = effectiveDryRun(policy);
 
         if (!tryLock(connection, lockName)) {
             log.info("Partition maintenance lock busy. table={}", lockName);
-            return TableResult.lockSkipped(policy.getSchema(), policy.getTable());
+            return TableResult.lockSkipped(policy, dryRun);
         }
 
+        SessionSettings sessionSettings = null;
         long startedAt = System.nanoTime();
         int created = 0;
         int existing = 0;
         int dropped = 0;
+        int plannedCreates = 0;
+        int plannedDrops = 0;
         int failed = 0;
         List<String> errors = new ArrayList<>();
 
         try {
-            configureTimeouts(connection);
+            sessionSettings = readSessionSettings(connection);
+            configureSession(connection);
             verifyRangePartitionedParent(connection, policy);
 
-            LocalDate createUntil = today.plusDays(properties.getDaysAhead());
-            for (LocalDate date = today; !date.isAfter(createUntil); date = date.plusDays(1)) {
-                String partition = partitionName(policy.getTable(), date);
+            LocalDate currentStart = floor(today, policy.getGranularity());
+            int requestedPartitions = policy.getCreateAhead() + 1;
+            if (requestedPartitions > properties.getMaxPartitionsPerRun()) {
+                throw new IllegalArgumentException(
+                        "Too many partitions requested for "
+                                + policy.getTable()
+                                + ": "
+                                + requestedPartitions);
+            }
+
+            LocalDate start = currentStart;
+            for (int i = 0; i < requestedPartitions; i++) {
+                String partition = partitionName(policy, start);
                 try {
                     if (partitionExists(
                             connection, policy.getSchema(), policy.getTable(), partition)) {
                         existing++;
+                    } else if (dryRun) {
+                        plannedCreates++;
+                        log.info(
+                                "Partition create planned (dry-run). table={}.{}, from={}, to={}",
+                                policy.getSchema(),
+                                partition,
+                                start,
+                                next(start, policy.getGranularity()));
                     } else {
-                        createPartition(connection, policy, date, partition);
+                        createPartition(connection, policy, start, partition);
                         created++;
                     }
                 } catch (SQLException ex) {
@@ -107,35 +150,55 @@ public class PartitionMaintenanceService {
                     log.error(
                             "Failed to create partition {}.{}", policy.getSchema(), partition, ex);
                 }
+                start = next(start, policy.getGranularity());
             }
 
-            LocalDate cutoff = today.minusYears(properties.getRetentionYears());
-            for (PartitionInfo partition :
-                    findManagedPartitions(connection, policy.getSchema(), policy.getTable())) {
-                LocalDate date = partitionDate(policy.getTable(), partition.name());
-                if (date == null || date.plusDays(1).isAfter(cutoff)) {
-                    continue;
-                }
-                if (!boundsMatchDate(partition.boundExpression(), date)) {
-                    log.warn(
-                            "Partition bounds do not match managed name. table={}.{}, bound={}",
-                            policy.getSchema(),
-                            partition.name(),
-                            partition.boundExpression());
-                    continue;
-                }
+            if (policy.getMode()
+                    == PartitionMaintenanceProperties.MaintenanceMode.CREATE_AND_DROP) {
+                LocalDate cutoff = retentionCutoff(today, policy);
+                for (PartitionInfo partition :
+                        findManagedPartitions(connection, policy.getSchema(), policy.getTable())) {
+                    LocalDate partitionStart =
+                            partitionDate(
+                                    policy.getTable(), partition.name(), policy.getGranularity());
+                    if (partitionStart == null) {
+                        continue;
+                    }
+                    LocalDate partitionEnd = next(partitionStart, policy.getGranularity());
+                    if (partitionEnd.isAfter(cutoff)) {
+                        continue;
+                    }
+                    if (!boundsMatch(partition.boundExpression(), partitionStart, partitionEnd)) {
+                        log.warn(
+                                "Partition bounds do not match managed name. table={}.{}, bound={}",
+                                policy.getSchema(),
+                                partition.name(),
+                                partition.boundExpression());
+                        continue;
+                    }
 
-                try {
-                    dropPartition(connection, policy.getSchema(), partition.name());
-                    dropped++;
-                } catch (SQLException ex) {
-                    failed++;
-                    errors.add(partition.name() + ": " + ex.getMessage());
-                    log.error(
-                            "Failed to drop expired partition {}.{}",
-                            policy.getSchema(),
-                            partition.name(),
-                            ex);
+                    if (dryRun) {
+                        plannedDrops++;
+                        log.info(
+                                "Partition drop planned (dry-run). table={}.{}, cutoff={}",
+                                policy.getSchema(),
+                                partition.name(),
+                                cutoff);
+                        continue;
+                    }
+
+                    try {
+                        dropPartition(connection, policy.getSchema(), partition.name());
+                        dropped++;
+                    } catch (SQLException ex) {
+                        failed++;
+                        errors.add(partition.name() + ": " + ex.getMessage());
+                        log.error(
+                                "Failed to drop expired partition {}.{}",
+                                policy.getSchema(),
+                                partition.name(),
+                                ex);
+                    }
                 }
             }
 
@@ -144,9 +207,14 @@ public class PartitionMaintenanceService {
                     new TableResult(
                             policy.getSchema(),
                             policy.getTable(),
+                            policy.getGranularity(),
+                            policy.getMode(),
+                            dryRun,
                             created,
                             existing,
                             dropped,
+                            plannedCreates,
+                            plannedDrops,
                             failed,
                             0,
                             durationMs,
@@ -154,7 +222,9 @@ public class PartitionMaintenanceService {
             log.info("Partition maintenance completed. result={}", result);
             return result;
         } finally {
-            resetTimeouts(connection);
+            if (sessionSettings != null) {
+                restoreSession(connection, sessionSettings);
+            }
             unlock(connection, lockName);
         }
     }
@@ -199,18 +269,19 @@ public class PartitionMaintenanceService {
     private void createPartition(
             Connection connection,
             PartitionMaintenanceProperties.TablePolicy policy,
-            LocalDate date,
+            LocalDate start,
             String partition)
             throws SQLException {
+        LocalDate end = next(start, policy.getGranularity());
         String sql =
                 "CREATE TABLE "
                         + qualified(policy.getSchema(), partition)
                         + " PARTITION OF "
                         + qualified(policy.getSchema(), policy.getTable())
                         + " FOR VALUES FROM ('"
-                        + date
+                        + start
                         + "') TO ('"
-                        + date.plusDays(1)
+                        + end
                         + "')";
 
         try (Statement statement = connection.createStatement()) {
@@ -306,20 +377,40 @@ public class PartitionMaintenanceService {
         }
     }
 
-    private void configureTimeouts(Connection connection) throws SQLException {
+    private SessionSettings readSessionSettings(Connection connection) throws SQLException {
+        return new SessionSettings(
+                currentSetting(connection, "lock_timeout"),
+                currentSetting(connection, "statement_timeout"),
+                currentSetting(connection, "TimeZone"));
+    }
+
+    private String currentSetting(Connection connection, String name) throws SQLException {
+        try (PreparedStatement statement =
+                connection.prepareStatement("SELECT current_setting(?)")) {
+            statement.setString(1, name);
+            try (ResultSet rs = statement.executeQuery()) {
+                rs.next();
+                return rs.getString(1);
+            }
+        }
+    }
+
+    private void configureSession(Connection connection) throws SQLException {
         setConfig(connection, "lock_timeout", properties.getLockTimeout().toMillis() + "ms");
         setConfig(
                 connection,
                 "statement_timeout",
                 properties.getStatementTimeout().toMillis() + "ms");
+        setConfig(connection, "TimeZone", businessZone.getId());
     }
 
-    private void resetTimeouts(Connection connection) {
+    private void restoreSession(Connection connection, SessionSettings settings) {
         try {
-            setConfig(connection, "lock_timeout", "0");
-            setConfig(connection, "statement_timeout", "0");
+            setConfig(connection, "lock_timeout", settings.lockTimeout());
+            setConfig(connection, "statement_timeout", settings.statementTimeout());
+            setConfig(connection, "TimeZone", settings.timeZone());
         } catch (SQLException ex) {
-            log.warn("Failed to reset PostgreSQL session timeouts", ex);
+            log.warn("Failed to restore PostgreSQL session settings", ex);
         }
     }
 
@@ -332,30 +423,114 @@ public class PartitionMaintenanceService {
         }
     }
 
-    private static String partitionName(String parentTable, LocalDate date) {
-        return parentTable + "_" + date.format(PARTITION_DATE);
+    private boolean effectiveDryRun(PartitionMaintenanceProperties.TablePolicy policy) {
+        return policy.getDryRun() != null ? policy.getDryRun() : properties.isDryRun();
     }
 
-    private static LocalDate partitionDate(String parentTable, String partitionName) {
+    private static void validatePolicy(PartitionMaintenanceProperties.TablePolicy policy) {
+        Objects.requireNonNull(policy.getGranularity(), "granularity");
+        Objects.requireNonNull(policy.getMode(), "mode");
+        Objects.requireNonNull(policy.getRetentionUnit(), "retentionUnit");
+    }
+
+    private static LocalDate floor(
+            LocalDate date, PartitionMaintenanceProperties.Granularity granularity) {
+        return granularity == PartitionMaintenanceProperties.Granularity.MONTH
+                ? date.withDayOfMonth(1)
+                : date;
+    }
+
+    private static LocalDate next(
+            LocalDate start, PartitionMaintenanceProperties.Granularity granularity) {
+        return granularity == PartitionMaintenanceProperties.Granularity.MONTH
+                ? start.plusMonths(1)
+                : start.plusDays(1);
+    }
+
+    private static LocalDate retentionCutoff(
+            LocalDate today, PartitionMaintenanceProperties.TablePolicy policy) {
+        LocalDate cutoff =
+                switch (policy.getRetentionUnit()) {
+                    case DAYS -> today.minusDays(policy.getRetention());
+                    case MONTHS -> today.minusMonths(policy.getRetention());
+                    case YEARS -> today.minusYears(policy.getRetention());
+                };
+        return floor(cutoff, policy.getGranularity());
+    }
+
+    private static String partitionName(
+            PartitionMaintenanceProperties.TablePolicy policy, LocalDate start) {
+        DateTimeFormatter formatter =
+                policy.getGranularity() == PartitionMaintenanceProperties.Granularity.MONTH
+                        ? MONTH_SUFFIX
+                        : DAY_SUFFIX;
+        return policy.getTable() + "_" + start.format(formatter);
+    }
+
+    private static LocalDate partitionDate(
+            String parentTable,
+            String partitionName,
+            PartitionMaintenanceProperties.Granularity granularity) {
         String prefix = parentTable + "_";
         if (!partitionName.startsWith(prefix)) {
             return null;
         }
+
         String suffix = partitionName.substring(prefix.length());
-        if (suffix.length() != 8 || !suffix.chars().allMatch(Character::isDigit)) {
-            return null;
-        }
         try {
-            return LocalDate.parse(suffix, PARTITION_DATE);
+            if (granularity == PartitionMaintenanceProperties.Granularity.MONTH) {
+                if (suffix.length() != 6 || !suffix.chars().allMatch(Character::isDigit)) {
+                    return null;
+                }
+                return LocalDate.parse(suffix + "01", DAY_SUFFIX);
+            }
+
+            if (suffix.length() != 8 || !suffix.chars().allMatch(Character::isDigit)) {
+                return null;
+            }
+            return LocalDate.parse(suffix, DAY_SUFFIX);
         } catch (DateTimeParseException ex) {
             return null;
         }
     }
 
-    private static boolean boundsMatchDate(String expression, LocalDate date) {
+    private static boolean boundsMatch(String expression, LocalDate start, LocalDate end) {
         return expression != null
-                && expression.contains(date.toString())
-                && expression.contains(date.plusDays(1).toString());
+                && expression.contains(start.toString())
+                && expression.contains(end.toString());
+    }
+
+    private void recordMetrics(TableResult result) {
+        String table = result.schema() + "." + result.table();
+        increment("created", table, result.created());
+        increment("existing", table, result.existing());
+        increment("dropped", table, result.dropped());
+        increment("planned_create", table, result.plannedCreates());
+        increment("planned_drop", table, result.plannedDrops());
+        increment("failed", table, result.failed());
+        increment("lock_skipped", table, result.lockSkipped());
+        meterRegistry
+                .timer(
+                        "collectra.partition.maintenance.duration",
+                        "table",
+                        table,
+                        "granularity",
+                        result.granularity().name())
+                .record(java.time.Duration.ofMillis(result.durationMs()));
+    }
+
+    private void increment(String action, String table, int amount) {
+        if (amount <= 0) {
+            return;
+        }
+        meterRegistry
+                .counter(
+                        "collectra.partition.maintenance.operations",
+                        "table",
+                        table,
+                        "action",
+                        action)
+                .increment(amount);
     }
 
     private static String qualified(String schema, String table) {
@@ -370,20 +545,67 @@ public class PartitionMaintenanceService {
 
     private record PartitionInfo(String name, String boundExpression) {}
 
+    private record SessionSettings(String lockTimeout, String statementTimeout, String timeZone) {}
+
     public record RunResult(LocalDate businessDate, List<TableResult> tables) {}
 
     public record TableResult(
             String schema,
             String table,
+            PartitionMaintenanceProperties.Granularity granularity,
+            PartitionMaintenanceProperties.MaintenanceMode mode,
+            boolean dryRun,
             int created,
             int existing,
             int dropped,
+            int plannedCreates,
+            int plannedDrops,
             int failed,
             int lockSkipped,
             long durationMs,
             List<String> errors) {
-        static TableResult lockSkipped(String schema, String table) {
-            return new TableResult(schema, table, 0, 0, 0, 0, 1, 0, List.of());
+        static TableResult lockSkipped(
+                PartitionMaintenanceProperties.TablePolicy policy, boolean dryRun) {
+            return new TableResult(
+                    policy.getSchema(),
+                    policy.getTable(),
+                    policy.getGranularity(),
+                    policy.getMode(),
+                    dryRun,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    1,
+                    0,
+                    List.of());
+        }
+
+        static TableResult failed(
+                PartitionMaintenanceProperties.TablePolicy policy,
+                boolean dryRun,
+                RuntimeException exception) {
+            String message =
+                    exception.getMessage() == null
+                            ? exception.getClass().getSimpleName()
+                            : exception.getMessage();
+            return new TableResult(
+                    policy.getSchema(),
+                    policy.getTable(),
+                    policy.getGranularity(),
+                    policy.getMode(),
+                    dryRun,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    1,
+                    0,
+                    0,
+                    List.of(message));
         }
     }
 }

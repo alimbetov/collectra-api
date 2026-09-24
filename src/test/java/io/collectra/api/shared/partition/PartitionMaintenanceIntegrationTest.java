@@ -3,9 +3,11 @@ package io.collectra.api.shared.partition;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.collectra.api.AbstractIntegrationTest;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.time.LocalDate;
+import java.util.List;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -20,6 +22,7 @@ class PartitionMaintenanceIntegrationTest extends AbstractIntegrationTest {
     @Autowired DataSource dataSource;
     @Autowired PartitionMaintenanceService service;
     @Autowired PartitionMaintenanceProperties properties;
+    @Autowired MeterRegistry meterRegistry;
 
     private PartitionMaintenanceProperties.TablePolicy policy;
 
@@ -32,13 +35,18 @@ class PartitionMaintenanceIntegrationTest extends AbstractIntegrationTest {
                         + " (id BIGINT, created_at TIMESTAMPTZ NOT NULL)"
                         + " PARTITION BY RANGE (created_at)");
 
-        properties.setDaysAhead(2);
-        properties.setRetentionYears(4);
+        properties.setDryRun(false);
+        properties.setMaxPartitionsPerRun(400);
 
         policy = new PartitionMaintenanceProperties.TablePolicy();
         policy.setSchema("public");
         policy.setTable(TABLE);
         policy.setPartitionColumn("created_at");
+        policy.setGranularity(PartitionMaintenanceProperties.Granularity.DAY);
+        policy.setMode(PartitionMaintenanceProperties.MaintenanceMode.CREATE_ONLY);
+        policy.setCreateAhead(2);
+        policy.setRetention(4);
+        policy.setRetentionUnit(PartitionMaintenanceProperties.RetentionUnit.YEARS);
     }
 
     @AfterEach
@@ -47,7 +55,7 @@ class PartitionMaintenanceIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void createsFuturePartitionsAndRerunIsIdempotent() {
+    void createsDailyPartitionsAheadAndRerunIsIdempotent() {
         LocalDate today = LocalDate.of(2026, 9, 23);
 
         var first = service.maintain(policy, today);
@@ -66,31 +74,124 @@ class PartitionMaintenanceIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void dropsOnlyPartitionsWhoseUpperBoundIsAtOrBeforeFourYearCutoff() {
-        LocalDate today = LocalDate.of(2026, 9, 23);
-        createPartition(LocalDate.of(2022, 9, 22));
-        createPartition(LocalDate.of(2022, 9, 23));
+    void createsMonthlyPartitionsFromFirstDayOfCurrentMonth() {
+        policy.setGranularity(PartitionMaintenanceProperties.Granularity.MONTH);
+        policy.setCreateAhead(2);
 
-        var result = service.maintain(policy, today);
+        var result = service.maintain(policy, LocalDate.of(2026, 9, 23));
 
-        assertThat(result.dropped()).isEqualTo(1);
+        assertThat(result.created()).isEqualTo(3);
         assertThat(partitionNames())
-                .doesNotContain(TABLE + "_20220922")
+                .containsExactly(TABLE + "_202609", TABLE + "_202610", TABLE + "_202611");
+        assertThat(routeTimestamp("2026-09-01 00:00:00+05")).endsWith(TABLE + "_202609");
+        assertThat(routeTimestamp("2026-09-30 23:59:59+05")).endsWith(TABLE + "_202609");
+        assertThat(routeTimestamp("2026-10-01 00:00:00+05")).endsWith(TABLE + "_202610");
+    }
+
+    @Test
+    void createOnlyNeverDropsExpiredPartitions() {
+        createDailyPartition(LocalDate.of(2020, 1, 1));
+
+        var result = service.maintain(policy, LocalDate.of(2026, 9, 23));
+
+        assertThat(result.dropped()).isZero();
+        assertThat(partitionNames()).contains(TABLE + "_20200101");
+    }
+
+    @Test
+    void createAndDropRemovesOnlyPartitionsAtOrBeforeRetentionCutoff() {
+        policy.setMode(PartitionMaintenanceProperties.MaintenanceMode.CREATE_AND_DROP);
+        policy.setRetention(4);
+        policy.setRetentionUnit(PartitionMaintenanceProperties.RetentionUnit.YEARS);
+
+        createDailyPartition(LocalDate.of(2022, 9, 21));
+        createDailyPartition(LocalDate.of(2022, 9, 22));
+        createDailyPartition(LocalDate.of(2022, 9, 23));
+
+        var result = service.maintain(policy, LocalDate.of(2026, 9, 23));
+
+        assertThat(result.dropped()).isEqualTo(2);
+        assertThat(partitionNames())
+                .doesNotContain(TABLE + "_20220921", TABLE + "_20220922")
                 .contains(TABLE + "_20220923");
     }
 
     @Test
-    void fourYearCutoffUsesCalendarYearsAcrossLeapDay() {
-        LocalDate today = LocalDate.of(2028, 2, 29);
-        createPartition(LocalDate.of(2024, 2, 28));
-        createPartition(LocalDate.of(2024, 2, 29));
+    void monthlyRetentionUsesWholePartitionBoundary() {
+        policy.setGranularity(PartitionMaintenanceProperties.Granularity.MONTH);
+        policy.setMode(PartitionMaintenanceProperties.MaintenanceMode.CREATE_AND_DROP);
+        policy.setRetention(12);
+        policy.setRetentionUnit(PartitionMaintenanceProperties.RetentionUnit.MONTHS);
 
-        var result = service.maintain(policy, today);
+        createMonthlyPartition(LocalDate.of(2025, 8, 1));
+        createMonthlyPartition(LocalDate.of(2025, 9, 1));
+
+        var result = service.maintain(policy, LocalDate.of(2026, 9, 23));
 
         assertThat(result.dropped()).isEqualTo(1);
-        assertThat(partitionNames())
-                .doesNotContain(TABLE + "_20240228")
-                .contains(TABLE + "_20240229");
+        assertThat(partitionNames()).doesNotContain(TABLE + "_202508").contains(TABLE + "_202509");
+    }
+
+    @Test
+    void globalDryRunPlansChangesWithoutExecutingDdl() {
+        properties.setDryRun(true);
+        policy.setMode(PartitionMaintenanceProperties.MaintenanceMode.CREATE_AND_DROP);
+        policy.setCreateAhead(1);
+        policy.setRetention(30);
+        policy.setRetentionUnit(PartitionMaintenanceProperties.RetentionUnit.DAYS);
+        createDailyPartition(LocalDate.of(2026, 1, 1));
+
+        var result = service.maintain(policy, LocalDate.of(2026, 9, 23));
+
+        assertThat(result.dryRun()).isTrue();
+        assertThat(result.created()).isZero();
+        assertThat(result.dropped()).isZero();
+        assertThat(result.plannedCreates()).isEqualTo(2);
+        assertThat(result.plannedDrops()).isEqualTo(1);
+        assertThat(partitionNames()).containsExactly(TABLE + "_20260101");
+    }
+
+    @Test
+    void tableDryRunOverridesGlobalSetting() {
+        properties.setDryRun(false);
+        policy.setDryRun(true);
+        policy.setCreateAhead(0);
+
+        var result = service.maintain(policy, LocalDate.of(2026, 9, 23));
+
+        assertThat(result.dryRun()).isTrue();
+        assertThat(result.plannedCreates()).isEqualTo(1);
+        assertThat(partitionNames()).isEmpty();
+    }
+
+    @Test
+    void rejectsRunThatExceedsGlobalPartitionSafetyLimit() {
+        properties.setMaxPartitionsPerRun(2);
+        policy.setCreateAhead(2);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () -> service.maintain(policy, LocalDate.of(2026, 9, 23)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Too many partitions requested");
+    }
+
+    @Test
+    void skipsMalformedManagedNameAndBoundsInsteadOfDroppingIt() {
+        policy.setMode(PartitionMaintenanceProperties.MaintenanceMode.CREATE_AND_DROP);
+        policy.setRetention(30);
+        policy.setRetentionUnit(PartitionMaintenanceProperties.RetentionUnit.DAYS);
+
+        jdbc.execute(
+                "CREATE TABLE public."
+                        + TABLE
+                        + "_20200101 PARTITION OF public."
+                        + TABLE
+                        + " FOR VALUES FROM ('2020-01-02') TO ('2020-01-03')");
+
+        var result = service.maintain(policy, LocalDate.of(2026, 9, 23));
+
+        assertThat(result.dropped()).isZero();
+        assertThat(partitionNames()).contains(TABLE + "_20200101");
     }
 
     @Test
@@ -118,7 +219,52 @@ class PartitionMaintenanceIntegrationTest extends AbstractIntegrationTest {
         }
     }
 
-    private void createPartition(LocalDate date) {
+    @Test
+    void configuredRunContinuesAfterOneTableFails() {
+        var broken = new PartitionMaintenanceProperties.TablePolicy();
+        broken.setSchema("public");
+        broken.setTable("missing_partition_parent");
+        broken.setPartitionColumn("created_at");
+        broken.setCreateAhead(0);
+        broken.setDryRun(false);
+
+        policy.setCreateAhead(0);
+        properties.setTables(List.of(broken, policy));
+
+        var result = service.maintainConfiguredTables();
+
+        assertThat(result.tables()).hasSize(2);
+        assertThat(result.tables().get(0).failed()).isEqualTo(1);
+        assertThat(result.tables().get(0).errors()).isNotEmpty();
+        assertThat(result.tables().get(1).failed()).isZero();
+        assertThat(result.tables().get(1).created()).isEqualTo(1);
+    }
+
+    @Test
+    void recordsOperationMetrics() {
+        policy.setCreateAhead(0);
+
+        double before =
+                counterValue(
+                        "collectra.partition.maintenance.operations",
+                        "table",
+                        "public." + TABLE,
+                        "action",
+                        "created");
+
+        service.maintain(policy, LocalDate.of(2026, 9, 23));
+
+        assertThat(
+                        counterValue(
+                                "collectra.partition.maintenance.operations",
+                                "table",
+                                "public." + TABLE,
+                                "action",
+                                "created"))
+                .isEqualTo(before + 1.0);
+    }
+
+    private void createDailyPartition(LocalDate date) {
         jdbc.execute(
                 "CREATE TABLE public."
                         + TABLE
@@ -133,7 +279,23 @@ class PartitionMaintenanceIntegrationTest extends AbstractIntegrationTest {
                         + "')");
     }
 
-    private java.util.List<String> partitionNames() {
+    private void createMonthlyPartition(LocalDate month) {
+        LocalDate start = month.withDayOfMonth(1);
+        jdbc.execute(
+                "CREATE TABLE public."
+                        + TABLE
+                        + "_"
+                        + start.format(java.time.format.DateTimeFormatter.ofPattern("yyyyMM"))
+                        + " PARTITION OF public."
+                        + TABLE
+                        + " FOR VALUES FROM ('"
+                        + start
+                        + "') TO ('"
+                        + start.plusMonths(1)
+                        + "')");
+    }
+
+    private List<String> partitionNames() {
         return jdbc.queryForList(
                 """
                 SELECT child.relname
@@ -147,5 +309,19 @@ class PartitionMaintenanceIntegrationTest extends AbstractIntegrationTest {
                 """,
                 String.class,
                 TABLE);
+    }
+
+    private String routeTimestamp(String timestamp) {
+        return jdbc.queryForObject(
+                "INSERT INTO public."
+                        + TABLE
+                        + " (created_at) VALUES (?::timestamptz) RETURNING tableoid::regclass::text",
+                String.class,
+                timestamp);
+    }
+
+    private double counterValue(String name, String... tags) {
+        var search = meterRegistry.find(name).tags(tags).counter();
+        return search == null ? 0.0 : search.count();
     }
 }
