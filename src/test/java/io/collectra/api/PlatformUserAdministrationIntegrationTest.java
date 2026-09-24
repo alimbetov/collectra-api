@@ -159,11 +159,7 @@ class PlatformUserAdministrationIntegrationTest extends AbstractIntegrationTest 
 
         TenantMembership blocked = memberships.findById(user.membershipId()).orElseThrow();
         lifecycle.changeMembershipStatus(
-                UUID.randomUUID(),
-                blocked.getId(),
-                true,
-                blocked.getVersion(),
-                "access restored");
+                UUID.randomUUID(), blocked.getId(), true, blocked.getVersion(), "access restored");
 
         assertThat(auth.login(user.tenantSlug(), user.email(), user.password())).isNotNull();
         assertThatThrownBy(() -> auth.refresh(original.refreshToken()))
