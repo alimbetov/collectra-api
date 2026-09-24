@@ -40,6 +40,7 @@ public class MessageDocumentLinkService {
     private final CampaignRunRepository runs;
     private final MessageDeliveryRequestService deliveryRequests;
     private final DocumentLinkProperties properties;
+    private final MessageDocumentAccessRecorder accessRecorder;
     private final Clock clock;
     private final SecureRandom random = new SecureRandom();
 
@@ -51,6 +52,7 @@ public class MessageDocumentLinkService {
             CampaignRunRepository runs,
             MessageDeliveryRequestService deliveryRequests,
             DocumentLinkProperties properties,
+            MessageDocumentAccessRecorder accessRecorder,
             Clock clock) {
         this.links = links;
         this.messages = messages;
@@ -59,6 +61,7 @@ public class MessageDocumentLinkService {
         this.runs = runs;
         this.deliveryRequests = deliveryRequests;
         this.properties = properties;
+        this.accessRecorder = accessRecorder;
         this.clock = clock;
     }
 
@@ -173,6 +176,11 @@ public class MessageDocumentLinkService {
         byte[] content = outputs.read(document);
         if (content.length > properties.getMaxDownloadBytes()) {
             throw new IllegalStateException("Generated document exceeds public download limit");
+        }
+        try {
+            accessRecorder.record(link.getTenantId(), link.getId(), clock.instant());
+        } catch (RuntimeException ignored) {
+            // Access analytics are best-effort and must not make a valid public PDF unavailable.
         }
         return new PublicDocument(document.getMediaType(), content);
     }
