@@ -51,13 +51,20 @@ public class CommunicationProjectionScheduler {
                                     try {
                                         var result =
                                                 rebuilds.rebuildTenantDay(tenant.getId(), date);
-                                        log.info(
-                                                "Communication projection rebuilt. tenantId={}, businessDate={}, campaignRows={}, failureRows={}, sourceWatermark={}",
-                                                result.tenantId(),
-                                                result.businessDate(),
-                                                result.campaignRows(),
-                                                result.failureRows(),
-                                                result.sourceWatermark());
+                                        if (result.lockSkipped()) {
+                                            log.debug(
+                                                    "Communication projection rebuild skipped because another worker owns it. tenantId={}, businessDate={}",
+                                                    result.tenantId(),
+                                                    result.businessDate());
+                                        } else {
+                                            log.info(
+                                                    "Communication projection rebuilt. tenantId={}, businessDate={}, campaignRows={}, failureRows={}, sourceWatermark={}",
+                                                    result.tenantId(),
+                                                    result.businessDate(),
+                                                    result.campaignRows(),
+                                                    result.failureRows(),
+                                                    result.sourceWatermark());
+                                        }
                                     } catch (RuntimeException ex) {
                                         log.error(
                                                 "Communication projection rebuild failed. tenantId={}, businessDate={}",
