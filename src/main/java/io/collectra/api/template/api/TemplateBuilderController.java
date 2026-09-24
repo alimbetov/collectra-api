@@ -215,15 +215,13 @@ public class TemplateBuilderController {
 
     @PostMapping("/versions/{versionId}/validate")
     @PreAuthorize("hasAuthority('TEMPLATE_MANAGE')")
-    Object validateSavedDraft(
-            @PathVariable UUID versionId, @RequestParam @Min(0) long revision) {
+    Object validateSavedDraft(@PathVariable UUID versionId, @RequestParam @Min(0) long revision) {
         return mutations.validate(tenant(), versionId, revision);
     }
 
     @PostMapping("/versions/{versionId}/publish")
     @PreAuthorize("hasAuthority('TEMPLATE_PUBLISH')")
-    VersionResponse publish(
-            @PathVariable UUID versionId, @RequestParam @Min(0) long revision) {
+    VersionResponse publish(@PathVariable UUID versionId, @RequestParam @Min(0) long revision) {
         return VersionResponse.from(mutations.publish(tenant(), versionId, revision));
     }
 

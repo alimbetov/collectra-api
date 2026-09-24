@@ -2,8 +2,8 @@ package io.collectra.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -74,7 +74,8 @@ class TemplateStudioContractIntegrationTest extends AbstractIntegrationTest {
                         put("/api/v1/templates/{id}", id)
                                 .header("Authorization", bearer(token))
                                 .contentType(MediaType.APPLICATION_JSON)
-                                .content("""
+                                .content(
+                                        """
                                         {"name":"Renamed"}
                                         """))
                 .andExpect(status().isBadRequest());
@@ -86,7 +87,8 @@ class TemplateStudioContractIntegrationTest extends AbstractIntegrationTest {
                         .content(
                                 """
                                 {"name":"Renamed","revision":%d}
-                                """.formatted(revision)));
+                                """
+                                        .formatted(revision)));
 
         mockMvc.perform(
                         put("/api/v1/templates/{id}", id)
@@ -95,7 +97,8 @@ class TemplateStudioContractIntegrationTest extends AbstractIntegrationTest {
                                 .content(
                                         """
                                         {"name":"Stale","revision":%d}
-                                        """.formatted(revision)))
+                                        """
+                                                .formatted(revision)))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("VERSION_CONFLICT"));
     }

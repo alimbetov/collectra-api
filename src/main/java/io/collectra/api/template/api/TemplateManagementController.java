@@ -104,8 +104,7 @@ public class TemplateManagementController {
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('TEMPLATE_MANAGE')")
-    void archiveTemplate(
-            @PathVariable UUID id, @RequestParam @Min(0) long revision) {
+    void archiveTemplate(@PathVariable UUID id, @RequestParam @Min(0) long revision) {
         mutations.archiveTemplate(tenant(), id, revision);
     }
 
@@ -193,8 +192,7 @@ public class TemplateManagementController {
             @NotBlank @Size(max = 200) String name,
             @NotBlank @Size(max = 50) String documentType) {}
 
-    record RenameRequest(
-            @NotBlank @Size(max = 200) String name, @NotNull @Min(0) Long revision) {}
+    record RenameRequest(@NotBlank @Size(max = 200) String name, @NotNull @Min(0) Long revision) {}
 
     record VersionRequest(
             @NotBlank @Size(max = 35) String locale,
