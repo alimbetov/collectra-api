@@ -2,6 +2,7 @@ package io.collectra.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -68,8 +69,6 @@ class PlatformUserAdministrationIntegrationTest extends AbstractIntegrationTest 
         assertThat(response.at("/items/0/accountStatus").asText()).isEqualTo("ACTIVE");
         assertThat(response.at("/items/0/membershipStatus").asText()).isEqualTo("ACTIVE");
         assertThat(response.at("/items/0/effectiveAccessStatus").asText()).isEqualTo("ACTIVE");
-        assertThat(response.at("/items/0/roleCodes").findValuesAsText(""))
-                .doesNotContain("tokenHash");
         assertThat(response.at("/items/0/roleCodes").toString()).contains("TENANT_USER");
 
         var tenantTokens = auth.login(user.tenantSlug(), user.email(), user.password());
@@ -137,6 +136,70 @@ class PlatformUserAdministrationIntegrationTest extends AbstractIntegrationTest 
                           from security_audit_events
                          where tenant_id = ?
                            and action = 'TENANT_MEMBERSHIP_BLOCKED'
+                           and result = 'SUCCEEDED'
+                        """,
+                        Integer.class,
+                        user.tenantId());
+        assertThat(auditCount).isPositive();
+    }
+
+    @Test
+    void activationAllowsNewLoginButDoesNotRestoreOldRefreshSession() {
+        TestUser user = createTenantUser();
+        AuthService.AuthTokens original =
+                auth.login(user.tenantSlug(), user.email(), user.password());
+
+        TenantMembership membership = memberships.findById(user.membershipId()).orElseThrow();
+        lifecycle.changeMembershipStatus(
+                UUID.randomUUID(),
+                membership.getId(),
+                false,
+                membership.getVersion(),
+                "temporary block");
+
+        TenantMembership blocked = memberships.findById(user.membershipId()).orElseThrow();
+        lifecycle.changeMembershipStatus(
+                UUID.randomUUID(),
+                blocked.getId(),
+                true,
+                blocked.getVersion(),
+                "access restored");
+
+        assertThat(auth.login(user.tenantSlug(), user.email(), user.password())).isNotNull();
+        assertThatThrownBy(() -> auth.refresh(original.refreshToken()))
+                .isInstanceOf(InvalidRefreshTokenException.class);
+    }
+
+    @Test
+    void revokeAllSessionsInvalidatesAccessAndRefreshTokens() throws Exception {
+        TestUser user = createTenantUser();
+        AuthService.AuthTokens tokens =
+                auth.login(user.tenantSlug(), user.email(), user.password());
+
+        JsonNode updated =
+                read(
+                        delete(
+                                        "/api/v1/platform/memberships/{membershipId}/sessions",
+                                        user.membershipId())
+                                .queryParam("reason", "Compromised device")
+                                .header("Authorization", "Bearer " + platformAccessToken()));
+
+        assertThat(updated.get("activeSessionCount").asLong()).isZero();
+
+        mockMvc.perform(
+                        get("/api/v1/identity/me")
+                                .header("Authorization", "Bearer " + tokens.accessToken()))
+                .andExpect(status().isUnauthorized());
+        assertThatThrownBy(() -> auth.refresh(tokens.refreshToken()))
+                .isInstanceOf(InvalidRefreshTokenException.class);
+
+        Integer auditCount =
+                jdbc.queryForObject(
+                        """
+                        select count(*)
+                          from security_audit_events
+                         where tenant_id = ?
+                           and action = 'TENANT_MEMBERSHIP_SESSIONS_REVOKED'
                            and result = 'SUCCEEDED'
                         """,
                         Integer.class,
