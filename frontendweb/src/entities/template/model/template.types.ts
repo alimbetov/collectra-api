@@ -221,3 +221,25 @@ export interface TextDraftCommand {
   stylesheet?: string | null;
   revision?: number;
 }
+
+
+export interface FileMetadataDto {
+  fileId: UUID;
+  tenantId: UUID;
+  projectId: UUID | null;
+  category: string;
+  originalFilename: string;
+  contentType: string | null;
+  sizeBytes: number | null;
+  checksumSha256: string | null;
+  status: string;
+  createdAt: Instant;
+  expiresAt: Instant | null;
+  deletedAt: Instant | null;
+}
+
+export interface RegisterTemplateAssetCommand {
+  key: string;
+  fileId: UUID;
+  altText?: string | null;
+}
