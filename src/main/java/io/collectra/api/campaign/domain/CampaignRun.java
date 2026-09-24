@@ -22,6 +22,9 @@ public class CampaignRun extends AuditableEntity {
     @Column(name = "campaign_id", nullable = false)
     private UUID campaignId;
 
+    @Column(name = "prepare_command_id")
+    private UUID prepareCommandId;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private CampaignRunStatus status;
@@ -53,9 +56,14 @@ public class CampaignRun extends AuditableEntity {
     protected CampaignRun() {}
 
     public CampaignRun(UUID tenantId, UUID campaignId) {
+        this(tenantId, campaignId, null);
+    }
+
+    public CampaignRun(UUID tenantId, UUID campaignId, UUID prepareCommandId) {
         this.id = UUID.randomUUID();
         this.tenantId = Objects.requireNonNull(tenantId);
         this.campaignId = Objects.requireNonNull(campaignId);
+        this.prepareCommandId = prepareCommandId;
         this.status = CampaignRunStatus.PREPARING;
     }
 
@@ -174,6 +182,10 @@ public class CampaignRun extends AuditableEntity {
 
     public UUID getCampaignId() {
         return campaignId;
+    }
+
+    public UUID getPrepareCommandId() {
+        return prepareCommandId;
     }
 
     public CampaignRunStatus getStatus() {

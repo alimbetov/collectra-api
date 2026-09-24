@@ -39,6 +39,9 @@ public class Campaign extends AuditableEntity {
     @Column(name = "scheduled_at")
     private Instant scheduledAt;
 
+    @Column(name = "scheduled_dispatched_at")
+    private Instant scheduledDispatchedAt;
+
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "selection_criteria", nullable = false, columnDefinition = "jsonb")
     private JsonNode selectionCriteria;
@@ -104,20 +107,29 @@ public class Campaign extends AuditableEntity {
         this.status = CampaignStatus.DRAFT;
     }
 
+    public void updateDraft(
+            String name,
+            UUID templateVersionId,
+            String channel,
+            Instant scheduledAt,
+            JsonNode selectionCriteria) {
+        ensureDraft();
+        this.name = required(name, "name");
+        this.templateVersionId = Objects.requireNonNull(templateVersionId);
+        this.channel = required(channel, "channel").toUpperCase(Locale.ROOT);
+        this.scheduledAt = scheduledAt;
+        this.scheduledDispatchedAt = null;
+        this.selectionCriteria = Objects.requireNonNull(selectionCriteria).deepCopy();
+    }
+
     public void configureGeneratedPdfAttachment(boolean enabled, boolean required) {
-        if (status != CampaignStatus.DRAFT) {
-            throw new IllegalStateException(
-                    "Generated PDF attachment can only be configured for draft campaign");
-        }
+        ensureDraft();
         generatedPdfAttachment = enabled;
         generatedPdfAttachmentRequired = enabled && required;
     }
 
     public void configureGeneratedPdfLink(UUID documentTemplateVersionId, boolean enabled) {
-        if (status != CampaignStatus.DRAFT) {
-            throw new IllegalStateException(
-                    "Generated PDF link can only be configured for draft campaign");
-        }
+        ensureDraft();
         if (enabled && documentTemplateVersionId == null) {
             throw new IllegalArgumentException(
                     "documentTemplateVersionId is required for generated PDF link");
@@ -127,10 +139,16 @@ public class Campaign extends AuditableEntity {
     }
 
     public void activate() {
-        if (status != CampaignStatus.DRAFT) {
-            throw new IllegalStateException("Only draft campaign can be activated");
-        }
+        ensureDraft();
         status = CampaignStatus.ACTIVE;
+    }
+
+    public boolean markScheduledDispatched(Instant now) {
+        if (scheduledAt == null || scheduledDispatchedAt != null) {
+            return false;
+        }
+        scheduledDispatchedAt = Objects.requireNonNull(now, "now is required");
+        return true;
     }
 
     public void archive() {
@@ -165,6 +183,10 @@ public class Campaign extends AuditableEntity {
         return scheduledAt;
     }
 
+    public Instant getScheduledDispatchedAt() {
+        return scheduledDispatchedAt;
+    }
+
     public JsonNode getSelectionCriteria() {
         return selectionCriteria.deepCopy();
     }
@@ -187,6 +209,12 @@ public class Campaign extends AuditableEntity {
 
     public UUID getCreatedBy() {
         return createdBy;
+    }
+
+    private void ensureDraft() {
+        if (status != CampaignStatus.DRAFT) {
+            throw new IllegalStateException("Only draft campaign can be changed");
+        }
     }
 
     private static String required(String value, String field) {
