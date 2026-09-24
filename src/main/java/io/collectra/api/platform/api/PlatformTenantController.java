@@ -59,7 +59,7 @@ public class PlatformTenantController {
     TenantDetail changeStatus(
             JwtAuthenticationToken authentication,
             @PathVariable UUID tenantId,
-            @Valid @RequestBody StatusRequest request) {
+            @Valid @RequestBody PlatformTenantStatusRequest request) {
         lifecycle.changeStatus(
                 actorId(authentication),
                 tenantId,
@@ -73,6 +73,6 @@ public class PlatformTenantController {
         return UUID.fromString(authentication.getToken().getSubject());
     }
 
-    record StatusRequest(
+    record PlatformTenantStatusRequest(
             boolean active, @Min(0) long revision, @NotBlank @Size(max = 255) String reason) {}
 }
