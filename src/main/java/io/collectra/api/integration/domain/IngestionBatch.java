@@ -1,6 +1,8 @@
 package io.collectra.api.integration.domain;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -33,6 +35,7 @@ public class IngestionBatch {
     @Column(name = "completed_at") private Instant completedAt;
     @Column(name = "error_code", length = 100) private String errorCode;
     @Column(name = "safe_error_message", length = 500) private String safeErrorMessage;
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "context_json", nullable = false, columnDefinition = "jsonb") private String contextJson;
     @Version private long version;
 
