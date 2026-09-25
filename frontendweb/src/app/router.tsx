@@ -40,6 +40,8 @@ import { IntegrationSourceCreatePage } from '../pages/integrations/IntegrationSo
 import { IntegrationSourceDetailPage } from '../pages/integrations/IntegrationSourceDetailPage';
 import { SourceSchemasPage } from '../pages/integrations/SourceSchemasPage';
 import { MappingProfilesPage } from '../pages/integrations/MappingProfilesPage';
+import { SourceSchemaDetailPage } from '../pages/integrations/SourceSchemaDetailPage';
+import { MappingProfileDetailPage } from '../pages/integrations/MappingProfileDetailPage';
 
 function PlaceholderPage({ titleKey }: { titleKey: MessageKey }) {
   const { t } = useI18n();
@@ -187,6 +189,14 @@ export const router = createBrowserRouter([
       {
         path: 'integrations/source-schemas',
         element: <RequirePermission permission="SOURCE_SCHEMA_READ"><SourceSchemasPage /></RequirePermission>,
+      },
+      {
+        path: 'integrations/source-schemas/:schemaId',
+        element: <RequirePermission permission="SOURCE_SCHEMA_READ"><SourceSchemaDetailPage /></RequirePermission>,
+      },
+      {
+        path: 'integrations/mapping-profiles/:profileId',
+        element: <RequirePermission permission="MAPPING_PROFILE_READ"><MappingProfileDetailPage /></RequirePermission>,
       },
       {
         path: 'integrations/mapping-profiles',
