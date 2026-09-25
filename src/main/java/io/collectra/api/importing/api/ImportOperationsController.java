@@ -15,15 +15,35 @@ import org.springframework.web.bind.annotation.*;
 @PreAuthorize("@importBatchAuthorization.canRead(authentication)")
 public class ImportOperationsController {
     private final ImportOperationsQueryService service;
-    public ImportOperationsController(ImportOperationsQueryService service){this.service=service;}
+
+    public ImportOperationsController(ImportOperationsQueryService service) {
+        this.service = service;
+    }
+
     @GetMapping
-    public Page<ImportOperationsQueryService.BatchSummary> list(@RequestParam(required=false) String status,
-        @RequestParam(required=false) @DateTimeFormat(iso=DateTimeFormat.ISO.DATE_TIME) Instant from,
-        @RequestParam(required=false) @DateTimeFormat(iso=DateTimeFormat.ISO.DATE_TIME) Instant to,
-        @RequestParam(required=false) String idempotencyKey,@RequestParam(defaultValue="0") int page,
-        @RequestParam(defaultValue="50") int size,@RequestParam(required=false) List<String> sort){
-        return service.list(TenantContext.requireTenantId(),status,from,to,idempotencyKey,page,size,sort);}
+    public Page<ImportOperationsQueryService.BatchSummary> list(
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+                    Instant from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+                    Instant to,
+            @RequestParam(required = false) String idempotencyKey,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size,
+            @RequestParam(required = false) List<String> sort) {
+        return service.list(
+                TenantContext.requireTenantId(),
+                status,
+                from,
+                to,
+                idempotencyKey,
+                page,
+                size,
+                sort);
+    }
+
     @GetMapping("/{id}/operations")
-    public ImportOperationsQueryService.BatchDetail detail(@PathVariable UUID id){
-        return service.get(TenantContext.requireTenantId(),id);}
+    public ImportOperationsQueryService.BatchDetail detail(@PathVariable UUID id) {
+        return service.get(TenantContext.requireTenantId(), id);
+    }
 }

@@ -7,6 +7,36 @@ Depends on: FW2 closure, backend durable import diagnostics
 Suggested branches: `feat/import-record-errors-api`,
 `feat/frontendweb-fw10a-import-execution`, `feat/frontendweb-fw10b-import-configuration`
 
+## Implemented backend closure
+
+The current backend closes the VC-4/FW10 diagnostics gate needed before frontend execution
+work:
+
+- durable tenant-scoped import record diagnostics with bounded safe details, masked source
+  values and stable paging/sorting;
+- import operations history/detail APIs with explicit bounds and deterministic ordering;
+- real FK-backed import-operation fixtures for source schema, mapping profile and template
+  version references;
+- production ingestion diagnostics now preserve useful root-cause messages without leaking
+  raw payloads;
+- async ingestion and document-generation listeners parse broker messages through the
+  application `ObjectMapper`, avoiding converter type mismatches;
+- customer field catalog seed repair restores `customer.*` mapping targets required by
+  ingestion and campaign smoke flows;
+- document generation, PDF attachment readiness and mock channel delivery are covered by
+  executable smoke tests;
+- OpenAPI baseline is updated for the reviewed contract.
+
+Verified gates:
+
+```text
+mvn spotless:check
+mvn clean verify
+```
+
+The full backend suite is green on the merged implementation: 697 tests, 0 failures,
+0 errors.
+
 ## Цель
 
 Реализовать idempotent file/JSON/XML import, history/progress/diagnostics and separate

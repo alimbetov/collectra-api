@@ -6,7 +6,9 @@ import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
-public interface ImportBatchRepository extends JpaRepository<ImportBatch, UUID>, JpaSpecificationExecutor<ImportBatch> {
+public interface ImportBatchRepository
+        extends JpaRepository<ImportBatch, UUID>, JpaSpecificationExecutor<ImportBatch> {
     Optional<ImportBatch> findByTenantIdAndIdempotencyKey(UUID tenantId, String idempotencyKey);
+
     Optional<ImportBatch> findByIdAndTenantId(UUID id, UUID tenantId);
 }

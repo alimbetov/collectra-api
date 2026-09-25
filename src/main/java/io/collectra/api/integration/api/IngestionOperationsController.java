@@ -35,7 +35,10 @@ public class IngestionOperationsController {
                     Instant to,
             @RequestParam(required = false) String sourceCode,
             @RequestParam(required = false) String idempotencyKey,
-            @PageableDefault(size = 50, sort = {"receivedAt", "id"}, direction = Sort.Direction.DESC)
+            @PageableDefault(
+                            size = 50,
+                            sort = {"receivedAt", "id"},
+                            direction = Sort.Direction.DESC)
                     Pageable pageable) {
         return service.list(
                 TenantContext.requireTenantId(),
@@ -57,7 +60,10 @@ public class IngestionOperationsController {
             @PathVariable UUID id,
             @RequestParam(required = false) String outcome,
             @RequestParam(required = false) String targetType,
-            @PageableDefault(size = 50, sort = {"recordOrder", "fieldPath", "id"}, direction = Sort.Direction.ASC)
+            @PageableDefault(
+                            size = 50,
+                            sort = {"recordOrder", "fieldPath", "id"},
+                            direction = Sort.Direction.ASC)
                     Pageable pageable) {
         return service.records(TenantContext.requireTenantId(), id, outcome, targetType, pageable);
     }

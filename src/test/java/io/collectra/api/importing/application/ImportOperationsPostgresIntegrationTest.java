@@ -18,6 +18,7 @@ import io.collectra.api.template.infrastructure.DocumentTemplateRepository;
 import io.collectra.api.template.infrastructure.TemplateVersionRepository;
 import io.collectra.api.tenant.domain.Tenant;
 import io.collectra.api.tenant.infrastructure.TenantRepository;
+import java.util.Comparator;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.UUID;
@@ -49,9 +50,13 @@ class ImportOperationsPostgresIntegrationTest extends AbstractIntegrationTest {
         var page =
                 operations.list(
                         a.getId(), "PROCESSING", null, null, null, 0, 100, List.of("id,asc"));
+        List<UUID> expected =
+                List.of(first.getId(), second.getId()).stream()
+                        .sorted(Comparator.naturalOrder())
+                        .toList();
         assertThat(page.getContent())
                 .extracting(ImportOperationsQueryService.BatchSummary::id)
-                .containsExactlyInAnyOrder(first.getId(), second.getId());
+                .containsExactlyElementsOf(expected);
         var detail = operations.get(a.getId(), first.getId());
         assertThat(detail.source()).isEqualTo("LEGACY_IMPORT");
         assertThat(detail.processingAttempts()).isEqualTo(1);
