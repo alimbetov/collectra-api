@@ -46,6 +46,7 @@ import { ImportsPage } from '../pages/imports/ImportsPage';
 import { ImportCreatePage } from '../pages/imports/ImportCreatePage';
 import { ImportDetailPage } from '../pages/imports/ImportDetailPage';
 import { ImportErrorsPage } from '../pages/imports/ImportErrorsPage';
+import { ReceivablesPage } from '../pages/receivables/ReceivablesPage';
 
 function PlaceholderPage({ titleKey }: { titleKey: MessageKey }) {
   const { t } = useI18n();
@@ -110,7 +111,7 @@ export const router = createBrowserRouter([
       { path: 'customers/:customerId/contacts', element: <CustomerDetailPage tab="contacts" /> },
       { path: 'customers/:customerId/contracts', element: <CustomerDetailPage tab="contracts" /> },
       { path: 'customers/:customerId/overview', element: <Navigate to=".." relative="path" replace /> },
-      { path: 'receivables', element: <PlaceholderPage titleKey="navigation.receivables" /> },
+      { path: 'receivables', element: <ReceivablesPage /> },
       { path: 'contracts', element: <ContractsPage /> },
       { path: 'contracts/:contractId', element: <ContractDetailPage /> },
       { path: 'collections', element: <PlaceholderPage titleKey="navigation.collections" /> },
