@@ -1,6 +1,6 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { receivableQueries } from '../../entities/receivable/api/receivable.queries';
 import type { PaymentStatus } from '../../entities/receivable/model/receivable.types';
 import { parseInvoiceListState, serializeInvoiceListState, toInvoiceListQuery, updateInvoiceListState, validInvoiceRanges, defaultInvoiceListState, type InvoiceListState } from '../../features/receivables/model/invoice-list-filters';
@@ -31,7 +31,7 @@ export function ReceivablesPage() {
   }, [query.data?.totalPages, state.page]);
 
   return <div className="customers-page receivables-page">
-    <header className="customers-page__header"><div><p className="eyebrow">Receivables</p><h1>Задолженности</h1><p>{query.data ? `${query.data.totalElements} счетов · business date ${formatLocalDate(query.data.businessDate, locale)}` : 'Загрузка реестра счетов'}</p></div></header>
+    <header className="customers-page__header"><div><p className="eyebrow">Receivables</p><h1>Задолженности</h1><p>{query.data ? `${query.data.totalElements} счетов · business date ${formatLocalDate(query.data.businessDate, locale)}` : 'Загрузка реестра счетов'}</p></div><Link className="ui-button" to="/receivables/invoices/new">Новый счёт</Link></header>
     <section className="customer-filters">
       <div className="customer-filters__quick">
         <FormField label="Поиск"><input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Номер или external ID" /></FormField>
