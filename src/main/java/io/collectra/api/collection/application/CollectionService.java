@@ -24,11 +24,15 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.UUID;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class CollectionService {
+    public static final int MAX_HISTORY_PAGE_SIZE = 100;
     private static final EnumSet<CollectionCaseStatus> ACTIVE_CASE_STATUSES =
             EnumSet.of(
                     CollectionCaseStatus.OPEN,
@@ -184,9 +188,10 @@ public class CollectionService {
     }
 
     @Transactional(readOnly = true)
-    public List<PromiseToPay> promises(UUID tenantId, UUID caseId) {
+    public Page<PromiseToPay> promises(UUID tenantId, UUID caseId, int page, int size) {
         getCase(tenantId, caseId);
-        return promises.findAllByTenantIdAndCaseIdOrderByCreatedAtDesc(tenantId, caseId);
+        return promises.findAllByTenantIdAndCaseId(
+                tenantId, caseId, historyPage(page, size, "createdAt", Sort.Direction.DESC));
     }
 
     @Transactional
@@ -217,9 +222,10 @@ public class CollectionService {
     }
 
     @Transactional(readOnly = true)
-    public List<Dispute> disputes(UUID tenantId, UUID caseId) {
+    public Page<Dispute> disputes(UUID tenantId, UUID caseId, int page, int size) {
         getCase(tenantId, caseId);
-        return disputes.findAllByTenantIdAndCaseIdOrderByCreatedAtDesc(tenantId, caseId);
+        return disputes.findAllByTenantIdAndCaseId(
+                tenantId, caseId, historyPage(page, size, "createdAt", Sort.Direction.DESC));
     }
 
     @Transactional
@@ -279,9 +285,10 @@ public class CollectionService {
     }
 
     @Transactional(readOnly = true)
-    public List<CollectionAction> actions(UUID tenantId, UUID caseId) {
+    public Page<CollectionAction> actions(UUID tenantId, UUID caseId, int page, int size) {
         getCase(tenantId, caseId);
-        return actions.findAllByTenantIdAndCaseIdOrderByDueAtAsc(tenantId, caseId);
+        return actions.findAllByTenantIdAndCaseId(
+                tenantId, caseId, historyPage(page, size, "dueAt", Sort.Direction.ASC));
     }
 
     @Transactional
@@ -297,9 +304,20 @@ public class CollectionService {
     }
 
     @Transactional(readOnly = true)
-    public List<CollectionEvent> timeline(UUID tenantId, UUID caseId) {
+    public Page<CollectionEvent> timeline(UUID tenantId, UUID caseId, int page, int size) {
         getCase(tenantId, caseId);
-        return events.findAllByTenantIdAndCaseIdOrderByEventAtDescIdDesc(tenantId, caseId);
+        return events.findAllByTenantIdAndCaseId(
+                tenantId, caseId, historyPage(page, size, "eventAt", Sort.Direction.DESC));
+    }
+
+    private static PageRequest historyPage(
+            int page, int size, String field, Sort.Direction direction) {
+        if (page < 0 || size <= 0 || size > MAX_HISTORY_PAGE_SIZE) {
+            throw new io.collectra.api.shared.error.InvalidRequestException(
+                    "INVALID_PAGE_REQUEST", "Invalid collection history page request");
+        }
+        return PageRequest.of(
+                page, size, Sort.by(direction, field).and(Sort.by(direction, "id")));
     }
 
     private CollectionCase transitionCase(
