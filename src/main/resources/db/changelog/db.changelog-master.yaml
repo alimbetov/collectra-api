@@ -85,3 +85,5 @@ databaseChangeLog:
       file: db/changelog/changes/045-integration-source-foundation.sql
   - include:
       file: db/changelog/changes/046-production-ingestion.sql
+  - include:
+      file: db/changelog/changes/047-import-diagnostics.sql
