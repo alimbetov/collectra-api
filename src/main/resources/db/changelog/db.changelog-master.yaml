@@ -87,3 +87,5 @@ databaseChangeLog:
       file: db/changelog/changes/046-production-ingestion.sql
   - include:
       file: db/changelog/changes/047-import-diagnostics.sql
+  - include:
+      file: db/changelog/changes/048-import-operations.sql
