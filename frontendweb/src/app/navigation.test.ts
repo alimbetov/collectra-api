@@ -11,6 +11,13 @@ describe('workspace navigation permissions', () => {
     expect(hasPermission).not.toHaveBeenCalled();
   });
 
+  it('keeps the integration journey discoverable without inventing a backend permission', () => {
+    const integrations = navigation.find((item) => item.path === '/integrations');
+
+    expect(integrations).toBeDefined();
+    expect(canAccessNavigationItem(integrations!, () => false)).toBe(true);
+  });
+
   it('requires the exact backend permission for restricted domains', () => {
     const campaigns = navigation.find((item) => item.path === '/campaigns');
 
