@@ -31,6 +31,10 @@ import { TemplateCreatePage } from '../pages/templates/TemplateCreatePage';
 import { TemplateDetailPage } from '../pages/templates/TemplateDetailPage';
 import { TemplateVersionEditorPage } from '../pages/templates/TemplateVersionEditorPage';
 import { TemplateAssetsPage } from '../pages/templates/TemplateAssetsPage';
+import { IntegrationsPage } from '../pages/integrations/IntegrationsPage';
+import { ServiceClientsPage } from '../pages/integrations/ServiceClientsPage';
+import { ServiceClientCreatePage } from '../pages/integrations/ServiceClientCreatePage';
+import { ServiceClientDetailPage } from '../pages/integrations/ServiceClientDetailPage';
 
 function PlaceholderPage({ titleKey }: { titleKey: MessageKey }) {
   const { t } = useI18n();
@@ -170,6 +174,22 @@ export const router = createBrowserRouter([
             <TemplateVersionEditorPage />
           </RequirePermission>
         ),
+      },
+      {
+        path: 'integrations',
+        element: <IntegrationsPage />,
+      },
+      {
+        path: 'integrations/service-clients',
+        element: <RequirePermission permission="SERVICE_CLIENT_READ"><ServiceClientsPage /></RequirePermission>,
+      },
+      {
+        path: 'integrations/service-clients/new',
+        element: <RequirePermission permission="SERVICE_CLIENT_CREATE"><ServiceClientCreatePage /></RequirePermission>,
+      },
+      {
+        path: 'integrations/service-clients/:clientId',
+        element: <RequirePermission permission="SERVICE_CLIENT_READ"><ServiceClientDetailPage /></RequirePermission>,
       },
       {
         path: 'imports',
