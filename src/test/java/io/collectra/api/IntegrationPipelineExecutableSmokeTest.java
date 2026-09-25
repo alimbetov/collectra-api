@@ -301,16 +301,26 @@ class IntegrationPipelineExecutableSmokeTest extends AbstractIntegrationTest {
     }
 
     private void rule(MappingProfile p, SourceField source, String targetKey, String transform) {
-        FieldDefinition target =
-                fields.findAvailable(null).stream()
-                        .filter(f -> f.getKey().equals(targetKey))
-                        .findFirst()
-                        .orElseThrow();
+        FieldDefinition target = fields.findById(targetFieldId(targetKey)).orElseThrow();
         var cfg = json.createObjectNode().put("type", transform);
         if (transform.equals("DATE_PARSE")) cfg.put("pattern", "yyyy-MM-dd");
         if (transform.equals("DECIMAL_PARSE")) cfg.put("decimalSeparator", ".");
         rules.saveAndFlush(
                 new MappingRule(p.getId(), source.getId(), target.getId(), cfg, null, true));
+    }
+
+    private UUID targetFieldId(String key) {
+        return UUID.fromString(
+                switch (key) {
+                    case "customer.externalId" -> "20000000-0000-0000-0000-000000000010";
+                    case "invoice.externalId" -> "20000000-0000-0000-0000-000000000020";
+                    case "invoice.invoiceNumber" -> "20000000-0000-0000-0000-000000000021";
+                    case "invoice.invoiceDate" -> "20000000-0000-0000-0000-000000000022";
+                    case "invoice.dueDate" -> "20000000-0000-0000-0000-000000000023";
+                    case "invoice.amount" -> "20000000-0000-0000-0000-000000000024";
+                    case "invoice.currency" -> "20000000-0000-0000-0000-000000000025";
+                    default -> throw new IllegalArgumentException("Unknown I0 target field: " + key);
+                });
     }
 
     private Tenant tenant(String prefix) {
