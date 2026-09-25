@@ -126,7 +126,9 @@ public class FileController {
         }
         headers.setContentDisposition(
                 ContentDisposition.attachment()
-                        .filename(metadata.originalFilename(), java.nio.charset.StandardCharsets.UTF_8)
+                        .filename(
+                                metadata.originalFilename(),
+                                java.nio.charset.StandardCharsets.UTF_8)
                         .build());
         return ResponseEntity.ok()
                 .headers(headers)
