@@ -391,7 +391,9 @@ public class ReceivableController {
     public record InvoiceItemResponse(
             UUID id,
             UUID customerId,
+            String customerDisplayName,
             UUID contractId,
+            String contractNumber,
             String externalId,
             String invoiceNumber,
             LocalDate invoiceDate,
@@ -408,7 +410,9 @@ public class ReceivableController {
             return new InvoiceItemResponse(
                     value.id(),
                     value.customerId(),
+                    value.customerDisplayName(),
                     value.contractId(),
+                    value.contractNumber(),
                     value.externalId(),
                     value.invoiceNumber(),
                     value.invoiceDate(),
@@ -448,6 +452,7 @@ public class ReceivableController {
     public record PaymentItemResponse(
             UUID id,
             UUID customerId,
+            String customerDisplayName,
             String externalId,
             LocalDate paymentDate,
             @Schema(type = "string", pattern = DecimalString.PATTERN) DecimalString amount,
@@ -458,6 +463,7 @@ public class ReceivableController {
             return new PaymentItemResponse(
                     value.id(),
                     value.customerId(),
+                    value.customerDisplayName(),
                     value.externalId(),
                     value.paymentDate(),
                     DecimalString.of(value.amount()),

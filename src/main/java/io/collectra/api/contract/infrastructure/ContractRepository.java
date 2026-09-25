@@ -1,6 +1,8 @@
 package io.collectra.api.contract.infrastructure;
 
 import io.collectra.api.contract.domain.Contract;
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -11,4 +13,6 @@ public interface ContractRepository
     Optional<Contract> findByIdAndTenantId(UUID id, UUID tenantId);
 
     Optional<Contract> findByTenantIdAndExternalId(UUID tenantId, String externalId);
+
+    List<Contract> findAllByTenantIdAndIdIn(UUID tenantId, Collection<UUID> ids);
 }
