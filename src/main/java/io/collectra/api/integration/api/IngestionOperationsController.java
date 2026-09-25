@@ -15,7 +15,9 @@ import org.springframework.web.bind.annotation.*;
 @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('INTEGRATION_SOURCE_READ')")
 public class IngestionOperationsController {
     private final IngestionQueryService service;
-    public IngestionOperationsController(IngestionQueryService service) { this.service = service; }
+    public IngestionOperationsController(IngestionQueryService service) {
+        this.service = service;
+    }
 
     @GetMapping
     public Page<IngestionQueryService.BatchSummary> list(
