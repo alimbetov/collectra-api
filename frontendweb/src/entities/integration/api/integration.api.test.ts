@@ -28,11 +28,11 @@ describe('integration api contracts', () => {
   });
 
   it('uses exact service client mutation contracts', async () => {
-    const command = { clientId: 'erp', name: 'ERP', clientSecret: 'x'.repeat(32), scopes: ['integration:imports:read'] };
+    const command = { clientId: 'erp', name: 'ERP', scopes: ['integration:imports:read'] };
     await createServiceClient(command);
     expect(request).toHaveBeenLastCalledWith('/api/v1/integration/service-clients', { method: 'POST', body: command });
 
-    const rotate = { clientSecret: 'y'.repeat(32) };
+    const rotate = {};
     await rotateServiceClientSecret('client', rotate);
     expect(request).toHaveBeenLastCalledWith('/api/v1/integration/service-clients/client/rotate-secret', { method: 'POST', body: rotate });
 
