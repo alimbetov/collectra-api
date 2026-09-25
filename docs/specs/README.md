@@ -14,6 +14,9 @@ Readiness audit against current `main`:
 Historical FW9/F2 documents remain reference material only and MUST NOT override the T2 implementation-ready contract above.
 
 
+Integration self-service implementation contract:
+[`integration-setup-center-implementation-ready.md`](integration-setup-center-implementation-ready.md). It covers Integration Setup Center → Service Client UI → Source Schema Studio → Mapping Studio → Test Ingestion and is the acceptance contract for the next implementation/release step.
+
 Business frontend implementation plan:
 [`frontendweb-fw03-fw12-plan.md`](frontendweb-fw03-fw12-plan.md). Он индексирует
 implementation contracts FW3–FW12 и их backend prerequisites.
