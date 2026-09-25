@@ -35,6 +35,9 @@ import { IntegrationsPage } from '../pages/integrations/IntegrationsPage';
 import { ServiceClientsPage } from '../pages/integrations/ServiceClientsPage';
 import { ServiceClientCreatePage } from '../pages/integrations/ServiceClientCreatePage';
 import { ServiceClientDetailPage } from '../pages/integrations/ServiceClientDetailPage';
+import { IntegrationSourcesPage } from '../pages/integrations/IntegrationSourcesPage';
+import { IntegrationSourceCreatePage } from '../pages/integrations/IntegrationSourceCreatePage';
+import { IntegrationSourceDetailPage } from '../pages/integrations/IntegrationSourceDetailPage';
 
 function PlaceholderPage({ titleKey }: { titleKey: MessageKey }) {
   const { t } = useI18n();
@@ -178,6 +181,18 @@ export const router = createBrowserRouter([
       {
         path: 'integrations',
         element: <IntegrationsPage />,
+      },
+      {
+        path: 'integrations/sources',
+        element: <RequirePermission permission="INTEGRATION_SOURCE_READ"><IntegrationSourcesPage /></RequirePermission>,
+      },
+      {
+        path: 'integrations/sources/new',
+        element: <RequirePermission permission="INTEGRATION_SOURCE_MANAGE"><IntegrationSourceCreatePage /></RequirePermission>,
+      },
+      {
+        path: 'integrations/sources/:sourceId',
+        element: <RequirePermission permission="INTEGRATION_SOURCE_READ"><IntegrationSourceDetailPage /></RequirePermission>,
       },
       {
         path: 'integrations/service-clients',
