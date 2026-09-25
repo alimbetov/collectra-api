@@ -109,27 +109,36 @@ class SecurityIntegrationTest extends AbstractIntegrationTest {
     @Test
     void serviceJwtCannotCallHumanPermissionEndpoint() throws Exception {
         Auth admin = register("service-" + UUID.randomUUID(), "service@example.test");
-        String clientSecret = "tenant-owned-service-secret-123456789";
-        JsonNode client = read(post("/api/v1/integration/service-clients")
-                .header("Authorization", "Bearer " + admin.accessToken)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"clientId\":\"erp-smoke\",\"name\":\"ERP\",\"clientSecret\":\""
-                        + clientSecret + "\",\"scopes\":[\"integration:imports:read\"]}"));
-        assertThat(client.has("clientSecret")).isFalse();
-        JsonNode token = read(post("/api/v1/integration/service-token")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"clientId\":\"erp-smoke\",\"clientSecret\":\"" + clientSecret
-                        + "\",\"scopes\":[\"integration:imports:read\"]}"));
-        mockMvc.perform(get("/api/v1/identity/users")
-                        .header("Authorization", "Bearer " + token.get("accessToken").asText()))
+        JsonNode issued =
+                read(
+                        post("/api/v1/integration/service-clients")
+                                .header("Authorization", "Bearer " + admin.accessToken)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        "{\"clientId\":\"erp-smoke\",\"name\":\"ERP\",\"scopes\":[\"integration:imports:read\"]}"));
+        String clientSecret = issued.get("clientSecret").asText();
+        assertThat(issued.path("client").has("clientSecret")).isFalse();
+        JsonNode token =
+                read(
+                        post("/api/v1/integration/service-token")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        "{\"clientId\":\"erp-smoke\",\"clientSecret\":\""
+                                                + clientSecret
+                                                + "\",\"scopes\":[\"integration:imports:read\"]}"));
+        mockMvc.perform(
+                        get("/api/v1/identity/users")
+                                .header("Authorization", "Bearer " + token.get("accessToken").asText()))
                 .andExpect(status().isForbidden());
-        mockMvc.perform(post("/api/v1/auth/logout-all")
-                        .header("Authorization", "Bearer " + token.get("accessToken").asText()))
+        mockMvc.perform(
+                        post("/api/v1/auth/logout-all")
+                                .header("Authorization", "Bearer " + token.get("accessToken").asText()))
                 .andExpect(status().isForbidden());
-        mockMvc.perform(post("/api/v1/auth/otp/challenges")
-                        .header("Authorization", "Bearer " + token.get("accessToken").asText())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"purpose\":\"LOGOUT_ALL\"}"))
+        mockMvc.perform(
+                        post("/api/v1/auth/otp/challenges")
+                                .header("Authorization", "Bearer " + token.get("accessToken").asText())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"purpose\":\"LOGOUT_ALL\"}"))
                 .andExpect(status().isForbidden());
     }
 
