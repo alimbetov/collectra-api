@@ -203,6 +203,86 @@ class CommunicationAnalyticsIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void coversMailingLifecycleAudienceAttemptsAttachmentsAndOperations() throws Exception {
+        Fixture fixture = fixture("r12-coverage", true);
+        Instant from = Instant.now().minus(1, ChronoUnit.DAYS);
+        Instant to = Instant.now().plus(1, ChronoUnit.DAYS);
+
+        JsonNode lifecycle =
+                read(
+                        get("/api/v1/analytics/communication/lifecycle")
+                                .queryParam("from", from.toString())
+                                .queryParam("to", to.toString())
+                                .header("Authorization", bearer(fixture.accessToken())));
+        assertThat(lifecycle.at("/campaigns/campaigns").asLong()).isEqualTo(1);
+        assertThat(lifecycle.at("/campaigns/draft").asLong()).isEqualTo(1);
+        assertThat(lifecycle.at("/runs/runs").asLong()).isEqualTo(1);
+        assertThat(lifecycle.at("/runs/running").asLong()).isEqualTo(1);
+
+        JsonNode audience =
+                read(
+                        get("/api/v1/analytics/communication/audience")
+                                .queryParam("from", from.toString())
+                                .queryParam("to", to.toString())
+                                .queryParam("campaignId", fixture.campaignId().toString())
+                                .queryParam("runId", fixture.runId().toString())
+                                .header("Authorization", bearer(fixture.accessToken())));
+        assertThat(audience.at("/totals/recipients").asLong()).isEqualTo(3);
+        assertThat(audience.at("/totals/snapshot").asLong()).isEqualTo(3);
+        assertThat(audience.at("/totals/eligible").asLong()).isZero();
+        assertThat(audience.at("/totals/skipped").asLong()).isZero();
+
+        JsonNode attemptReport =
+                read(
+                        get("/api/v1/analytics/communication/attempts")
+                                .queryParam("from", from.toString())
+                                .queryParam("to", to.toString())
+                                .queryParam("campaignId", fixture.campaignId().toString())
+                                .queryParam("runId", fixture.runId().toString())
+                                .header("Authorization", bearer(fixture.accessToken())));
+        assertThat(attemptReport.at("/totals/attempts").asLong()).isEqualTo(2);
+        assertThat(attemptReport.at("/totals/retryableFailure").asLong()).isEqualTo(1);
+        assertThat(attemptReport.at("/totals/unknown").asLong()).isEqualTo(1);
+        assertThat(attemptReport.at("/totals/accepted").asLong()).isZero();
+        assertThat(attemptReport.get("acceptedRate").decimalValue())
+                .isEqualByComparingTo("0.000000");
+
+        JsonNode attachmentReport =
+                read(
+                        get("/api/v1/analytics/communication/attachments")
+                                .queryParam("from", from.toString())
+                                .queryParam("to", to.toString())
+                                .header("Authorization", bearer(fixture.accessToken())));
+        assertThat(attachmentReport.at("/totals/attachments").asLong()).isZero();
+        assertThat(attachmentReport.at("/totals/requiredPending").asLong()).isZero();
+        assertThat(attachmentReport.at("/totals/requiredFailed").asLong()).isZero();
+
+        JsonNode operations =
+                read(
+                        get("/api/v1/analytics/communication/operations")
+                                .queryParam("from", from.toString())
+                                .queryParam("to", to.toString())
+                                .queryParam("campaignId", fixture.campaignId().toString())
+                                .header("Authorization", bearer(fixture.accessToken())));
+        assertThat(operations.get("queued").asLong()).isEqualTo(1);
+        assertThat(operations.get("retryWait").asLong()).isEqualTo(1);
+        assertThat(operations.get("unknown").asLong()).isEqualTo(1);
+        assertThat(operations.get("stuckProcessing").asLong()).isZero();
+        assertThat(operations.get("dueRetry").asLong()).isZero();
+        assertThat(operations.get("oldestQueuedAgeSeconds").asLong()).isGreaterThanOrEqualTo(0);
+
+        String platform = platformToken();
+        JsonNode platformAttempts =
+                read(
+                        get("/api/v1/platform/analytics/communication/attempts")
+                                .queryParam("tenantId", fixture.tenantId().toString())
+                                .queryParam("from", from.toString())
+                                .queryParam("to", to.toString())
+                                .header("Authorization", bearer(platform)));
+        assertThat(platformAttempts.get("totals")).isEqualTo(attemptReport.get("totals"));
+    }
+
+    @Test
     void tenantDailyProjectionMatchesRawAndIsIsolatedPerTenant() throws Exception {
         Fixture first = fixture("r11-projection-one", true);
         Fixture second = fixture("r11-projection-two", true);
