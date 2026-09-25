@@ -102,11 +102,11 @@ class ProductionIngestionAcceptanceTest extends AbstractIntegrationTest {
         Tenant tenant=tenants.saveAndFlush(new Tenant("vc3-"+prefix+"-"+UUID.randomUUID(),"VC3"));
         ServiceClient client=clients.saveAndFlush(new ServiceClient(tenant.getId(),"svc-"+UUID.randomUUID(),"VC3",Set.of("integration:imports:create","integration:imports:read"),null));
         SourceSchemaDefinition sd=schemaDefinitions.saveAndFlush(new SourceSchemaDefinition(tenant.getId(),"S"+UUID.randomUUID().toString().replace("-","").substring(0,8),"Schema"));
-        SourceSchema schema=schemas.saveAndFlush(new SourceSchema(tenant.getId(),sd.getId(),"Schema",SourceFormat.CSV,1));
+        SourceSchema schema=schemas.saveAndFlush(new SourceSchema(tenant.getId(),sd.getId(),sd.getCode(),"Schema",SourceFormat.CSV,1));
         SourceField invoice=field(schema,"Invoice",1,true),customer=field(schema,"Customer",2,false),number=field(schema,"Number",3,false),due=field(schema,"DueDate",4,false),amount=field(schema,"Amount",5,false),currency=field(schema,"Currency",6,false);
         schema.validated();schema.publish();schemas.saveAndFlush(schema);
         MappingProfileDefinition md=mappingDefinitions.saveAndFlush(new MappingProfileDefinition(tenant.getId(),"M"+UUID.randomUUID().toString().replace("-","").substring(0,8),"Mapping","INVOICE"));
-        MappingProfile mapping=mappings.saveAndFlush(new MappingProfile(tenant.getId(),md.getId(),schema.getId(),"Mapping","INVOICE",1));
+        MappingProfile mapping=mappings.saveAndFlush(new MappingProfile(tenant.getId(),md.getId(),schema.getId(),md.getCode(),"Mapping","INVOICE",1));
         mapping.validated();mapping.publish();mappings.saveAndFlush(mapping);
         rule(mapping,invoice,"invoice.externalId","TRIM");rule(mapping,customer,"customer.externalId","TRIM");rule(mapping,number,"invoice.invoiceNumber","TRIM");rule(mapping,due,"invoice.dueDate","DATE_PARSE");rule(mapping,amount,"invoice.amount","DECIMAL_PARSE");rule(mapping,currency,"invoice.currency","TRIM");
         String sourceCode="src-"+UUID.randomUUID().toString().substring(0,8);
