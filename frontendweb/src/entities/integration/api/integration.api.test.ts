@@ -12,6 +12,8 @@ import {
   unblockServiceClient,
   getIntegrationSources, getIntegrationSource, getIntegrationSourceReadiness, createIntegrationSource,
   activateIntegrationSource, suspendIntegrationSource, archiveIntegrationSource, getSourceSchemaDefinitions, getMappingProfileDefinitions,
+  createSourceSchema, getSourceSchemaVersions, createSourceSchemaVersion, getSourceFields, validateSourceSchema, transitionSourceSchema,
+  createMappingProfile, getMappingProfileVersions, createMappingProfileVersion, getMappingRules, validateMappingProfile, transitionMappingProfile,
 } from './integration.api';
 
 vi.mock('../../../shared/api/http-client', () => ({ apiRequest: vi.fn() }));
@@ -65,6 +67,24 @@ describe('integration api contracts', () => {
     await archiveIntegrationSource('source',5); expect(request).toHaveBeenLastCalledWith('/api/v1/integration/sources/source/archive',{method:'POST',body:{version:5}});
     await getSourceSchemaDefinitions(); expect(request).toHaveBeenLastCalledWith('/api/v1/source-schemas');
     await getMappingProfileDefinitions(); expect(request).toHaveBeenLastCalledWith('/api/v1/mapping-profiles');
+  });
+
+  it('uses exact schema studio contracts', async () => {
+    await createSourceSchema({code:'erp',name:'ERP'}); expect(request).toHaveBeenLastCalledWith('/api/v1/source-schemas',{method:'POST',body:{code:'erp',name:'ERP'}});
+    await getSourceSchemaVersions('s'); expect(request).toHaveBeenLastCalledWith('/api/v1/source-schemas/s/versions');
+    await createSourceSchemaVersion('s','JSON'); expect(request).toHaveBeenLastCalledWith('/api/v1/source-schemas/s/versions',{method:'POST',body:{format:'JSON'}});
+    await getSourceFields('v'); expect(request).toHaveBeenLastCalledWith('/api/v1/source-schemas/versions/v/fields');
+    await validateSourceSchema('v'); expect(request).toHaveBeenLastCalledWith('/api/v1/source-schemas/versions/v/validate',{method:'POST'});
+    await transitionSourceSchema('v','publish'); expect(request).toHaveBeenLastCalledWith('/api/v1/source-schemas/versions/v/publish',{method:'POST'});
+  });
+
+  it('uses exact mapping studio contracts', async () => {
+    await createMappingProfile({code:'customer',name:'Customer',documentType:'CUSTOMER'}); expect(request).toHaveBeenLastCalledWith('/api/v1/mapping-profiles',{method:'POST',body:{code:'customer',name:'Customer',documentType:'CUSTOMER'}});
+    await getMappingProfileVersions('m'); expect(request).toHaveBeenLastCalledWith('/api/v1/mapping-profiles/m/versions');
+    await createMappingProfileVersion('m','s'); expect(request).toHaveBeenLastCalledWith('/api/v1/mapping-profiles/m/versions',{method:'POST',body:{sourceSchemaVersionId:'s'}});
+    await getMappingRules('v'); expect(request).toHaveBeenLastCalledWith('/api/v1/mapping-profiles/versions/v/rules');
+    await validateMappingProfile('v'); expect(request).toHaveBeenLastCalledWith('/api/v1/mapping-profiles/versions/v/validate',{method:'POST'});
+    await transitionMappingProfile('v','publish'); expect(request).toHaveBeenLastCalledWith('/api/v1/mapping-profiles/versions/v/publish',{method:'POST'});
   });
 
   it('uses backend-owned mapping metadata', async () => {
