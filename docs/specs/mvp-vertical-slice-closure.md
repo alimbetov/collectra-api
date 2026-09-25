@@ -1,4 +1,4 @@
-# Collectra MVP Vertical-Slice Closure — Master Execution Spec v2
+# Collectra MVP Vertical-Slice Closure — Master Execution Spec v3
 
 Status: REVIEWED / EXECUTION MASTER
 Branch: `feat/mvp-vertical-slice-closure`
@@ -36,7 +36,8 @@ Human admin
 Service client
  -> source-oriented ingestion
  -> import/validation/diagnostics
- -> Customer -> Contract -> Receivable/Payment
+ -> canonical business ingestion: CUSTOMER / INVOICE / PAYMENT
+ -> Allocation
  -> Collection Case
 
 Human operator
@@ -75,6 +76,10 @@ A capability is DONE only when its real UI-to-database path is usable, authorize
 15. External/provider calls and large parsing work do not execute while holding long DB locks/transactions.
 16. PII, credentials, raw provider payloads and sensitive source values do not leak into logs, metrics or UI diagnostics.
 17. Backend blockers identified by child specs are resolved before the dependent UI is declared DONE.
+18. MVP business ingestion supports exactly the canonical document types `CUSTOMER`, `INVOICE`, and `PAYMENT`; domain entities are not automatically ingestion document types.
+19. `CONTRACT` is optional domain context and is not a mandatory ingestion dependency or MVP business document type.
+20. Transport idempotency and business idempotency are separate invariants and both are required.
+21. Every public contract introduced or changed by a VC is verified against generated OpenAPI and the reviewed baseline in that same VC.
 
 ## 4. Blocker/dependency matrix
 
@@ -83,9 +88,9 @@ A capability is DONE only when its real UI-to-database path is usable, authorize
 | VC-0 Foundation | I0/I1 branch | sync main, exact green candidate, merge | integration adapters only |
 | VC-1 Service Clients | API/scopes/lifecycle available | verify stable problem/permission contracts | screens/routes missing |
 | VC-2 IntegrationSource | CRUD/lifecycle/basic readiness available | readiness DTO sufficient for backend-driven remediation | screens/API adapter missing |
-| VC-3 Ingestion | import pipeline exists; source control plane exists | executable source-oriented endpoint, durable status, idempotency/security/recovery | status UI missing |
-| VC-4 Imports | import/schema/mapping APIs exist | durable paged diagnostics, safe config detail/revision/bounds | placeholder |
-| VC-5 Receivables | invoice/payment/allocation APIs exist | list projections, lossless money, allocation-history bounds, create ambiguity/idempotency policy | placeholder |
+| VC-3 Ingestion | mapping + business persistence exist for CUSTOMER/INVOICE/PAYMENT; source control plane exists | executable source endpoint, durable operation/outbox, canonical persistence semantics, idempotency/security/recovery | status UI missing |
+| VC-4 Imports | business import and document-generation batch are distinct existing pipelines | durable paged business-ingestion diagnostics; keep document-generation semantics separate; safe config detail/revision/bounds | placeholder |
+| VC-5 Receivables | invoice/payment/allocation APIs exist; decimal-string money and allocation command idempotency are already covered | list projections, allocation-history bounds, preserve money/idempotency regression coverage, create ambiguity policy | placeholder |
 | VC-6 Collections | case/workflow APIs exist | next-action filters/sort, bounded assignee lookup, child-history bounds, money transport | placeholder |
 | VC-7 Files | upload/detail/content/url/delete exist | tenant-paged registry endpoint + dedicated safe public DTO | placeholder |
 | VC-8 Messages | run-scoped list/detail ready | no fabricated attempt history; only contract-supported monitoring | screens missing |
@@ -103,7 +108,7 @@ VC-1: Service Client
 VC-2: Service Client -> IntegrationSource -> Readiness
 VC-3: ... -> authenticated ingestion -> durable operation
 VC-4: ... -> import terminal result/diagnostics
-VC-5: ... -> Customer -> Contract -> Receivable/Payment
+VC-5: ... -> CUSTOMER -> INVOICE + PAYMENT -> Allocation
 VC-6: ... -> Collection Case/workflow
 VC-7: verify FileService in real consumer paths + registry UI
 VC-8: ... -> Campaign -> Message -> Delivery monitoring
@@ -209,55 +214,138 @@ Rolling E2E: Service Client -> source references -> readiness blockers -> remedi
 
 Normative specs: `integration-ingestion-gap-spec.md`, `integration-journey.md`.
 
-Do not bypass IntegrationSource by exposing low-level import internals as the production integration contract.
+Do not bypass IntegrationSource and do not create a second mapping engine. Production source ingestion reuses the existing `MappingExecutionService` and business persistence seam.
 
-Required contract:
+## Canonical MVP business ingestion standard
+
+The only canonical MVP business document types are:
+
+```
+CUSTOMER
+INVOICE
+PAYMENT
+```
+
+The financial flow is:
+
+```
+              CUSTOMER
+                  |
+          +-------+-------+
+          v               v
+       INVOICE          PAYMENT
+          |               |
+          +-------+-------+
+                  v
+              ALLOCATION
+                  |
+                  v
+              COLLECTION
+```
+
+`CONTRACT` is optional domain context. It is not a mandatory ingestion step and is not added as an ingestion document type merely because the domain entity exists. An invoice may carry an optional existing `contractId` where the contract is already known through a supported Collectra workflow, but external source ingestion must not require a Collectra-internal contract UUID to complete the canonical CUSTOMER/INVOICE/PAYMENT flow.
+
+Adding a future business document type requires an explicit contract extension: mapping metadata, normalized payload contract, persistence strategy, idempotency/conflict semantics, diagnostics, tenant/security tests and OpenAPI review.
+
+## Pipeline separation
+
+Two existing concepts must not be conflated:
+
+1. **Business ingestion** — mapping -> normalized business records -> `BusinessRecordPersistenceService` -> CUSTOMER/INVOICE/PAYMENT.
+2. **Document-generation import batch** — mapping -> template/generation job -> generated documents.
+
+IntegrationSource production ingestion targets **business ingestion**. It must not require `templateVersionId` or output formats merely to ingest a customer, invoice or payment. Document generation remains a separate workflow.
+
+Required source contract:
 - service authentication;
 - ACTIVE IntegrationSource binding;
 - tenant derived from authenticated service identity, never request body;
 - required idempotency key;
 - bounded content/media types;
 - correlation/request id and optional external event id;
-- deterministic accepted/replayed response with operation/import id;
-- durable status endpoint appropriate for the service/operator journey.
+- deterministic accepted/replayed response with ingestion operation id;
+- durable status endpoint.
 
 Pipeline:
+
 ```
 HTTP ingest
  -> authenticate service
  -> validate source/status/scope
- -> reserve idempotency
- -> persist durable ingestion envelope/outbox
- -> enqueue
- -> parse
- -> schema validation
- -> mapping
- -> business import
- -> domain persistence
- -> terminal state
+ -> reserve transport idempotency
+ -> create IngestionOperation(RECEIVED)
+ -> persist durable envelope/reference + outbox
+ -> COMMIT
+ -> worker dispatch
+ -> PROCESSING
+ -> existing parser/schema/mapping
+ -> normalized CUSTOMER / INVOICE / PAYMENT records
+ -> existing business persistence seam
+ -> durable record diagnostics
+ -> terminal operation state
 ```
 
-State model must distinguish received/queued/processing and terminal success/partial/failure. Retry/recovery distinguishes transient infrastructure failure from permanent validation/business rejection.
+Large parsing/mapping/business work is not performed in the request transaction that reserves the operation. The HTTP-to-worker handoff must survive process crash after acceptance.
 
-Security:
+## Terminal and record semantics
+
+Operation:
+- `SUCCEEDED`: all intended records reached CREATED or REUSED and none failed/conflicted.
+- `PARTIALLY_SUCCEEDED`: at least one record reached CREATED/REUSED and at least one ended CONFLICT/FAILED.
+- `FAILED`: fatal parse/schema/mapping failure before usable records, or no business record succeeded.
+- transient infrastructure failure remains retryable/recoverable and is not mislabeled as permanent business failure.
+
+Record:
+- `CREATED`: new business entity persisted.
+- `REUSED`: same business identity and equivalent canonical business state.
+- `CONFLICT`: same business identity but materially different canonical state where update is not explicitly supported.
+- `FAILED`: invalid/unpersistable record.
+
+Do not silently classify changed data as REUSED only because `externalId` exists. Before VC-3 is DONE, define a deterministic equivalence/fingerprint policy per canonical type, excluding volatile/internal fields. MVP defaults to conflict rather than silent overwrite unless an explicit update policy is designed and tested.
+
+## Two idempotency layers
+
+**Transport idempotency:** tenant + IntegrationSource + Idempotency-Key plus request equivalence. Same key/same request replays the same operation; same key/different request returns a stable conflict.
+
+**Business idempotency:** tenant + canonical document type + external business identity prevents duplicate CUSTOMER/INVOICE/PAYMENT creation independently of transport replay protection.
+
+Both are mandatory.
+
+## Customer reference rule
+
+INVOICE and PAYMENT resolve customer through normalized customer external identity supported by the existing business persistence seam. External integrations do not need Collectra customer UUIDs for the canonical path. Customer is reused or created according to canonical persistence policy.
+
+## Security and recovery
+
 - content-length and actual-byte limits;
-- media/header/field bounds;
+- media/header/field/record-count bounds;
 - no arbitrary server-side URL fetching until SSRF/redirect/rebinding controls exist;
 - blocked/expired credential denied;
 - suspended/archived source denied;
 - insufficient scope denied;
 - tenant isolation;
-- sensitive payload/auth data excluded from logs.
+- sensitive payload/auth data excluded from logs/metrics;
+- bounded retries/backoff;
+- stale PROCESSING recovery;
+- retry is safe under both idempotency layers.
 
-Idempotency: unique tenant/source/idempotency intent. Replay cannot duplicate business writes.
+## VC-3 contract gate
 
-Rolling E2E: service authenticates and submits the same intent twice; one logical operation/business effect results.
+The ingestion endpoint/status/problem contracts are generated into OpenAPI, covered by integration tests, and the compatibility baseline is reviewed in VC-3 itself.
+
+Rolling E2E: service submits canonical CUSTOMER/INVOICE/PAYMENT input and replays the same transport intent; one logical operation and no duplicate business effect result.
 
 ---
 
 # VC-4 — Import Execution, Diagnostics and Configuration UI
 
-Normative spec: `frontendweb-fw10-imports.md`. It governs details.
+Normative spec: `frontendweb-fw10-imports.md`. It governs details except where this master explicitly separates business ingestion from document-generation import batches.
+
+Mandatory terminology:
+- **Ingestion operation / business import**: source data becomes CUSTOMER/INVOICE/PAYMENT domain records.
+- **Document-generation import batch**: mapping plus template/generation produces generated documents.
+
+UI labels, API adapters and diagnostics must not present these as one lifecycle when backend semantics differ.
 
 Routes:
 ```
@@ -270,7 +358,7 @@ Routes:
 ```
 
 Backend closure before DONE:
-1. Durable tenant-scoped paged record/field diagnostics, not only generic batch error.
+1. Durable tenant-scoped paged business-ingestion record/field diagnostics, not only generic batch error. Diagnostics identify canonical document type, record identity/order and CREATED/REUSED/CONFLICT/FAILED outcome.
 2. Diagnostics have stable ordering, bounded safe detail and masked source values.
 3. Retention tied to import/source-file lifecycle.
 4. Source schema/mapping definition/version collections are bounded or paged.
@@ -296,7 +384,7 @@ UI:
 - mapping-profile lifecycle/editor/test;
 - published versions remain immutable according to backend rules.
 
-Rolling E2E: ingestion/manual import -> terminal batch -> durable diagnostics/result survives reload/deep link.
+Rolling E2E: source business ingestion -> terminal operation -> CUSTOMER/INVOICE/PAYMENT outcomes and durable diagnostics survive reload/deep link. Document-generation import remains independently tested under its own lifecycle.
 
 ---
 
@@ -314,10 +402,11 @@ Routes:
 ```
 
 Backend closure before DONE:
-- Invoice list projection includes bounded server-resolved customer display name and contract number;
+- Invoice list projection includes bounded server-resolved customer display name and optional contract number;
 - Payment list projection includes customer display name;
 - allocation histories are paged or protected by documented hard bounds;
-- monetary transport is lossless/canonical;
+- preserve the already implemented/tested lossless decimal-string money contract; do not redesign it;
+- preserve existing allocation `commandId` idempotency regression coverage;
 - create invoice/payment ambiguity has an explicit reconciliation/idempotency policy.
 
 UI:
@@ -337,7 +426,7 @@ Financial invariants:
 - backend `businessDate` is distinct from browser date;
 - monetary form values remain canonical decimal strings, never floating-point accounting.
 
-Rolling E2E: imported receivable is discoverable; supported payment/allocation changes authoritative state without duplicate effect.
+Rolling E2E: canonical CUSTOMER/INVOICE/PAYMENT ingestion is discoverable in Receivables; INVOICE and PAYMENT meet at Allocation; supported allocation/reversal changes authoritative state without duplicate effect; Contract is optional context and its absence does not block this path.
 
 ---
 
@@ -510,8 +599,8 @@ Final golden scenario:
 7. service authenticates;
 8. idempotent payload submitted;
 9. import reaches terminal state;
-10. Customer/Contract/Receivable asserted;
-11. supported Payment/Allocation path asserted where fixture requires it;
+10. canonical CUSTOMER, INVOICE and PAYMENT business outcomes asserted;
+11. Allocation between PAYMENT and INVOICE asserted, including replay safety; Contract is optional context and not a golden-path prerequisite;
 12. Collection Case/workflow asserted;
 13. Template/Campaign configured;
 14. Message materialized;
@@ -522,7 +611,10 @@ Final golden scenario:
 19. relevant FileService consumer path is verified.
 
 Negative matrix:
-- duplicate ingestion idempotency;
+- duplicate ingestion transport idempotency;
+- same transport key with changed request -> stable conflict;
+- duplicate business external identity with equivalent state -> REUSED;
+- duplicate business external identity with materially changed state -> CONFLICT, never silent REUSED/overwrite;
 - invalid schema/mapping payload;
 - suspended/archived source;
 - blocked/expired service credential;
@@ -595,7 +687,7 @@ A VC is DONE only when:
 - mutations handle pending/error/conflict as applicable;
 - critical frontend behavior is tested;
 - rolling golden E2E is extended through this VC;
-- OpenAPI compatibility remains green;
+- OpenAPI compatibility remains green and any changed public contract was reviewed in the same VC;
 - CI is green on exact SHA;
 - no placeholder/mock/hardcoded business data remains in the primary path.
 
