@@ -171,6 +171,7 @@ export const ruMessages = {
   'templates.assetsLoading': 'Загружаем assets…',
   'templates.assetsEmpty': 'Assets пока нет',
   'navigation.imports': 'Импорт',
+  'navigation.integrations': 'Интеграции',
   'navigation.files': 'Файлы',
   'shell.navigation': 'Основная навигация',
   'shell.workspace': 'Рабочее пространство',
