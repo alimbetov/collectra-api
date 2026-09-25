@@ -319,7 +319,8 @@ class IntegrationPipelineExecutableSmokeTest extends AbstractIntegrationTest {
                     case "invoice.dueDate" -> "20000000-0000-0000-0000-000000000023";
                     case "invoice.amount" -> "20000000-0000-0000-0000-000000000024";
                     case "invoice.currency" -> "20000000-0000-0000-0000-000000000025";
-                    default -> throw new IllegalArgumentException("Unknown I0 target field: " + key);
+                    default ->
+                            throw new IllegalArgumentException("Unknown I0 target field: " + key);
                 });
     }
 

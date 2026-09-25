@@ -30,8 +30,7 @@ class RoleAccessSmokeIntegrationTest extends AbstractIntegrationTest {
         mockMvc.perform(get("/api/v1/identity/roles")).andExpect(status().isUnauthorized());
         mockMvc.perform(get("/api/v1/integration/service-clients"))
                 .andExpect(status().isUnauthorized());
-        mockMvc.perform(get("/api/v1/audit/security-events"))
-                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/v1/audit/security-events")).andExpect(status().isUnauthorized());
         mockMvc.perform(get("/api/v1/platform/me")).andExpect(status().isUnauthorized());
     }
 
@@ -45,17 +44,13 @@ class RoleAccessSmokeIntegrationTest extends AbstractIntegrationTest {
                 .andExpect(status().isOk());
         mockMvc.perform(get("/api/v1/identity/roles").header("Authorization", bearer(token)))
                 .andExpect(status().isOk());
-        mockMvc.perform(
-                        get("/api/v1/identity/invitations")
-                                .header("Authorization", bearer(token)))
+        mockMvc.perform(get("/api/v1/identity/invitations").header("Authorization", bearer(token)))
                 .andExpect(status().isOk());
         mockMvc.perform(
                         get("/api/v1/integration/service-clients")
                                 .header("Authorization", bearer(token)))
                 .andExpect(status().isOk());
-        mockMvc.perform(
-                        get("/api/v1/audit/security-events")
-                                .header("Authorization", bearer(token)))
+        mockMvc.perform(get("/api/v1/audit/security-events").header("Authorization", bearer(token)))
                 .andExpect(status().isOk());
         mockMvc.perform(get("/api/v1/source-schemas").header("Authorization", bearer(token)))
                 .andExpect(status().isOk());
@@ -97,7 +92,9 @@ class RoleAccessSmokeIntegrationTest extends AbstractIntegrationTest {
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(
                                         "{\"code\":\"READER_"
-                                                + UUID.randomUUID().toString().replace("-", "")
+                                                + UUID.randomUUID()
+                                                        .toString()
+                                                        .replace("-", "")
                                                         .toUpperCase()
                                                 + "\",\"permissions\":[\"USER_READ\"]}"));
         Actor actor = invitedActor(role.get("id").asText(), admin);
@@ -160,9 +157,7 @@ class RoleAccessSmokeIntegrationTest extends AbstractIntegrationTest {
     }
 
     private void assertTenantManagementForbidden(String token) throws Exception {
-        mockMvc.perform(
-                        get("/api/v1/identity/invitations")
-                                .header("Authorization", bearer(token)))
+        mockMvc.perform(get("/api/v1/identity/invitations").header("Authorization", bearer(token)))
                 .andExpect(status().isForbidden());
         mockMvc.perform(
                         get("/api/v1/integration/service-clients")
