@@ -13,9 +13,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -67,8 +67,7 @@ public class CommunicationAnalyticsQueryService {
             Clock clock,
             CommunicationProjectionQueryService projections,
             CommunicationProjectionProperties projectionProperties,
-            @Value("${collectra.communication.processing-timeout:5m}")
-                    Duration processingTimeout) {
+            @Value("${collectra.communication.processing-timeout:5m}") Duration processingTimeout) {
         this.jdbc = jdbc;
         this.clock = clock;
         this.projections = projections;
@@ -762,11 +761,7 @@ public class CommunicationAnalyticsQueryService {
                                         rs.getString("reason"), rs.getLong("reason_count")));
 
         return new CommunicationAudienceReport(
-                resolved.generatedAt(),
-                resolved.from(),
-                resolved.to(),
-                totals,
-                skipReasons);
+                resolved.generatedAt(), resolved.from(), resolved.to(), totals, skipReasons);
     }
 
     @Transactional(readOnly = true)
@@ -809,9 +804,7 @@ public class CommunicationAnalyticsQueryService {
                 totals,
                 rate(
                         totals.accepted(),
-                        totals.retryableFailure()
-                                + totals.permanentFailure()
-                                + totals.unknown()));
+                        totals.retryableFailure() + totals.permanentFailure() + totals.unknown()));
     }
 
     @Transactional(readOnly = true)
@@ -868,15 +861,10 @@ public class CommunicationAnalyticsQueryService {
                         resolved.params(),
                         (rs, rowNum) ->
                                 new AttachmentFailureItem(
-                                        rs.getString("failure_code"),
-                                        rs.getLong("failure_count")));
+                                        rs.getString("failure_code"), rs.getLong("failure_count")));
 
         return new CommunicationAttachmentReport(
-                resolved.generatedAt(),
-                resolved.from(),
-                resolved.to(),
-                totals,
-                failures);
+                resolved.generatedAt(), resolved.from(), resolved.to(), totals, failures);
     }
 
     @Transactional(readOnly = true)
@@ -885,8 +873,7 @@ public class CommunicationAnalyticsQueryService {
         MapSqlParameterSource params = copy(resolved.params());
         params.addValue(
                 "processingCutoff",
-                java.sql.Timestamp.from(
-                        resolved.generatedAt().minus(processingTimeout)));
+                java.sql.Timestamp.from(resolved.generatedAt().minus(processingTimeout)));
 
         String where = where("m", "c", resolved, true);
 
@@ -933,12 +920,8 @@ public class CommunicationAnalyticsQueryService {
                                 rs.getLong("failed_count"),
                                 rs.getLong("stuck_processing_count"),
                                 rs.getLong("due_retry_count"),
-                                ageSeconds(
-                                        resolved.generatedAt(),
-                                        instant(rs, "oldest_queued_at")),
-                                ageSeconds(
-                                        resolved.generatedAt(),
-                                        instant(rs, "oldest_stuck_at")),
+                                ageSeconds(resolved.generatedAt(), instant(rs, "oldest_queued_at")),
+                                ageSeconds(resolved.generatedAt(), instant(rs, "oldest_stuck_at")),
                                 overdueSeconds(
                                         resolved.generatedAt(),
                                         instant(rs, "oldest_due_retry_at"))));
@@ -1201,8 +1184,7 @@ public class CommunicationAnalyticsQueryService {
 
     private String campaignWhere(ResolvedFilter filter) {
         StringBuilder where =
-                new StringBuilder(
-                        " where c.created_at >= :from and c.created_at < :to ");
+                new StringBuilder(" where c.created_at >= :from and c.created_at < :to ");
         if (filter.tenantId() != null) {
             where.append(" and c.tenant_id = :tenantId ");
         }
@@ -1225,8 +1207,7 @@ public class CommunicationAnalyticsQueryService {
 
     private String recipientWhere(ResolvedFilter filter) {
         StringBuilder where =
-                new StringBuilder(
-                        " where r.created_at >= :from and r.created_at < :to ");
+                new StringBuilder(" where r.created_at >= :from and r.created_at < :to ");
         if (filter.tenantId() != null) {
             where.append(" and r.tenant_id = :tenantId ");
         }
@@ -1247,16 +1228,14 @@ public class CommunicationAnalyticsQueryService {
 
     private String allAttemptWhere(ResolvedFilter filter) {
         StringBuilder where =
-                new StringBuilder(
-                        " where a.started_at >= :from and a.started_at < :to ");
+                new StringBuilder(" where a.started_at >= :from and a.started_at < :to ");
         appendScope(where, "m", "c", filter, true);
         return where.toString();
     }
 
     private String attachmentWhere(ResolvedFilter filter) {
         StringBuilder where =
-                new StringBuilder(
-                        " where ma.created_at >= :from and ma.created_at < :to ");
+                new StringBuilder(" where ma.created_at >= :from and ma.created_at < :to ");
         appendScope(where, "m", "c", filter, true);
         return where.toString();
     }
