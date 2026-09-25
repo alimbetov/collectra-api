@@ -133,6 +133,13 @@ public class ReceivableController {
         return invoiceResponse(service.invoice(tenant(), id));
     }
 
+    @GetMapping("/api/v1/invoices/by-external-id/{externalId}")
+    public InvoiceResponse invoiceByExternalId(@PathVariable String externalId) {
+        return service.findInvoiceByExternalId(tenant(), externalId)
+                .map(this::invoiceResponse)
+                .orElseThrow(() -> new java.util.NoSuchElementException("Invoice not found"));
+    }
+
     @PostMapping("/api/v1/payments")
     @ResponseStatus(HttpStatus.CREATED)
     public PaymentResponse createPayment(@Valid @RequestBody PaymentRequest request) {
