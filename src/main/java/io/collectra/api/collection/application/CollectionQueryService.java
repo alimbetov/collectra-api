@@ -187,16 +187,22 @@ public class CollectionQueryService {
                         .addValue("limit", size)
                         .addValue("offset", (long) page * size);
 
-        StringBuilder where =
-                new StringBuilder(
-                        """
-                        WHERE c.tenant_id = :tenantId
-                          AND (:customerId IS NULL OR c.customer_id = :customerId)
-                          AND (:invoiceId IS NULL OR c.invoice_id = :invoiceId)
-                          AND (:status IS NULL OR c.status = :status)
-                          AND (:priority IS NULL OR c.priority = :priority)
-                          AND (:assignedTo IS NULL OR c.assigned_to = :assignedTo)
-                        """);
+        StringBuilder where = new StringBuilder("WHERE c.tenant_id = :tenantId\n");
+        if (customerId != null) {
+            where.append(" AND c.customer_id = :customerId\n");
+        }
+        if (invoiceId != null) {
+            where.append(" AND c.invoice_id = :invoiceId\n");
+        }
+        if (status != null) {
+            where.append(" AND c.status = :status\n");
+        }
+        if (priority != null) {
+            where.append(" AND c.priority = :priority\n");
+        }
+        if (assignedTo != null) {
+            where.append(" AND c.assigned_to = :assignedTo\n");
+        }
         if (nextActionDueFrom != null) {
             where.append(" AND next_action.due_at >= :dueFrom\n");
         }
