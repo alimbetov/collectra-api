@@ -1,6 +1,6 @@
 import { queryOptions } from '@tanstack/react-query';
 import type { InvoiceListQuery } from '../model/receivable.types';
-import { getInvoice, getInvoices } from './receivable.api';
+import { getInvoice, getInvoiceAllocations, getInvoices } from './receivable.api';
 
 export const receivableKeys = {
   all: ['receivables'] as const,
@@ -9,6 +9,7 @@ export const receivableKeys = {
   invoiceList: (query: InvoiceListQuery) => [...receivableKeys.invoiceLists(), query] as const,
   invoiceDetails: () => [...receivableKeys.invoices(), 'detail'] as const,
   invoiceDetail: (invoiceId: string) => [...receivableKeys.invoiceDetails(), invoiceId] as const,
+  allocations: (invoiceId: string, page: number) => [...receivableKeys.invoiceDetail(invoiceId), 'allocations', page] as const,
 };
 
 export const receivableQueries = {
@@ -19,5 +20,9 @@ export const receivableQueries = {
   invoice: (invoiceId: string) => queryOptions({
     queryKey: receivableKeys.invoiceDetail(invoiceId),
     queryFn: () => getInvoice(invoiceId),
+  }),
+  allocations: (invoiceId: string, page: number) => queryOptions({
+    queryKey: receivableKeys.allocations(invoiceId, page),
+    queryFn: () => getInvoiceAllocations(invoiceId, page),
   }),
 };

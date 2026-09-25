@@ -82,3 +82,19 @@ export interface InvoiceCreateCommand {
   documentFileId?: UUID | null;
   customFields?: unknown | null;
 }
+
+export type AllocationStatus = 'ACTIVE' | 'REVERSED';
+export interface AllocationDto {
+  id: UUID;
+  paymentId: UUID;
+  invoiceId: UUID;
+  amount: DecimalString;
+  status: AllocationStatus;
+  reversedAt?: Instant | null;
+  reversalReason?: string | null;
+  reversedBy?: string | null;
+  createdAt: Instant;
+  updatedAt: Instant;
+  version: number;
+}
+export type AllocationPageDto = PageDto<AllocationDto>;

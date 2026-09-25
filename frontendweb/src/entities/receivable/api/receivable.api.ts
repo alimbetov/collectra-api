@@ -1,5 +1,5 @@
 import { apiRequest } from '../../../shared/api/http-client';
-import type { InvoiceCreateCommand, InvoiceDetailDto, InvoiceListQuery, InvoicePageDto } from '../model/receivable.types';
+import type { AllocationPageDto, InvoiceCreateCommand, InvoiceDetailDto, InvoiceListQuery, InvoicePageDto } from '../model/receivable.types';
 
 function append(params: URLSearchParams, name: string, value: string | number | boolean | undefined) {
   if (value !== undefined && value !== '') params.set(name, String(value));
@@ -41,3 +41,11 @@ export const getInvoice = (invoiceId: string) =>
 
 export const createInvoice = (command: InvoiceCreateCommand) =>
   apiRequest<InvoiceDetailDto>('/api/v1/invoices', { method: 'POST', body: command });
+
+export const getInvoiceByExternalId = (externalId: string) =>
+  apiRequest<InvoiceDetailDto>(`/api/v1/invoices/by-external-id/${encodeURIComponent(externalId)}`);
+
+export const getInvoiceAllocations = (invoiceId: string, page = 0, size = 50) =>
+  apiRequest<AllocationPageDto>(
+    `${invoiceDetailPath(invoiceId)}/allocations?page=${page}&size=${size}`,
+  );
