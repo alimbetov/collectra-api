@@ -6,6 +6,8 @@ import type {
   CredentialIssuedDto,
   ServiceClientDto,
   ServiceClientScopeDto,
+  IntegrationSourceDto, IntegrationSourceReadinessDto, CreateIntegrationSourceCommand, UpdateIntegrationSourceCommand,
+  SourceSchemaDefinitionDto, MappingProfileDefinitionDto,
 } from '../model/integration.types';
 
 const enc = encodeURIComponent;
@@ -42,3 +44,14 @@ export const unblockServiceClient = (id: string) =>
 
 export const getMappingTransformations = () =>
   apiRequest<MappingTransformationDto[]>('/api/v1/mapping-metadata/transformations');
+
+export const getIntegrationSources = () => apiRequest<IntegrationSourceDto[]>('/api/v1/integration/sources');
+export const getIntegrationSource = (id: string) => apiRequest<IntegrationSourceDto>(`/api/v1/integration/sources/${enc(id)}`);
+export const getIntegrationSourceReadiness = (id: string) => apiRequest<IntegrationSourceReadinessDto>(`/api/v1/integration/sources/${enc(id)}/readiness`);
+export const createIntegrationSource = (command: CreateIntegrationSourceCommand) => apiRequest<IntegrationSourceDto>('/api/v1/integration/sources', { method: 'POST', body: command });
+export const updateIntegrationSource = (id: string, command: UpdateIntegrationSourceCommand) => apiRequest<IntegrationSourceDto>(`/api/v1/integration/sources/${enc(id)}`, { method: 'PUT', body: command });
+export const activateIntegrationSource = (id: string, version: number) => apiRequest<IntegrationSourceDto>(`/api/v1/integration/sources/${enc(id)}/activate`, { method: 'POST', body: { version } });
+export const suspendIntegrationSource = (id: string, version: number) => apiRequest<IntegrationSourceDto>(`/api/v1/integration/sources/${enc(id)}/suspend`, { method: 'POST', body: { version } });
+export const archiveIntegrationSource = (id: string, version: number) => apiRequest<IntegrationSourceDto>(`/api/v1/integration/sources/${enc(id)}/archive`, { method: 'POST', body: { version } });
+export const getSourceSchemaDefinitions = () => apiRequest<SourceSchemaDefinitionDto[]>('/api/v1/source-schemas');
+export const getMappingProfileDefinitions = () => apiRequest<MappingProfileDefinitionDto[]>('/api/v1/mapping-profiles');
