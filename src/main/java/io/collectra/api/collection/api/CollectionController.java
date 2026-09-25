@@ -65,6 +65,9 @@ public class CollectionController {
             @RequestParam(required = false) CollectionCaseStatus status,
             @RequestParam(required = false) CollectionPriority priority,
             @RequestParam(required = false) UUID assignedTo,
+            @RequestParam(required = false) Boolean nextActionOverdue,
+            @RequestParam(required = false) Instant nextActionDueFrom,
+            @RequestParam(required = false) Instant nextActionDueTo,
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "50") @Min(1) @Max(CollectionQueryService.MAX_SIZE)
                     int size,
@@ -77,6 +80,9 @@ public class CollectionController {
                         status,
                         priority,
                         assignedTo,
+                        nextActionOverdue,
+                        nextActionDueFrom,
+                        nextActionDueTo,
                         page,
                         size,
                         sort));

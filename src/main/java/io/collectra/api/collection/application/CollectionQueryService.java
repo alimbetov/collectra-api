@@ -37,7 +37,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class CollectionQueryService {
     public static final int MAX_SIZE = 200;
     private static final Set<String> SORTS =
-            Set.of("createdAt", "updatedAt", "openedAt", "priority", "status");
+            Set.of("createdAt", "updatedAt", "openedAt", "priority", "status", "nextActionDueAt");
 
     private final CollectionCaseRepository cases;
     private final CollectionActionRepository actions;
@@ -69,11 +69,38 @@ public class CollectionQueryService {
             CollectionCaseStatus status,
             CollectionPriority priority,
             UUID assignedTo,
+            Boolean nextActionOverdue,
+            Instant nextActionDueFrom,
+            Instant nextActionDueTo,
             int page,
             int size,
             String sort) {
         if (page < 0 || size <= 0 || size > MAX_SIZE) {
             throw new InvalidRequestException("INVALID_REQUEST", "Invalid pagination parameters");
+        }
+        if (nextActionDueFrom != null
+                && nextActionDueTo != null
+                && nextActionDueFrom.isAfter(nextActionDueTo)) {
+            throw new InvalidRequestException(
+                    "INVALID_REQUEST", "nextActionDueFrom must be before nextActionDueTo");
+        }
+        boolean nextActionFilter =
+                nextActionOverdue != null || nextActionDueFrom != null || nextActionDueTo != null;
+        boolean nextActionSort = sort != null && sort.trim().startsWith("nextActionDueAt,");
+        if (nextActionFilter || nextActionSort) {
+            return listWithNextActionCriteria(
+                    tenantId,
+                    customerId,
+                    invoiceId,
+                    status,
+                    priority,
+                    assignedTo,
+                    nextActionOverdue,
+                    nextActionDueFrom,
+                    nextActionDueTo,
+                    page,
+                    size,
+                    sort);
         }
         Page<CollectionCase> result =
                 cases.findAll(
@@ -114,6 +141,26 @@ public class CollectionQueryService {
                 result.getTotalElements(),
                 result.getTotalPages(),
                 result.hasNext());
+    }
+
+    private CasePage listWithNextActionCriteria(
+            UUID tenantId,
+            UUID customerId,
+            UUID invoiceId,
+            CollectionCaseStatus status,
+            CollectionPriority priority,
+            UUID assignedTo,
+            Boolean nextActionOverdue,
+            Instant nextActionDueFrom,
+            Instant nextActionDueTo,
+            int page,
+            int size,
+            String sort) {
+        // Operational next-action criteria require a relational query against actions. Do not
+        // emulate this with in-memory filtering: paging and totalElements must remain authoritative.
+        throw new InvalidRequestException(
+                "UNSUPPORTED_OPERATIONAL_FILTER",
+                "Next-action queue filtering is not available until the repository projection is installed");
     }
 
     private CaseItem item(
