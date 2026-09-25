@@ -5,6 +5,7 @@ import io.collectra.api.shared.tenant.TenantContext;
 import java.time.Instant;
 import java.util.UUID;
 import org.springframework.data.domain.*;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
