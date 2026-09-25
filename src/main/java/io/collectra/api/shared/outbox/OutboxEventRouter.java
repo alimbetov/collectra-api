@@ -6,6 +6,7 @@ import io.collectra.api.document.application.DocumentGenerationEventPublisher;
 import io.collectra.api.document.application.GenerationJobService;
 import io.collectra.api.document.infrastructure.DocumentMessagingConfig;
 import org.springframework.stereotype.Component;
+import io.collectra.api.integration.application.IngestionApplicationService;
 
 @Component
 public class OutboxEventRouter {
@@ -22,6 +23,9 @@ public class OutboxEventRouter {
         if (DocumentGenerationEventPublisher.FAILED_EVENT_TYPE.equals(eventType)) {
             return new OutboxRoute(
                     DocumentMessagingConfig.EXCHANGE, DocumentMessagingConfig.FAILED_ROUTING_KEY);
+        }
+        if (IngestionApplicationService.EVENT_TYPE.equals(eventType)) {
+            return new OutboxRoute("collectra.integration", "integration.ingestion.requested");
         }
         if (MessageDeliveryRequested.EVENT_TYPE.equals(eventType)) {
             return new OutboxRoute(
