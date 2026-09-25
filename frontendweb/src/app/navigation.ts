@@ -8,7 +8,8 @@ export interface NavigationItem {
     | 'navigation.campaigns'
     | 'navigation.templates'
     | 'navigation.imports'
-    | 'navigation.files';
+    | 'navigation.files'
+    | 'navigation.integrations';
   path: string;
   permission?: string;
 }
@@ -21,6 +22,7 @@ export const navigation: readonly NavigationItem[] = [
   { labelKey: 'navigation.collections', path: '/collections' },
   { labelKey: 'navigation.campaigns', path: '/campaigns', permission: 'CAMPAIGN_READ' },
   { labelKey: 'navigation.templates', path: '/templates', permission: 'TEMPLATE_READ' },
+  { labelKey: 'navigation.integrations', path: '/integrations', permission: 'SERVICE_CLIENT_READ' },
   { labelKey: 'navigation.imports', path: '/imports', permission: 'DOCUMENT_READ' },
   { labelKey: 'navigation.files', path: '/files', permission: 'FILE_READ' },
 ] as const;
