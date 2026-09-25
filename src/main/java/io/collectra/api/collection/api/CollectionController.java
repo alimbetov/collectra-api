@@ -159,7 +159,8 @@ public class CollectionController {
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "50") @Min(1) @Max(CollectionService.MAX_HISTORY_PAGE_SIZE)
                     int size) {
-        return HistoryPageResponse.from(service.promises(tenant(), caseId, page, size), this::promise);
+        return HistoryPageResponse.from(
+                service.promises(tenant(), caseId, page, size), this::promise);
     }
 
     @PostMapping("/{caseId}/promises/{promiseId}/fulfill")
@@ -254,7 +255,8 @@ public class CollectionController {
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "50") @Min(1) @Max(CollectionService.MAX_HISTORY_PAGE_SIZE)
                     int size) {
-        return HistoryPageResponse.from(service.actions(tenant(), caseId, page, size), this::action);
+        return HistoryPageResponse.from(
+                service.actions(tenant(), caseId, page, size), this::action);
     }
 
     @PostMapping("/{caseId}/actions/{actionId}/complete")

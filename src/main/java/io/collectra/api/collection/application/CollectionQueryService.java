@@ -113,8 +113,10 @@ public class CollectionQueryService {
                         PageRequest.of(page, size, parseSort(sort)));
 
         List<CollectionCase> values = result.getContent();
-        Set<UUID> customerIds = values.stream().map(CollectionCase::getCustomerId).collect(Collectors.toSet());
-        Set<UUID> invoiceIds = values.stream().map(CollectionCase::getInvoiceId).collect(Collectors.toSet());
+        Set<UUID> customerIds =
+                values.stream().map(CollectionCase::getCustomerId).collect(Collectors.toSet());
+        Set<UUID> invoiceIds =
+                values.stream().map(CollectionCase::getInvoiceId).collect(Collectors.toSet());
         Set<UUID> assigneeIds = values.stream()
                 .map(CollectionCase::getAssignedTo)
                 .filter(java.util.Objects::nonNull)
@@ -136,9 +138,18 @@ public class CollectionQueryService {
         }
 
         Instant asOf = clock.instant();
-        List<CaseItem> items = values.stream()
-                .map(value -> item(value, customersById, invoicesById, assigneesById, nextActionByCase, asOf))
-                .toList();
+        List<CaseItem> items =
+                values.stream()
+                        .map(
+                                value ->
+                                        item(
+                                                value,
+                                                customersById,
+                                                invoicesById,
+                                                assigneesById,
+                                                nextActionByCase,
+                                                asOf))
+                        .toList();
         return new CasePage(
                 items,
                 result.getNumber(),
@@ -297,7 +308,9 @@ public class CollectionQueryService {
                     case "openedAt" -> "c.opened_at";
                     case "priority" -> "c.priority";
                     case "status" -> "c.status";
-                    default -> throw new InvalidRequestException("INVALID_REQUEST", "Unsupported sort field");
+                    default ->
+                            throw new InvalidRequestException(
+                                    "INVALID_REQUEST", "Unsupported sort field");
                 };
         String nulls = parts[0].trim().equals("nextActionDueAt") ? " NULLS LAST" : "";
         return new SortSpec(field + " " + direction + nulls + ", c.id " + direction);

@@ -25,7 +25,8 @@ class CollectionHistoryApiIntegrationTest extends AbstractIntegrationTest {
         String foreignToken = register("collection-history-foreign");
         JsonNode customer = createCustomer(token);
         JsonNode invoice = createInvoice(token, customer.get("id").asText());
-        JsonNode collectionCase = createCase(token, customer.get("id").asText(), invoice.get("id").asText());
+        JsonNode collectionCase =
+                createCase(token, customer.get("id").asText(), invoice.get("id").asText());
         String caseId = collectionCase.get("id").asText();
 
         createPromise(token, caseId, "100.0000");
@@ -39,21 +40,29 @@ class CollectionHistoryApiIntegrationTest extends AbstractIntegrationTest {
         assertPage(token, caseId, "timeline", 5);
 
         for (String child : new String[] {"promises", "disputes", "actions", "timeline"}) {
-            mockMvc.perform(get("/api/v1/collection-cases/{id}/" + child, caseId)
-                            .header("Authorization", bearer(token)).param("size", "100"))
+            mockMvc.perform(
+                            get("/api/v1/collection-cases/{id}/" + child, caseId)
+                                    .header("Authorization", bearer(token))
+                                    .param("size", "100"))
                     .andExpect(status().isOk());
-            mockMvc.perform(get("/api/v1/collection-cases/{id}/" + child, caseId)
-                            .header("Authorization", bearer(token)).param("size", "101"))
+            mockMvc.perform(
+                            get("/api/v1/collection-cases/{id}/" + child, caseId)
+                                    .header("Authorization", bearer(token))
+                                    .param("size", "101"))
                     .andExpect(status().isBadRequest());
-            mockMvc.perform(get("/api/v1/collection-cases/{id}/" + child, caseId)
-                            .header("Authorization", bearer(foreignToken)))
+            mockMvc.perform(
+                            get("/api/v1/collection-cases/{id}/" + child, caseId)
+                                    .header("Authorization", bearer(foreignToken)))
                     .andExpect(status().isNotFound());
         }
     }
 
     private void assertPage(String token, String caseId, String child, int total) throws Exception {
-        mockMvc.perform(get("/api/v1/collection-cases/{id}/" + child, caseId)
-                        .header("Authorization", bearer(token)).param("page", "0").param("size", "1"))
+        mockMvc.perform(
+                        get("/api/v1/collection-cases/{id}/" + child, caseId)
+                                .header("Authorization", bearer(token))
+                                .param("page", "0")
+                                .param("size", "1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items.length()").value(1))
                 .andExpect(jsonPath("$.page").value(0))
@@ -62,45 +71,113 @@ class CollectionHistoryApiIntegrationTest extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$.hasNext").value(total > 1));
     }
 
-    private JsonNode createCase(String token, String customerId, String invoiceId) throws Exception {
-        return read(post("/api/v1/collection-cases").header("Authorization", bearer(token))
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"customerId\":\""+customerId+"\",\"invoiceId\":\""+invoiceId+"\",\"priority\":\"NORMAL\"}"), 201);
+    private JsonNode createCase(String token, String customerId, String invoiceId)
+            throws Exception {
+        return read(
+                post("/api/v1/collection-cases")
+                        .header("Authorization", bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(
+                                "{\"customerId\":\""
+                                        + customerId
+                                        + "\",\"invoiceId\":\""
+                                        + invoiceId
+                                        + "\",\"priority\":\"NORMAL\"}"),
+                201);
     }
+
     private void createPromise(String token, String caseId, String amount) throws Exception {
-        read(post("/api/v1/collection-cases/{id}/promises", caseId).header("Authorization", bearer(token))
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"amount\":\""+amount+"\",\"currency\":\"KZT\",\"promisedDate\":\"2026-10-15\"}"), 201);
+        read(
+                post("/api/v1/collection-cases/{id}/promises", caseId)
+                        .header("Authorization", bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(
+                                "{\"amount\":\""
+                                        + amount
+                                        + "\",\"currency\":\"KZT\",\"promisedDate\":\"2026-10-15\"}"),
+                201);
     }
+
     private void createDispute(String token, String caseId) throws Exception {
-        read(post("/api/v1/collection-cases/{id}/disputes", caseId).header("Authorization", bearer(token))
-                .contentType(MediaType.APPLICATION_JSON).content("{\"reason\":\"AMOUNT_CONTESTED\"}"), 201);
+        read(
+                post("/api/v1/collection-cases/{id}/disputes", caseId)
+                        .header("Authorization", bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\":\"AMOUNT_CONTESTED\"}"),
+                201);
     }
+
     private void createAction(String token, String caseId) throws Exception {
-        read(post("/api/v1/collection-cases/{id}/actions", caseId).header("Authorization", bearer(token))
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"actionType\":\"CALL\",\"dueAt\":\"2026-10-15T10:00:00Z\",\"priority\":\"NORMAL\"}"), 201);
+        read(
+                post("/api/v1/collection-cases/{id}/actions", caseId)
+                        .header("Authorization", bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(
+                                "{\"actionType\":\"CALL\",\"dueAt\":\"2026-10-15T10:00:00Z\",\"priority\":\"NORMAL\"}"),
+                201);
     }
+
     private JsonNode createCustomer(String token) throws Exception {
-        String suffix=UUID.randomUUID().toString();
-        return read(post("/api/v1/customers").header("Authorization", bearer(token))
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"externalId\":\"C-"+suffix+"\",\"customerType\":\"COMPANY\",\"displayName\":\"Collection Customer\",\"companyName\":\"Collection Customer\"}"),201);
+        String suffix = UUID.randomUUID().toString();
+        return read(
+                post("/api/v1/customers")
+                        .header("Authorization", bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(
+                                "{\"externalId\":\"C-"
+                                        + suffix
+                                        + "\",\"customerType\":\"COMPANY\",\"displayName\":\"Collection Customer\",\"companyName\":\"Collection Customer\"}"),
+                201);
     }
-    private JsonNode createInvoice(String token,String customerId) throws Exception {
-        String suffix=UUID.randomUUID().toString();
-        return read(post("/api/v1/invoices").header("Authorization", bearer(token))
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"customerId\":\""+customerId+"\",\"externalId\":\"INV-"+suffix+"\",\"invoiceNumber\":\"N-"+suffix+"\",\"invoiceDate\":\"2026-09-01\",\"dueDate\":\"2026-09-10\",\"originalAmount\":\"1000.0000\",\"currency\":\"KZT\"}"),201);
+
+    private JsonNode createInvoice(String token, String customerId) throws Exception {
+        String suffix = UUID.randomUUID().toString();
+        return read(
+                post("/api/v1/invoices")
+                        .header("Authorization", bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(
+                                "{\"customerId\":\""
+                                        + customerId
+                                        + "\",\"externalId\":\"INV-"
+                                        + suffix
+                                        + "\",\"invoiceNumber\":\"N-"
+                                        + suffix
+                                        + "\",\"invoiceDate\":\"2026-09-01\",\"dueDate\":\"2026-09-10\",\"originalAmount\":\"1000.0000\",\"currency\":\"KZT\"}"),
+                201);
     }
+
     private String register(String prefix) throws Exception {
-        JsonNode response=read(post("/api/v1/auth/tenants/register").contentType(MediaType.APPLICATION_JSON)
-                .content("{\"slug\":\""+prefix+"-"+UUID.randomUUID()+"\",\"companyName\":\"Collection API Test\",\"email\":\""+UUID.randomUUID()+"@example.test\",\"password\":\"StrongPassword123!\"}"),201);
+        JsonNode response =
+                read(
+                        post("/api/v1/auth/tenants/register")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        "{\"slug\":\""
+                                                + prefix
+                                                + "-"
+                                                + UUID.randomUUID()
+                                                + "\",\"companyName\":\"Collection API Test\",\"email\":\""
+                                                + UUID.randomUUID()
+                                                + "@example.test\",\"password\":\"StrongPassword123!\"}"),
+                        201);
         return response.get("accessToken").asText();
     }
-    private JsonNode read(org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder request,int expected) throws Exception {
-        String body=mockMvc.perform(request).andExpect(status().is(expected)).andReturn().getResponse().getContentAsString();
+
+    private JsonNode read(
+            org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder request,
+            int expected)
+            throws Exception {
+        String body =
+                mockMvc.perform(request)
+                        .andExpect(status().is(expected))
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString();
         return json.readTree(body);
     }
-    private String bearer(String token){ return "Bearer "+token; }
+
+    private String bearer(String token) {
+        return "Bearer " + token;
+    }
 }
