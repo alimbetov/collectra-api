@@ -106,7 +106,9 @@ class CollectionQueuePostgresIntegrationTest extends AbstractIntegrationTest {
                         0,
                         10,
                         "nextActionDueAt,desc");
-        assertThat(dueRange.items()).extracting(CollectionQueryService.CaseItem::id).containsExactly(future.caseId());
+        assertThat(dueRange.items())
+                .extracting(CollectionQueryService.CaseItem::id)
+                .containsExactly(future.caseId());
 
         var all =
                 queries.list(
