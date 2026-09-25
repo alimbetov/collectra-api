@@ -1,0 +1,3 @@
+package io.collectra.api.integration.infrastructure;
+import com.fasterxml.jackson.databind.JsonNode;import io.collectra.api.integration.application.IngestionWorker;import java.util.UUID;import org.springframework.amqp.rabbit.annotation.RabbitListener;import org.springframework.stereotype.Component;
+@Component public class IngestionListener{private final IngestionWorker worker;public IngestionListener(IngestionWorker worker){this.worker=worker;}@RabbitListener(queues=IngestionMessagingConfig.QUEUE)public void consume(JsonNode payload){worker.process(UUID.fromString(payload.path("tenantId").asText()),UUID.fromString(payload.path("ingestionId").asText()));}}
