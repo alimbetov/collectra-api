@@ -117,8 +117,7 @@ class IntegrationPipelineExecutableSmokeTest extends AbstractIntegrationTest {
                         tenant.getId(), mapped.documentType(), normalized.normalizedPayload());
         assertThat(persisted.created()).isTrue();
         assertThat(persisted.externalId()).isEqualTo("ERP-I-I0");
-        var invoice =
-                receivables.findInvoiceByExternalId(tenant.getId(), "ERP-I-I0").orElseThrow();
+        var invoice = receivables.findInvoiceByExternalId(tenant.getId(), "ERP-I-I0").orElseThrow();
         assertThat(invoice.getCustomerId()).isEqualTo(customer.getId());
         assertThat(invoice.getOriginalAmount()).isEqualByComparingTo("125000.0000");
         assertThat(receivables.findInvoiceByExternalId(foreign.getId(), "ERP-I-I0")).isEmpty();
