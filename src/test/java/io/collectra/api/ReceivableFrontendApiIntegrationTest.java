@@ -244,6 +244,80 @@ class ReceivableFrontendApiIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void allocationHistoryIsPagedBoundedOrderedAndTenantScoped() throws Exception {
+        String token = register("receivable-allocation-page");
+        String foreignToken = register("receivable-allocation-page-foreign");
+        JsonNode customer = createCustomer(token, "CUST-ALLOC-PAGE", "Allocation Page");
+        JsonNode invoice =
+                createInvoice(
+                        token,
+                        customer.get("id").asText(),
+                        null,
+                        "INV-ALLOC-PAGE",
+                        "INV-ALLOC-PAGE",
+                        "1000.0000",
+                        "KZT");
+        JsonNode payment =
+                createPayment(
+                        token,
+                        customer.get("id").asText(),
+                        "PAY-ALLOC-PAGE",
+                        "PAGE-REF",
+                        "1000.0000",
+                        "KZT");
+        JsonNode first =
+                allocate(
+                        token,
+                        payment.get("id").asText(),
+                        UUID.randomUUID().toString(),
+                        invoice.get("id").asText(),
+                        "100.0000",
+                        201);
+        JsonNode second =
+                allocate(
+                        token,
+                        payment.get("id").asText(),
+                        UUID.randomUUID().toString(),
+                        invoice.get("id").asText(),
+                        "100.0000",
+                        201);
+
+        mockMvc.perform(
+                        get("/api/v1/payments/{id}/allocations", payment.get("id").asText())
+                                .header("Authorization", bearer(token))
+                                .param("page", "0")
+                                .param("size", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(1))
+                .andExpect(jsonPath("$.items[0].id").value(first.get("id").asText()))
+                .andExpect(jsonPath("$.page").value(0))
+                .andExpect(jsonPath("$.size").value(1))
+                .andExpect(jsonPath("$.totalElements").value(2))
+                .andExpect(jsonPath("$.totalPages").value(2))
+                .andExpect(jsonPath("$.hasNext").value(true));
+
+        mockMvc.perform(
+                        get("/api/v1/invoices/{id}/allocations", invoice.get("id").asText())
+                                .header("Authorization", bearer(token))
+                                .param("page", "1")
+                                .param("size", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].id").value(second.get("id").asText()))
+                .andExpect(jsonPath("$.hasNext").value(false));
+
+        mockMvc.perform(
+                        get("/api/v1/payments/{id}/allocations", payment.get("id").asText())
+                                .header("Authorization", bearer(token))
+                                .param("size", "101"))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(
+                        get("/api/v1/payments/{id}/allocations", payment.get("id").asText())
+                                .header("Authorization", bearer(foreignToken)))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
     void moneyContractUsesStringsAndRejectsUnsafeDecimalForms() throws Exception {
         String token = register("receivable-decimal-contract");
         JsonNode customer = createCustomer(token, "CUST-DECIMAL", "Decimal Customer");
