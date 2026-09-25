@@ -3,7 +3,7 @@ import type {
   CreateServiceClientCommand,
   MappingTransformationDto,
   RotateServiceClientSecretCommand,
-  RotateServiceClientSecretResponse,
+  CredentialIssuedDto,
   ServiceClientDto,
   ServiceClientScopeDto,
 } from '../model/integration.types';
@@ -20,10 +20,10 @@ export const getServiceClientScopes = () =>
   apiRequest<ServiceClientScopeDto[]>('/api/v1/integration/service-client-scopes');
 
 export const createServiceClient = (command: CreateServiceClientCommand) =>
-  apiRequest<ServiceClientDto>('/api/v1/integration/service-clients', { method: 'POST', body: command });
+  apiRequest<CredentialIssuedDto>('/api/v1/integration/service-clients', { method: 'POST', body: command });
 
 export const rotateServiceClientSecret = (id: string, command: RotateServiceClientSecretCommand) =>
-  apiRequest<RotateServiceClientSecretResponse>(
+  apiRequest<CredentialIssuedDto>(
     `/api/v1/integration/service-clients/${enc(id)}/rotate-secret`,
     { method: 'POST', body: command },
   );
