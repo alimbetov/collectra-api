@@ -9,5 +9,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface DisputeRepository extends JpaRepository<Dispute, UUID> {
     Optional<Dispute> findByIdAndTenantIdAndCaseId(UUID id, UUID tenantId, UUID caseId);
+
     Page<Dispute> findAllByTenantIdAndCaseId(UUID tenantId, UUID caseId, Pageable pageable);
 }

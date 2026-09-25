@@ -9,5 +9,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface PromiseToPayRepository extends JpaRepository<PromiseToPay, UUID> {
     Optional<PromiseToPay> findByIdAndTenantIdAndCaseId(UUID id, UUID tenantId, UUID caseId);
+
     Page<PromiseToPay> findAllByTenantIdAndCaseId(UUID tenantId, UUID caseId, Pageable pageable);
 }
