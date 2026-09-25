@@ -109,7 +109,8 @@ public class CollectionQueryService {
         }
         Page<CollectionCase> result =
                 cases.findAll(
-                        specification(tenantId, customerId, invoiceId, status, priority, assignedTo),
+                        specification(
+                                tenantId, customerId, invoiceId, status, priority, assignedTo),
                         PageRequest.of(page, size, parseSort(sort)));
 
         List<CollectionCase> values = result.getContent();
@@ -117,18 +118,22 @@ public class CollectionQueryService {
                 values.stream().map(CollectionCase::getCustomerId).collect(Collectors.toSet());
         Set<UUID> invoiceIds =
                 values.stream().map(CollectionCase::getInvoiceId).collect(Collectors.toSet());
-        Set<UUID> assigneeIds = values.stream()
-                .map(CollectionCase::getAssignedTo)
-                .filter(java.util.Objects::nonNull)
-                .collect(Collectors.toSet());
+        Set<UUID> assigneeIds =
+                values.stream()
+                        .map(CollectionCase::getAssignedTo)
+                        .filter(java.util.Objects::nonNull)
+                        .collect(Collectors.toSet());
         List<UUID> caseIds = values.stream().map(CollectionCase::getId).toList();
 
-        Map<UUID, Customer> customersById = customers.customersByIds(tenantId, customerIds).stream()
-                .collect(Collectors.toMap(Customer::getId, Function.identity()));
-        Map<UUID, Invoice> invoicesById = receivables.invoicesByIds(tenantId, invoiceIds).stream()
-                .collect(Collectors.toMap(Invoice::getId, Function.identity()));
-        Map<UUID, UserSummary> assigneesById = identityDirectory.users(tenantId, assigneeIds).stream()
-                .collect(Collectors.toMap(UserSummary::id, Function.identity()));
+        Map<UUID, Customer> customersById =
+                customers.customersByIds(tenantId, customerIds).stream()
+                        .collect(Collectors.toMap(Customer::getId, Function.identity()));
+        Map<UUID, Invoice> invoicesById =
+                receivables.invoicesByIds(tenantId, invoiceIds).stream()
+                        .collect(Collectors.toMap(Invoice::getId, Function.identity()));
+        Map<UUID, UserSummary> assigneesById =
+                identityDirectory.users(tenantId, assigneeIds).stream()
+                        .collect(Collectors.toMap(UserSummary::id, Function.identity()));
 
         Map<UUID, CollectionAction> nextActionByCase = new java.util.LinkedHashMap<>();
         if (!caseIds.isEmpty()) {
@@ -248,8 +253,8 @@ public class CollectionQueryService {
                                         rs.getTimestamp("due_at") == null
                                                 ? null
                                                 : rs.getTimestamp("due_at").toInstant()));
-        long total =
-                jdbc.queryForObject("SELECT count(*) " + from + where, parameters, Long.class);
+        long total = jdbc.queryForObject(
+                "SELECT count(*) " + from + where, parameters, Long.class);
         List<UUID> ids = rows.stream().map(QueueRow::id).toList();
         Map<UUID, CollectionCase> casesById =
                 cases.findAllById(ids).stream()
