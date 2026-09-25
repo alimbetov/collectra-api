@@ -59,7 +59,6 @@ public class IngestionOperationsController {
             @RequestParam(required = false) String targetType,
             @PageableDefault(size = 50, sort = "recordOrder", direction = Sort.Direction.ASC)
                     Pageable pageable) {
-        return service.records(
-                TenantContext.requireTenantId(), id, outcome, targetType, pageable);
+        return service.records(TenantContext.requireTenantId(), id, outcome, targetType, pageable);
     }
 }
