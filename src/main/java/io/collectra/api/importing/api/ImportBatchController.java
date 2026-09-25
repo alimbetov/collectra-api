@@ -2,10 +2,13 @@ package io.collectra.api.importing.api;
 
 import io.collectra.api.document.domain.OutputFormat;
 import io.collectra.api.importing.application.ImportBatchService;
+import io.collectra.api.importing.application.ImportDiagnosticService;
 import io.collectra.api.shared.tenant.TenantContext;
 import java.io.IOException;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -16,7 +19,12 @@ import org.springframework.web.multipart.MultipartFile;
 @RequestMapping("/api/v1/import-batches")
 public class ImportBatchController {
     private final ImportBatchService service;
-    public ImportBatchController(ImportBatchService service) { this.service = service; }
+    private final ImportDiagnosticService diagnostics;
+
+    public ImportBatchController(ImportBatchService service, ImportDiagnosticService diagnostics) {
+        this.service = service;
+        this.diagnostics = diagnostics;
+    }
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @ResponseStatus(HttpStatus.ACCEPTED)
@@ -61,5 +69,16 @@ public class ImportBatchController {
     @PreAuthorize("@importBatchAuthorization.canRead(authentication)")
     ImportBatchService.BatchResult get(@PathVariable UUID batchId) {
         return service.get(TenantContext.requireTenantId(), batchId);
+    }
+
+    @GetMapping("/{batchId}/errors")
+    @PreAuthorize("@importBatchAuthorization.canRead(authentication)")
+    Page<ImportDiagnosticService.Diagnostic> errors(
+            @PathVariable UUID batchId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size,
+            @RequestParam(required = false) List<String> sort) {
+        return diagnostics.errors(
+                TenantContext.requireTenantId(), batchId, page, size, sort);
     }
 }
