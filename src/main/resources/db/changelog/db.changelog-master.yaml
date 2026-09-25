@@ -81,3 +81,5 @@ databaseChangeLog:
       file: db/changelog/changes/043-communication-reporting-projections.sql
   - include:
       file: db/changelog/changes/044-communication-reporting-coverage-indexes.sql
+  - include:
+      file: db/changelog/changes/045-integration-source-foundation.sql

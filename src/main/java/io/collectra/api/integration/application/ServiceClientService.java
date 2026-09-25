@@ -9,8 +9,10 @@ import io.collectra.api.shared.security.InMemoryRateLimiter;
 import io.collectra.api.tenant.domain.Tenant;
 import io.collectra.api.tenant.infrastructure.TenantRepository;
 import java.nio.charset.StandardCharsets;
+import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Base64;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -21,7 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class ServiceClientService {
-    private static final Set<String> ALLOWED_SCOPES =
+    public static final Set<String> ALLOWED_SCOPES =
             Set.of(
                     "integration:notifications:send",
                     "integration:otp:create",
@@ -39,6 +41,7 @@ public class ServiceClientService {
     private final JwtService jwt;
     private final InMemoryRateLimiter limiter;
     private final TenantRepository tenants;
+    private final SecureRandom secureRandom = new SecureRandom();
 
     public ServiceClientService(
             ServiceClientRepository clients,
@@ -56,15 +59,14 @@ public class ServiceClientService {
     }
 
     @Transactional
-    public ClientResponse create(
+    public CredentialIssuedResponse create(
             UUID tenantId,
             String clientId,
             String name,
-            String clientSecret,
             Set<String> scopes,
             Instant clientExpiresAt,
             Instant secretExpiresAt) {
-        validateSecret(clientSecret);
+        String clientSecret = generateSecret();
         validateScopes(scopes);
         validateFuture(clientExpiresAt, "Client expiration");
         validateFuture(secretExpiresAt, "Secret expiration");
@@ -82,7 +84,13 @@ public class ServiceClientService {
                                 secretHint(clientSecret),
                                 "ACTIVE",
                                 secretExpiresAt));
-        return response(client, credential);
+        return new CredentialIssuedResponse(response(client, credential), clientSecret);
+    }
+
+    @Transactional(readOnly = true)
+    public ClientResponse get(UUID tenantId, UUID id) {
+        ServiceClient client = requireClient(tenantId, id);
+        return response(client, newestUsableCredential(client.getId()));
     }
 
     @Transactional(readOnly = true)
@@ -93,9 +101,8 @@ public class ServiceClientService {
     }
 
     @Transactional
-    public ClientResponse startRotation(
-            UUID tenantId, UUID id, String clientSecret, Instant secretExpiresAt) {
-        validateSecret(clientSecret);
+    public CredentialIssuedResponse startRotation(UUID tenantId, UUID id, Instant secretExpiresAt) {
+        String clientSecret = generateSecret();
         validateFuture(secretExpiresAt, "Secret expiration");
         ServiceClient client = requireClient(tenantId, id);
         Instant now = Instant.now();
@@ -111,7 +118,7 @@ public class ServiceClientService {
                                 secretHint(clientSecret),
                                 "ROTATING",
                                 secretExpiresAt));
-        return response(client, next);
+        return new CredentialIssuedResponse(response(client, next), clientSecret);
     }
 
     @Transactional
@@ -205,6 +212,14 @@ public class ServiceClientService {
                 credential == null ? null : credential.getLastUsedAt());
     }
 
+    private String generateSecret() {
+        byte[] bytes = new byte[48];
+        secureRandom.nextBytes(bytes);
+        String secret = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+        validateSecret(secret);
+        return secret;
+    }
+
     private void validateSecret(String secret) {
         int bytes = secret.getBytes(StandardCharsets.UTF_8).length;
         if (bytes < 32 || bytes > 72) {
@@ -241,6 +256,8 @@ public class ServiceClientService {
             String credentialStatus,
             Instant secretExpiresAt,
             Instant lastUsedAt) {}
+
+    public record CredentialIssuedResponse(ClientResponse client, String clientSecret) {}
 
     public record TokenResponse(String accessToken, String tokenType, long expiresIn) {}
 }

@@ -23,10 +23,12 @@ class ServiceClientSecurityIntegrationTest extends AbstractIntegrationTest {
     void completedSecretRotationInvalidatesPreviouslyIssuedServiceJwt() throws Exception {
         String adminToken = registerTenant();
         String clientId = "svc-" + UUID.randomUUID().toString().substring(0, 8);
-        String oldSecret = "service-old-secret-12345678901234567890";
-        String newSecret = "service-new-secret-12345678901234567890";
+        String oldSecret;
+        String newSecret;
 
-        JsonNode client = createClient(adminToken, clientId, oldSecret, "document:read");
+        JsonNode issued = createClient(adminToken, clientId, "document:read");
+        JsonNode client = issued.get("client");
+        oldSecret = issued.get("clientSecret").asText();
         String oldServiceJwt = issueToken(clientId, oldSecret, "document:read");
 
         mockMvc.perform(
@@ -41,13 +43,14 @@ class ServiceClientSecurityIntegrationTest extends AbstractIntegrationTest {
                                         client.get("id").asText())
                                 .header("Authorization", "Bearer " + adminToken)
                                 .contentType(MediaType.APPLICATION_JSON)
-                                .content("{\"clientSecret\":\"" + newSecret + "\"}"));
+                                .content("{}"));
+        newSecret = rotating.get("clientSecret").asText();
 
         mockMvc.perform(
                         post(
                                         "/api/v1/integration/service-clients/{id}/credentials/{credentialId}/activate",
                                         client.get("id").asText(),
-                                        rotating.get("credentialId").asText())
+                                        rotating.get("client").get("credentialId").asText())
                                 .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isOk());
 
@@ -70,10 +73,10 @@ class ServiceClientSecurityIntegrationTest extends AbstractIntegrationTest {
         String tenantB = registerTenant();
         JsonNode foreignClient =
                 createClient(
-                        tenantB,
-                        "foreign-" + UUID.randomUUID().toString().substring(0, 8),
-                        "foreign-service-secret-12345678901234567890",
-                        "document:read");
+                                tenantB,
+                                "foreign-" + UUID.randomUUID().toString().substring(0, 8),
+                                "document:read")
+                        .get("client");
 
         mockMvc.perform(
                         post(
@@ -81,8 +84,7 @@ class ServiceClientSecurityIntegrationTest extends AbstractIntegrationTest {
                                         foreignClient.get("id").asText())
                                 .header("Authorization", "Bearer " + tenantA)
                                 .contentType(MediaType.APPLICATION_JSON)
-                                .content(
-                                        "{\"clientSecret\":\"replacement-secret-12345678901234567890\"}"))
+                                .content("{}"))
                 .andExpect(status().isNotFound());
 
         mockMvc.perform(
@@ -93,7 +95,7 @@ class ServiceClientSecurityIntegrationTest extends AbstractIntegrationTest {
                 .andExpect(status().isNotFound());
     }
 
-    private JsonNode createClient(String adminToken, String clientId, String secret, String scope)
+    private JsonNode createClient(String adminToken, String clientId, String scope)
             throws Exception {
         return read(
                 post("/api/v1/integration/service-clients")
@@ -102,9 +104,7 @@ class ServiceClientSecurityIntegrationTest extends AbstractIntegrationTest {
                         .content(
                                 "{\"clientId\":\""
                                         + clientId
-                                        + "\",\"name\":\"Service Client\",\"clientSecret\":\""
-                                        + secret
-                                        + "\",\"scopes\":[\""
+                                        + "\",\"name\":\"Service Client\",\"scopes\":[\""
                                         + scope
                                         + "\"]}"));
     }

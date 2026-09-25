@@ -49,15 +49,16 @@ class PlatformTenantLifecycleIntegrationTest extends AbstractIntegrationTest {
         var tenant = tenants.findBySlugIgnoreCase(slug).orElseThrow();
 
         String clientId = "pf2-" + UUID.randomUUID().toString().substring(0, 8);
-        String clientSecret = "pf2-service-secret-12345678901234567890";
-        serviceClients.create(
-                tenant.getId(),
-                clientId,
-                "PF2 client",
-                clientSecret,
-                Set.of("document:read"),
-                null,
-                null);
+        String clientSecret =
+                serviceClients
+                        .create(
+                                tenant.getId(),
+                                clientId,
+                                "PF2 client",
+                                Set.of("document:read"),
+                                null,
+                                null)
+                        .clientSecret();
         assertThat(serviceClients.token(clientId, clientSecret, Set.of("document:read")))
                 .isNotNull();
 

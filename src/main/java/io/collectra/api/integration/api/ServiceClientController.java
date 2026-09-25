@@ -6,7 +6,6 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Pattern;
-import jakarta.validation.constraints.Size;
 import java.time.Instant;
 import java.util.List;
 import java.util.Set;
@@ -34,12 +33,12 @@ public class ServiceClientController {
     @PostMapping("/service-clients")
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('SERVICE_CLIENT_CREATE')")
-    ServiceClientService.ClientResponse create(@Valid @RequestBody CreateRequest request) {
+    ServiceClientService.CredentialIssuedResponse create(
+            @Valid @RequestBody CreateRequest request) {
         return service.create(
                 TenantContext.requireTenantId(),
                 request.clientId(),
                 request.name(),
-                request.clientSecret(),
                 request.scopes(),
                 request.expiresAt(),
                 request.secretExpiresAt());
@@ -51,21 +50,31 @@ public class ServiceClientController {
         return service.list(TenantContext.requireTenantId());
     }
 
+    @GetMapping("/service-clients/{id}")
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('SERVICE_CLIENT_READ')")
+    ServiceClientService.ClientResponse get(@PathVariable UUID id) {
+        return service.get(TenantContext.requireTenantId(), id);
+    }
+
+    @GetMapping("/service-client-scopes")
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('SERVICE_CLIENT_READ')")
+    List<ServiceClientScopeResponse> scopes() {
+        return ServiceClientService.ALLOWED_SCOPES.stream()
+                .sorted()
+                .map(ServiceClientScopeResponse::new)
+                .toList();
+    }
+
     @PostMapping("/service-clients/{id}/rotate-secret")
-    @PreAuthorize(
-            "hasAuthority('ROLE_HUMAN') and hasAuthority('SERVICE_CLIENT_ROTATE_SECRET')")
-    ServiceClientService.ClientResponse startRotation(
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('SERVICE_CLIENT_ROTATE_SECRET')")
+    ServiceClientService.CredentialIssuedResponse startRotation(
             @PathVariable UUID id, @Valid @RequestBody RotateSecretRequest request) {
         return service.startRotation(
-                TenantContext.requireTenantId(),
-                id,
-                request.clientSecret(),
-                request.secretExpiresAt());
+                TenantContext.requireTenantId(), id, request.secretExpiresAt());
     }
 
     @PostMapping("/service-clients/{id}/credentials/{credentialId}/activate")
-    @PreAuthorize(
-            "hasAuthority('ROLE_HUMAN') and hasAuthority('SERVICE_CLIENT_ROTATE_SECRET')")
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('SERVICE_CLIENT_ROTATE_SECRET')")
     ServiceClientService.ClientResponse completeRotation(
             @PathVariable UUID id, @PathVariable UUID credentialId) {
         return service.completeRotation(TenantContext.requireTenantId(), id, credentialId);
@@ -88,12 +97,11 @@ public class ServiceClientController {
     record CreateRequest(
             @Pattern(regexp = "[a-z0-9-]{3,100}") String clientId,
             @NotBlank String name,
-            @Size(min = 32, max = 72) String clientSecret,
             @NotEmpty Set<String> scopes,
             Instant expiresAt,
             Instant secretExpiresAt) {}
 
-    record RotateSecretRequest(
-            @Size(min = 32, max = 72) String clientSecret, Instant secretExpiresAt) {}
+    record ServiceClientScopeResponse(String code) {}
 
+    record RotateSecretRequest(Instant secretExpiresAt) {}
 }

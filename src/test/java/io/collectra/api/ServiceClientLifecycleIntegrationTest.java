@@ -23,8 +23,8 @@ class ServiceClientLifecycleIntegrationTest extends AbstractIntegrationTest {
     void rotatesSecretWithoutDowntimeAndRevokesOldSecretOnActivation() throws Exception {
         String accessToken = register();
         String clientId = "erp-" + UUID.randomUUID().toString().substring(0, 8);
-        String oldSecret = "customer-owned-old-secret-1234567890";
-        String newSecret = "customer-owned-new-secret-1234567890";
+        String oldSecret;
+        String newSecret;
 
         JsonNode client =
                 read(
@@ -34,18 +34,22 @@ class ServiceClientLifecycleIntegrationTest extends AbstractIntegrationTest {
                                 .content(
                                         "{\"clientId\":\""
                                                 + clientId
-                                                + "\",\"name\":\"ERP\",\"clientSecret\":\""
-                                                + oldSecret
-                                                + "\",\"scopes\":[\"integration:imports:read\"]}"));
+                                                + "\",\"name\":\"ERP\",\"scopes\":[\"integration:imports:read\"]}"));
+
+        oldSecret = client.get("clientSecret").asText();
+        assertThat(oldSecret).hasSizeGreaterThanOrEqualTo(32);
 
         JsonNode rotating =
                 read(
                         post(
                                         "/api/v1/integration/service-clients/{id}/rotate-secret",
-                                        client.get("id").asText())
+                                        client.has("client")
+                                                ? client.get("client").get("id").asText()
+                                                : client.get("id").asText())
                                 .header("Authorization", "Bearer " + accessToken)
                                 .contentType(MediaType.APPLICATION_JSON)
-                                .content("{\"clientSecret\":\"" + newSecret + "\"}"));
+                                .content("{}"));
+        newSecret = rotating.get("clientSecret").asText();
 
         token(clientId, oldSecret).andExpect(status().isOk());
         token(clientId, newSecret).andExpect(status().isOk());
@@ -53,8 +57,10 @@ class ServiceClientLifecycleIntegrationTest extends AbstractIntegrationTest {
         mockMvc.perform(
                         post(
                                         "/api/v1/integration/service-clients/{id}/credentials/{credentialId}/activate",
-                                        client.get("id").asText(),
-                                        rotating.get("credentialId").asText())
+                                        client.has("client")
+                                                ? client.get("client").get("id").asText()
+                                                : client.get("id").asText(),
+                                        rotating.get("client").get("credentialId").asText())
                                 .header("Authorization", "Bearer " + accessToken))
                 .andExpect(status().isOk());
 
@@ -66,7 +72,7 @@ class ServiceClientLifecycleIntegrationTest extends AbstractIntegrationTest {
     void clientAndSecretArePermanentByDefaultAndCanBeBlocked() throws Exception {
         String accessToken = register();
         String clientId = "erp-" + UUID.randomUUID().toString().substring(0, 8);
-        String secret = "customer-owned-service-secret-123456789";
+        String secret;
         JsonNode client =
                 read(
                         post("/api/v1/integration/service-clients")
@@ -75,18 +81,20 @@ class ServiceClientLifecycleIntegrationTest extends AbstractIntegrationTest {
                                 .content(
                                         "{\"clientId\":\""
                                                 + clientId
-                                                + "\",\"name\":\"ERP\",\"clientSecret\":\""
-                                                + secret
-                                                + "\",\"scopes\":[\"integration:imports:read\"]}"));
+                                                + "\",\"name\":\"ERP\",\"scopes\":[\"integration:imports:read\"]}"));
 
-        assertThat(client.get("expiresAt").isNull()).isTrue();
-        assertThat(client.get("secretExpiresAt").isNull()).isTrue();
-        assertThat(client.has("clientSecret")).isFalse();
+        secret = client.get("clientSecret").asText();
+        JsonNode safeClient = client.get("client");
+        assertThat(safeClient.get("expiresAt").isNull()).isTrue();
+        assertThat(safeClient.get("secretExpiresAt").isNull()).isTrue();
+        assertThat(secret).hasSizeGreaterThanOrEqualTo(32);
 
         mockMvc.perform(
                         post(
                                         "/api/v1/integration/service-clients/{id}/block",
-                                        client.get("id").asText())
+                                        client.has("client")
+                                                ? client.get("client").get("id").asText()
+                                                : client.get("id").asText())
                                 .header("Authorization", "Bearer " + accessToken))
                 .andExpect(status().isNoContent());
         token(clientId, secret).andExpect(status().isUnauthorized());
@@ -94,7 +102,9 @@ class ServiceClientLifecycleIntegrationTest extends AbstractIntegrationTest {
         mockMvc.perform(
                         post(
                                         "/api/v1/integration/service-clients/{id}/unblock",
-                                        client.get("id").asText())
+                                        client.has("client")
+                                                ? client.get("client").get("id").asText()
+                                                : client.get("id").asText())
                                 .header("Authorization", "Bearer " + accessToken))
                 .andExpect(status().isNoContent());
         token(clientId, secret).andExpect(status().isOk());
@@ -108,6 +118,33 @@ class ServiceClientLifecycleIntegrationTest extends AbstractIntegrationTest {
                         .getResponse()
                         .getContentAsString();
         assertThat(list).doesNotContain(secret);
+
+        String detail =
+                mockMvc.perform(
+                                get(
+                                                "/api/v1/integration/service-clients/{id}",
+                                                client.has("client")
+                                                        ? client.get("client").get("id").asText()
+                                                        : client.get("id").asText())
+                                        .header("Authorization", "Bearer " + accessToken))
+                        .andExpect(status().isOk())
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString();
+        assertThat(detail).contains(clientId).doesNotContain(secret);
+
+        String scopes =
+                mockMvc.perform(
+                                get("/api/v1/integration/service-client-scopes")
+                                        .header("Authorization", "Bearer " + accessToken))
+                        .andExpect(status().isOk())
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString();
+        assertThat(scopes)
+                .contains("integration:imports:create")
+                .contains("integration:imports:read")
+                .doesNotContain(secret);
     }
 
     private org.springframework.test.web.servlet.ResultActions token(String clientId, String secret)

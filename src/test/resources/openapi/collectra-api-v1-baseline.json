@@ -532,10 +532,72 @@
         }
       }
     },
+    "/api/v1/integration/sources/{id}" : {
+      "get" : {
+        "tags" : [ "integration-source-controller" ],
+        "operationId" : "get",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SourceResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put" : {
+        "tags" : [ "integration-source-controller" ],
+        "operationId" : "update_2",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UpdateRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SourceResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/identity/roles/{id}" : {
       "put" : {
         "tags" : [ "tenant-role-controller" ],
-        "operationId" : "update_2",
+        "operationId" : "update_3",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -649,7 +711,7 @@
     "/api/v1/customers/{id}" : {
       "get" : {
         "tags" : [ "customer-controller" ],
-        "operationId" : "get",
+        "operationId" : "get_1",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -674,7 +736,7 @@
       },
       "put" : {
         "tags" : [ "customer-controller" ],
-        "operationId" : "update_3",
+        "operationId" : "update_4",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -711,7 +773,7 @@
     "/api/v1/contracts/{id}" : {
       "get" : {
         "tags" : [ "contract-controller" ],
-        "operationId" : "get_1",
+        "operationId" : "get_2",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -736,7 +798,7 @@
       },
       "put" : {
         "tags" : [ "contract-controller" ],
-        "operationId" : "update_4",
+        "operationId" : "update_5",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -773,7 +835,7 @@
     "/api/v1/collection-cases/{caseId}" : {
       "get" : {
         "tags" : [ "collection-controller" ],
-        "operationId" : "get_2",
+        "operationId" : "get_3",
         "parameters" : [ {
           "name" : "caseId",
           "in" : "path",
@@ -798,7 +860,7 @@
       },
       "put" : {
         "tags" : [ "collection-controller" ],
-        "operationId" : "update_5",
+        "operationId" : "update_6",
         "parameters" : [ {
           "name" : "caseId",
           "in" : "path",
@@ -835,7 +897,7 @@
     "/api/v1/campaigns/{campaignId}" : {
       "get" : {
         "tags" : [ "campaign-controller" ],
-        "operationId" : "get_3",
+        "operationId" : "get_4",
         "parameters" : [ {
           "name" : "campaignId",
           "in" : "path",
@@ -860,7 +922,7 @@
       },
       "put" : {
         "tags" : [ "campaign-controller" ],
-        "operationId" : "update_6",
+        "operationId" : "update_7",
         "parameters" : [ {
           "name" : "campaignId",
           "in" : "path",
@@ -2983,6 +3045,164 @@
         }
       }
     },
+    "/api/v1/integration/sources" : {
+      "get" : {
+        "tags" : [ "integration-source-controller" ],
+        "operationId" : "list_5",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/SourceResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "integration-source-controller" ],
+        "operationId" : "create_5",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "description" : "Created",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SourceResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/integration/sources/{id}/suspend" : {
+      "post" : {
+        "tags" : [ "integration-source-controller" ],
+        "operationId" : "suspend",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/VersionRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SourceResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/integration/sources/{id}/archive" : {
+      "post" : {
+        "tags" : [ "integration-source-controller" ],
+        "operationId" : "archive_1",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/VersionRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SourceResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/integration/sources/{id}/activate" : {
+      "post" : {
+        "tags" : [ "integration-source-controller" ],
+        "operationId" : "activate",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/VersionRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SourceResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/integration/service-token" : {
       "post" : {
         "tags" : [ "service-token-controller" ],
@@ -3014,7 +3234,7 @@
     "/api/v1/integration/service-clients" : {
       "get" : {
         "tags" : [ "service-client-controller" ],
-        "operationId" : "list_5",
+        "operationId" : "list_6",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -3033,7 +3253,7 @@
       },
       "post" : {
         "tags" : [ "service-client-controller" ],
-        "operationId" : "create_5",
+        "operationId" : "create_6",
         "requestBody" : {
           "content" : {
             "application/json" : {
@@ -3050,7 +3270,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/ClientResponse"
+                  "$ref" : "#/components/schemas/CredentialIssuedResponse"
                 }
               }
             }
@@ -3107,7 +3327,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/ClientResponse"
+                  "$ref" : "#/components/schemas/CredentialIssuedResponse"
                 }
               }
             }
@@ -3173,7 +3393,7 @@
     "/api/v1/import-batches" : {
       "post" : {
         "tags" : [ "import-batch-controller" ],
-        "operationId" : "create_6",
+        "operationId" : "create_7",
         "parameters" : [ {
           "name" : "Idempotency-Key",
           "in" : "header",
@@ -3401,7 +3621,7 @@
       },
       "post" : {
         "tags" : [ "tenant-role-controller" ],
-        "operationId" : "create_7",
+        "operationId" : "create_8",
         "requestBody" : {
           "content" : {
             "application/json" : {
@@ -3450,7 +3670,7 @@
     "/api/v1/identity/invitations" : {
       "get" : {
         "tags" : [ "tenant-invitation-controller" ],
-        "operationId" : "list_6",
+        "operationId" : "list_7",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -3548,7 +3768,7 @@
     "/api/v1/customers" : {
       "get" : {
         "tags" : [ "customer-controller" ],
-        "operationId" : "list_7",
+        "operationId" : "list_8",
         "parameters" : [ {
           "name" : "search",
           "in" : "query",
@@ -3670,7 +3890,7 @@
       },
       "post" : {
         "tags" : [ "customer-controller" ],
-        "operationId" : "create_8",
+        "operationId" : "create_9",
         "requestBody" : {
           "content" : {
             "application/json" : {
@@ -3882,7 +4102,7 @@
     "/api/v1/customer-segments" : {
       "get" : {
         "tags" : [ "customer-segment-controller" ],
-        "operationId" : "list_8",
+        "operationId" : "list_9",
         "parameters" : [ {
           "name" : "search",
           "in" : "query",
@@ -3942,7 +4162,7 @@
       },
       "post" : {
         "tags" : [ "customer-segment-controller" ],
-        "operationId" : "create_9",
+        "operationId" : "create_10",
         "requestBody" : {
           "content" : {
             "application/json" : {
@@ -3970,7 +4190,7 @@
     "/api/v1/contracts" : {
       "get" : {
         "tags" : [ "contract-controller" ],
-        "operationId" : "list_9",
+        "operationId" : "list_10",
         "parameters" : [ {
           "name" : "search",
           "in" : "query",
@@ -4078,7 +4298,7 @@
       },
       "post" : {
         "tags" : [ "contract-controller" ],
-        "operationId" : "create_10",
+        "operationId" : "create_11",
         "requestBody" : {
           "content" : {
             "application/json" : {
@@ -4106,7 +4326,7 @@
     "/api/v1/contracts/{id}/suspend" : {
       "post" : {
         "tags" : [ "contract-controller" ],
-        "operationId" : "suspend",
+        "operationId" : "suspend_1",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -4217,7 +4437,7 @@
     "/api/v1/contracts/{id}/activate" : {
       "post" : {
         "tags" : [ "contract-controller" ],
-        "operationId" : "activate",
+        "operationId" : "activate_1",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -4254,7 +4474,7 @@
     "/api/v1/collection-cases" : {
       "get" : {
         "tags" : [ "collection-controller" ],
-        "operationId" : "list_10",
+        "operationId" : "list_11",
         "parameters" : [ {
           "name" : "customerId",
           "in" : "query",
@@ -4340,7 +4560,7 @@
       },
       "post" : {
         "tags" : [ "collection-controller" ],
-        "operationId" : "create_11",
+        "operationId" : "create_12",
         "requestBody" : {
           "content" : {
             "application/json" : {
@@ -4989,7 +5209,7 @@
     "/api/v1/campaigns" : {
       "get" : {
         "tags" : [ "campaign-controller" ],
-        "operationId" : "list_11",
+        "operationId" : "list_12",
         "parameters" : [ {
           "name" : "search",
           "in" : "query",
@@ -5088,7 +5308,7 @@
       },
       "post" : {
         "tags" : [ "campaign-controller" ],
-        "operationId" : "create_12",
+        "operationId" : "create_13",
         "requestBody" : {
           "content" : {
             "application/json" : {
@@ -5267,7 +5487,7 @@
     "/api/v1/campaigns/{campaignId}/activate" : {
       "post" : {
         "tags" : [ "campaign-controller" ],
-        "operationId" : "activate_1",
+        "operationId" : "activate_2",
         "parameters" : [ {
           "name" : "campaignId",
           "in" : "path",
@@ -5478,7 +5698,7 @@
     "/api/v1/auth/otp/challenges" : {
       "post" : {
         "tags" : [ "otp-controller" ],
-        "operationId" : "create_13",
+        "operationId" : "create_14",
         "requestBody" : {
           "content" : {
             "application/json" : {
@@ -5816,7 +6036,7 @@
       },
       "patch" : {
         "tags" : [ "current-user-controller" ],
-        "operationId" : "update_7",
+        "operationId" : "update_8",
         "requestBody" : {
           "content" : {
             "application/json" : {
@@ -5971,7 +6191,7 @@
     "/api/v1/customer-segments/{segmentId}" : {
       "get" : {
         "tags" : [ "customer-segment-controller" ],
-        "operationId" : "get_4",
+        "operationId" : "get_5",
         "parameters" : [ {
           "name" : "segmentId",
           "in" : "path",
@@ -5996,7 +6216,7 @@
       },
       "patch" : {
         "tags" : [ "customer-segment-controller" ],
-        "operationId" : "update_8",
+        "operationId" : "update_9",
         "parameters" : [ {
           "name" : "segmentId",
           "in" : "path",
@@ -6071,6 +6291,15 @@
         "tags" : [ "template-builder-controller" ],
         "operationId" : "catalogFields",
         "parameters" : [ {
+          "name" : "search",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "maxLength" : 100,
+            "minLength" : 0
+          }
+        }, {
           "name" : "page",
           "in" : "query",
           "required" : false,
@@ -6111,6 +6340,15 @@
         "tags" : [ "template-builder-controller" ],
         "operationId" : "catalogAssets",
         "parameters" : [ {
+          "name" : "search",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "maxLength" : 100,
+            "minLength" : 0
+          }
+        }, {
           "name" : "page",
           "in" : "query",
           "required" : false,
@@ -6433,7 +6671,7 @@
     "/api/v1/platform/tenants" : {
       "get" : {
         "tags" : [ "platform-tenant-controller" ],
-        "operationId" : "list_12",
+        "operationId" : "list_13",
         "parameters" : [ {
           "name" : "search",
           "in" : "query",
@@ -6653,6 +6891,1093 @@
         }
       }
     },
+    "/api/v1/platform/analytics/communication/users" : {
+      "get" : {
+        "tags" : [ "platform-communication-analytics-controller" ],
+        "operationId" : "users_1",
+        "parameters" : [ {
+          "name" : "tenantId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "userId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "from",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "to",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "campaignId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "runId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "channel",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "page",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0,
+            "minimum" : 0
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 50,
+            "maximum" : 200,
+            "minimum" : 1
+          }
+        }, {
+          "name" : "sort",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "default" : "sent,desc"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CommunicationPageReportCommunicationUserItem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/platform/analytics/communication/timeseries" : {
+      "get" : {
+        "tags" : [ "platform-communication-analytics-controller" ],
+        "operationId" : "timeseries",
+        "parameters" : [ {
+          "name" : "tenantId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "userId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "from",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "to",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "campaignId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "runId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "channel",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "bucket",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "default" : "DAY",
+            "enum" : [ "HOUR", "DAY", "WEEK" ]
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CommunicationTimeSeries"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/platform/analytics/communication/tenants" : {
+      "get" : {
+        "tags" : [ "platform-communication-analytics-controller" ],
+        "operationId" : "tenants",
+        "parameters" : [ {
+          "name" : "tenantId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "userId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "from",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "to",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "campaignId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "runId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "channel",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "page",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0,
+            "minimum" : 0
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 50,
+            "maximum" : 200,
+            "minimum" : 1
+          }
+        }, {
+          "name" : "sort",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "default" : "sent,desc"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CommunicationPageReportCommunicationTenantItem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/platform/analytics/communication/summary" : {
+      "get" : {
+        "tags" : [ "platform-communication-analytics-controller" ],
+        "operationId" : "summary",
+        "parameters" : [ {
+          "name" : "tenantId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "userId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "from",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "to",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "campaignId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "runId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "channel",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CommunicationSummary"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/platform/analytics/communication/operations" : {
+      "get" : {
+        "tags" : [ "platform-communication-analytics-controller" ],
+        "operationId" : "operations",
+        "parameters" : [ {
+          "name" : "tenantId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "userId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "from",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "to",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "campaignId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "runId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "channel",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CommunicationOperationsReport"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/platform/analytics/communication/lifecycle" : {
+      "get" : {
+        "tags" : [ "platform-communication-analytics-controller" ],
+        "operationId" : "lifecycle",
+        "parameters" : [ {
+          "name" : "tenantId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "userId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "from",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "to",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "campaignId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "runId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "channel",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CommunicationLifecycleReport"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/platform/analytics/communication/failures" : {
+      "get" : {
+        "tags" : [ "platform-communication-analytics-controller" ],
+        "operationId" : "failures",
+        "parameters" : [ {
+          "name" : "tenantId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "userId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "from",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "to",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "campaignId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "runId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "channel",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "page",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0,
+            "minimum" : 0
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 50,
+            "maximum" : 200,
+            "minimum" : 1
+          }
+        }, {
+          "name" : "sort",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "default" : "count,desc"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CommunicationPageReportCommunicationFailureItem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/platform/analytics/communication/documents" : {
+      "get" : {
+        "tags" : [ "platform-communication-analytics-controller" ],
+        "operationId" : "documents",
+        "parameters" : [ {
+          "name" : "tenantId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "userId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "from",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "to",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "campaignId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "runId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "channel",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CommunicationDocumentReport"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/platform/analytics/communication/channels" : {
+      "get" : {
+        "tags" : [ "platform-communication-analytics-controller" ],
+        "operationId" : "channels_1",
+        "parameters" : [ {
+          "name" : "tenantId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "userId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "from",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "to",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "campaignId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "runId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "channel",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CommunicationChannelReport"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/platform/analytics/communication/campaigns" : {
+      "get" : {
+        "tags" : [ "platform-communication-analytics-controller" ],
+        "operationId" : "campaigns",
+        "parameters" : [ {
+          "name" : "tenantId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "userId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "from",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "to",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "campaignId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "runId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "channel",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "page",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0,
+            "minimum" : 0
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 50,
+            "maximum" : 200,
+            "minimum" : 1
+          }
+        }, {
+          "name" : "sort",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "default" : "lastRunAt,desc"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CommunicationPageReportCommunicationCampaignItem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/platform/analytics/communication/audience" : {
+      "get" : {
+        "tags" : [ "platform-communication-analytics-controller" ],
+        "operationId" : "audience",
+        "parameters" : [ {
+          "name" : "tenantId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "userId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "from",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "to",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "campaignId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "runId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "channel",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CommunicationAudienceReport"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/platform/analytics/communication/attempts" : {
+      "get" : {
+        "tags" : [ "platform-communication-analytics-controller" ],
+        "operationId" : "attempts",
+        "parameters" : [ {
+          "name" : "tenantId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "userId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "from",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "to",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "campaignId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "runId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "channel",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CommunicationAttemptReport"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/platform/analytics/communication/attachments" : {
+      "get" : {
+        "tags" : [ "platform-communication-analytics-controller" ],
+        "operationId" : "attachments",
+        "parameters" : [ {
+          "name" : "tenantId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "userId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "from",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "to",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "campaignId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "runId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "channel",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CommunicationAttachmentReport"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/payments/{id}" : {
       "get" : {
         "tags" : [ "receivable-controller" ],
@@ -6673,6 +7998,27 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/PaymentResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/mapping-metadata/transformations" : {
+      "get" : {
+        "tags" : [ "mapping-metadata-controller" ],
+        "operationId" : "transformations",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/TransformationResponse"
+                  }
                 }
               }
             }
@@ -6737,10 +8083,85 @@
         }
       }
     },
+    "/api/v1/integration/sources/{id}/readiness" : {
+      "get" : {
+        "tags" : [ "integration-source-controller" ],
+        "operationId" : "readiness",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ReadinessResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/integration/service-clients/{id}" : {
+      "get" : {
+        "tags" : [ "service-client-controller" ],
+        "operationId" : "get_6",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ClientResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/integration/service-client-scopes" : {
+      "get" : {
+        "tags" : [ "service-client-controller" ],
+        "operationId" : "scopes",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/ServiceClientScopeResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/imports" : {
       "get" : {
         "tags" : [ "import-history-controller" ],
-        "operationId" : "list_13",
+        "operationId" : "list_14",
         "parameters" : [ {
           "name" : "status",
           "in" : "query",
@@ -6800,7 +8221,7 @@
     "/api/v1/imports/{importId}" : {
       "get" : {
         "tags" : [ "import-history-controller" ],
-        "operationId" : "get_5",
+        "operationId" : "get_7",
         "parameters" : [ {
           "name" : "importId",
           "in" : "path",
@@ -6872,7 +8293,7 @@
     "/api/v1/import-batches/{batchId}" : {
       "get" : {
         "tags" : [ "import-batch-controller" ],
-        "operationId" : "get_6",
+        "operationId" : "get_8",
         "parameters" : [ {
           "name" : "batchId",
           "in" : "path",
@@ -6899,7 +8320,7 @@
     "/api/v1/identity/users" : {
       "get" : {
         "tags" : [ "tenant-membership-controller" ],
-        "operationId" : "users_1",
+        "operationId" : "users_2",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -6978,7 +8399,7 @@
     "/api/v1/identity/permissions" : {
       "get" : {
         "tags" : [ "tenant-permission-controller" ],
-        "operationId" : "list_14",
+        "operationId" : "list_15",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -7068,7 +8489,7 @@
     "/api/v1/generated-documents" : {
       "get" : {
         "tags" : [ "generated-document-query-controller" ],
-        "operationId" : "list_15",
+        "operationId" : "list_16",
         "parameters" : [ {
           "name" : "format",
           "in" : "query",
@@ -7136,7 +8557,7 @@
     "/api/v1/generated-documents/{documentId}" : {
       "get" : {
         "tags" : [ "generated-document-query-controller" ],
-        "operationId" : "get_7",
+        "operationId" : "get_9",
         "parameters" : [ {
           "name" : "documentId",
           "in" : "path",
@@ -7163,7 +8584,7 @@
     "/api/v1/files/{fileId}" : {
       "get" : {
         "tags" : [ "file-controller" ],
-        "operationId" : "get_8",
+        "operationId" : "get_10",
         "parameters" : [ {
           "name" : "fileId",
           "in" : "path",
@@ -7263,7 +8684,7 @@
     "/api/v1/documents/generation-jobs/{jobId}" : {
       "get" : {
         "tags" : [ "generation-job-controller" ],
-        "operationId" : "get_9",
+        "operationId" : "get_11",
         "parameters" : [ {
           "name" : "jobId",
           "in" : "path",
@@ -7356,7 +8777,7 @@
     "/api/v1/dashboard/summary" : {
       "get" : {
         "tags" : [ "dashboard-controller" ],
-        "operationId" : "summary",
+        "operationId" : "summary_1",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -7571,7 +8992,7 @@
     "/api/v1/campaigns/{campaignId}/runs/{runId}/messages" : {
       "get" : {
         "tags" : [ "message-controller" ],
-        "operationId" : "list_16",
+        "operationId" : "list_17",
         "parameters" : [ {
           "name" : "campaignId",
           "in" : "path",
@@ -7715,6 +9136,894 @@
                   "items" : {
                     "$ref" : "#/components/schemas/AuditEventResponse"
                   }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/analytics/communication/users" : {
+      "get" : {
+        "tags" : [ "tenant-communication-analytics-controller" ],
+        "operationId" : "users_3",
+        "parameters" : [ {
+          "name" : "from",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "to",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "campaignId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "runId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "channel",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "userId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "page",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0,
+            "minimum" : 0
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 50,
+            "maximum" : 200,
+            "minimum" : 1
+          }
+        }, {
+          "name" : "sort",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "default" : "sent,desc"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CommunicationPageReportCommunicationUserItem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/analytics/communication/timeseries" : {
+      "get" : {
+        "tags" : [ "tenant-communication-analytics-controller" ],
+        "operationId" : "timeseries_1",
+        "parameters" : [ {
+          "name" : "from",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "to",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "campaignId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "runId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "channel",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "userId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "bucket",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "default" : "DAY",
+            "enum" : [ "HOUR", "DAY", "WEEK" ]
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CommunicationTimeSeries"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/analytics/communication/summary" : {
+      "get" : {
+        "tags" : [ "tenant-communication-analytics-controller" ],
+        "operationId" : "summary_2",
+        "parameters" : [ {
+          "name" : "from",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "to",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "campaignId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "runId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "channel",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "userId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CommunicationSummary"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/analytics/communication/operations" : {
+      "get" : {
+        "tags" : [ "tenant-communication-analytics-controller" ],
+        "operationId" : "operations_1",
+        "parameters" : [ {
+          "name" : "from",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "to",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "campaignId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "runId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "channel",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "userId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CommunicationOperationsReport"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/analytics/communication/lifecycle" : {
+      "get" : {
+        "tags" : [ "tenant-communication-analytics-controller" ],
+        "operationId" : "lifecycle_1",
+        "parameters" : [ {
+          "name" : "from",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "to",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "campaignId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "runId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "channel",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "userId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CommunicationLifecycleReport"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/analytics/communication/failures" : {
+      "get" : {
+        "tags" : [ "tenant-communication-analytics-controller" ],
+        "operationId" : "failures_1",
+        "parameters" : [ {
+          "name" : "from",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "to",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "campaignId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "runId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "channel",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "userId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "page",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0,
+            "minimum" : 0
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 50,
+            "maximum" : 200,
+            "minimum" : 1
+          }
+        }, {
+          "name" : "sort",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "default" : "count,desc"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CommunicationPageReportCommunicationFailureItem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/analytics/communication/documents" : {
+      "get" : {
+        "tags" : [ "tenant-communication-analytics-controller" ],
+        "operationId" : "documents_1",
+        "parameters" : [ {
+          "name" : "from",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "to",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "campaignId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "runId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "channel",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "userId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CommunicationDocumentReport"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/analytics/communication/channels" : {
+      "get" : {
+        "tags" : [ "tenant-communication-analytics-controller" ],
+        "operationId" : "channels_2",
+        "parameters" : [ {
+          "name" : "from",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "to",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "campaignId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "runId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "channel",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "userId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CommunicationChannelReport"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/analytics/communication/campaigns" : {
+      "get" : {
+        "tags" : [ "tenant-communication-analytics-controller" ],
+        "operationId" : "campaigns_1",
+        "parameters" : [ {
+          "name" : "from",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "to",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "campaignId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "runId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "channel",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "userId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "page",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0,
+            "minimum" : 0
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 50,
+            "maximum" : 200,
+            "minimum" : 1
+          }
+        }, {
+          "name" : "sort",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "default" : "lastRunAt,desc"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CommunicationPageReportCommunicationCampaignItem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/analytics/communication/audience" : {
+      "get" : {
+        "tags" : [ "tenant-communication-analytics-controller" ],
+        "operationId" : "audience_1",
+        "parameters" : [ {
+          "name" : "from",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "to",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "campaignId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "runId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "channel",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "userId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CommunicationAudienceReport"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/analytics/communication/attempts" : {
+      "get" : {
+        "tags" : [ "tenant-communication-analytics-controller" ],
+        "operationId" : "attempts_1",
+        "parameters" : [ {
+          "name" : "from",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "to",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "campaignId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "runId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "channel",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "userId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CommunicationAttemptReport"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/analytics/communication/attachments" : {
+      "get" : {
+        "tags" : [ "tenant-communication-analytics-controller" ],
+        "operationId" : "attachments_1",
+        "parameters" : [ {
+          "name" : "from",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "to",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "campaignId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "runId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "channel",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "userId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CommunicationAttachmentReport"
                 }
               }
             }
@@ -8261,6 +10570,90 @@
           },
           "required" : {
             "type" : "boolean"
+          }
+        }
+      },
+      "UpdateRequest" : {
+        "type" : "object",
+        "properties" : {
+          "name" : {
+            "type" : "string",
+            "minLength" : 1
+          },
+          "serviceClientId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "sourceSchemaDefinitionId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "mappingProfileDefinitionId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "processingMode" : {
+            "type" : "string"
+          },
+          "headerMapping" : {
+            "$ref" : "#/components/schemas/JsonNode"
+          },
+          "resourcePolicy" : {
+            "$ref" : "#/components/schemas/JsonNode"
+          },
+          "routingConfig" : {
+            "$ref" : "#/components/schemas/JsonNode"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "mappingProfileDefinitionId", "name", "serviceClientId", "sourceSchemaDefinitionId" ]
+      },
+      "SourceResponse" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "code" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "serviceClientId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "sourceSchemaDefinitionId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "mappingProfileDefinitionId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "processingMode" : {
+            "type" : "string"
+          },
+          "headerMapping" : {
+            "$ref" : "#/components/schemas/JsonNode"
+          },
+          "resourcePolicy" : {
+            "$ref" : "#/components/schemas/JsonNode"
+          },
+          "routingConfig" : {
+            "$ref" : "#/components/schemas/JsonNode"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
           }
         }
       },
@@ -9797,14 +12190,20 @@
           }
         }
       },
+      "CredentialIssuedResponse" : {
+        "type" : "object",
+        "properties" : {
+          "client" : {
+            "$ref" : "#/components/schemas/ClientResponse"
+          },
+          "clientSecret" : {
+            "type" : "string"
+          }
+        }
+      },
       "RotateSecretRequest" : {
         "type" : "object",
         "properties" : {
-          "clientSecret" : {
-            "type" : "string",
-            "maxLength" : 72,
-            "minLength" : 32
-          },
           "secretExpiresAt" : {
             "type" : "string",
             "format" : "date-time"
@@ -10851,27 +13250,6 @@
         },
         "required" : [ "active", "revision" ]
       },
-      "UpdateRequest" : {
-        "type" : "object",
-        "properties" : {
-          "displayName" : {
-            "type" : "string",
-            "maxLength" : 200,
-            "minLength" : 0
-          },
-          "locale" : {
-            "type" : "string",
-            "maxLength" : 10,
-            "minLength" : 0
-          },
-          "timezone" : {
-            "type" : "string",
-            "maxLength" : 60,
-            "minLength" : 0
-          }
-        },
-        "required" : [ "displayName" ]
-      },
       "MeResponse" : {
         "type" : "object",
         "properties" : {
@@ -11357,6 +13735,15 @@
           },
           "builderSchemaVersion" : {
             "type" : "string"
+          },
+          "blockSupport" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "array",
+              "items" : {
+                "type" : "string"
+              }
+            }
           }
         }
       },
@@ -11711,6 +14098,962 @@
           }
         }
       },
+      "CommunicationPageReportCommunicationUserItem" : {
+        "type" : "object",
+        "properties" : {
+          "generatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "from" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "to" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/CommunicationUserItem"
+            }
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "totalElements" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "totalPages" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "CommunicationUserItem" : {
+        "type" : "object",
+        "properties" : {
+          "userId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "email" : {
+            "type" : "string"
+          },
+          "displayName" : {
+            "type" : "string"
+          },
+          "tenantId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "tenantName" : {
+            "type" : "string"
+          },
+          "campaignCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "recipients" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "sent" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "failed" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "skipped" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "retries" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "unknownCurrent" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "terminalSuccessRate" : {
+            "type" : "number"
+          }
+        }
+      },
+      "CommunicationTimePoint" : {
+        "type" : "object",
+        "properties" : {
+          "bucketStart" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "recipients" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "sent" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "failed" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "skipped" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "retries" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "queued" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "processing" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "retryWait" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "messageSent" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "messageFailed" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "unknown" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "CommunicationTimeSeries" : {
+        "type" : "object",
+        "properties" : {
+          "generatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "from" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "to" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "bucket" : {
+            "type" : "string",
+            "enum" : [ "HOUR", "DAY", "WEEK" ]
+          },
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/CommunicationTimePoint"
+            }
+          }
+        }
+      },
+      "CommunicationPageReportCommunicationTenantItem" : {
+        "type" : "object",
+        "properties" : {
+          "generatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "from" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "to" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/CommunicationTenantItem"
+            }
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "totalElements" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "totalPages" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "CommunicationTenantItem" : {
+        "type" : "object",
+        "properties" : {
+          "tenantId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "tenantSlug" : {
+            "type" : "string"
+          },
+          "tenantName" : {
+            "type" : "string"
+          },
+          "campaignCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "recipients" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "sent" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "failed" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "skipped" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "retries" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "unknownCurrent" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "terminalSuccessRate" : {
+            "type" : "number"
+          }
+        }
+      },
+      "BusinessTotals" : {
+        "type" : "object",
+        "properties" : {
+          "recipients" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "sent" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "failed" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "skipped" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "retries" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "CommunicationSummary" : {
+        "type" : "object",
+        "properties" : {
+          "generatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "from" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "to" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "business" : {
+            "$ref" : "#/components/schemas/BusinessTotals"
+          },
+          "messages" : {
+            "$ref" : "#/components/schemas/MessageStates"
+          },
+          "terminalSuccessRate" : {
+            "type" : "number"
+          },
+          "terminalFailureRate" : {
+            "type" : "number"
+          },
+          "documents" : {
+            "$ref" : "#/components/schemas/DocumentTotals"
+          }
+        }
+      },
+      "DocumentTotals" : {
+        "type" : "object",
+        "properties" : {
+          "created" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "pending" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "ready" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "failed" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "expired" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "accessCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "accessedLinks" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "MessageStates" : {
+        "type" : "object",
+        "properties" : {
+          "queued" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "processing" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "retryWait" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "sent" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "failed" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "unknown" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "CommunicationOperationsReport" : {
+        "type" : "object",
+        "properties" : {
+          "generatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "from" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "to" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "queued" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "processing" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "retryWait" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "unknown" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "failed" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "stuckProcessing" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "dueRetry" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "oldestQueuedAgeSeconds" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "oldestStuckAgeSeconds" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "oldestDueRetryAgeSeconds" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "CampaignLifecycleTotals" : {
+        "type" : "object",
+        "properties" : {
+          "campaigns" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "draft" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "active" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "archived" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "scheduled" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "scheduledPending" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "scheduledFuture" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "overdueScheduled" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "scheduledDispatched" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "CommunicationLifecycleReport" : {
+        "type" : "object",
+        "properties" : {
+          "generatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "from" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "to" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "campaigns" : {
+            "$ref" : "#/components/schemas/CampaignLifecycleTotals"
+          },
+          "runs" : {
+            "$ref" : "#/components/schemas/RunLifecycleTotals"
+          }
+        }
+      },
+      "RunLifecycleTotals" : {
+        "type" : "object",
+        "properties" : {
+          "runs" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "preparing" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "ready" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "running" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "completed" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "cancelled" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "failed" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "CommunicationFailureItem" : {
+        "type" : "object",
+        "properties" : {
+          "errorCode" : {
+            "type" : "string"
+          },
+          "count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "retryable" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "permanent" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "unknown" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "CommunicationPageReportCommunicationFailureItem" : {
+        "type" : "object",
+        "properties" : {
+          "generatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "from" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "to" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/CommunicationFailureItem"
+            }
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "totalElements" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "totalPages" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "CommunicationDocumentReport" : {
+        "type" : "object",
+        "properties" : {
+          "generatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "from" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "to" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "totals" : {
+            "$ref" : "#/components/schemas/DocumentTotals"
+          }
+        }
+      },
+      "CommunicationChannelItem" : {
+        "type" : "object",
+        "properties" : {
+          "channel" : {
+            "type" : "string"
+          },
+          "messageCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "recipients" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "sent" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "failed" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "skipped" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "retries" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "retryWaitCurrent" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "unknownCurrent" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "terminalSuccessRate" : {
+            "type" : "number"
+          }
+        }
+      },
+      "CommunicationChannelReport" : {
+        "type" : "object",
+        "properties" : {
+          "generatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "from" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "to" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/CommunicationChannelItem"
+            }
+          }
+        }
+      },
+      "CommunicationCampaignItem" : {
+        "type" : "object",
+        "properties" : {
+          "campaignId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "tenantId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "tenantName" : {
+            "type" : "string"
+          },
+          "createdBy" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "createdByEmail" : {
+            "type" : "string"
+          },
+          "channel" : {
+            "type" : "string"
+          },
+          "runs" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "recipients" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "sent" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "failed" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "skipped" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "retries" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "lastRunAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "terminalSuccessRate" : {
+            "type" : "number"
+          }
+        }
+      },
+      "CommunicationPageReportCommunicationCampaignItem" : {
+        "type" : "object",
+        "properties" : {
+          "generatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "from" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "to" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/CommunicationCampaignItem"
+            }
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "totalElements" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "totalPages" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "AudienceTotals" : {
+        "type" : "object",
+        "properties" : {
+          "recipients" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "snapshot" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "eligible" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "skipped" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "CommunicationAudienceReport" : {
+        "type" : "object",
+        "properties" : {
+          "generatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "from" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "to" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "totals" : {
+            "$ref" : "#/components/schemas/AudienceTotals"
+          },
+          "skipReasons" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SkipReasonItem"
+            }
+          }
+        }
+      },
+      "SkipReasonItem" : {
+        "type" : "object",
+        "properties" : {
+          "reason" : {
+            "type" : "string"
+          },
+          "count" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "AttemptTotals" : {
+        "type" : "object",
+        "properties" : {
+          "attempts" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "started" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "accepted" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "retryableFailure" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "permanentFailure" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "unknown" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "CommunicationAttemptReport" : {
+        "type" : "object",
+        "properties" : {
+          "generatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "from" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "to" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "totals" : {
+            "$ref" : "#/components/schemas/AttemptTotals"
+          },
+          "acceptedRate" : {
+            "type" : "number"
+          }
+        }
+      },
+      "AttachmentFailureItem" : {
+        "type" : "object",
+        "properties" : {
+          "failureCode" : {
+            "type" : "string"
+          },
+          "count" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "AttachmentTotals" : {
+        "type" : "object",
+        "properties" : {
+          "attachments" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "pending" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "ready" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "failed" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "requiredPending" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "requiredFailed" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "CommunicationAttachmentReport" : {
+        "type" : "object",
+        "properties" : {
+          "generatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "from" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "to" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "totals" : {
+            "$ref" : "#/components/schemas/AttachmentTotals"
+          },
+          "failures" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/AttachmentFailureItem"
+            }
+          }
+        }
+      },
       "AdministratorItem" : {
         "type" : "object",
         "properties" : {
@@ -11832,6 +15175,24 @@
           }
         }
       },
+      "TransformationResponse" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "string"
+          },
+          "recommendedTargetTypes" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            },
+            "uniqueItems" : true
+          },
+          "parameterSchema" : {
+            "$ref" : "#/components/schemas/JsonNode"
+          }
+        }
+      },
       "InvoiceItem" : {
         "type" : "object",
         "properties" : {
@@ -11920,6 +15281,53 @@
           "businessDate" : {
             "type" : "string",
             "format" : "date"
+          }
+        }
+      },
+      "ReadinessCheck" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "string"
+          },
+          "state" : {
+            "type" : "string",
+            "enum" : [ "READY", "BLOCKED", "NOT_APPLICABLE" ]
+          },
+          "resourceType" : {
+            "type" : "string"
+          }
+        }
+      },
+      "ReadinessResponse" : {
+        "type" : "object",
+        "properties" : {
+          "sourceId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "sourceCode" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "ready" : {
+            "type" : "boolean"
+          },
+          "checks" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ReadinessCheck"
+            }
+          }
+        }
+      },
+      "ServiceClientScopeResponse" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "string"
           }
         }
       },
