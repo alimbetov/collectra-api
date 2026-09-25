@@ -1,0 +1,28 @@
+name: Format once
+on:
+  push:
+    branches: [feat/integration-contract-foundation]
+permissions:
+  contents: write
+jobs:
+  format:
+    if: github.event.head_commit.message != 'chore: apply spotless formatting'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: feat/integration-contract-foundation
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+      - run: mvn --batch-mode --no-transfer-progress spotless:apply
+      - name: Commit formatting
+        run: |
+          if git diff --quiet; then exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add '*.java'
+          git commit -m "chore: apply spotless formatting"
+          git push
