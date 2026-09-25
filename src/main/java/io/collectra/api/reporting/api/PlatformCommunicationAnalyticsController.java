@@ -151,6 +151,81 @@ public class PlatformCommunicationAnalyticsController {
                 sort);
     }
 
+    @GetMapping("/lifecycle")
+    public CommunicationAnalyticsQueryService.CommunicationLifecycleReport lifecycle(
+            @RequestParam(required = false) UUID tenantId,
+            @RequestParam(required = false) UUID userId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+                    Instant from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+                    Instant to,
+            @RequestParam(required = false) UUID campaignId,
+            @RequestParam(required = false) UUID runId,
+            @RequestParam(required = false) String channel) {
+        return analytics.lifecycle(
+                scope(tenantId, userId), filter(from, to, campaignId, runId, channel));
+    }
+
+    @GetMapping("/audience")
+    public CommunicationAnalyticsQueryService.CommunicationAudienceReport audience(
+            @RequestParam(required = false) UUID tenantId,
+            @RequestParam(required = false) UUID userId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+                    Instant from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+                    Instant to,
+            @RequestParam(required = false) UUID campaignId,
+            @RequestParam(required = false) UUID runId,
+            @RequestParam(required = false) String channel) {
+        return analytics.audience(
+                scope(tenantId, userId), filter(from, to, campaignId, runId, channel));
+    }
+
+    @GetMapping("/attempts")
+    public CommunicationAnalyticsQueryService.CommunicationAttemptReport attempts(
+            @RequestParam(required = false) UUID tenantId,
+            @RequestParam(required = false) UUID userId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+                    Instant from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+                    Instant to,
+            @RequestParam(required = false) UUID campaignId,
+            @RequestParam(required = false) UUID runId,
+            @RequestParam(required = false) String channel) {
+        return analytics.attempts(
+                scope(tenantId, userId), filter(from, to, campaignId, runId, channel));
+    }
+
+    @GetMapping("/attachments")
+    public CommunicationAnalyticsQueryService.CommunicationAttachmentReport attachments(
+            @RequestParam(required = false) UUID tenantId,
+            @RequestParam(required = false) UUID userId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+                    Instant from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+                    Instant to,
+            @RequestParam(required = false) UUID campaignId,
+            @RequestParam(required = false) UUID runId,
+            @RequestParam(required = false) String channel) {
+        return analytics.attachments(
+                scope(tenantId, userId), filter(from, to, campaignId, runId, channel));
+    }
+
+    @GetMapping("/operations")
+    public CommunicationAnalyticsQueryService.CommunicationOperationsReport operations(
+            @RequestParam(required = false) UUID tenantId,
+            @RequestParam(required = false) UUID userId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+                    Instant from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+                    Instant to,
+            @RequestParam(required = false) UUID campaignId,
+            @RequestParam(required = false) UUID runId,
+            @RequestParam(required = false) String channel) {
+        return analytics.operations(
+                scope(tenantId, userId), filter(from, to, campaignId, runId, channel));
+    }
+
     @GetMapping("/documents")
     public CommunicationAnalyticsQueryService.CommunicationDocumentReport documents(
             @RequestParam(required = false) UUID tenantId,
