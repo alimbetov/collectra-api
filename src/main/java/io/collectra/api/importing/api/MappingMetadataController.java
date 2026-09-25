@@ -12,8 +12,8 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * Backend-owned metadata used by Mapping Studio.
  *
- * Keep this contract aligned with MappingExecutionService. The frontend must not
- * hardcode transformation names or parameter shapes.
+ * <p>Keep this contract aligned with MappingExecutionService. The frontend must not hardcode
+ * transformation names or parameter shapes.
  */
 @RestController
 @RequestMapping("/api/v1/mapping-metadata")
@@ -28,20 +28,30 @@ public class MappingMetadataController {
                 transformation("TRIM", Set.of("STRING"), object()),
                 transformation("UPPERCASE", Set.of("STRING"), object()),
                 transformation("LOWERCASE", Set.of("STRING"), object()),
-                transformation("DATE_PARSE", Set.of("DATE"), object(
-                        property("pattern", "string", "dd.MM.yyyy"))),
-                transformation("DECIMAL_PARSE", Set.of("DECIMAL"), object(
-                        property("decimalSeparator", "string", ","),
-                        property("groupingSeparator", "string", " "))),
-                transformation("BOOLEAN_PARSE", Set.of("BOOLEAN"), object(
-                        property("trueValue", "string", "true"),
-                        property("falseValue", "string", "false"))),
+                transformation(
+                        "DATE_PARSE",
+                        Set.of("DATE"),
+                        object(property("pattern", "string", "dd.MM.yyyy"))),
+                transformation(
+                        "DECIMAL_PARSE",
+                        Set.of("DECIMAL"),
+                        object(
+                                property("decimalSeparator", "string", ","),
+                                property("groupingSeparator", "string", " "))),
+                transformation(
+                        "BOOLEAN_PARSE",
+                        Set.of("BOOLEAN"),
+                        object(
+                                property("trueValue", "string", "true"),
+                                property("falseValue", "string", "false"))),
                 transformation("NORMALIZE_PHONE", Set.of("STRING"), object()),
                 transformation("VALIDATE_EMAIL", Set.of("STRING"), object()),
-                transformation("SPLIT", Set.of(), object(
-                        property("delimiterRegex", "string", "[,;]"))),
-                transformation("CHANNELS_PARSE", Set.of("STRING"), object(
-                        property("delimiterRegex", "string", "[,;]"))));
+                transformation(
+                        "SPLIT", Set.of(), object(property("delimiterRegex", "string", "[,;]"))),
+                transformation(
+                        "CHANNELS_PARSE",
+                        Set.of("STRING"),
+                        object(property("delimiterRegex", "string", "[,;]"))));
     }
 
     private TransformationResponse transformation(

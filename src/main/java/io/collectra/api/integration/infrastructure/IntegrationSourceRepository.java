@@ -8,7 +8,10 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface IntegrationSourceRepository extends JpaRepository<IntegrationSource, UUID> {
     List<IntegrationSource> findAllByTenantIdOrderByCodeAsc(UUID tenantId);
+
     Optional<IntegrationSource> findByIdAndTenantId(UUID id, UUID tenantId);
+
     Optional<IntegrationSource> findByTenantIdAndCode(UUID tenantId, String code);
+
     boolean existsByTenantIdAndCode(UUID tenantId, String code);
 }

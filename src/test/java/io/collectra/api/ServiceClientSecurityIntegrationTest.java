@@ -73,9 +73,10 @@ class ServiceClientSecurityIntegrationTest extends AbstractIntegrationTest {
         String tenantB = registerTenant();
         JsonNode foreignClient =
                 createClient(
-                        tenantB,
-                        "foreign-" + UUID.randomUUID().toString().substring(0, 8),
-                        "document:read").get("client");
+                                tenantB,
+                                "foreign-" + UUID.randomUUID().toString().substring(0, 8),
+                                "document:read")
+                        .get("client");
 
         mockMvc.perform(
                         post(

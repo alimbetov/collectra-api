@@ -43,7 +43,9 @@ class ServiceClientLifecycleIntegrationTest extends AbstractIntegrationTest {
                 read(
                         post(
                                         "/api/v1/integration/service-clients/{id}/rotate-secret",
-                                        client.has("client") ? client.get("client").get("id").asText() : client.get("id").asText())
+                                        client.has("client")
+                                                ? client.get("client").get("id").asText()
+                                                : client.get("id").asText())
                                 .header("Authorization", "Bearer " + accessToken)
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content("{}"));
@@ -55,7 +57,9 @@ class ServiceClientLifecycleIntegrationTest extends AbstractIntegrationTest {
         mockMvc.perform(
                         post(
                                         "/api/v1/integration/service-clients/{id}/credentials/{credentialId}/activate",
-                                        client.has("client") ? client.get("client").get("id").asText() : client.get("id").asText(),
+                                        client.has("client")
+                                                ? client.get("client").get("id").asText()
+                                                : client.get("id").asText(),
                                         rotating.get("client").get("credentialId").asText())
                                 .header("Authorization", "Bearer " + accessToken))
                 .andExpect(status().isOk());
@@ -88,7 +92,9 @@ class ServiceClientLifecycleIntegrationTest extends AbstractIntegrationTest {
         mockMvc.perform(
                         post(
                                         "/api/v1/integration/service-clients/{id}/block",
-                                        client.has("client") ? client.get("client").get("id").asText() : client.get("id").asText())
+                                        client.has("client")
+                                                ? client.get("client").get("id").asText()
+                                                : client.get("id").asText())
                                 .header("Authorization", "Bearer " + accessToken))
                 .andExpect(status().isNoContent());
         token(clientId, secret).andExpect(status().isUnauthorized());
@@ -96,7 +102,9 @@ class ServiceClientLifecycleIntegrationTest extends AbstractIntegrationTest {
         mockMvc.perform(
                         post(
                                         "/api/v1/integration/service-clients/{id}/unblock",
-                                        client.has("client") ? client.get("client").get("id").asText() : client.get("id").asText())
+                                        client.has("client")
+                                                ? client.get("client").get("id").asText()
+                                                : client.get("id").asText())
                                 .header("Authorization", "Bearer " + accessToken))
                 .andExpect(status().isNoContent());
         token(clientId, secret).andExpect(status().isOk());
@@ -113,7 +121,11 @@ class ServiceClientLifecycleIntegrationTest extends AbstractIntegrationTest {
 
         String detail =
                 mockMvc.perform(
-                                get("/api/v1/integration/service-clients/{id}", client.has("client") ? client.get("client").get("id").asText() : client.get("id").asText())
+                                get(
+                                                "/api/v1/integration/service-clients/{id}",
+                                                client.has("client")
+                                                        ? client.get("client").get("id").asText()
+                                                        : client.get("id").asText())
                                         .header("Authorization", "Bearer " + accessToken))
                         .andExpect(status().isOk())
                         .andReturn()

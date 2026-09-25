@@ -10,9 +10,9 @@ import io.collectra.api.tenant.domain.Tenant;
 import io.collectra.api.tenant.infrastructure.TenantRepository;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
-import java.util.Base64;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Base64;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -101,8 +101,7 @@ public class ServiceClientService {
     }
 
     @Transactional
-    public CredentialIssuedResponse startRotation(
-            UUID tenantId, UUID id, Instant secretExpiresAt) {
+    public CredentialIssuedResponse startRotation(UUID tenantId, UUID id, Instant secretExpiresAt) {
         String clientSecret = generateSecret();
         validateFuture(secretExpiresAt, "Secret expiration");
         ServiceClient client = requireClient(tenantId, id);

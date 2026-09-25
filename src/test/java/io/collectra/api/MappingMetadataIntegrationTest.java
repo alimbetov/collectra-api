@@ -47,8 +47,8 @@ class MappingMetadataIntegrationTest extends AbstractIntegrationTest {
     private String register() throws Exception {
         String body =
                 mockMvc.perform(
-                                org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post(
-                                                "/api/v1/auth/tenants/register")
+                                org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                                        .post("/api/v1/auth/tenants/register")
                                         .contentType(MediaType.APPLICATION_JSON)
                                         .content(
                                                 "{\"slug\":\"mapping-metadata-"
