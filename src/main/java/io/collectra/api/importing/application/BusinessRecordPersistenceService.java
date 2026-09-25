@@ -115,7 +115,7 @@ public class BusinessRecordPersistenceService {
     }
     private void assertEquivalentInvoice(Invoice value, ObjectNode payload) {
         if (!Objects.equals(value.getDueDate(), requiredDate(payload, "/invoice/dueDate"))
-                || value.getAmount().compareTo(requiredDecimal(payload, "/invoice/amount")) != 0
+                || value.getOriginalAmount().compareTo(requiredDecimal(payload, "/invoice/amount")) != 0
                 || !Objects.equals(value.getCurrency(), requiredText(payload, "/invoice/currency")))
             throw new BusinessRecordConflictException("INVOICE", value.getExternalId());
     }
