@@ -13,7 +13,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface CollectionActionRepository extends JpaRepository<CollectionAction, UUID> {
     Optional<CollectionAction> findByIdAndTenantIdAndCaseId(UUID id, UUID tenantId, UUID caseId);
 
-    Page<CollectionAction> findAllByTenantIdAndCaseId(UUID tenantId, UUID caseId, Pageable pageable);
+    Page<CollectionAction> findAllByTenantIdAndCaseId(
+            UUID tenantId, UUID caseId, Pageable pageable);
 
     List<CollectionAction> findAllByTenantIdAndCaseIdInAndStatusOrderByDueAtAsc(
             UUID tenantId, Collection<UUID> caseIds, CollectionActionStatus status);
