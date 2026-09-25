@@ -36,7 +36,7 @@ public class IntegrationSourceService {
     @Transactional
     public SourceResponse create(UUID tenantId, CreateCommand c) {
         String code=normalizeCode(c.code());
-        if(sources.existsByTenantIdAndCode(tenantId,code)) throw new IllegalArgumentException("Integration source code already exists");
+        if(sources.existsByTenantIdAndCode(tenantId,code)) throw new IntegrationSourceConflictException("INTEGRATION_SOURCE_CODE_EXISTS", "Integration source code already exists");
         validateReferences(tenantId,c.serviceClientId(),c.sourceSchemaDefinitionId(),c.mappingProfileDefinitionId());
         IntegrationSource value=sources.save(new IntegrationSource(tenantId,code,c.name().trim(),c.serviceClientId(),
                 c.sourceSchemaDefinitionId(),c.mappingProfileDefinitionId(),normalizeMode(c.processingMode()),
@@ -65,7 +65,7 @@ public class IntegrationSourceService {
     @Transactional
     public SourceResponse activate(UUID tenantId,UUID id,long expectedVersion){
         IntegrationSource s=require(tenantId,id); checkVersion(s,expectedVersion);
-        ReadinessResponse r=readiness(tenantId,s); if(!r.ready()) throw new IllegalStateException("Integration source is not ready: "+r.checks().stream().filter(x->x.state()==CheckState.BLOCKED).map(ReadinessCheck::code).toList());
+        ReadinessResponse r=readiness(tenantId,s); if(!r.ready()) throw new IntegrationSourceConflictException("INTEGRATION_SOURCE_NOT_READY", "Integration source is not ready: "+r.checks().stream().filter(x->x.state()==CheckState.BLOCKED).map(ReadinessCheck::code).toList());
         s.activate(); return response(s);
     }
     @Transactional public SourceResponse suspend(UUID tenantId,UUID id,long expectedVersion){IntegrationSource s=require(tenantId,id);checkVersion(s,expectedVersion);s.suspend();return response(s);}
@@ -95,7 +95,7 @@ public class IntegrationSourceService {
         mappingDefinitions.findByIdAndTenantId(mapping,tenantId).orElseThrow(()->new IllegalArgumentException("Mapping profile definition does not belong to tenant"));
     }
     private IntegrationSource require(UUID tenantId,UUID id){return sources.findByIdAndTenantId(id,tenantId).orElseThrow();}
-    private void checkVersion(IntegrationSource s,long expected){if(s.getVersion()!=expected) throw new IllegalStateException("Integration source version conflict");}
+    private void checkVersion(IntegrationSource s,long expected){if(s.getVersion()!=expected) throw new IntegrationSourceConflictException("VERSION_CONFLICT", "Integration source version conflict");}
     private String normalizeCode(String v){if(v==null||!v.matches("[a-z0-9-]{3,100}"))throw new IllegalArgumentException("Invalid integration source code");return v;}
     private String normalizeMode(String v){String n=v==null?"STANDARD":v.trim().toUpperCase();if(!n.equals("STANDARD"))throw new IllegalArgumentException("Unsupported processing mode");return n;}
     private String canonicalJson(JsonNode value){try{return json.writeValueAsString(value==null?json.createObjectNode():value);}catch(Exception e){throw new IllegalArgumentException("Invalid JSON configuration",e);}}
