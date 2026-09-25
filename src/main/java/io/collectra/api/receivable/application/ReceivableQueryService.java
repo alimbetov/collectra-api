@@ -1,5 +1,9 @@
 package io.collectra.api.receivable.application;
 
+import io.collectra.api.contract.domain.Contract;
+import io.collectra.api.contract.infrastructure.ContractRepository;
+import io.collectra.api.customer.domain.Customer;
+import io.collectra.api.customer.infrastructure.CustomerRepository;
 import io.collectra.api.receivable.domain.AllocationStatus;
 import io.collectra.api.receivable.domain.Invoice;
 import io.collectra.api.receivable.domain.Payment;
@@ -18,6 +22,8 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.stream.Collectors;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
@@ -52,16 +58,22 @@ public class ReceivableQueryService {
 
     private final InvoiceRepository invoices;
     private final PaymentRepository payments;
+    private final CustomerRepository customers;
+    private final ContractRepository contracts;
     private final Clock clock;
     private final ZoneId businessZone;
 
     public ReceivableQueryService(
             InvoiceRepository invoices,
             PaymentRepository payments,
+            CustomerRepository customers,
+            ContractRepository contracts,
             Clock clock,
             ZoneId businessZone) {
         this.invoices = invoices;
         this.payments = payments;
+        this.customers = customers;
+        this.contracts = contracts;
         this.clock = clock;
         this.businessZone = businessZone;
     }
@@ -125,9 +137,27 @@ public class ReceivableQueryService {
                                 size,
                                 parseSort(sort, INVOICE_SORTS, "createdAt", Sort.Direction.DESC)));
 
+        Map<UUID, String> customerNames =
+                customerNames(
+                        tenantId, result.getContent().stream().map(Invoice::getCustomerId).toList());
+        Map<UUID, String> contractNumbers =
+                contractNumbers(
+                        tenantId,
+                        result.getContent().stream()
+                                .map(Invoice::getContractId)
+                                .filter(java.util.Objects::nonNull)
+                                .toList());
         List<InvoiceItem> items =
                 result.getContent().stream()
-                        .map(value -> InvoiceItem.from(value, businessDate))
+                        .map(
+                                value ->
+                                        InvoiceItem.from(
+                                                value,
+                                                businessDate,
+                                                customerNames.get(value.getCustomerId()),
+                                                value.getContractId() == null
+                                                        ? null
+                                                        : contractNumbers.get(value.getContractId())))
                         .toList();
         return new InvoicePage(
                 items,
@@ -180,13 +210,37 @@ public class ReceivableQueryService {
                                 size,
                                 parseSort(sort, PAYMENT_SORTS, "createdAt", Sort.Direction.DESC)));
 
+        Map<UUID, String> customerNames =
+                customerNames(
+                        tenantId, result.getContent().stream().map(Payment::getCustomerId).toList());
         return new PaymentPage(
-                result.getContent().stream().map(PaymentItem::from).toList(),
+                result.getContent().stream()
+                        .map(
+                                value ->
+                                        PaymentItem.from(
+                                                value, customerNames.get(value.getCustomerId())))
+                        .toList(),
                 result.getNumber(),
                 result.getSize(),
                 result.getTotalElements(),
                 result.getTotalPages(),
                 result.hasNext());
+    }
+
+    private Map<UUID, String> customerNames(UUID tenantId, List<UUID> ids) {
+        if (ids.isEmpty()) {
+            return Map.of();
+        }
+        return customers.findAllByTenantIdAndIdIn(tenantId, ids).stream()
+                .collect(Collectors.toMap(Customer::getId, Customer::getDisplayName));
+    }
+
+    private Map<UUID, String> contractNumbers(UUID tenantId, List<UUID> ids) {
+        if (ids.isEmpty()) {
+            return Map.of();
+        }
+        return contracts.findAllByTenantIdAndIdIn(tenantId, ids).stream()
+                .collect(Collectors.toMap(Contract::getId, Contract::getContractNumber));
     }
 
     private static Specification<Invoice> invoiceSpecification(
@@ -427,7 +481,9 @@ public class ReceivableQueryService {
     public record InvoiceItem(
             UUID id,
             UUID customerId,
+            String customerDisplayName,
             UUID contractId,
+            String contractNumber,
             String externalId,
             String invoiceNumber,
             LocalDate invoiceDate,
@@ -439,7 +495,11 @@ public class ReceivableQueryService {
             PaymentStatus paymentStatus,
             boolean overdue,
             long daysOverdue) {
-        static InvoiceItem from(Invoice value, LocalDate businessDate) {
+        static InvoiceItem from(
+                Invoice value,
+                LocalDate businessDate,
+                String customerDisplayName,
+                String contractNumber) {
             boolean overdue = value.isOverdue(businessDate);
             long days =
                     overdue
@@ -449,7 +509,9 @@ public class ReceivableQueryService {
             return new InvoiceItem(
                     value.getId(),
                     value.getCustomerId(),
+                    customerDisplayName,
                     value.getContractId(),
+                    contractNumber,
                     value.getExternalId(),
                     value.getInvoiceNumber(),
                     value.getInvoiceDate(),
@@ -476,16 +538,18 @@ public class ReceivableQueryService {
     public record PaymentItem(
             UUID id,
             UUID customerId,
+            String customerDisplayName,
             String externalId,
             LocalDate paymentDate,
             BigDecimal amount,
             String currency,
             String paymentReference,
             String source) {
-        static PaymentItem from(Payment value) {
+        static PaymentItem from(Payment value, String customerDisplayName) {
             return new PaymentItem(
                     value.getId(),
                     value.getCustomerId(),
+                    customerDisplayName,
                     value.getExternalId(),
                     value.getPaymentDate(),
                     value.getAmount(),

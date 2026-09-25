@@ -6,6 +6,8 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -16,6 +18,12 @@ public interface PaymentAllocationRepository extends JpaRepository<PaymentAlloca
 
     List<PaymentAllocation> findAllByTenantIdAndInvoiceIdOrderByCreatedAtAsc(
             UUID tenantId, UUID invoiceId);
+
+    Page<PaymentAllocation> findAllByTenantIdAndPaymentId(
+            UUID tenantId, UUID paymentId, Pageable pageable);
+
+    Page<PaymentAllocation> findAllByTenantIdAndInvoiceId(
+            UUID tenantId, UUID invoiceId, Pageable pageable);
 
     Optional<PaymentAllocation> findByIdAndTenantIdAndPaymentId(
             UUID id, UUID tenantId, UUID paymentId);

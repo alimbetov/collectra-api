@@ -185,6 +185,29 @@ class OpenApiCompatibilityIntegrationTest extends AbstractIntegrationTest {
                 .isZero();
     }
 
+    @Test
+    void receivableAllocationHistoryIsPagedAndBounded() throws Exception {
+        JsonNode document = objectMapper.readTree(currentPublicApi());
+
+        assertAllocationPaging(document, "/api/v1/payments/{id}/allocations");
+        assertAllocationPaging(document, "/api/v1/invoices/{id}/allocations");
+
+        JsonNode allocationPage =
+                document.path("components").path("schemas").path("AllocationPage");
+        assertThat(allocationPage.path("properties").has("items")).isTrue();
+        assertThat(allocationPage.path("properties").has("totalElements")).isTrue();
+        assertThat(allocationPage.path("properties").has("totalPages")).isTrue();
+        assertThat(allocationPage.path("properties").has("hasNext")).isTrue();
+    }
+
+    private void assertAllocationPaging(JsonNode document, String path) {
+        JsonNode parameters = document.path("paths").path(path).path("get").path("parameters");
+        assertThat(findParameter(parameters, "page").path("schema").path("minimum").asInt()).isZero();
+        JsonNode size = findParameter(parameters, "size").path("schema");
+        assertThat(size.path("default").asInt()).isEqualTo(50);
+        assertThat(size.path("maximum").asInt()).isEqualTo(100);
+    }
+
     private JsonNode findParameter(JsonNode parameters, String name) {
         for (JsonNode parameter : parameters) {
             if (name.equals(parameter.path("name").asText())) {
