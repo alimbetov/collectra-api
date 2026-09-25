@@ -75,7 +75,10 @@ public class SecurityConfig {
                                         .hasAuthority("ROLE_PLATFORM_SUPER_ADMIN")
                                         .requestMatchers("/api/v1/identity/**", "/api/v1/audit/**")
                                         .hasAuthority("ROLE_HUMAN")
-                                        .requestMatchers("/api/v1/integration/service-clients/**")
+                                        .requestMatchers(
+                                                "/api/v1/integration/service-clients/**",
+                                                "/api/v1/integration/service-client-scopes",
+                                                "/api/v1/integration/sources/**")
                                         .hasAuthority("ROLE_HUMAN")
                                         .requestMatchers("/api/v1/integration/**")
                                         .hasAuthority("ROLE_SERVICE")
