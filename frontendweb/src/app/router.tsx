@@ -42,6 +42,10 @@ import { SourceSchemasPage } from '../pages/integrations/SourceSchemasPage';
 import { MappingProfilesPage } from '../pages/integrations/MappingProfilesPage';
 import { SourceSchemaDetailPage } from '../pages/integrations/SourceSchemaDetailPage';
 import { MappingProfileDetailPage } from '../pages/integrations/MappingProfileDetailPage';
+import { ImportsPage } from '../pages/imports/ImportsPage';
+import { ImportCreatePage } from '../pages/imports/ImportCreatePage';
+import { ImportDetailPage } from '../pages/imports/ImportDetailPage';
+import { ImportErrorsPage } from '../pages/imports/ImportErrorsPage';
 
 function PlaceholderPage({ titleKey }: { titleKey: MessageKey }) {
   const { t } = useI18n();
@@ -228,11 +232,19 @@ export const router = createBrowserRouter([
       },
       {
         path: 'imports',
-        element: (
-          <RequirePermission permission="DOCUMENT_READ">
-            <PlaceholderPage titleKey="navigation.imports" />
-          </RequirePermission>
-        ),
+        element: <RequirePermission permission="DOCUMENT_READ"><ImportsPage /></RequirePermission>,
+      },
+      {
+        path: 'imports/new',
+        element: <RequirePermission permission="DOCUMENT_GENERATE"><ImportCreatePage /></RequirePermission>,
+      },
+      {
+        path: 'imports/:importId',
+        element: <RequirePermission permission="DOCUMENT_READ"><ImportDetailPage /></RequirePermission>,
+      },
+      {
+        path: 'imports/:importId/errors',
+        element: <RequirePermission permission="DOCUMENT_READ"><ImportErrorsPage /></RequirePermission>,
       },
       {
         path: 'files',
