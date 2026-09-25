@@ -265,26 +265,13 @@ public class CollectionQueryService {
                         .map(
                                 row -> {
                                     CollectionCase value = casesById.get(row.id());
-                                    CollectionAction synthetic =
-                                            row.dueAt() == null
-                                                    ? null
-                                                    : new CollectionAction(
-                                                            tenantId,
-                                                            value.getId(),
-                                                            row.actionType(),
-                                                            null,
-                                                            row.dueAt(),
-                                                            CollectionPriority.NORMAL);
-                                    Map<UUID, CollectionAction> next =
-                                            synthetic == null
-                                                    ? Map.of()
-                                                    : Map.of(value.getId(), synthetic);
                                     return item(
                                             value,
                                             customersById,
                                             invoicesById,
                                             assigneesById,
-                                            next,
+                                            row.actionType(),
+                                            row.dueAt(),
                                             asOf);
                                 })
                         .toList();
@@ -332,6 +319,28 @@ public class CollectionQueryService {
         UserSummary assignee = assigneesById.get(value.getAssignedTo());
         CollectionAction nextAction = nextActionByCase.get(value.getId());
 
+        return item(
+                value,
+                customersById,
+                invoicesById,
+                assigneesById,
+                nextAction == null ? null : nextAction.getActionType(),
+                nextAction == null ? null : nextAction.getDueAt(),
+                asOf);
+    }
+
+    private CaseItem item(
+            CollectionCase value,
+            Map<UUID, Customer> customersById,
+            Map<UUID, Invoice> invoicesById,
+            Map<UUID, UserSummary> assigneesById,
+            String nextActionType,
+            Instant nextActionDueAt,
+            Instant asOf) {
+        Invoice invoice = invoicesById.get(value.getInvoiceId());
+        Customer customer = customersById.get(value.getCustomerId());
+        UserSummary assignee = assigneesById.get(value.getAssignedTo());
+
         return new CaseItem(
                 value.getId(),
                 value.getCustomerId(),
@@ -345,9 +354,9 @@ public class CollectionQueryService {
                 invoice == null ? null : invoice.getCurrency(),
                 invoice == null ? null : invoice.getOutstandingAmount(),
                 invoice == null ? null : invoice.getPaymentStatus().name(),
-                nextAction == null ? null : nextAction.getActionType(),
-                nextAction == null ? null : nextAction.getDueAt(),
-                nextAction != null && nextAction.isOverdue(asOf),
+                nextActionType,
+                nextActionDueAt,
+                nextActionDueAt != null && nextActionDueAt.isBefore(asOf),
                 value.getOpenedAt(),
                 value.getClosedAt(),
                 value.getCloseReason(),
