@@ -116,18 +116,17 @@ class RoleAccessSmokeIntegrationTest extends AbstractIntegrationTest {
     @Test
     void serviceClientIsRejectedByEveryHumanAndPlatformZone() throws Exception {
         Auth admin = register("service-smoke");
-        String secret = "service-client-secret-123456789012345";
         String clientId = "service-" + UUID.randomUUID();
-        read(
-                post("/api/v1/integration/service-clients")
-                        .header("Authorization", bearer(admin.accessToken()))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(
-                                "{\"clientId\":\""
-                                        + clientId
-                                        + "\",\"name\":\"ERP\",\"clientSecret\":\""
-                                        + secret
-                                        + "\",\"scopes\":[\"integration:imports:read\"]}"));
+        JsonNode issued =
+                read(
+                        post("/api/v1/integration/service-clients")
+                                .header("Authorization", bearer(admin.accessToken()))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        "{\"clientId\":\""
+                                                + clientId
+                                                + "\",\"name\":\"ERP\",\"scopes\":[\"integration:imports:read\"]}"));
+        String secret = issued.get("clientSecret").asText();
         JsonNode serviceToken =
                 read(
                         post("/api/v1/integration/service-token")
