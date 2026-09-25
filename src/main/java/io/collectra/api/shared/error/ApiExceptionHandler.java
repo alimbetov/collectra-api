@@ -7,6 +7,8 @@ import io.collectra.api.file.application.FileTooLargeException;
 import io.collectra.api.file.domain.IllegalFileStateException;
 import io.collectra.api.file.infrastructure.storage.FileStorageException;
 import io.collectra.api.importing.application.ImportBatchFailedException;
+import io.collectra.api.integration.application.IngestionConflictException;
+import io.collectra.api.integration.application.IngestionRequestException;
 import io.collectra.api.shared.security.RateLimitExceededException;
 import io.collectra.api.shared.tenant.MissingTenantException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -114,6 +116,16 @@ public class ApiExceptionHandler {
         return withCode(
                 base(HttpStatus.SERVICE_UNAVAILABLE, "Object storage operation failed", request),
                 "FILE_STORAGE_UNAVAILABLE");
+    }
+
+    @ExceptionHandler(IngestionRequestException.class)
+    ProblemDetail ingestionRequest(IngestionRequestException ex, HttpServletRequest request) {
+        return withCode(base(HttpStatus.BAD_REQUEST, ex.getMessage(), request), ex.code());
+    }
+
+    @ExceptionHandler(IngestionConflictException.class)
+    ProblemDetail ingestionConflict(IngestionConflictException ex, HttpServletRequest request) {
+        return withCode(base(HttpStatus.CONFLICT, ex.getMessage(), request), ex.code());
     }
 
     @ExceptionHandler(BusinessConflictException.class)

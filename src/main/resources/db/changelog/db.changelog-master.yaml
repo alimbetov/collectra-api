@@ -83,3 +83,5 @@ databaseChangeLog:
       file: db/changelog/changes/044-communication-reporting-coverage-indexes.sql
   - include:
       file: db/changelog/changes/045-integration-source-foundation.sql
+  - include:
+      file: db/changelog/changes/046-production-ingestion.sql

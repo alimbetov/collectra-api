@@ -1,0 +1,23 @@
+name: VC3 Format Artifact
+on:
+  push:
+    branches: ["feat/vc3-production-ingestion"]
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+      - run: mvn --batch-mode --no-transfer-progress spotless:apply
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vc3-formatted-sources
+          path: |
+            src/main/java
+            src/test/java
