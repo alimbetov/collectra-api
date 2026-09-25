@@ -1,12 +1,13 @@
 name: Format once
+
 on:
   push:
-    branches: [feat/integration-contract-foundation]
+
 permissions:
   contents: write
+
 jobs:
   format:
-    if: github.event.head_commit.message != 'chore: apply spotless formatting'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
