@@ -70,15 +70,15 @@ public class IngestionApplicationService {
 
         try {
             IngestionBatch created = writer.create(ingestionId, tenantId, source.getId(), serviceClientId,
-                    code, key, hash, requestId, raw.id(), schema.getId(), mapping.getId(), contentType, context.toString());
+                    code, key, hash, requestId, raw.fileId(), schema.getId(), mapping.getId(), contentType, context.toString());
             return response(created, false);
         } catch (DataIntegrityViolationException race) {
-            safeDeleteRaw(tenantId, raw.id());
+            safeDeleteRaw(tenantId, raw.fileId());
             IngestionBatch winner = findExisting(tenantId, source.getId(), serviceClientId, key)
                     .orElseThrow(() -> race);
             return replay(winner, hash);
         } catch (RuntimeException failure) {
-            safeDeleteRaw(tenantId, raw.id());
+            safeDeleteRaw(tenantId, raw.fileId());
             throw failure;
         }
     }
