@@ -77,6 +77,7 @@ class CustomerReceivableCoreIntegrationTest extends AbstractIntegrationTest {
         assertThat(persisted.getPaidAmount()).isEqualByComparingTo("400.00");
         assertThat(persisted.getOutstandingAmount()).isEqualByComparingTo("600.00");
         assertThat(persisted.getPaymentStatus()).isEqualTo(PaymentStatus.PARTIALLY_PAID);
-        assertThat(receivableService.allocations(tenantId, payment.getId())).hasSize(1);
+        assertThat(receivableService.allocations(tenantId, payment.getId(), 0, 50).getContent())
+                .hasSize(1);
     }
 }
