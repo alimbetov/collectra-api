@@ -479,6 +479,17 @@ Do not downgrade configuration readiness merely because a provider is temporaril
 
 Current `/imports` and `/files` routes are placeholders guarded by DOCUMENT_READ/FILE_READ. Integration Test Ingestion and source activity must live under `/integrations`; FileService screens may be linked only when useful. Do not overload the old Imports placeholder as the IntegrationSource control plane.
 
+### Implementation status after contract-foundation pass
+
+Implemented in `feat/integration-contract-foundation`:
+
+- D1: tenant-scoped `GET /api/v1/integration/service-clients/{id}`;
+- D2: backend-owned `GET /api/v1/integration/service-client-scopes` catalogue;
+- D7: backend-owned `GET /api/v1/mapping-metadata/transformations` including parameter schemas;
+- integration coverage for Service Client detail/scope metadata and Mapping transformation metadata.
+
+Still intentionally open because they require a product/domain contract rather than a safe isolated patch: D3 secret generation model; D4 read-only schema inspection; D6 permission composition; D8/D9 test-input contract choice; D10 source-oriented ingestion; D11/D12 new RBAC; D13/D14 readiness model; D15 concurrency semantics; D16 navigation; D17 stable problem codes; D18 polling/status contract; D19 readiness vs health UI; D20 route separation.
+
 ### Contract exit gate
 
 ISC-1 is complete only when every screen action has a verified backend endpoint, method, permission/scope, request/response DTO, error contract and lifecycle state. A route/button with no verified backend contract remains disabled/PLANNED and cannot count toward Setup Center readiness.
