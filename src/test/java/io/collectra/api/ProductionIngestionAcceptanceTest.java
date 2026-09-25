@@ -128,7 +128,7 @@ class ProductionIngestionAcceptanceTest extends AbstractIntegrationTest {
         private String key(StorageLocation l){return l.bucket()+"/"+l.objectKey();}
         public StoredObject upload(UploadObject c){try{byte[] b=c.content().readAllBytes();values.put(key(c.location()),b);return new StoredObject(b.length,"test");}catch(IOException e){throw new RuntimeException(e);}}
         public InputStream download(StorageLocation l){return new ByteArrayInputStream(Objects.requireNonNull(values.get(key(l))));}
-        public ObjectMetadata stat(StorageLocation l){byte[] b=Objects.requireNonNull(values.get(key(l)));return new ObjectMetadata(b.length,"application/octet-stream","test",Map.of());}
+        public ObjectMetadata stat(StorageLocation l){byte[] b=Objects.requireNonNull(values.get(key(l)));return new ObjectMetadata(b.length,"application/octet-stream","test");}
         public void delete(StorageLocation l){values.remove(key(l));} public boolean exists(StorageLocation l){return values.containsKey(key(l));}
         public URI generatePresignedGetUrl(StorageLocation l,Duration ttl){return URI.create("https://test.invalid/get");}
         public URI generatePresignedPutUrl(StorageLocation l,String type,Duration ttl){return URI.create("https://test.invalid/put");}
