@@ -52,7 +52,7 @@ class ImportOperationsPostgresIntegrationTest extends AbstractIntegrationTest {
                         a.getId(), "PROCESSING", null, null, null, 0, 100, List.of("id,asc"));
         List<UUID> expected =
                 List.of(first.getId(), second.getId()).stream()
-                        .sorted(Comparator.naturalOrder())
+                        .sorted(Comparator.comparing(UUID::toString))
                         .toList();
         assertThat(page.getContent())
                 .extracting(ImportOperationsQueryService.BatchSummary::id)
