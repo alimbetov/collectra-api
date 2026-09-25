@@ -117,7 +117,7 @@ public class IntegrationSourceController {
             JsonNode headerMapping,
             JsonNode resourcePolicy,
             JsonNode routingConfig,
-            long version) {}
+            @NotNull @jakarta.validation.constraints.PositiveOrZero Long version) {}
 
-    record VersionRequest(long version) {}
+    record VersionRequest(@NotNull @jakarta.validation.constraints.PositiveOrZero Long version) {}
 }
