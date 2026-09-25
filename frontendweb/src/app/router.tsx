@@ -31,6 +31,7 @@ import { TemplateCreatePage } from '../pages/templates/TemplateCreatePage';
 import { TemplateDetailPage } from '../pages/templates/TemplateDetailPage';
 import { TemplateVersionEditorPage } from '../pages/templates/TemplateVersionEditorPage';
 import { TemplateAssetsPage } from '../pages/templates/TemplateAssetsPage';
+import { IntegrationJourneyPage } from '../pages/integrations/IntegrationJourneyPage';
 
 function PlaceholderPage({ titleKey }: { titleKey: MessageKey }) {
   const { t } = useI18n();
@@ -187,6 +188,7 @@ export const router = createBrowserRouter([
           </RequirePermission>
         ),
       },
+      { path: 'integrations', element: <IntegrationJourneyPage /> },
       { path: 'forbidden', element: <ForbiddenPage /> },
       { path: '*', element: <NotFoundPage /> },
     ],
