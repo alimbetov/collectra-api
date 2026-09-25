@@ -13,7 +13,8 @@ import io.collectra.api.customer.domain.CustomerType;
 import io.collectra.api.document.application.*;
 import io.collectra.api.document.domain.GenerationJobStatus;
 import io.collectra.api.document.infrastructure.*;
-import io.collectra.api.importing.application.BusinessImportService;
+import io.collectra.api.importing.application.BusinessRecordPersistenceService;
+import io.collectra.api.importing.application.MappingExecutionService;
 import io.collectra.api.importing.domain.*;
 import io.collectra.api.importing.infrastructure.*;
 import io.collectra.api.localization.domain.TenantLocale;
@@ -52,7 +53,8 @@ class IntegrationPipelineExecutableSmokeTest extends AbstractIntegrationTest {
     @Autowired MappingProfileRepository mappings;
     @Autowired MappingRuleRepository rules;
     @Autowired FieldDefinitionRepository fields;
-    @Autowired BusinessImportService imports;
+    @Autowired MappingExecutionService mappingExecution;
+    @Autowired BusinessRecordPersistenceService persistence;
     @Autowired DocumentTemplateRepository templates;
     @Autowired TemplateVersionRepository versions;
     @Autowired CampaignService campaigns;
@@ -100,18 +102,23 @@ class IntegrationPipelineExecutableSmokeTest extends AbstractIntegrationTest {
                                 + ";125000.00;KZT\n")
                         .getBytes(StandardCharsets.UTF_8);
 
-        var imported = imports.importRecords(tenant.getId(), mapping.profile().getId(), fixture);
-        assertThat(imported.total()).isOne();
-        assertThat(imported.created()).isOne();
-        assertThat(imported.failed()).isZero();
-        assertThat(imported.rows())
-                .singleElement()
-                .satisfies(
-                        r -> {
-                            assertThat(r.status()).isEqualTo("CREATED");
-                            assertThat(r.externalId()).isEqualTo("ERP-I-I0");
-                        });
-        var invoice = receivables.findInvoiceByExternalId(tenant.getId(), "ERP-I-I0").orElseThrow();
+        var mapped =
+                mappingExecution.executeBatch(tenant.getId(), mapping.profile().getId(), fixture);
+        assertThat(mapped.documents()).singleElement();
+        var normalized = mapped.documents().get(0);
+        assertThat(normalized.documentKey()).isEqualTo("ERP-I-I0");
+        assertThat(normalized.normalizedPayload().at("/customer/externalId").asText())
+                .isEqualTo("ERP-C-I0");
+        assertThat(normalized.normalizedPayload().at("/invoice/amount").decimalValue())
+                .isEqualByComparingTo("125000.00");
+
+        var persisted =
+                persistence.persist(
+                        tenant.getId(), mapped.documentType(), normalized.normalizedPayload());
+        assertThat(persisted.created()).isTrue();
+        assertThat(persisted.externalId()).isEqualTo("ERP-I-I0");
+        var invoice =
+                receivables.findInvoiceByExternalId(tenant.getId(), "ERP-I-I0").orElseThrow();
         assertThat(invoice.getCustomerId()).isEqualTo(customer.getId());
         assertThat(invoice.getOriginalAmount()).isEqualByComparingTo("125000.0000");
         assertThat(receivables.findInvoiceByExternalId(foreign.getId(), "ERP-I-I0")).isEmpty();
@@ -237,7 +244,7 @@ class IntegrationPipelineExecutableSmokeTest extends AbstractIntegrationTest {
 
         assertThatThrownBy(
                         () ->
-                                imports.importRecords(
+                                mappingExecution.executeBatch(
                                         tenant.getId(), mapping.profile().getId(), invalid))
                 .isInstanceOf(IllegalArgumentException.class);
         assertThat(receivables.findInvoiceByExternalId(tenant.getId(), "ERP-I-BAD")).isEmpty();
