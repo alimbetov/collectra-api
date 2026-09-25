@@ -11,6 +11,7 @@ import io.collectra.api.receivable.domain.Payment;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,6 +43,7 @@ public class BusinessRecordPersistenceService {
         String externalId = requiredText(payload, "/customer/externalId");
         var existing = customers.findByExternalId(tenantId, externalId);
         if (existing.isPresent()) {
+            assertEquivalentCustomer(existing.get(), payload);
             return new PersistResult("CUSTOMER", existing.get().getId(), externalId, false);
         }
         Customer created =
@@ -65,6 +67,7 @@ public class BusinessRecordPersistenceService {
         String externalId = requiredText(payload, "/invoice/externalId");
         var existing = receivables.findInvoiceByExternalId(tenantId, externalId);
         if (existing.isPresent()) {
+            assertEquivalentInvoice(existing.get(), payload);
             return new PersistResult("INVOICE", existing.get().getId(), externalId, false);
         }
         Customer customer = resolveCustomer(tenantId, payload);
@@ -88,6 +91,7 @@ public class BusinessRecordPersistenceService {
         String externalId = requiredText(payload, "/payment/externalId");
         var existing = receivables.findPaymentByExternalId(tenantId, externalId);
         if (existing.isPresent()) {
+            assertEquivalentPayment(existing.get(), payload);
             return new PersistResult("PAYMENT", existing.get().getId(), externalId, false);
         }
         Customer customer = resolveCustomer(tenantId, payload);
@@ -103,6 +107,23 @@ public class BusinessRecordPersistenceService {
                         text(payload, "/payment/source", null),
                         object(payload.at("/custom/payment")));
         return new PersistResult("PAYMENT", created.getId(), externalId, true);
+    }
+
+    private void assertEquivalentCustomer(Customer value, ObjectNode payload) {
+        if (!Objects.equals(value.getDisplayName(), text(payload, "/customer/displayName", value.getExternalId())))
+            throw new BusinessRecordConflictException("CUSTOMER", value.getExternalId());
+    }
+    private void assertEquivalentInvoice(Invoice value, ObjectNode payload) {
+        if (!Objects.equals(value.getDueDate(), requiredDate(payload, "/invoice/dueDate"))
+                || value.getAmount().compareTo(requiredDecimal(payload, "/invoice/amount")) != 0
+                || !Objects.equals(value.getCurrency(), requiredText(payload, "/invoice/currency")))
+            throw new BusinessRecordConflictException("INVOICE", value.getExternalId());
+    }
+    private void assertEquivalentPayment(Payment value, ObjectNode payload) {
+        if (!Objects.equals(value.getPaymentDate(), requiredDate(payload, "/payment/paymentDate"))
+                || value.getAmount().compareTo(requiredDecimal(payload, "/payment/amount")) != 0
+                || !Objects.equals(value.getCurrency(), requiredText(payload, "/payment/currency")))
+            throw new BusinessRecordConflictException("PAYMENT", value.getExternalId());
     }
 
     private Customer resolveCustomer(UUID tenantId, ObjectNode payload) {
