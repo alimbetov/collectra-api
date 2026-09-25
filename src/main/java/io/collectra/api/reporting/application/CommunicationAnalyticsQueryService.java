@@ -15,6 +15,7 @@ import java.util.Map;
 import java.util.UUID;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -59,16 +60,20 @@ public class CommunicationAnalyticsQueryService {
     private final Clock clock;
     private final CommunicationProjectionQueryService projections;
     private final CommunicationProjectionProperties projectionProperties;
+    private final Duration processingTimeout;
 
     public CommunicationAnalyticsQueryService(
             NamedParameterJdbcTemplate jdbc,
             Clock clock,
             CommunicationProjectionQueryService projections,
-            CommunicationProjectionProperties projectionProperties) {
+            CommunicationProjectionProperties projectionProperties,
+            @Value("${collectra.communication.processing-timeout:5m}")
+                    Duration processingTimeout) {
         this.jdbc = jdbc;
         this.clock = clock;
         this.projections = projections;
         this.projectionProperties = projectionProperties;
+        this.processingTimeout = processingTimeout;
     }
 
     @Transactional(readOnly = true)
@@ -637,6 +642,296 @@ public class CommunicationAnalyticsQueryService {
     }
 
     @Transactional(readOnly = true)
+    public CommunicationLifecycleReport lifecycle(Scope scope, Filter filter) {
+        ResolvedFilter resolved = resolve(scope, filter, false);
+
+        CampaignLifecycleTotals campaigns =
+                jdbc.queryForObject(
+                        """
+                        select count(*) campaign_count,
+                               count(*) filter (where c.status = 'DRAFT') draft_count,
+                               count(*) filter (where c.status = 'ACTIVE') active_count,
+                               count(*) filter (where c.status = 'ARCHIVED') archived_count,
+                               count(*) filter (where c.scheduled_at is not null) scheduled_count,
+                               count(*) filter (
+                                   where c.status = 'ACTIVE'
+                                     and c.scheduled_at is not null
+                                     and c.scheduled_dispatched_at is null
+                                     and c.scheduled_at <= :generatedAt
+                               ) overdue_scheduled_count,
+                               count(*) filter (
+                                   where c.scheduled_dispatched_at is not null
+                               ) scheduled_dispatched_count
+                          from campaigns c
+                        """
+                                + campaignWhere(resolved),
+                        resolved.params(),
+                        (rs, rowNum) ->
+                                new CampaignLifecycleTotals(
+                                        rs.getLong("campaign_count"),
+                                        rs.getLong("draft_count"),
+                                        rs.getLong("active_count"),
+                                        rs.getLong("archived_count"),
+                                        rs.getLong("scheduled_count"),
+                                        rs.getLong("overdue_scheduled_count"),
+                                        rs.getLong("scheduled_dispatched_count")));
+
+        RunLifecycleTotals runs =
+                jdbc.queryForObject(
+                        """
+                        select count(*) run_count,
+                               count(*) filter (where cr.status = 'PREPARING') preparing_count,
+                               count(*) filter (where cr.status = 'READY') ready_count,
+                               count(*) filter (where cr.status = 'RUNNING') running_count,
+                               count(*) filter (where cr.status = 'COMPLETED') completed_count,
+                               count(*) filter (where cr.status = 'CANCELLED') cancelled_count,
+                               count(*) filter (where cr.status = 'FAILED') failed_count
+                          from campaign_runs cr
+                          join campaigns c on c.id = cr.campaign_id
+                        """
+                                + where("cr", "c", resolved, true),
+                        resolved.params(),
+                        (rs, rowNum) ->
+                                new RunLifecycleTotals(
+                                        rs.getLong("run_count"),
+                                        rs.getLong("preparing_count"),
+                                        rs.getLong("ready_count"),
+                                        rs.getLong("running_count"),
+                                        rs.getLong("completed_count"),
+                                        rs.getLong("cancelled_count"),
+                                        rs.getLong("failed_count")));
+
+        return new CommunicationLifecycleReport(
+                resolved.generatedAt(), resolved.from(), resolved.to(), campaigns, runs);
+    }
+
+    @Transactional(readOnly = true)
+    public CommunicationAudienceReport audience(Scope scope, Filter filter) {
+        ResolvedFilter resolved = resolve(scope, filter, false);
+        String where = recipientWhere(resolved);
+
+        AudienceTotals totals =
+                jdbc.queryForObject(
+                        """
+                        select count(*) recipient_count,
+                               count(*) filter (where r.status = 'SNAPSHOT') snapshot_count,
+                               count(*) filter (where r.status = 'ELIGIBLE') eligible_count,
+                               count(*) filter (where r.status = 'SKIPPED') skipped_count
+                          from campaign_recipients r
+                          join campaigns c on c.id = r.campaign_id
+                        """
+                                + where,
+                        resolved.params(),
+                        (rs, rowNum) ->
+                                new AudienceTotals(
+                                        rs.getLong("recipient_count"),
+                                        rs.getLong("snapshot_count"),
+                                        rs.getLong("eligible_count"),
+                                        rs.getLong("skipped_count")));
+
+        List<SkipReasonItem> skipReasons =
+                jdbc.query(
+                        """
+                        select coalesce(nullif(btrim(r.skip_reason), ''), 'UNCLASSIFIED') reason,
+                               count(*) reason_count
+                          from campaign_recipients r
+                          join campaigns c on c.id = r.campaign_id
+                        """
+                                + where
+                                + """
+                                  and r.status = 'SKIPPED'
+                                 group by 1
+                                 order by reason_count desc, reason asc
+                                """,
+                        resolved.params(),
+                        (rs, rowNum) ->
+                                new SkipReasonItem(
+                                        rs.getString("reason"), rs.getLong("reason_count")));
+
+        return new CommunicationAudienceReport(
+                resolved.generatedAt(),
+                resolved.from(),
+                resolved.to(),
+                totals,
+                skipReasons);
+    }
+
+    @Transactional(readOnly = true)
+    public CommunicationAttemptReport attempts(Scope scope, Filter filter) {
+        ResolvedFilter resolved = resolve(scope, filter, false);
+        String where = allAttemptWhere(resolved);
+
+        AttemptTotals totals =
+                jdbc.queryForObject(
+                        """
+                        select count(*) attempt_count,
+                               count(*) filter (where a.status = 'STARTED') started_count,
+                               count(*) filter (where a.status = 'ACCEPTED') accepted_count,
+                               count(*) filter (
+                                   where a.status = 'RETRYABLE_FAILURE'
+                               ) retryable_failure_count,
+                               count(*) filter (
+                                   where a.status = 'PERMANENT_FAILURE'
+                               ) permanent_failure_count,
+                               count(*) filter (where a.status = 'UNKNOWN') unknown_count
+                          from message_delivery_attempts a
+                          join messages m on m.id = a.message_id
+                          join campaigns c on c.id = m.campaign_id
+                        """
+                                + where,
+                        resolved.params(),
+                        (rs, rowNum) ->
+                                new AttemptTotals(
+                                        rs.getLong("attempt_count"),
+                                        rs.getLong("started_count"),
+                                        rs.getLong("accepted_count"),
+                                        rs.getLong("retryable_failure_count"),
+                                        rs.getLong("permanent_failure_count"),
+                                        rs.getLong("unknown_count")));
+
+        return new CommunicationAttemptReport(
+                resolved.generatedAt(),
+                resolved.from(),
+                resolved.to(),
+                totals,
+                rate(
+                        totals.accepted(),
+                        totals.retryableFailure()
+                                + totals.permanentFailure()
+                                + totals.unknown()));
+    }
+
+    @Transactional(readOnly = true)
+    public CommunicationAttachmentReport attachments(Scope scope, Filter filter) {
+        ResolvedFilter resolved = resolve(scope, filter, false);
+        String where = attachmentWhere(resolved);
+
+        AttachmentTotals totals =
+                jdbc.queryForObject(
+                        """
+                        select count(*) attachment_count,
+                               count(*) filter (where ma.status = 'PENDING') pending_count,
+                               count(*) filter (where ma.status = 'READY') ready_count,
+                               count(*) filter (where ma.status = 'FAILED') failed_count,
+                               count(*) filter (
+                                   where ma.required and ma.status = 'PENDING'
+                               ) required_pending_count,
+                               count(*) filter (
+                                   where ma.required and ma.status = 'FAILED'
+                               ) required_failed_count
+                          from message_attachments ma
+                          join messages m on m.id = ma.message_id
+                          join campaigns c on c.id = m.campaign_id
+                        """
+                                + where,
+                        resolved.params(),
+                        (rs, rowNum) ->
+                                new AttachmentTotals(
+                                        rs.getLong("attachment_count"),
+                                        rs.getLong("pending_count"),
+                                        rs.getLong("ready_count"),
+                                        rs.getLong("failed_count"),
+                                        rs.getLong("required_pending_count"),
+                                        rs.getLong("required_failed_count")));
+
+        List<AttachmentFailureItem> failures =
+                jdbc.query(
+                        """
+                        select coalesce(
+                                   nullif(btrim(ma.failure_code), ''),
+                                   'UNCLASSIFIED'
+                               ) failure_code,
+                               count(*) failure_count
+                          from message_attachments ma
+                          join messages m on m.id = ma.message_id
+                          join campaigns c on c.id = m.campaign_id
+                        """
+                                + where
+                                + """
+                                  and ma.status = 'FAILED'
+                                 group by 1
+                                 order by failure_count desc, failure_code asc
+                                """,
+                        resolved.params(),
+                        (rs, rowNum) ->
+                                new AttachmentFailureItem(
+                                        rs.getString("failure_code"),
+                                        rs.getLong("failure_count")));
+
+        return new CommunicationAttachmentReport(
+                resolved.generatedAt(),
+                resolved.from(),
+                resolved.to(),
+                totals,
+                failures);
+    }
+
+    @Transactional(readOnly = true)
+    public CommunicationOperationsReport operations(Scope scope, Filter filter) {
+        ResolvedFilter resolved = resolve(scope, filter, false);
+        MapSqlParameterSource params = copy(resolved.params());
+        params.addValue(
+                "processingCutoff",
+                java.sql.Timestamp.from(
+                        resolved.generatedAt().minus(processingTimeout)));
+
+        String where = where("m", "c", resolved, true);
+
+        return jdbc.queryForObject(
+                """
+                select count(*) filter (where m.status = 'QUEUED') queued_count,
+                       count(*) filter (where m.status = 'PROCESSING') processing_count,
+                       count(*) filter (where m.status = 'RETRY_WAIT') retry_wait_count,
+                       count(*) filter (where m.status = 'UNKNOWN') unknown_count,
+                       count(*) filter (where m.status = 'FAILED') failed_count,
+                       count(*) filter (
+                           where m.status = 'PROCESSING'
+                             and m.processing_started_at < :processingCutoff
+                       ) stuck_processing_count,
+                       count(*) filter (
+                           where m.status = 'RETRY_WAIT'
+                             and m.next_retry_at <= :generatedAt
+                       ) due_retry_count,
+                       min(m.created_at) filter (
+                           where m.status = 'QUEUED'
+                       ) oldest_queued_at,
+                       min(m.processing_started_at) filter (
+                           where m.status = 'PROCESSING'
+                             and m.processing_started_at < :processingCutoff
+                       ) oldest_stuck_at,
+                       min(m.next_retry_at) filter (
+                           where m.status = 'RETRY_WAIT'
+                             and m.next_retry_at <= :generatedAt
+                       ) oldest_due_retry_at
+                  from messages m
+                  join campaigns c on c.id = m.campaign_id
+                """
+                        + where,
+                params,
+                (rs, rowNum) ->
+                        new CommunicationOperationsReport(
+                                resolved.generatedAt(),
+                                resolved.from(),
+                                resolved.to(),
+                                rs.getLong("queued_count"),
+                                rs.getLong("processing_count"),
+                                rs.getLong("retry_wait_count"),
+                                rs.getLong("unknown_count"),
+                                rs.getLong("failed_count"),
+                                rs.getLong("stuck_processing_count"),
+                                rs.getLong("due_retry_count"),
+                                ageSeconds(
+                                        resolved.generatedAt(),
+                                        instant(rs, "oldest_queued_at")),
+                                ageSeconds(
+                                        resolved.generatedAt(),
+                                        instant(rs, "oldest_stuck_at")),
+                                overdueSeconds(
+                                        resolved.generatedAt(),
+                                        instant(rs, "oldest_due_retry_at"))));
+    }
+
+    @Transactional(readOnly = true)
     public CommunicationDocumentReport documents(Scope scope, Filter filter) {
         ResolvedFilter resolved = resolve(scope, filter, false);
         DocumentTotals totals = documentTotals(resolved);
@@ -888,6 +1183,54 @@ public class CommunicationAnalyticsQueryService {
                                 + factAlias
                                 + ".created_at < :to ");
         appendScope(where, factAlias, campaignAlias, filter, hasRunId);
+        return where.toString();
+    }
+
+    private String campaignWhere(ResolvedFilter filter) {
+        StringBuilder where =
+                new StringBuilder(
+                        " where c.created_at >= :from and c.created_at < :to ");
+        if (filter.tenantId() != null) {
+            where.append(" and c.tenant_id = :tenantId ");
+        }
+        if (filter.userId() != null) {
+            where.append(" and c.created_by = :userId ");
+        }
+        if (filter.campaignId() != null) {
+            where.append(" and c.id = :campaignId ");
+        }
+        if (filter.runId() != null) {
+            where.append(
+                    " and exists (select 1 from campaign_runs cr"
+                            + " where cr.id = :runId and cr.campaign_id = c.id) ");
+        }
+        if (filter.channel() != null) {
+            where.append(" and c.channel = :channel ");
+        }
+        return where.toString();
+    }
+
+    private String recipientWhere(ResolvedFilter filter) {
+        StringBuilder where =
+                new StringBuilder(
+                        " where r.created_at >= :from and r.created_at < :to ");
+        appendScope(where, "r", "c", filter, true);
+        return where.toString();
+    }
+
+    private String allAttemptWhere(ResolvedFilter filter) {
+        StringBuilder where =
+                new StringBuilder(
+                        " where a.started_at >= :from and a.started_at < :to ");
+        appendScope(where, "m", "c", filter, true);
+        return where.toString();
+    }
+
+    private String attachmentWhere(ResolvedFilter filter) {
+        StringBuilder where =
+                new StringBuilder(
+                        " where ma.created_at >= :from and ma.created_at < :to ");
+        appendScope(where, "m", "c", filter, true);
         return where.toString();
     }
 
@@ -1177,6 +1520,20 @@ public class CommunicationAnalyticsQueryService {
                 rs.getLong("retry_count"));
     }
 
+    private Long ageSeconds(Instant now, Instant value) {
+        if (value == null || value.isAfter(now)) {
+            return null;
+        }
+        return Duration.between(value, now).toSeconds();
+    }
+
+    private Long overdueSeconds(Instant now, Instant value) {
+        if (value == null || value.isAfter(now)) {
+            return null;
+        }
+        return Duration.between(value, now).toSeconds();
+    }
+
     private BigDecimal rate(long numerator, long otherTerminal) {
         long denominator = numerator + otherTerminal;
         if (denominator == 0) return null;
@@ -1354,6 +1711,89 @@ public class CommunicationAnalyticsQueryService {
             long retries,
             long unknownCurrent,
             BigDecimal terminalSuccessRate) {}
+
+    public record CampaignLifecycleTotals(
+            long campaigns,
+            long draft,
+            long active,
+            long archived,
+            long scheduled,
+            long overdueScheduled,
+            long scheduledDispatched) {}
+
+    public record RunLifecycleTotals(
+            long runs,
+            long preparing,
+            long ready,
+            long running,
+            long completed,
+            long cancelled,
+            long failed) {}
+
+    public record CommunicationLifecycleReport(
+            Instant generatedAt,
+            Instant from,
+            Instant to,
+            CampaignLifecycleTotals campaigns,
+            RunLifecycleTotals runs) {}
+
+    public record AudienceTotals(long recipients, long snapshot, long eligible, long skipped) {}
+
+    public record SkipReasonItem(String reason, long count) {}
+
+    public record CommunicationAudienceReport(
+            Instant generatedAt,
+            Instant from,
+            Instant to,
+            AudienceTotals totals,
+            List<SkipReasonItem> skipReasons) {}
+
+    public record AttemptTotals(
+            long attempts,
+            long started,
+            long accepted,
+            long retryableFailure,
+            long permanentFailure,
+            long unknown) {}
+
+    public record CommunicationAttemptReport(
+            Instant generatedAt,
+            Instant from,
+            Instant to,
+            AttemptTotals totals,
+            BigDecimal acceptedRate) {}
+
+    public record AttachmentTotals(
+            long attachments,
+            long pending,
+            long ready,
+            long failed,
+            long requiredPending,
+            long requiredFailed) {}
+
+    public record AttachmentFailureItem(String failureCode, long count) {}
+
+    public record CommunicationAttachmentReport(
+            Instant generatedAt,
+            Instant from,
+            Instant to,
+            AttachmentTotals totals,
+            List<AttachmentFailureItem> failures) {}
+
+    public record CommunicationOperationsReport(
+            Instant generatedAt,
+            Instant from,
+            Instant to,
+            long queued,
+            long processing,
+            long retryWait,
+            long unknown,
+            long failed,
+            long stuckProcessing,
+            long dueRetry,
+            Long oldestQueuedAgeSeconds,
+            Long oldestStuckAgeSeconds,
+            Long oldestDueRetryAgeSeconds) {}
 
     public record CommunicationDocumentReport(
             Instant generatedAt, Instant from, Instant to, DocumentTotals totals) {}
