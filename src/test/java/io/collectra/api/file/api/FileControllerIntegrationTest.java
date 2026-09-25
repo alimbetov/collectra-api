@@ -112,6 +112,68 @@ class FileControllerIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void registryIsTenantScopedPagedFilteredAndDoesNotLeakStorageInternals() throws Exception {
+        Auth owner = register("registry-owner-" + UUID.randomUUID(), "registry-owner@example.test");
+        Auth outsider =
+                register("registry-outsider-" + UUID.randomUUID(), "registry-outsider@example.test");
+
+        upload(owner.accessToken());
+        upload(owner.accessToken());
+        upload(outsider.accessToken());
+
+        String body =
+                mockMvc.perform(
+                                get("/api/v1/files")
+                                        .param("category", "IMPORT_SOURCE")
+                                        .param("filename", "source")
+                                        .param("page", "0")
+                                        .param("size", "1")
+                                        .param("sort", "createdAt,desc")
+                                        .header(
+                                                "Authorization",
+                                                "Bearer " + owner.accessToken()))
+                        .andExpect(status().isOk())
+                        .andExpect(jsonPath("$.items.length()").value(1))
+                        .andExpect(jsonPath("$.page").value(0))
+                        .andExpect(jsonPath("$.size").value(1))
+                        .andExpect(jsonPath("$.totalElements").value(2))
+                        .andExpect(jsonPath("$.totalPages").value(2))
+                        .andExpect(jsonPath("$.hasNext").value(true))
+                        .andExpect(jsonPath("$.items[0].tenantId").doesNotExist())
+                        .andExpect(jsonPath("$.items[0].storageProvider").doesNotExist())
+                        .andExpect(jsonPath("$.items[0].bucket").doesNotExist())
+                        .andExpect(jsonPath("$.items[0].objectKey").doesNotExist())
+                        .andExpect(jsonPath("$.items[0].checksumSha256").doesNotExist())
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString();
+
+        UUID visibleFileId =
+                UUID.fromString(json.readTree(body).get("items").get(0).get("fileId").asText());
+        mockMvc.perform(
+                        get("/api/v1/files/{fileId}", visibleFileId)
+                                .header("Authorization", "Bearer " + owner.accessToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.tenantId").doesNotExist())
+                .andExpect(jsonPath("$.storageProvider").doesNotExist())
+                .andExpect(jsonPath("$.bucket").doesNotExist())
+                .andExpect(jsonPath("$.objectKey").doesNotExist())
+                .andExpect(jsonPath("$.checksumSha256").doesNotExist());
+
+        mockMvc.perform(
+                        get("/api/v1/files")
+                                .param("page", "0")
+                                .param("size", "201")
+                                .header("Authorization", "Bearer " + owner.accessToken()))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(
+                        get("/api/v1/files")
+                                .param("sort", "bucket,asc")
+                                .header("Authorization", "Bearer " + owner.accessToken()))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void fileIdFromAnotherTenantIsReportedAsNotFound() throws Exception {
         Auth owner = register("file-owner-" + UUID.randomUUID(), "owner@example.test");
         Auth outsider = register("file-outsider-" + UUID.randomUUID(), "outsider@example.test");
