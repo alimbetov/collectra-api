@@ -6,6 +6,8 @@ import type {
   CredentialIssuedDto,
   ServiceClientDto,
   ServiceClientScopeDto,
+  IntegrationSourceDto, IntegrationSourceReadinessDto, CreateIntegrationSourceCommand, UpdateIntegrationSourceCommand,
+  SourceSchemaDefinitionDto, MappingProfileDefinitionDto, SourceSchemaVersionDto, SourceFieldDto, MappingProfileVersionDto, MappingRuleDto, DefinitionValidationDto,
 } from '../model/integration.types';
 
 const enc = encodeURIComponent;
@@ -42,3 +44,36 @@ export const unblockServiceClient = (id: string) =>
 
 export const getMappingTransformations = () =>
   apiRequest<MappingTransformationDto[]>('/api/v1/mapping-metadata/transformations');
+
+export const getIntegrationSources = () => apiRequest<IntegrationSourceDto[]>('/api/v1/integration/sources');
+export const getIntegrationSource = (id: string) => apiRequest<IntegrationSourceDto>(`/api/v1/integration/sources/${enc(id)}`);
+export const getIntegrationSourceReadiness = (id: string) => apiRequest<IntegrationSourceReadinessDto>(`/api/v1/integration/sources/${enc(id)}/readiness`);
+export const createIntegrationSource = (command: CreateIntegrationSourceCommand) => apiRequest<IntegrationSourceDto>('/api/v1/integration/sources', { method: 'POST', body: command });
+export const updateIntegrationSource = (id: string, command: UpdateIntegrationSourceCommand) => apiRequest<IntegrationSourceDto>(`/api/v1/integration/sources/${enc(id)}`, { method: 'PUT', body: command });
+export const activateIntegrationSource = (id: string, version: number) => apiRequest<IntegrationSourceDto>(`/api/v1/integration/sources/${enc(id)}/activate`, { method: 'POST', body: { version } });
+export const suspendIntegrationSource = (id: string, version: number) => apiRequest<IntegrationSourceDto>(`/api/v1/integration/sources/${enc(id)}/suspend`, { method: 'POST', body: { version } });
+export const archiveIntegrationSource = (id: string, version: number) => apiRequest<IntegrationSourceDto>(`/api/v1/integration/sources/${enc(id)}/archive`, { method: 'POST', body: { version } });
+export const getSourceSchemaDefinitions = () => apiRequest<SourceSchemaDefinitionDto[]>('/api/v1/source-schemas');
+export const getMappingProfileDefinitions = () => apiRequest<MappingProfileDefinitionDto[]>('/api/v1/mapping-profiles');
+
+export const createSourceSchema = (body:{code:string;name:string}) => apiRequest<SourceSchemaDefinitionDto>('/api/v1/source-schemas',{method:'POST',body});
+export const getSourceSchemaVersions = (id:string) => apiRequest<SourceSchemaVersionDto[]>(`/api/v1/source-schemas/${enc(id)}/versions`);
+export const createSourceSchemaVersion = (id:string,format:string) => apiRequest<SourceSchemaVersionDto>(`/api/v1/source-schemas/${enc(id)}/versions`,{method:'POST',body:{format}});
+export const getSourceFields = (versionId:string) => apiRequest<SourceFieldDto[]>(`/api/v1/source-schemas/versions/${enc(versionId)}/fields`);
+export const addSourceField = (versionId:string,body:Omit<SourceFieldDto,'id'>) => apiRequest<SourceFieldDto>(`/api/v1/source-schemas/versions/${enc(versionId)}/fields`,{method:'POST',body});
+export const validateSourceSchema = (versionId:string) => apiRequest<DefinitionValidationDto>(`/api/v1/source-schemas/versions/${enc(versionId)}/validate`,{method:'POST'});
+export const transitionSourceSchema = (versionId:string,action:'publish'|'reopen'|'archive') => apiRequest<SourceSchemaVersionDto>(`/api/v1/source-schemas/versions/${enc(versionId)}/${action}`,{method:'POST'});
+export const createMappingProfile = (body:{code:string;name:string;documentType:string}) => apiRequest<MappingProfileDefinitionDto>('/api/v1/mapping-profiles',{method:'POST',body});
+export const getMappingProfileVersions = (id:string) => apiRequest<MappingProfileVersionDto[]>(`/api/v1/mapping-profiles/${enc(id)}/versions`);
+export const createMappingProfileVersion = (id:string,sourceSchemaVersionId:string) => apiRequest<MappingProfileVersionDto>(`/api/v1/mapping-profiles/${enc(id)}/versions`,{method:'POST',body:{sourceSchemaVersionId}});
+export const getMappingRules = (versionId:string) => apiRequest<MappingRuleDto[]>(`/api/v1/mapping-profiles/versions/${enc(versionId)}/rules`);
+export const validateMappingProfile = (versionId:string) => apiRequest<DefinitionValidationDto>(`/api/v1/mapping-profiles/versions/${enc(versionId)}/validate`,{method:'POST'});
+export const transitionMappingProfile = (versionId:string,action:'publish'|'reopen'|'archive') => apiRequest<MappingProfileVersionDto>(`/api/v1/mapping-profiles/versions/${enc(versionId)}/${action}`,{method:'POST'});
+
+export interface TargetFieldDto { id:string; key:string; label:string; dataType:string; category:string; required:boolean; system:boolean }
+export const getTargetFields = () => apiRequest<TargetFieldDto[]>('/api/v1/templates/fields');
+export const updateSourceField = (versionId:string,fieldId:string,body:Omit<SourceFieldDto,'id'>) => apiRequest<SourceFieldDto>(`/api/v1/source-schemas/versions/${enc(versionId)}/fields/${enc(fieldId)}`,{method:'PUT',body});
+export const deleteSourceField = (versionId:string,fieldId:string) => apiRequest<void>(`/api/v1/source-schemas/versions/${enc(versionId)}/fields/${enc(fieldId)}`,{method:'DELETE'});
+export const addMappingRule = (versionId:string,body:Omit<MappingRuleDto,'id'>) => apiRequest<MappingRuleDto>(`/api/v1/mapping-profiles/versions/${enc(versionId)}/rules`,{method:'POST',body});
+export const updateMappingRule = (versionId:string,ruleId:string,body:Omit<MappingRuleDto,'id'>) => apiRequest<MappingRuleDto>(`/api/v1/mapping-profiles/versions/${enc(versionId)}/rules/${enc(ruleId)}`,{method:'PUT',body});
+export const deleteMappingRule = (versionId:string,ruleId:string) => apiRequest<void>(`/api/v1/mapping-profiles/versions/${enc(versionId)}/rules/${enc(ruleId)}`,{method:'DELETE'});

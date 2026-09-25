@@ -35,6 +35,13 @@ import { IntegrationsPage } from '../pages/integrations/IntegrationsPage';
 import { ServiceClientsPage } from '../pages/integrations/ServiceClientsPage';
 import { ServiceClientCreatePage } from '../pages/integrations/ServiceClientCreatePage';
 import { ServiceClientDetailPage } from '../pages/integrations/ServiceClientDetailPage';
+import { IntegrationSourcesPage } from '../pages/integrations/IntegrationSourcesPage';
+import { IntegrationSourceCreatePage } from '../pages/integrations/IntegrationSourceCreatePage';
+import { IntegrationSourceDetailPage } from '../pages/integrations/IntegrationSourceDetailPage';
+import { SourceSchemasPage } from '../pages/integrations/SourceSchemasPage';
+import { MappingProfilesPage } from '../pages/integrations/MappingProfilesPage';
+import { SourceSchemaDetailPage } from '../pages/integrations/SourceSchemaDetailPage';
+import { MappingProfileDetailPage } from '../pages/integrations/MappingProfileDetailPage';
 
 function PlaceholderPage({ titleKey }: { titleKey: MessageKey }) {
   const { t } = useI18n();
@@ -178,6 +185,34 @@ export const router = createBrowserRouter([
       {
         path: 'integrations',
         element: <IntegrationsPage />,
+      },
+      {
+        path: 'integrations/source-schemas',
+        element: <RequirePermission permission="SOURCE_SCHEMA_READ"><SourceSchemasPage /></RequirePermission>,
+      },
+      {
+        path: 'integrations/source-schemas/:schemaId',
+        element: <RequirePermission permission="SOURCE_SCHEMA_READ"><SourceSchemaDetailPage /></RequirePermission>,
+      },
+      {
+        path: 'integrations/mapping-profiles/:profileId',
+        element: <RequirePermission permission="MAPPING_PROFILE_READ"><MappingProfileDetailPage /></RequirePermission>,
+      },
+      {
+        path: 'integrations/mapping-profiles',
+        element: <RequirePermission permission="MAPPING_PROFILE_READ"><MappingProfilesPage /></RequirePermission>,
+      },
+      {
+        path: 'integrations/sources',
+        element: <RequirePermission permission="INTEGRATION_SOURCE_READ"><IntegrationSourcesPage /></RequirePermission>,
+      },
+      {
+        path: 'integrations/sources/new',
+        element: <RequirePermission permission="INTEGRATION_SOURCE_MANAGE"><IntegrationSourceCreatePage /></RequirePermission>,
+      },
+      {
+        path: 'integrations/sources/:sourceId',
+        element: <RequirePermission permission="INTEGRATION_SOURCE_READ"><IntegrationSourceDetailPage /></RequirePermission>,
       },
       {
         path: 'integrations/service-clients',
