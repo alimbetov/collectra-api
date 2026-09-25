@@ -38,6 +38,8 @@ import { ServiceClientDetailPage } from '../pages/integrations/ServiceClientDeta
 import { IntegrationSourcesPage } from '../pages/integrations/IntegrationSourcesPage';
 import { IntegrationSourceCreatePage } from '../pages/integrations/IntegrationSourceCreatePage';
 import { IntegrationSourceDetailPage } from '../pages/integrations/IntegrationSourceDetailPage';
+import { SourceSchemasPage } from '../pages/integrations/SourceSchemasPage';
+import { MappingProfilesPage } from '../pages/integrations/MappingProfilesPage';
 
 function PlaceholderPage({ titleKey }: { titleKey: MessageKey }) {
   const { t } = useI18n();
@@ -181,6 +183,14 @@ export const router = createBrowserRouter([
       {
         path: 'integrations',
         element: <IntegrationsPage />,
+      },
+      {
+        path: 'integrations/source-schemas',
+        element: <RequirePermission permission="SOURCE_SCHEMA_READ"><SourceSchemasPage /></RequirePermission>,
+      },
+      {
+        path: 'integrations/mapping-profiles',
+        element: <RequirePermission permission="MAPPING_PROFILE_READ"><MappingProfilesPage /></RequirePermission>,
       },
       {
         path: 'integrations/sources',
