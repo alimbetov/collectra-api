@@ -657,6 +657,17 @@ public class CommunicationAnalyticsQueryService {
                                    where c.status = 'ACTIVE'
                                      and c.scheduled_at is not null
                                      and c.scheduled_dispatched_at is null
+                               ) scheduled_pending_count,
+                               count(*) filter (
+                                   where c.status = 'ACTIVE'
+                                     and c.scheduled_at is not null
+                                     and c.scheduled_dispatched_at is null
+                                     and c.scheduled_at > :generatedAt
+                               ) scheduled_future_count,
+                               count(*) filter (
+                                   where c.status = 'ACTIVE'
+                                     and c.scheduled_at is not null
+                                     and c.scheduled_dispatched_at is null
                                      and c.scheduled_at <= :generatedAt
                                ) overdue_scheduled_count,
                                count(*) filter (
@@ -673,6 +684,8 @@ public class CommunicationAnalyticsQueryService {
                                         rs.getLong("active_count"),
                                         rs.getLong("archived_count"),
                                         rs.getLong("scheduled_count"),
+                                        rs.getLong("scheduled_pending_count"),
+                                        rs.getLong("scheduled_future_count"),
                                         rs.getLong("overdue_scheduled_count"),
                                         rs.getLong("scheduled_dispatched_count")));
 
@@ -1732,6 +1745,8 @@ public class CommunicationAnalyticsQueryService {
             long active,
             long archived,
             long scheduled,
+            long scheduledPending,
+            long scheduledFuture,
             long overdueScheduled,
             long scheduledDispatched) {}
 
