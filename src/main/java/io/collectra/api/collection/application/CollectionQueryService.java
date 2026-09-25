@@ -30,6 +30,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,7 +39,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class CollectionQueryService {
     public static final int MAX_SIZE = 200;
     private static final Set<String> SORTS =
-            Set.of("createdAt", "updatedAt", "openedAt", "priority", "status");
+            Set.of("createdAt", "updatedAt", "openedAt", "priority", "status", "nextActionDueAt");
 
     private final CollectionCaseRepository cases;
     private final CollectionActionRepository actions;
@@ -45,6 +47,7 @@ public class CollectionQueryService {
     private final CustomerService customers;
     private final IdentityDirectoryService identityDirectory;
     private final Clock clock;
+    private final NamedParameterJdbcTemplate jdbc;
 
     public CollectionQueryService(
             CollectionCaseRepository cases,
@@ -52,13 +55,15 @@ public class CollectionQueryService {
             ReceivableService receivables,
             CustomerService customers,
             IdentityDirectoryService identityDirectory,
-            Clock clock) {
+            Clock clock,
+            NamedParameterJdbcTemplate jdbc) {
         this.cases = cases;
         this.actions = actions;
         this.receivables = receivables;
         this.customers = customers;
         this.identityDirectory = identityDirectory;
         this.clock = clock;
+        this.jdbc = jdbc;
     }
 
     @Transactional(readOnly = true)
@@ -69,11 +74,38 @@ public class CollectionQueryService {
             CollectionCaseStatus status,
             CollectionPriority priority,
             UUID assignedTo,
+            Boolean nextActionOverdue,
+            Instant nextActionDueFrom,
+            Instant nextActionDueTo,
             int page,
             int size,
             String sort) {
         if (page < 0 || size <= 0 || size > MAX_SIZE) {
             throw new InvalidRequestException("INVALID_REQUEST", "Invalid pagination parameters");
+        }
+        if (nextActionDueFrom != null
+                && nextActionDueTo != null
+                && nextActionDueFrom.isAfter(nextActionDueTo)) {
+            throw new InvalidRequestException(
+                    "INVALID_REQUEST", "nextActionDueFrom must be before nextActionDueTo");
+        }
+        boolean nextActionFilter =
+                nextActionOverdue != null || nextActionDueFrom != null || nextActionDueTo != null;
+        boolean nextActionSort = sort != null && sort.trim().startsWith("nextActionDueAt,");
+        if (nextActionFilter || nextActionSort) {
+            return listWithNextActionCriteria(
+                    tenantId,
+                    customerId,
+                    invoiceId,
+                    status,
+                    priority,
+                    assignedTo,
+                    nextActionOverdue,
+                    nextActionDueFrom,
+                    nextActionDueTo,
+                    page,
+                    size,
+                    sort);
         }
         Page<CollectionCase> result =
                 cases.findAll(
@@ -81,8 +113,10 @@ public class CollectionQueryService {
                         PageRequest.of(page, size, parseSort(sort)));
 
         List<CollectionCase> values = result.getContent();
-        Set<UUID> customerIds = values.stream().map(CollectionCase::getCustomerId).collect(Collectors.toSet());
-        Set<UUID> invoiceIds = values.stream().map(CollectionCase::getInvoiceId).collect(Collectors.toSet());
+        Set<UUID> customerIds =
+                values.stream().map(CollectionCase::getCustomerId).collect(Collectors.toSet());
+        Set<UUID> invoiceIds =
+                values.stream().map(CollectionCase::getInvoiceId).collect(Collectors.toSet());
         Set<UUID> assigneeIds = values.stream()
                 .map(CollectionCase::getAssignedTo)
                 .filter(java.util.Objects::nonNull)
@@ -104,9 +138,18 @@ public class CollectionQueryService {
         }
 
         Instant asOf = clock.instant();
-        List<CaseItem> items = values.stream()
-                .map(value -> item(value, customersById, invoicesById, assigneesById, nextActionByCase, asOf))
-                .toList();
+        List<CaseItem> items =
+                values.stream()
+                        .map(
+                                value ->
+                                        item(
+                                                value,
+                                                customersById,
+                                                invoicesById,
+                                                assigneesById,
+                                                nextActionByCase,
+                                                asOf))
+                        .toList();
         return new CasePage(
                 items,
                 result.getNumber(),
@@ -115,6 +158,167 @@ public class CollectionQueryService {
                 result.getTotalPages(),
                 result.hasNext());
     }
+
+    private CasePage listWithNextActionCriteria(
+            UUID tenantId,
+            UUID customerId,
+            UUID invoiceId,
+            CollectionCaseStatus status,
+            CollectionPriority priority,
+            UUID assignedTo,
+            Boolean nextActionOverdue,
+            Instant nextActionDueFrom,
+            Instant nextActionDueTo,
+            int page,
+            int size,
+            String sort) {
+        Instant asOf = clock.instant();
+        MapSqlParameterSource parameters =
+                new MapSqlParameterSource()
+                        .addValue("tenantId", tenantId)
+                        .addValue("customerId", customerId)
+                        .addValue("invoiceId", invoiceId)
+                        .addValue("status", status == null ? null : status.name())
+                        .addValue("priority", priority == null ? null : priority.name())
+                        .addValue("assignedTo", assignedTo)
+                        .addValue("asOf", asOf)
+                        .addValue("dueFrom", nextActionDueFrom)
+                        .addValue("dueTo", nextActionDueTo)
+                        .addValue("limit", size)
+                        .addValue("offset", (long) page * size);
+
+        StringBuilder where =
+                new StringBuilder(
+                        """
+                        WHERE c.tenant_id = :tenantId
+                          AND (:customerId IS NULL OR c.customer_id = :customerId)
+                          AND (:invoiceId IS NULL OR c.invoice_id = :invoiceId)
+                          AND (:status IS NULL OR c.status = :status)
+                          AND (:priority IS NULL OR c.priority = :priority)
+                          AND (:assignedTo IS NULL OR c.assigned_to = :assignedTo)
+                        """);
+        if (nextActionDueFrom != null) {
+            where.append(" AND next_action.due_at >= :dueFrom\n");
+        }
+        if (nextActionDueTo != null) {
+            where.append(" AND next_action.due_at <= :dueTo\n");
+        }
+        if (nextActionOverdue != null) {
+            where.append(
+                    nextActionOverdue
+                            ? " AND next_action.due_at < :asOf\n"
+                            : " AND (next_action.due_at IS NULL OR next_action.due_at >= :asOf)\n");
+        }
+
+        String from =
+                """
+                FROM collection_cases c
+                LEFT JOIN LATERAL (
+                    SELECT a.action_type, a.due_at
+                    FROM collection_actions a
+                    WHERE a.tenant_id = c.tenant_id
+                      AND a.case_id = c.id
+                      AND a.status = 'PENDING'
+                    ORDER BY a.due_at ASC, a.id ASC
+                    LIMIT 1
+                ) next_action ON TRUE
+                """;
+        SortSpec sortSpec = parseOperationalSort(sort);
+        List<QueueRow> rows =
+                jdbc.query(
+                        """
+                        SELECT c.id, next_action.action_type, next_action.due_at
+                        """
+                                + from
+                                + where
+                                + " ORDER BY "
+                                + sortSpec.sql()
+                                + " LIMIT :limit OFFSET :offset",
+                        parameters,
+                        (rs, rowNum) ->
+                                new QueueRow(
+                                        rs.getObject("id", UUID.class),
+                                        rs.getString("action_type"),
+                                        rs.getTimestamp("due_at") == null
+                                                ? null
+                                                : rs.getTimestamp("due_at").toInstant()));
+        long total =
+                jdbc.queryForObject("SELECT count(*) " + from + where, parameters, Long.class);
+        List<UUID> ids = rows.stream().map(QueueRow::id).toList();
+        Map<UUID, CollectionCase> casesById =
+                cases.findAllById(ids).stream()
+                        .filter(value -> value.getTenantId().equals(tenantId))
+                        .collect(Collectors.toMap(CollectionCase::getId, Function.identity()));
+        Set<UUID> customerIds =
+                casesById.values().stream()
+                        .map(CollectionCase::getCustomerId)
+                        .collect(Collectors.toSet());
+        Set<UUID> invoiceIds =
+                casesById.values().stream()
+                        .map(CollectionCase::getInvoiceId)
+                        .collect(Collectors.toSet());
+        Set<UUID> assigneeIds =
+                casesById.values().stream()
+                        .map(CollectionCase::getAssignedTo)
+                        .filter(java.util.Objects::nonNull)
+                        .collect(Collectors.toSet());
+        Map<UUID, Customer> customersById =
+                customers.customersByIds(tenantId, customerIds).stream()
+                        .collect(Collectors.toMap(Customer::getId, Function.identity()));
+        Map<UUID, Invoice> invoicesById =
+                receivables.invoicesByIds(tenantId, invoiceIds).stream()
+                        .collect(Collectors.toMap(Invoice::getId, Function.identity()));
+        Map<UUID, UserSummary> assigneesById =
+                identityDirectory.users(tenantId, assigneeIds).stream()
+                        .collect(Collectors.toMap(UserSummary::id, Function.identity()));
+        List<CaseItem> items =
+                rows.stream()
+                        .map(
+                                row -> {
+                                    CollectionCase value = casesById.get(row.id());
+                                    return item(
+                                            value,
+                                            customersById,
+                                            invoicesById,
+                                            assigneesById,
+                                            row.actionType(),
+                                            row.dueAt(),
+                                            asOf);
+                                })
+                        .toList();
+        int totalPages = total == 0 ? 0 : (int) ((total + size - 1) / size);
+        return new CasePage(items, page, size, total, totalPages, page + 1 < totalPages);
+    }
+
+    private static SortSpec parseOperationalSort(String value) {
+        String normalized = value == null || value.isBlank() ? "createdAt,desc" : value.trim();
+        String[] parts = normalized.split(",", -1);
+        if (parts.length != 2 || !SORTS.contains(parts[0].trim())) {
+            throw new InvalidRequestException("INVALID_REQUEST", "Unsupported sort field");
+        }
+        String direction = parts[1].trim().toLowerCase(Locale.ROOT);
+        if (!direction.equals("asc") && !direction.equals("desc")) {
+            throw new InvalidRequestException("INVALID_REQUEST", "Unsupported sort direction");
+        }
+        String field =
+                switch (parts[0].trim()) {
+                    case "nextActionDueAt" -> "next_action.due_at";
+                    case "createdAt" -> "c.created_at";
+                    case "updatedAt" -> "c.updated_at";
+                    case "openedAt" -> "c.opened_at";
+                    case "priority" -> "c.priority";
+                    case "status" -> "c.status";
+                    default ->
+                            throw new InvalidRequestException(
+                                    "INVALID_REQUEST", "Unsupported sort field");
+                };
+        String nulls = parts[0].trim().equals("nextActionDueAt") ? " NULLS LAST" : "";
+        return new SortSpec(field + " " + direction + nulls + ", c.id " + direction);
+    }
+
+    private record QueueRow(UUID id, String actionType, Instant dueAt) {}
+
+    private record SortSpec(String sql) {}
 
     private CaseItem item(
             CollectionCase value,
@@ -127,6 +331,28 @@ public class CollectionQueryService {
         Customer customer = customersById.get(value.getCustomerId());
         UserSummary assignee = assigneesById.get(value.getAssignedTo());
         CollectionAction nextAction = nextActionByCase.get(value.getId());
+
+        return item(
+                value,
+                customersById,
+                invoicesById,
+                assigneesById,
+                nextAction == null ? null : nextAction.getActionType(),
+                nextAction == null ? null : nextAction.getDueAt(),
+                asOf);
+    }
+
+    private CaseItem item(
+            CollectionCase value,
+            Map<UUID, Customer> customersById,
+            Map<UUID, Invoice> invoicesById,
+            Map<UUID, UserSummary> assigneesById,
+            String nextActionType,
+            Instant nextActionDueAt,
+            Instant asOf) {
+        Invoice invoice = invoicesById.get(value.getInvoiceId());
+        Customer customer = customersById.get(value.getCustomerId());
+        UserSummary assignee = assigneesById.get(value.getAssignedTo());
 
         return new CaseItem(
                 value.getId(),
@@ -141,9 +367,9 @@ public class CollectionQueryService {
                 invoice == null ? null : invoice.getCurrency(),
                 invoice == null ? null : invoice.getOutstandingAmount(),
                 invoice == null ? null : invoice.getPaymentStatus().name(),
-                nextAction == null ? null : nextAction.getActionType(),
-                nextAction == null ? null : nextAction.getDueAt(),
-                nextAction != null && nextAction.isOverdue(asOf),
+                nextActionType,
+                nextActionDueAt,
+                nextActionDueAt != null && nextActionDueAt.isBefore(asOf),
                 value.getOpenedAt(),
                 value.getClosedAt(),
                 value.getCloseReason(),

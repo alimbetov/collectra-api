@@ -133,6 +133,13 @@ public class ReceivableController {
         return invoiceResponse(service.invoice(tenant(), id));
     }
 
+    @GetMapping("/api/v1/invoices/by-external-id/{externalId}")
+    public InvoiceResponse invoiceByExternalId(@PathVariable String externalId) {
+        return service.findInvoiceByExternalId(tenant(), externalId)
+                .map(this::invoiceResponse)
+                .orElseThrow(() -> new java.util.NoSuchElementException("Invoice not found"));
+    }
+
     @PostMapping("/api/v1/payments")
     @ResponseStatus(HttpStatus.CREATED)
     public PaymentResponse createPayment(@Valid @RequestBody PaymentRequest request) {
@@ -212,7 +219,9 @@ public class ReceivableController {
     public AllocationPageResponse allocations(
             @PathVariable UUID id,
             @RequestParam(defaultValue = "0") @Min(0) int page,
-            @RequestParam(defaultValue = "50") @Min(1) @Max(ReceivableService.MAX_ALLOCATION_PAGE_SIZE)
+            @RequestParam(defaultValue = "50")
+                    @Min(1)
+                    @Max(ReceivableService.MAX_ALLOCATION_PAGE_SIZE)
                     int size) {
         return AllocationPageResponse.from(service.allocations(tenant(), id, page, size));
     }
@@ -221,7 +230,9 @@ public class ReceivableController {
     public AllocationPageResponse invoiceAllocations(
             @PathVariable UUID id,
             @RequestParam(defaultValue = "0") @Min(0) int page,
-            @RequestParam(defaultValue = "50") @Min(1) @Max(ReceivableService.MAX_ALLOCATION_PAGE_SIZE)
+            @RequestParam(defaultValue = "50")
+                    @Min(1)
+                    @Max(ReceivableService.MAX_ALLOCATION_PAGE_SIZE)
                     int size) {
         return AllocationPageResponse.from(service.invoiceAllocations(tenant(), id, page, size));
     }

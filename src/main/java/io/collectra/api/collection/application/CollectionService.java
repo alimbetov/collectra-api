@@ -24,11 +24,15 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.UUID;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class CollectionService {
+    public static final int MAX_HISTORY_PAGE_SIZE = 100;
     private static final EnumSet<CollectionCaseStatus> ACTIVE_CASE_STATUSES =
             EnumSet.of(
                     CollectionCaseStatus.OPEN,
@@ -184,27 +188,49 @@ public class CollectionService {
     }
 
     @Transactional(readOnly = true)
-    public List<PromiseToPay> promises(UUID tenantId, UUID caseId) {
+    public Page<PromiseToPay> promises(UUID tenantId, UUID caseId, int page, int size) {
         getCase(tenantId, caseId);
-        return promises.findAllByTenantIdAndCaseIdOrderByCreatedAtDesc(tenantId, caseId);
+        return promises.findAllByTenantIdAndCaseId(
+                tenantId, caseId, historyPage(page, size, "createdAt", Sort.Direction.DESC));
     }
 
     @Transactional
     public PromiseToPay fulfillPromise(
             UUID tenantId, UUID caseId, UUID promiseId, long version, String actor) {
-        return transitionPromise(tenantId, caseId, promiseId, version, actor, "PROMISE_FULFILLED", PromiseToPay::fulfill);
+        return transitionPromise(
+                tenantId,
+                caseId,
+                promiseId,
+                version,
+                actor,
+                "PROMISE_FULFILLED",
+                PromiseToPay::fulfill);
     }
 
     @Transactional
     public PromiseToPay breakPromise(
             UUID tenantId, UUID caseId, UUID promiseId, long version, String actor) {
-        return transitionPromise(tenantId, caseId, promiseId, version, actor, "PROMISE_BROKEN", PromiseToPay::breakPromise);
+        return transitionPromise(
+                tenantId,
+                caseId,
+                promiseId,
+                version,
+                actor,
+                "PROMISE_BROKEN",
+                PromiseToPay::breakPromise);
     }
 
     @Transactional
     public PromiseToPay cancelPromise(
             UUID tenantId, UUID caseId, UUID promiseId, long version, String actor) {
-        return transitionPromise(tenantId, caseId, promiseId, version, actor, "PROMISE_CANCELLED", PromiseToPay::cancel);
+        return transitionPromise(
+                tenantId,
+                caseId,
+                promiseId,
+                version,
+                actor,
+                "PROMISE_CANCELLED",
+                PromiseToPay::cancel);
     }
 
     @Transactional
@@ -212,14 +238,22 @@ public class CollectionService {
             UUID tenantId, UUID caseId, String reason, String description, String actor) {
         CollectionCase collectionCase = requireActiveCase(tenantId, caseId);
         Dispute value = disputes.save(new Dispute(tenantId, caseId, reason, description));
-        event(collectionCase, "DISPUTE_OPENED", "DISPUTE", value.getId(), actor, reason, Instant.now(clock));
+        event(
+                collectionCase,
+                "DISPUTE_OPENED",
+                "DISPUTE",
+                value.getId(),
+                actor,
+                reason,
+                Instant.now(clock));
         return value;
     }
 
     @Transactional(readOnly = true)
-    public List<Dispute> disputes(UUID tenantId, UUID caseId) {
+    public Page<Dispute> disputes(UUID tenantId, UUID caseId, int page, int size) {
         getCase(tenantId, caseId);
-        return disputes.findAllByTenantIdAndCaseIdOrderByCreatedAtDesc(tenantId, caseId);
+        return disputes.findAllByTenantIdAndCaseId(
+                tenantId, caseId, historyPage(page, size, "createdAt", Sort.Direction.DESC));
     }
 
     @Transactional
@@ -240,7 +274,14 @@ public class CollectionService {
         } catch (IllegalStateException ex) {
             throw invalidTransition(ex);
         }
-        event(collectionCase, "DISPUTE_RESOLVED", "DISPUTE", value.getId(), actor, resolutionCode, now);
+        event(
+                collectionCase,
+                "DISPUTE_RESOLVED",
+                "DISPUTE",
+                value.getId(),
+                actor,
+                resolutionCode,
+                now);
         return value;
     }
 
@@ -274,32 +315,65 @@ public class CollectionService {
                 actions.save(
                         new CollectionAction(
                                 tenantId, caseId, actionType, description, dueAt, priority));
-        event(collectionCase, "ACTION_CREATED", "COLLECTION_ACTION", value.getId(), actor, actionType, Instant.now(clock));
+        event(
+                collectionCase,
+                "ACTION_CREATED",
+                "COLLECTION_ACTION",
+                value.getId(),
+                actor,
+                actionType,
+                Instant.now(clock));
         return value;
     }
 
     @Transactional(readOnly = true)
-    public List<CollectionAction> actions(UUID tenantId, UUID caseId) {
+    public Page<CollectionAction> actions(UUID tenantId, UUID caseId, int page, int size) {
         getCase(tenantId, caseId);
-        return actions.findAllByTenantIdAndCaseIdOrderByDueAtAsc(tenantId, caseId);
+        return actions.findAllByTenantIdAndCaseId(
+                tenantId, caseId, historyPage(page, size, "dueAt", Sort.Direction.ASC));
     }
 
     @Transactional
     public CollectionAction completeAction(
             UUID tenantId, UUID caseId, UUID actionId, long version, String actor) {
-        return transitionAction(tenantId, caseId, actionId, version, actor, "ACTION_COMPLETED", CollectionAction::complete);
+        return transitionAction(
+                tenantId,
+                caseId,
+                actionId,
+                version,
+                actor,
+                "ACTION_COMPLETED",
+                CollectionAction::complete);
     }
 
     @Transactional
     public CollectionAction cancelAction(
             UUID tenantId, UUID caseId, UUID actionId, long version, String actor) {
-        return transitionAction(tenantId, caseId, actionId, version, actor, "ACTION_CANCELLED", CollectionAction::cancel);
+        return transitionAction(
+                tenantId,
+                caseId,
+                actionId,
+                version,
+                actor,
+                "ACTION_CANCELLED",
+                CollectionAction::cancel);
     }
 
     @Transactional(readOnly = true)
-    public List<CollectionEvent> timeline(UUID tenantId, UUID caseId) {
+    public Page<CollectionEvent> timeline(UUID tenantId, UUID caseId, int page, int size) {
         getCase(tenantId, caseId);
-        return events.findAllByTenantIdAndCaseIdOrderByEventAtDescIdDesc(tenantId, caseId);
+        return events.findAllByTenantIdAndCaseId(
+                tenantId, caseId, historyPage(page, size, "eventAt", Sort.Direction.DESC));
+    }
+
+    private static PageRequest historyPage(
+            int page, int size, String field, Sort.Direction direction) {
+        if (page < 0 || size <= 0 || size > MAX_HISTORY_PAGE_SIZE) {
+            throw new io.collectra.api.shared.error.InvalidRequestException(
+                    "INVALID_PAGE_REQUEST", "Invalid collection history page request");
+        }
+        return PageRequest.of(
+                page, size, Sort.by(direction, field).and(Sort.by(direction, "id")));
     }
 
     private CollectionCase transitionCase(

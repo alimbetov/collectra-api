@@ -186,6 +186,21 @@ class OpenApiCompatibilityIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void invoiceCreateReconciliationLookupIsDocumented() throws Exception {
+        JsonNode document = objectMapper.readTree(currentPublicApi());
+        JsonNode operation =
+                document.path("paths")
+                        .path("/api/v1/invoices/by-external-id/{externalId}")
+                        .path("get");
+        assertThat(operation.isMissingNode()).isFalse();
+        assertThat(
+                        findParameter(operation.path("parameters"), "externalId")
+                                .path("required")
+                                .asBoolean())
+                .isTrue();
+    }
+
+    @Test
     void receivableAllocationHistoryIsPagedAndBounded() throws Exception {
         JsonNode document = objectMapper.readTree(currentPublicApi());
 
@@ -202,7 +217,8 @@ class OpenApiCompatibilityIntegrationTest extends AbstractIntegrationTest {
 
     private void assertAllocationPaging(JsonNode document, String path) {
         JsonNode parameters = document.path("paths").path(path).path("get").path("parameters");
-        assertThat(findParameter(parameters, "page").path("schema").path("minimum").asInt()).isZero();
+        assertThat(findParameter(parameters, "page").path("schema").path("minimum").asInt())
+                .isZero();
         JsonNode size = findParameter(parameters, "size").path("schema");
         assertThat(size.path("default").asInt()).isEqualTo(50);
         assertThat(size.path("maximum").asInt()).isEqualTo(100);

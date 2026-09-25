@@ -25,6 +25,8 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
+import java.util.function.Function;
+import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -65,6 +67,9 @@ public class CollectionController {
             @RequestParam(required = false) CollectionCaseStatus status,
             @RequestParam(required = false) CollectionPriority priority,
             @RequestParam(required = false) UUID assignedTo,
+            @RequestParam(required = false) Boolean nextActionOverdue,
+            @RequestParam(required = false) Instant nextActionDueFrom,
+            @RequestParam(required = false) Instant nextActionDueTo,
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "50") @Min(1) @Max(CollectionQueryService.MAX_SIZE)
                     int size,
@@ -77,6 +82,9 @@ public class CollectionController {
                         status,
                         priority,
                         assignedTo,
+                        nextActionOverdue,
+                        nextActionDueFrom,
+                        nextActionDueTo,
                         page,
                         size,
                         sort));
@@ -146,8 +154,13 @@ public class CollectionController {
     }
 
     @GetMapping("/{caseId}/promises")
-    public List<PromiseResponse> promises(@PathVariable UUID caseId) {
-        return service.promises(tenant(), caseId).stream().map(this::promise).toList();
+    public HistoryPageResponse<PromiseResponse> promises(
+            @PathVariable UUID caseId,
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "50") @Min(1) @Max(CollectionService.MAX_HISTORY_PAGE_SIZE)
+                    int size) {
+        return HistoryPageResponse.from(
+                service.promises(tenant(), caseId, page, size), this::promise);
     }
 
     @PostMapping("/{caseId}/promises/{promiseId}/fulfill")
@@ -187,8 +200,13 @@ public class CollectionController {
     }
 
     @GetMapping("/{caseId}/disputes")
-    public List<DisputeResponse> disputes(@PathVariable UUID caseId) {
-        return service.disputes(tenant(), caseId).stream().map(DisputeResponse::from).toList();
+    public HistoryPageResponse<DisputeResponse> disputes(
+            @PathVariable UUID caseId,
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "50") @Min(1) @Max(CollectionService.MAX_HISTORY_PAGE_SIZE)
+                    int size) {
+        return HistoryPageResponse.from(
+                service.disputes(tenant(), caseId, page, size), DisputeResponse::from);
     }
 
     @PostMapping("/{caseId}/disputes/{disputeId}/resolve")
@@ -232,8 +250,13 @@ public class CollectionController {
     }
 
     @GetMapping("/{caseId}/actions")
-    public List<ActionResponse> actions(@PathVariable UUID caseId) {
-        return service.actions(tenant(), caseId).stream().map(this::action).toList();
+    public HistoryPageResponse<ActionResponse> actions(
+            @PathVariable UUID caseId,
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "50") @Min(1) @Max(CollectionService.MAX_HISTORY_PAGE_SIZE)
+                    int size) {
+        return HistoryPageResponse.from(
+                service.actions(tenant(), caseId, page, size), this::action);
     }
 
     @PostMapping("/{caseId}/actions/{actionId}/complete")
@@ -254,8 +277,13 @@ public class CollectionController {
     }
 
     @GetMapping("/{caseId}/timeline")
-    public List<TimelineItem> timeline(@PathVariable UUID caseId) {
-        return service.timeline(tenant(), caseId).stream().map(TimelineItem::from).toList();
+    public HistoryPageResponse<TimelineItem> timeline(
+            @PathVariable UUID caseId,
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "50") @Min(1) @Max(CollectionService.MAX_HISTORY_PAGE_SIZE)
+                    int size) {
+        return HistoryPageResponse.from(
+                service.timeline(tenant(), caseId, page, size), TimelineItem::from);
     }
 
     private PromiseResponse promise(PromiseToPay value) {
@@ -274,6 +302,25 @@ public class CollectionController {
 
     private String actor() {
         return SecurityContextHolder.getContext().getAuthentication().getName();
+    }
+
+    @Schema(name = "CollectionHistoryPage")
+    public record HistoryPageResponse<T>(
+            List<T> items,
+            int page,
+            int size,
+            long totalElements,
+            int totalPages,
+            boolean hasNext) {
+        static <S, T> HistoryPageResponse<T> from(Page<S> value, Function<S, T> mapper) {
+            return new HistoryPageResponse<>(
+                    value.getContent().stream().map(mapper).toList(),
+                    value.getNumber(),
+                    value.getSize(),
+                    value.getTotalElements(),
+                    value.getTotalPages(),
+                    value.hasNext());
+        }
     }
 
     public record CaseCreateRequest(
