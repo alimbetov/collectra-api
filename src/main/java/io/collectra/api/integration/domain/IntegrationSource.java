@@ -3,6 +3,8 @@ package io.collectra.api.integration.domain;
 import io.collectra.api.shared.persistence.AuditableEntity;
 import jakarta.persistence.*;
 import java.util.UUID;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "integration_sources")
@@ -34,12 +36,15 @@ public class IntegrationSource extends AuditableEntity {
     @Column(name = "processing_mode", nullable = false, length = 30)
     private String processingMode;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "header_mapping", nullable = false, columnDefinition = "jsonb")
     private String headerMapping;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "resource_policy", nullable = false, columnDefinition = "jsonb")
     private String resourcePolicy;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "routing_config", nullable = false, columnDefinition = "jsonb")
     private String routingConfig;
 
