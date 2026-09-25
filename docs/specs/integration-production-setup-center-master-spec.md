@@ -6,7 +6,7 @@
 
 ## 1. Business outcome
 
-A tenant administrator can connect an external system without adapting it to Collectra internal DTOs, configure and test the input contract, activate it, and observe a production flow from inbound data to persistence, generated content and delivery.
+A tenant administrator can connect an external system without adapting it to Collectra internal DTOs, configure and test the input contract, activate it, and observe production business ingestion. Document generation and delivery are explicit downstream workflows, not mandatory outcomes of every ingestion.
 
 Golden path:
 
@@ -26,14 +26,17 @@ ERP / 1C / CRM
  -> raw archival
  -> outbox/async worker
  -> parser -> mapping -> NormalizedDocument
- -> persistence
- -> URL REFERENCE/IMPORT -> internal file
- -> rendering
+ -> canonical business persistence (CUSTOMER / INVOICE / PAYMENT)
+ -> diagnostics
+
+Optional explicitly configured downstream workflow:
+ normalized data/internal files
+ -> rendering/generation
  -> explicit routing
  -> Message + attachments
  -> delivery worker
  -> mock/real provider
- -> reporting/diagnostics
+ -> reporting
 ```
 
 Production callers use stable `sourceCode` + credentials + idempotency key; they do not send internal mapping/template UUIDs per request.
@@ -65,7 +68,7 @@ Current `ImportBatchService.create()` reserves and then directly invokes process
 1. Keep the modular monolith; PostgreSQL remains source of truth.
 2. `ServiceClient` is authentication identity; `IntegrationSource` is processing configuration.
 3. `NormalizedDocument` is the common post-mapping boundary.
-4. Mapping never implicitly sends; delivery requires explicit routing.
+4. Mapping never implicitly sends; canonical business ingestion may complete after CUSTOMER/INVOICE/PAYMENT persistence and diagnostics. Generation/delivery require an explicit downstream workflow and routing.
 5. Every accepted production ingestion is durably reproducible from metadata + archived raw-source reference/checksum.
 6. HTTP 202 means durable acceptance, not completed processing.
 7. No DB transaction spans remote HTTP, object streaming, rendering or provider calls.
@@ -177,11 +180,13 @@ claim
  -> snapshot exact config
  -> parse -> map -> NormalizedDocument[]
  -> resolve resources
- -> persistence
+ -> canonical business persistence (CUSTOMER / INVOICE / PAYMENT)
+ -> diagnostics/counters
+ -> complete business ingestion
+
+optional explicit downstream workflow:
  -> render/generate
  -> explicit route
- -> diagnostics/counters
- -> complete
 ```
 
 Implement bounded concurrency, lease/claim, stale recovery, transient-only retries, attempts and backpressure.
@@ -204,7 +209,7 @@ Stable error taxonomy: REMOTE_URL_FORBIDDEN, REMOTE_DNS_FORBIDDEN, REMOTE_TIMEOU
 
 ## 11. Downstream orchestration
 
-Refactor the new production path so `BusinessImportService` and generation/routing consume the common NormalizedDocument boundary. Legacy endpoints may remain compatibility facades.
+Refactor the new production path so `BusinessImportService` consumes the common NormalizedDocument boundary for canonical CUSTOMER/INVOICE/PAYMENT persistence. Generation/routing may also consume normalized data, but only through an explicitly configured downstream workflow; it is not part of mandatory business-ingestion success. Legacy endpoints may remain compatibility facades.
 
 Rendering uses normalized data/internal files/assets only. `routing_config` explicitly selects persistence/generation/communication actions. Reuse Message, attachment readiness, outbox/listener, MessageDeliveryWorker, retry/recovery and provider gateways.
 
