@@ -21,7 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class ServiceClientService {
-    private static final Set<String> ALLOWED_SCOPES =
+    public static final Set<String> ALLOWED_SCOPES =
             Set.of(
                     "integration:notifications:send",
                     "integration:otp:create",
@@ -83,6 +83,12 @@ public class ServiceClientService {
                                 "ACTIVE",
                                 secretExpiresAt));
         return response(client, credential);
+    }
+
+    @Transactional(readOnly = true)
+    public ClientResponse get(UUID tenantId, UUID id) {
+        ServiceClient client = requireClient(tenantId, id);
+        return response(client, newestUsableCredential(client.getId()));
     }
 
     @Transactional(readOnly = true)
