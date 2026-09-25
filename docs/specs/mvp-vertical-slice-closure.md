@@ -1,296 +1,471 @@
-# Collectra MVP Vertical-Slice Closure
+# Collectra MVP Vertical-Slice Closure — Master Execution Spec v2
 
-Status: EXECUTION SPEC
+Status: REVIEWED / EXECUTION MASTER
 Branch: `feat/mvp-vertical-slice-closure`
 Baseline: `2548f0c1ecfc72e8a4f3216785be29b14f32856f`
 
-## Goal
+## 1. Purpose and authority
 
-Close existing backend capabilities through the web UI before adding unrelated backend scope.
+This document orchestrates the shortest safe path from the current backend-heavy implementation to a functionally usable Collectra MVP. It is a master plan, not a replacement for reviewed domain specifications.
 
-MVP journey:
+Normative child specifications:
+- Integration control plane: `integration-production-setup-center-master-spec.md`, `i1-integration-security-test-matrix.md`.
+- Source ingestion: `integration-ingestion-gap-spec.md`, `integration-journey.md`.
+- Receivables/payments: `frontendweb-fw05-receivables.md`.
+- Collections: `frontendweb-fw06-collections.md`.
+- Message monitoring: `frontendweb-fw08-message-monitoring.md`.
+- Imports/configuration: `frontendweb-fw10-imports.md`.
+- Files registry: `frontendweb-fw11-files.md`.
+- Reporting: `reporting-r11-tenant-daily-projections.md`, `reporting-r12-communication-coverage-audit.md`.
+- Delivery API/observability: `slice-08-delivery-api-observability.md`.
+- Frontend contract/IA: `frontend-react-api-contract.md`, `frontend-screen-api-matrix.md`, `frontend-ui-information-architecture.md`, `frontend-user-processes.md`.
+
+If this master document is less specific than a reviewed child spec, the child spec governs. If two specs conflict, implementation stops until the conflict is explicitly resolved in documentation and tests.
+
+## 2. MVP outcome
+
+The product loop to close is:
 
 ```
-Integration Setup -> Service Client -> Schema + Mapping -> Integration Source
--> Readiness -> Activate -> Ingestion -> Import/validation
--> Customer -> Contract -> Receivable -> Collection
--> Campaign -> Template -> Message/Delivery -> Monitoring -> Analytics/Report
+Human admin
+ -> Service Client
+ -> Source Schema + Mapping
+ -> Integration Source
+ -> Readiness -> Activate
+
+Service client
+ -> source-oriented ingestion
+ -> import/validation/diagnostics
+ -> Customer -> Contract -> Receivable/Payment
+ -> Collection Case
+
+Human operator
+ -> Campaign + Template
+ -> Message -> Delivery -> Monitoring
+ -> Tenant Analytics/Report
 ```
 
-A capability is DONE only when the UI-to-database vertical slice is usable, authorized, tested, observable, and green on the exact merge-candidate SHA.
+Files are cross-cutting infrastructure, not an artificial sequential business step:
 
-## Delivery invariants
+```
+FileService -> import source
+            -> template/generated asset
+            -> document
+            -> message attachment
+```
 
-1. Backend owns lifecycle, permissions, validation, readiness and stable problem codes.
-2. Frontend does not duplicate backend lifecycle/readiness rules.
-3. Every tenant resource is tenant-scoped server-side; UI filtering is never a security boundary.
-4. Every mutation has pending/disabled, validation, conflict, forbidden, failure and success UX.
-5. Unbounded collections use server pagination and deterministic sorting.
-6. IDs inserted into URLs are encoded.
-7. Long operations expose durable status; polling is bounded and stops at terminal state/unmount.
-8. Secrets are server-generated and only one-time disclosed where the contract permits it.
-9. No mock/fake/stub/hardcoded data in a DONE production path.
+A capability is DONE only when its real UI-to-database path is usable, authorized, tenant-safe, observable, tested and green on the exact merge-candidate SHA.
+
+## 3. Delivery invariants
+
+1. Backend owns lifecycle, permissions, validation, monetary truth, readiness and stable problem codes.
+2. Frontend renders backend state; it does not recreate lifecycle/readiness/accounting rules.
+3. Tenant ownership is enforced in backend queries/services. UI filtering is never a security boundary.
+4. Every mutation implements pending/disabled, validation, conflict where applicable, forbidden, failure and success UX.
+5. Potentially unbounded collections use bounded server pagination/cursors and deterministic ordering.
+6. IDs in URL paths are encoded; external return paths are validated as internal paths.
+7. Polling starts only for explicitly non-terminal server state, is bounded, pauses/stops appropriately and never assumes that HTTP 202 means asynchronous processing.
+8. Secrets are server-generated and one-time disclosed only where the backend contract permits it.
+9. No production path marked DONE may depend on mock/fake/stub/hardcoded business data.
 10. No merge without green backend and frontend CI on the exact candidate SHA.
-11. OpenAPI compatibility must remain green.
-12. New tenant endpoints require authorization and tenant-isolation integration tests.
+11. OpenAPI compatibility remains green; contract changes are intentional and reviewed.
+12. New/changed tenant endpoints require authorization and tenant-isolation integration coverage.
+13. Money crosses the boundary losslessly; React never performs authoritative balance/accounting calculations.
+14. Ambiguous non-idempotent network mutations are never blindly replayed.
+15. External/provider calls and large parsing work do not execute while holding long DB locks/transactions.
+16. PII, credentials, raw provider payloads and sensitive source values do not leak into logs, metrics or UI diagnostics.
+17. Backend blockers identified by child specs are resolved before the dependent UI is declared DONE.
 
-Priority: close existing verticals first; create backend contracts only when a required UI action has no safe contract.
+## 4. Blocker/dependency matrix
+
+| Vertical | Existing backend | Required closure before DONE | Frontend state |
+|---|---|---|---|
+| VC-0 Foundation | I0/I1 branch | sync main, exact green candidate, merge | integration adapters only |
+| VC-1 Service Clients | API/scopes/lifecycle available | verify stable problem/permission contracts | screens/routes missing |
+| VC-2 IntegrationSource | CRUD/lifecycle/basic readiness available | readiness DTO sufficient for backend-driven remediation | screens/API adapter missing |
+| VC-3 Ingestion | import pipeline exists; source control plane exists | executable source-oriented endpoint, durable status, idempotency/security/recovery | status UI missing |
+| VC-4 Imports | import/schema/mapping APIs exist | durable paged diagnostics, safe config detail/revision/bounds | placeholder |
+| VC-5 Receivables | invoice/payment/allocation APIs exist | list projections, lossless money, allocation-history bounds, create ambiguity/idempotency policy | placeholder |
+| VC-6 Collections | case/workflow APIs exist | next-action filters/sort, bounded assignee lookup, child-history bounds, money transport | placeholder |
+| VC-7 Files | upload/detail/content/url/delete exist | tenant-paged registry endpoint + dedicated safe public DTO | placeholder |
+| VC-8 Messages | run-scoped list/detail ready | no fabricated attempt history; only contract-supported monitoring | screens missing |
+| VC-9 Analytics | rich tenant communication analytics exists | performance/freshness validation; aggregate work only if evidence requires it | screens missing |
+| VC-10 Release | domain tests exist | full rolling E2E, clean bootstrap, security/recovery hardening | release gate |
+
+Do not start a dependent screen by inventing data that the backend does not safely expose.
+
+## 5. Rolling Golden E2E
+
+E2E is not postponed to VC-10. One deterministic golden scenario grows after every vertical:
+
+```
+VC-1: Service Client
+VC-2: Service Client -> IntegrationSource -> Readiness
+VC-3: ... -> authenticated ingestion -> durable operation
+VC-4: ... -> import terminal result/diagnostics
+VC-5: ... -> Customer -> Contract -> Receivable/Payment
+VC-6: ... -> Collection Case/workflow
+VC-7: verify FileService in real consumer paths + registry UI
+VC-8: ... -> Campaign -> Message -> Delivery monitoring
+VC-9: ... -> tenant analytics reflects delivery
+VC-10: complete negative matrix + release hardening
+```
+
+Each VC extends rather than replaces the previous golden test. Cross-domain failures are therefore discovered at the earliest integration point.
 
 ---
 
-# V0 — Foundation merge gate
+# VC-0 — Foundation merge gate
 
-Finish `feat/integration-contract-foundation`.
+Normative specs: Integration master + I1 security matrix.
 
 Required:
-- synchronize with current `main` and resolve conflicts;
-- record exact candidate SHA;
-- `mvn spotless:check`;
+- synchronize `feat/integration-contract-foundation` with current `main`;
+- resolve conflicts without losing either side;
+- record exact merge-candidate SHA;
+- `mvn --batch-mode --no-transfer-progress spotless:check`;
 - `bash scripts/test-slice-07.sh unit`;
-- `mvn clean verify -Pslice10a-coverage`;
-- frontend `npm ci`, typecheck, tests and production build;
+- `mvn --batch-mode --no-transfer-progress clean verify -Pslice10a-coverage`;
+- frontend `npm ci`, typecheck, test:ci and production build;
 - IntegrationSource lifecycle/security, ServiceClient lifecycle/security and Mapping metadata tests execute;
 - OpenAPI compatibility green;
-- merge to `main` only after all required jobs are green.
+- merge only after required jobs are green on that exact SHA.
 
-Exit: `main` contains I0/I1 foundation and is green.
+Exit: `main` contains I0/I1 foundation and remains green.
 
 ---
 
-# V1 — Integration Setup Center UI
+# VC-1 — Service Client UI
+
+Normative spec: Integration Setup Center master.
 
 Routes:
-
 ```
 /integrations
 /integrations/service-clients
 /integrations/service-clients/new
 /integrations/service-clients/:clientId
+```
+
+Reuse the existing Service Client list/detail/scope/create/rotate/credential activation/block/unblock contracts.
+
+Required UX:
+- permission-aware navigation and route guard;
+- list/detail/create;
+- backend scope catalogue, no hardcoded scope authority;
+- one-time secret disclosure with explicit acknowledgement;
+- rotation and credential activation;
+- block/unblock confirmation;
+- loading/empty/error/403 states;
+- double-submit protection.
+
+Secret invariant: disclosed secret is never written to React Query cache, localStorage/sessionStorage, URL, logs, analytics, toast history or durable reusable component state.
+
+Tests:
+- API contract/adapters;
+- route permission behavior;
+- one-time secret non-persistence;
+- mutation disabled/error states;
+- foreign tenant/no-disclosure backend coverage.
+
+Rolling E2E: tenant admin creates Service Client and safely acknowledges the secret.
+
+---
+
+# VC-2 — IntegrationSource + Readiness UI
+
+Normative specs: Integration Setup Center master + I1 matrix.
+
+Routes:
+```
 /integrations/sources
 /integrations/sources/new
 /integrations/sources/:sourceId
 /integrations/sources/:sourceId/readiness
 ```
 
-All routes use permission guards; backend 403 remains authoritative.
+Required:
+- entity API/query/mutation layer;
+- list/create/detail/edit;
+- selectors for tenant-owned Service Client, schema and mapping;
+- activate/suspend/archive;
+- optimistic `version` commands;
+- `VERSION_CONFLICT`: preserve intent, reload authoritative resource, require explicit re-apply; never silent overwrite.
 
-## V1.1 Service Clients
-
-Reuse:
-- GET `/api/v1/integration/service-clients`
-- GET `/api/v1/integration/service-clients/{id}`
-- GET `/api/v1/integration/service-client-scopes`
-- POST `/api/v1/integration/service-clients`
-- POST `/{id}/rotate-secret`
-- POST `/{id}/credentials/{credentialId}/activate`
-- POST `/{id}/block`
-- POST `/{id}/unblock`
-
-Screens:
-- list with status, identity, scopes and lifecycle actions;
-- create form populated from backend scope catalogue;
-- detail;
-- one-time secret modal with explicit copy/acknowledge;
-- rotation and credential activation;
-- block/unblock confirmation.
-
-A disclosed secret must never be placed in React Query cache, localStorage, URL, logs or durable UI history.
-
-## V1.2 Integration Sources
-
-Add entity API/query/mutation layer for the existing source endpoints.
-
-Screens:
-- source list;
-- create;
-- detail/edit;
-- readiness;
-- activate/suspend/archive.
-
-Selectors load tenant-owned Service Clients, source schemas and mappings.
-
-Optimistic concurrency:
-- send `version`;
-- map `VERSION_CONFLICT` to conflict UX;
-- allow reload; never silently overwrite.
-
-## V1.3 Readiness
-
-React renders backend readiness; it does not calculate readiness.
-
-Response must support:
+Readiness is backend-driven. The response must be sufficient for:
 - overall READY/BLOCKED;
 - stable check code/state;
-- resource type and safe reference;
+- resource type and safe reference where allowed;
 - stable explanation/message arguments;
-- recommended action/navigation where applicable.
+- recommended remediation/navigation where applicable.
 
-Extend the I1 DTO if necessary before the screen is DONE.
+If current I1 DTO cannot support this without frontend business inference, extend backend DTO first.
 
-Acceptance:
-- tenant admin can create a client, acknowledge secret, create a source, inspect blockers and activate;
-- foreign tenant IDs disclose nothing;
-- read-only user cannot mutate;
-- direct URL access respects permission guards;
-- 401 refresh and 403 UX verified;
-- no mocks.
+Rolling E2E: Service Client -> source references -> readiness blockers -> remediation -> READY -> activate.
 
 ---
 
-# V2 — Real source-oriented ingestion
+# VC-3 — Source-oriented ingestion
 
-Goal: turn IntegrationSource into an executable data path.
+Normative specs: `integration-ingestion-gap-spec.md`, `integration-journey.md`.
 
-Contract requirements:
+Do not bypass IntegrationSource by exposing low-level import internals as the production integration contract.
+
+Required contract:
 - service authentication;
-- bind request to ACTIVE IntegrationSource;
-- tenant derived from authenticated service credential, never request body;
-- idempotency key;
-- bounded payload/media types;
-- correlation id and optional external event id;
-- deterministic accepted response with operation/import id.
+- ACTIVE IntegrationSource binding;
+- tenant derived from authenticated service identity, never request body;
+- required idempotency key;
+- bounded content/media types;
+- correlation/request id and optional external event id;
+- deterministic accepted/replayed response with operation/import id;
+- durable status endpoint appropriate for the service/operator journey.
 
 Pipeline:
-
 ```
-HTTP ingest -> service auth -> ACTIVE source/scope validation
--> idempotency reservation -> durable ingestion envelope/outbox
--> parse -> schema validation -> mapping -> business import
--> domain persistence -> terminal status
+HTTP ingest
+ -> authenticate service
+ -> validate source/status/scope
+ -> reserve idempotency
+ -> persist durable ingestion envelope/outbox
+ -> enqueue
+ -> parse
+ -> schema validation
+ -> mapping
+ -> business import
+ -> domain persistence
+ -> terminal state
 ```
 
-No remote call or large parsing while holding a DB transaction/row lock.
-
-States:
-`RECEIVED -> QUEUED -> PROCESSING -> SUCCEEDED | PARTIALLY_SUCCEEDED | FAILED`.
+State model must distinguish received/queued/processing and terminal success/partial/failure. Retry/recovery distinguishes transient infrastructure failure from permanent validation/business rejection.
 
 Security:
-- byte/content/header limits;
-- no arbitrary server-side URL fetch until SSRF controls exist;
-- sanitized logs;
-- no auth headers/secrets/raw sensitive payloads in logs;
-- blocked/expired client denied;
+- content-length and actual-byte limits;
+- media/header/field bounds;
+- no arbitrary server-side URL fetching until SSRF/redirect/rebinding controls exist;
+- blocked/expired credential denied;
 - suspended/archived source denied;
 - insufficient scope denied;
-- tenant isolation tests.
+- tenant isolation;
+- sensitive payload/auth data excluded from logs.
 
-Idempotency: unique tenant/source/idempotency-key reservation. Replay returns original operation semantics without duplicate business writes.
+Idempotency: unique tenant/source/idempotency intent. Replay cannot duplicate business writes.
 
-Observability: accepted/rejected, latency, terminal states, retries/recovery and validation failures. No high-cardinality tenant/customer/source identifiers as metric labels.
-
-Exit: a real authenticated request produces a durable, observable import operation.
+Rolling E2E: service authenticates and submits the same intent twice; one logical operation/business effect results.
 
 ---
 
-# V3 — Imports UI
+# VC-4 — Import Execution, Diagnostics and Configuration UI
+
+Normative spec: `frontendweb-fw10-imports.md`. It governs details.
 
 Routes:
 ```
 /imports
 /imports/new
-/imports/:batchId
-/imports/schemas
-/imports/mappings
+/imports/:importId
+/imports/:importId/errors
+/imports/source-schemas/*
+/imports/mapping-profiles/*
 ```
 
-Reuse ImportBatch/BusinessImport/SourceSchema/MappingProfile APIs where contract-safe.
+Backend closure before DONE:
+1. Durable tenant-scoped paged record/field diagnostics, not only generic batch error.
+2. Diagnostics have stable ordering, bounded safe detail and masked source values.
+3. Retention tied to import/source-file lifecycle.
+4. Source schema/mapping definition/version collections are bounded or paged.
+5. Routed editors have direct tenant-scoped detail projections; no list scanning to restore deep links.
+6. Mutable configuration has explicit revision/ETag/version semantics before claiming stale-write-safe editing.
 
-Required:
-- paged/filterable history;
-- detail with counts, errors, source, timestamps and terminal state;
-- manual file import with schema/mapping selection and duplicate-submit prevention;
-- bounded polling while non-terminal;
-- schema/mapping version/publish lifecycle where backend supports it;
-- transformation catalogue from backend metadata only.
+Important current behavior: HTTP 202 does not imply a worker is still running. Existing import create may finish processing synchronously before returning. Frontend inspects returned status:
+- terminal -> render result, no polling;
+- explicitly non-terminal -> bounded polling.
 
-Exit: source-driven imports are inspectable and supported manual import works without Postman.
+Submission:
+- one Idempotency-Key per logical intent;
+- same key reused only for replay of the same body/file/config;
+- changed intent gets a new key;
+- ambiguous network result offers explicit replay/reconciliation, never silent new submission.
 
----
+UI:
+- history and detail;
+- manual multipart/JSON/XML execution as supported;
+- progress only when non-terminal;
+- paged diagnostics;
+- source-schema lifecycle/editor;
+- mapping-profile lifecycle/editor/test;
+- published versions remain immutable according to backend rules.
 
-# V4 — Receivables UI
-
-Replace `/receivables` placeholder.
-
-Required:
-- paged list;
-- backend-supported filters/search/sort;
-- amount/currency/status/due date/customer/contract;
-- detail route if contract supports it, otherwise explicitly extend backend;
-- customer/contract navigation;
-- loading/empty/error/403;
-- timezone-safe dates and locale-safe money.
-
-Never load an unbounded dataset client-side.
-
-Exit: imported receivables are discoverable and traceable to customer/contract.
+Rolling E2E: ingestion/manual import -> terminal batch -> durable diagnostics/result survives reload/deep link.
 
 ---
 
-# V5 — Collections UI
+# VC-5 — Receivables, Payments and Allocations
 
-Replace `/collections` placeholder.
-
-Required:
-- worklist;
-- backend-owned statuses/actions;
-- receivable/customer context;
-- action validation;
-- concurrency protection for competing collectors;
-- stable 409 conflict UX;
-- permissions;
-- server-side audit of relevant actions.
-
-Exit: supported collection workflow works without direct API access.
-
----
-
-# V6 — Files UI
-
-Replace `/files` placeholder.
-
-Required:
-- paged file list;
-- upload;
-- metadata/status/expiry;
-- authenticated safe download;
-- authorized delete only if supported;
-- MIME/size validation client and server;
-- filename treated only as display data;
-- 404/403/expired UX;
-- safe mapping of RustFS/S3 failures.
-
-Never expose storage credentials or unnecessary internal object keys.
-
-Exit: supported upload/download/delete lifecycle works through UI and integration tests.
-
----
-
-# V7 — Delivery/message monitoring
+Normative spec: `frontendweb-fw05-receivables.md`. This VC is not only an invoice list.
 
 Routes:
 ```
-/messages
-/messages/:messageId
-/campaigns/:campaignId/runs/:runId/messages
+/receivables?view=invoices|payments
+/receivables/invoices/new
+/receivables/invoices/:invoiceId
+/receivables/payments/new
+/receivables/payments/:paymentId
 ```
 
-Required:
-- paged tenant-scoped messages;
-- supported status/channel/customer/campaign/run filters;
-- masked recipient data;
-- retry/attempt timeline;
-- attachment state;
-- safe failure codes;
-- stuck/retry/dead indicators;
-- no provider secrets/raw unsafe payloads.
+Backend closure before DONE:
+- Invoice list projection includes bounded server-resolved customer display name and contract number;
+- Payment list projection includes customer display name;
+- allocation histories are paged or protected by documented hard bounds;
+- monetary transport is lossless/canonical;
+- create invoice/payment ambiguity has an explicit reconciliation/idempotency policy.
 
-Operator commands require explicit backend permission and idempotent command contract.
+UI:
+- server-paged invoices/payments;
+- backend-supported filters only;
+- create/detail;
+- allocation to eligible invoice;
+- reversal with reason/confirmation;
+- `commandId` remains stable for allocation replay;
+- 409 preserves entered values and requires reconciliation;
+- successful mutation invalidates all affected payment/invoice/allocation/dashboard projections.
 
-Exit: delivery can be followed from materialization to SENT/FAILED without DB inspection.
+Financial invariants:
+- React never computes authoritative outstanding/payment status;
+- never combine currencies into one total;
+- no optimistic authoritative balance changes;
+- backend `businessDate` is distinct from browser date;
+- monetary form values remain canonical decimal strings, never floating-point accounting.
+
+Rolling E2E: imported receivable is discoverable; supported payment/allocation changes authoritative state without duplicate effect.
 
 ---
 
-# V8 — Tenant analytics/reporting UI
+# VC-6 — Collection Workspace
+
+Normative spec: `frontendweb-fw06-collections.md`.
+
+Routes:
+```
+/collections
+/collections/:caseId/{overview|promises|disputes|actions|timeline}
+```
+
+Backend closure before DONE:
+- fixed queue filters `nextActionOverdue`, `nextActionDueFrom/To`;
+- allow-listed `nextActionDueAt` sort;
+- bounded permission-aware assignee lookup;
+- promises/disputes/actions/timeline paged or protected by documented hard limits;
+- lossless money transport for promise/projected outstanding amounts.
+
+UI:
+- server-paged work queue;
+- case detail/lifecycle;
+- promises to pay;
+- disputes;
+- actions;
+- immutable timeline;
+- child panels have independent bounded state;
+- lifecycle buttons derive from backend status + permissions;
+- versioned commands send current version.
+
+409 flow:
+1. preserve unsent form input;
+2. fetch authoritative detail/version;
+3. show safe summary of changed state;
+4. require explicit re-apply/cancel;
+5. never automatically repeat close/resolve/complete.
+
+Collection workflow state and receivable finance state remain separate in frontend state.
+
+Rolling E2E: imported receivable -> collection case -> supported lifecycle/action -> reload preserves authoritative result.
+
+---
+
+# VC-7 — Files Registry and UI
+
+Normative spec: `frontendweb-fw11-files.md`.
+
+Current backend is insufficient for a registry UI: upload/detail/content/download-url/delete exist, but tenant-paged `GET /api/v1/files` does not.
+
+Backend closure:
+```
+GET /api/v1/files
+ ?category&status&projectId&filename&createdFrom&createdTo&page&size&sort
+```
+
+Requirements:
+- tenant predicate in PostgreSQL;
+- bounded page size and allow-listed sort;
+- dedicated public list/detail DTOs;
+- do not expose tenantId, bucket, object/storage key, internal URL or deletion internals;
+- indexes follow measured query shapes;
+- tenant isolation, paging, authorization and query-count tests.
+
+Routes:
+```
+/files
+/files/:fileId
+```
+
+UI:
+- URL-owned filters/server paging;
+- detail/metadata;
+- upload;
+- authenticated content or short-lived backend-issued download URL;
+- delete only with permission/confirmation;
+- explicit deleted/expired/not-downloadable state;
+- no constructed RustFS URL;
+- presigned URL not persisted beyond short UI lifetime;
+- filename is text, never HTML/path authority.
+
+Cross-cutting E2E: FileService is also verified in its real consumers (import source, generated document/template asset/message attachment) where applicable; it is not treated as a fake sequential business step.
+
+---
+
+# VC-8 — Message Delivery Monitoring
+
+Normative spec: `frontendweb-fw08-message-monitoring.md`.
+
+Routes:
+```
+/campaigns/:campaignId/runs/:runId/messages
+/campaigns/:campaignId/runs/:runId/messages/:messageId
+```
+
+Use existing run-scoped `MessageController`.
+
+List:
+- Slice semantics: next/previous using `hasNext`; do not invent total pages;
+- URL-owned status/channel/customer/page/size;
+- unknown status/channel fallback;
+- destination rendered exactly as backend-masked;
+- no per-row customer lookup fan-out;
+- polling follows campaign-run terminal policy.
+
+Detail:
+- status;
+- attempt count;
+- processing/retry/sent timestamps;
+- safe error;
+- attachment readiness;
+- providerMessageId as diagnostic text only.
+
+Critical correction: current API does NOT expose delivery-attempt history. Never fabricate an attempt timeline from `attemptCount`. A real attempt timeline is a separate backend enhancement and is not required for FW8 MVP.
+
+Current attachment DTO has no authorized file reference; therefore no attachment download action may be inferred from attachment id. Add such action only after an explicit authorized backend contract exists.
+
+No manual retry/cancel until backend defines eligibility, idempotency, audit, rate limiting and counter impact.
+
+Rolling E2E: campaign run -> message -> deterministic delivery result -> monitoring reflects authoritative state.
+
+---
+
+# VC-9 — Tenant Communication Analytics UI
+
+Normative specs: reporting R11/R12 plus current tenant analytics API.
+
+Do not build a new reporting backend by default. Existing backend already exposes tenant-scoped communication summary, timeseries, channels, users, campaigns, failures, lifecycle, audience, attempts, attachments, operations and documents.
 
 Routes:
 ```
@@ -299,137 +474,163 @@ Routes:
 /analytics/campaigns
 ```
 
-Reuse tenant communication analytics; do not build client-side OLAP.
-
-Required:
+UI:
 - tenant-scoped date range;
-- supported channel/status/campaign dimensions;
-- totals/trends;
-- aggregate-backed week/month ranges;
-- current-day reconciliation according to backend freshness contract;
-- explicit as-of/freshness timestamp;
-- loading/empty/error.
+- campaign/run/channel/user filters supported by backend;
+- summary/trends;
+- channel/campaign/user/failure reports;
+- lifecycle/audience/attempt/attachment/operation/document views as product UX requires;
+- explicit freshness/as-of semantics when supplied;
+- loading/empty/error states;
+- server paging for page reports.
 
-Platform analytics stays separate from tenant analytics.
+Aggregate policy:
+- reuse existing daily/aggregate projections;
+- current-day/live reconciliation follows backend reporting contract;
+- add caching/new aggregate structures only when query/load evidence justifies them;
+- never create client-side OLAP over unbounded raw messages.
 
-Exit: tenant sees reporting results for the same delivery journey used by E2E.
+Platform analytics remains a separate authorization/scope surface.
+
+Rolling E2E: the delivery produced by the golden journey becomes visible in tenant reporting according to the documented freshness contract.
 
 ---
 
-# V9 — Full MVP E2E
+# VC-10 — MVP Release Hardening
 
-Golden scenario:
+VC-10 is not the first E2E. It completes the rolling E2E and negative matrix.
 
-1. authenticate tenant admin;
-2. create/prepare Service Client;
-3. configure schema/mapping;
-4. create IntegrationSource;
-5. verify readiness;
-6. activate;
-7. authenticate service client;
-8. submit idempotent payload;
-9. wait for import terminal state;
-10. assert Customer;
-11. assert Contract;
-12. assert Receivable;
-13. execute supported Collection transition;
-14. create/use Template;
-15. create/run Campaign;
-16. assert Message;
-17. execute deterministic local/mock delivery provider;
-18. assert terminal delivery result;
-19. assert tenant analytics reflects delivery;
-20. navigate resulting records through UI.
+Final golden scenario:
+1. tenant admin authenticates;
+2. Service Client created/prepared;
+3. schema/mapping configured;
+4. IntegrationSource created;
+5. readiness checked/remediated;
+6. source activated;
+7. service authenticates;
+8. idempotent payload submitted;
+9. import reaches terminal state;
+10. Customer/Contract/Receivable asserted;
+11. supported Payment/Allocation path asserted where fixture requires it;
+12. Collection Case/workflow asserted;
+13. Template/Campaign configured;
+14. Message materialized;
+15. deterministic local/mock provider produces configured terminal delivery;
+16. Message monitoring reflects state;
+17. tenant analytics reflects the result;
+18. resulting records are navigable through UI;
+19. relevant FileService consumer path is verified.
 
-Negative E2E:
-- duplicate ingestion;
-- invalid schema;
-- suspended source;
-- blocked/expired credential;
-- cross-tenant attempt;
-- user without permission: API 403 + UI forbidden;
+Negative matrix:
+- duplicate ingestion idempotency;
+- invalid schema/mapping payload;
+- suspended/archived source;
+- blocked/expired service credential;
+- insufficient service scope;
+- cross-tenant identifiers;
+- human user without permission: API 403 + UI forbidden;
 - stale optimistic version;
-- transient delivery retry;
+- import validation diagnostics/masking;
+- ambiguous create mutation reconciliation;
+- collection stale command;
+- transient delivery failure -> retry;
 - permanent delivery failure;
-- missing/failed required attachment;
-- recoverable network/API UI failure.
+- required attachment pending/failed;
+- network/API failure -> recoverable UI;
+- session refresh failure -> cleared session/login;
+- large-list pagination boundary;
+- special characters/Unicode;
+- date/timezone/businessDate boundary;
+- clean DB bootstrap/migration.
 
-Avoid sleep-based tests; poll observable status with bounded deadlines.
+Avoid sleep-based tests. Poll observable state with bounded deadlines.
 
-MVP exit:
-- V1/V3/V4/V5/V6/V7/V8 primary routes are real, not placeholders;
-- golden and security/idempotency negative E2E green;
+Release gate:
+- primary routes VC-1..VC-9 are real, not placeholders;
+- rolling golden and negative security/idempotency scenarios green;
 - backend verify green;
 - frontend typecheck/tests/build green;
 - no skipped critical tests;
-- no production mocks in golden path;
-- clean DB bootstrap/migrations green;
-- OpenAPI compatibility green.
+- no production mocks in primary path;
+- clean DB bootstrap green;
+- migrations reproducible/forward-only;
+- OpenAPI compatibility green;
+- exact release candidate SHA recorded.
 
 ---
 
-# Cross-cutting frontend contract
+# 6. Cross-cutting frontend contract
 
-Every data screen: loading, empty, error/retry, data.
+Every data screen has loading, empty, recoverable error and data states.
 
-Every mutation: pending/disabled, field validation, server validation, 401 recovery, 403, 404, 409/version conflict where applicable, success invalidation/refetch.
+Mutations additionally handle pending/disabled, field validation, safe server problem, 401 session recovery, 403, 404/no-longer-owned, 409/version conflict where applicable, and deterministic cache invalidation.
 
-React Query keys include all resource ids and filters. QueryClient is cleared on logout/session loss. Business state is never inferred from translated labels.
+React Query keys include hierarchy/resource IDs and normalized filters. Query cache is cleared on logout/session loss. Business state is never inferred from translated labels.
 
-# Cross-cutting backend contract
+Network failures are distinguishable from structured HTTP problems where UX depends on retryability. Automatic replay is allowed only for operations whose idempotency semantics make replay safe.
 
-- ProblemDetail-compatible errors with stable machine-readable codes.
-- Tenant ownership in repository/service queries, not post-fetch filtering.
+# 7. Cross-cutting backend contract
+
+- ProblemDetail-compatible errors with stable machine-readable codes for UI branching.
+- Tenant ownership enforced before/global fetch disclosure.
 - Explicit permissions on every sensitive read/mutation.
-- Bounded pagination and deterministic sorting.
+- Bounded pagination and deterministic ordering.
 - `Clock` for deterministic business time.
-- DB constraints back idempotency/invariants.
+- DB constraints support uniqueness/idempotency/invariants.
 - Locking strategy explicit for races.
 - Provider/external calls outside long DB transactions.
 - Outbox/durable state for async handoff.
-- PII/secrets excluded from logs and metrics.
+- PII/secrets excluded from logs/metrics.
+- Public DTOs do not leak internal tenancy/storage/provider implementation details.
 
-# Definition of Done per slice
+# 8. Definition of Done per vertical
 
-DONE requires all:
-- route/navigation;
-- permission guard where applicable;
-- API adapter matches backend;
-- backend authorization;
-- loading/empty/error/data states;
-- mutation pending/error/conflict handling;
-- tenant isolation integration test;
-- critical frontend behavior test;
-- OpenAPI compatibility;
-- green CI on exact SHA;
-- no placeholder/mock in the primary path.
+A VC is DONE only when:
+- required backend blockers in its normative child spec are closed;
+- route/navigation exists;
+- permission guard exists where applicable;
+- API adapter matches backend/OpenAPI;
+- backend authorization/tenant isolation is tested;
+- loading/empty/error/data states exist;
+- mutations handle pending/error/conflict as applicable;
+- critical frontend behavior is tested;
+- rolling golden E2E is extended through this VC;
+- OpenAPI compatibility remains green;
+- CI is green on exact SHA;
+- no placeholder/mock/hardcoded business data remains in the primary path.
 
-# Fast execution order
+# 9. Execution order
 
-- VC-0 foundation green + merge.
-- VC-1 Service Client UI.
-- VC-2 IntegrationSource UI + readiness.
-- VC-3 executable ingestion + status.
-- VC-4 Imports UI.
-- VC-5 Receivables UI.
-- VC-6 Collections UI.
-- VC-7 Files UI.
-- VC-8 message monitoring UI.
-- VC-9 tenant analytics UI.
-- VC-10 golden/negative E2E + release hardening.
+```
+VC-0 Foundation
+  -> VC-1 Service Clients
+  -> VC-2 IntegrationSource/Readiness
+  -> VC-3 Source Ingestion
+  -> VC-4 Imports/Diagnostics/Configuration
+  -> VC-5 Receivables/Payments/Allocations
+  -> VC-6 Collection Workspace
+  -> VC-7 Files Registry/UI
+  -> VC-8 Message Monitoring
+  -> VC-9 Tenant Analytics
+  -> VC-10 Release Hardening
+```
 
-Each increment stays independently reviewable and keeps `main` green.
+Each increment is merge-sized, independently reviewable and keeps `main` green. Rolling E2E grows continuously from VC-1 onward.
 
-# Explicit non-goals before MVP closure
+# 10. Explicit non-goals before MVP closure
 
-Defer unless required by the golden journey:
+Unless the golden journey proves they are required, defer:
 - visual redesign;
 - generic workflow/query DSL;
 - connector marketplace;
+- arbitrary server-side URL connectors;
 - WebSocket migration where bounded polling suffices;
 - broad platform analytics redesign;
 - speculative caching;
+- fabricated delivery attempt history;
 - new delivery providers;
+- offline editing;
+- client-side accounting/ETL;
 - unrelated backend domains.
 
-Priority: close the existing product loop, not increase surface area.
+The priority is to close and prove the existing product loop, not increase surface area.
