@@ -1214,7 +1214,21 @@ public class CommunicationAnalyticsQueryService {
         StringBuilder where =
                 new StringBuilder(
                         " where r.created_at >= :from and r.created_at < :to ");
-        appendScope(where, "r", "c", filter, true);
+        if (filter.tenantId() != null) {
+            where.append(" and r.tenant_id = :tenantId ");
+        }
+        if (filter.userId() != null) {
+            where.append(" and c.created_by = :userId ");
+        }
+        if (filter.campaignId() != null) {
+            where.append(" and c.id = :campaignId ");
+        }
+        if (filter.runId() != null) {
+            where.append(" and r.run_id = :runId ");
+        }
+        if (filter.channel() != null) {
+            where.append(" and r.channel = :channel ");
+        }
         return where.toString();
     }
 
