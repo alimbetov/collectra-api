@@ -52,8 +52,7 @@ class FileControllerIntegrationTest extends AbstractIntegrationTest {
                             byte[] bytes = upload.content().readAllBytes();
                             return new StoredObject(bytes.length, "test-etag");
                         });
-        when(storage.download(any()))
-                .thenAnswer(invocation -> new ByteArrayInputStream(CONTENT));
+        when(storage.download(any())).thenAnswer(invocation -> new ByteArrayInputStream(CONTENT));
         when(storage.generatePresignedGetUrl(any(), any()))
                 .thenReturn(URI.create("https://storage.example.test/download?signature=test"));
         doNothing().when(storage).delete(any());
@@ -115,7 +114,8 @@ class FileControllerIntegrationTest extends AbstractIntegrationTest {
     void registryIsTenantScopedPagedFilteredAndDoesNotLeakStorageInternals() throws Exception {
         Auth owner = register("registry-owner-" + UUID.randomUUID(), "registry-owner@example.test");
         Auth outsider =
-                register("registry-outsider-" + UUID.randomUUID(), "registry-outsider@example.test");
+                register(
+                        "registry-outsider-" + UUID.randomUUID(), "registry-outsider@example.test");
 
         upload(owner.accessToken());
         upload(owner.accessToken());
@@ -129,9 +129,7 @@ class FileControllerIntegrationTest extends AbstractIntegrationTest {
                                         .param("page", "0")
                                         .param("size", "1")
                                         .param("sort", "createdAt,desc")
-                                        .header(
-                                                "Authorization",
-                                                "Bearer " + owner.accessToken()))
+                                        .header("Authorization", "Bearer " + owner.accessToken()))
                         .andExpect(status().isOk())
                         .andExpect(jsonPath("$.items.length()").value(1))
                         .andExpect(jsonPath("$.page").value(0))
