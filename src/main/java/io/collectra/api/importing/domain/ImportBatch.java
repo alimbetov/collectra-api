@@ -2,8 +2,8 @@ package io.collectra.api.importing.domain;
 
 import io.collectra.api.shared.persistence.AuditableEntity;
 import jakarta.persistence.*;
-import java.util.UUID;
 import java.time.Instant;
+import java.util.UUID;
 
 @Entity
 @Table(name = "import_batches")
@@ -32,45 +32,126 @@ public class ImportBatch extends AuditableEntity {
     @Column(name = "failed_count", nullable = false) private int failedCount;
 
     protected ImportBatch() {}
-    public ImportBatch(UUID tenantId, String idempotencyKey, String requestHash,
-            UUID mappingProfileVersionId, UUID templateVersionId) {
-        this.id = UUID.randomUUID(); this.tenantId = tenantId; this.idempotencyKey = idempotencyKey;
-        this.requestHash = requestHash; this.mappingProfileVersionId = mappingProfileVersionId;
-        this.templateVersionId = templateVersionId; this.status = ImportBatchStatus.PROCESSING;
+
+    public ImportBatch(
+            UUID tenantId,
+            String idempotencyKey,
+            String requestHash,
+            UUID mappingProfileVersionId,
+            UUID templateVersionId) {
+        this.id = UUID.randomUUID();
+        this.tenantId = tenantId;
+        this.idempotencyKey = idempotencyKey;
+        this.requestHash = requestHash;
+        this.mappingProfileVersionId = mappingProfileVersionId;
+        this.templateVersionId = templateVersionId;
+        this.status = ImportBatchStatus.PROCESSING;
         this.processingStartedAt = Instant.now();
     }
-    public UUID getId() { return id; }
-    public UUID getTenantId() { return tenantId; }
-    public String getIdempotencyKey() { return idempotencyKey; }
-    public String getRequestHash() { return requestHash; }
-    public ImportBatchStatus getStatus() { return status; }
-    public int getDocumentCount() { return documentCount; }
-    public String getErrorCode() { return errorCode; }
-    public String getErrorMessage() { return errorMessage; }
-    public Instant getFailedAt() { return failedAt; }
-    public UUID getMappingProfileVersionId() { return mappingProfileVersionId; }
-    public UUID getTemplateVersionId() { return templateVersionId; }
-    public String getSource() { return source; }
-    public UUID getSourceSchemaVersionId() { return sourceSchemaVersionId; }
-    public UUID getRawSourceFileId() { return rawSourceFileId; }
-    public Instant getProcessingStartedAt() { return processingStartedAt; }
-    public Instant getCompletedAt() { return completedAt; }
-    public int getProcessingAttempts() { return processingAttempts; }
-    public int getRecordCount() { return recordCount; }
-    public int getCreatedCount() { return createdCount; }
-    public int getReusedCount() { return reusedCount; }
-    public int getConflictCount() { return conflictCount; }
-    public int getFailedCount() { return failedCount; }
-    public void accepted(int count) {
-        this.documentCount = count; this.recordCount = count; this.createdCount = count;
-        this.status = ImportBatchStatus.ACCEPTED; this.completedAt = Instant.now();
+
+    public UUID getId() {
+        return id;
     }
+
+    public UUID getTenantId() {
+        return tenantId;
+    }
+
+    public String getIdempotencyKey() {
+        return idempotencyKey;
+    }
+
+    public String getRequestHash() {
+        return requestHash;
+    }
+
+    public ImportBatchStatus getStatus() {
+        return status;
+    }
+
+    public int getDocumentCount() {
+        return documentCount;
+    }
+
+    public String getErrorCode() {
+        return errorCode;
+    }
+
+    public String getErrorMessage() {
+        return errorMessage;
+    }
+
+    public Instant getFailedAt() {
+        return failedAt;
+    }
+
+    public UUID getMappingProfileVersionId() {
+        return mappingProfileVersionId;
+    }
+
+    public UUID getTemplateVersionId() {
+        return templateVersionId;
+    }
+
+    public String getSource() {
+        return source;
+    }
+
+    public UUID getSourceSchemaVersionId() {
+        return sourceSchemaVersionId;
+    }
+
+    public UUID getRawSourceFileId() {
+        return rawSourceFileId;
+    }
+
+    public Instant getProcessingStartedAt() {
+        return processingStartedAt;
+    }
+
+    public Instant getCompletedAt() {
+        return completedAt;
+    }
+
+    public int getProcessingAttempts() {
+        return processingAttempts;
+    }
+
+    public int getRecordCount() {
+        return recordCount;
+    }
+
+    public int getCreatedCount() {
+        return createdCount;
+    }
+
+    public int getReusedCount() {
+        return reusedCount;
+    }
+
+    public int getConflictCount() {
+        return conflictCount;
+    }
+
+    public int getFailedCount() {
+        return failedCount;
+    }
+
+    public void accepted(int count) {
+        this.documentCount = count;
+        this.recordCount = count;
+        this.createdCount = count;
+        this.status = ImportBatchStatus.ACCEPTED;
+        this.completedAt = Instant.now();
+    }
+
     public void failed(String code, String message) {
         this.documentCount = 0;
         this.status = ImportBatchStatus.FAILED;
         this.errorCode = code;
         this.errorMessage = truncate(message, 1000);
-        this.failedAt = Instant.now(); this.completedAt = this.failedAt;
+        this.failedAt = Instant.now();
+        this.completedAt = this.failedAt;
         this.failedCount = Math.max(this.recordCount, 1);
     }
 
