@@ -99,6 +99,7 @@ public class IntegrationSourceService {
                 canonicalJson(c.headerMapping()),
                 canonicalJson(c.resourcePolicy()),
                 canonicalJson(c.routingConfig()));
+        sources.flush();
         return response(value);
     }
 
@@ -122,6 +123,7 @@ public class IntegrationSourceService {
                                     .map(ReadinessCheck::code)
                                     .toList());
         s.activate();
+        sources.flush();
         return response(s);
     }
 
@@ -130,6 +132,7 @@ public class IntegrationSourceService {
         IntegrationSource s = require(tenantId, id);
         checkVersion(s, expectedVersion);
         s.suspend();
+        sources.flush();
         return response(s);
     }
 
@@ -138,6 +141,7 @@ public class IntegrationSourceService {
         IntegrationSource s = require(tenantId, id);
         checkVersion(s, expectedVersion);
         s.archive();
+        sources.flush();
         return response(s);
     }
 
