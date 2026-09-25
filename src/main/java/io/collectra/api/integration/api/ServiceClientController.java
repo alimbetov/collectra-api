@@ -39,7 +39,6 @@ public class ServiceClientController {
                 TenantContext.requireTenantId(),
                 request.clientId(),
                 request.name(),
-                request.clientSecret(),
                 request.scopes(),
                 request.expiresAt(),
                 request.secretExpiresAt());
@@ -74,7 +73,6 @@ public class ServiceClientController {
         return service.startRotation(
                 TenantContext.requireTenantId(),
                 id,
-                request.clientSecret(),
                 request.secretExpiresAt());
     }
 
