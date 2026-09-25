@@ -103,9 +103,7 @@ class ServiceClientSecurityIntegrationTest extends AbstractIntegrationTest {
                         .content(
                                 "{\"clientId\":\""
                                         + clientId
-                                        + "\",\"name\":\"Service Client\",\"clientSecret\":\""
-                                        + secret
-                                        + "\",\"scopes\":[\""
+                                        + "\",\"name\":\"Service Client\",\"scopes\":[\""
                                         + scope
                                         + "\"]}"));
     }
