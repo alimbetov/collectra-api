@@ -108,6 +108,29 @@ class ServiceClientLifecycleIntegrationTest extends AbstractIntegrationTest {
                         .getResponse()
                         .getContentAsString();
         assertThat(list).doesNotContain(secret);
+
+        String detail =
+                mockMvc.perform(
+                                get("/api/v1/integration/service-clients/{id}", client.get("id").asText())
+                                        .header("Authorization", "Bearer " + accessToken))
+                        .andExpect(status().isOk())
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString();
+        assertThat(detail).contains(clientId).doesNotContain(secret);
+
+        String scopes =
+                mockMvc.perform(
+                                get("/api/v1/integration/service-client-scopes")
+                                        .header("Authorization", "Bearer " + accessToken))
+                        .andExpect(status().isOk())
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString();
+        assertThat(scopes)
+                .contains("integration:imports:create")
+                .contains("integration:imports:read")
+                .doesNotContain(secret);
     }
 
     private org.springframework.test.web.servlet.ResultActions token(String clientId, String secret)
