@@ -102,19 +102,18 @@ class IntegrationPipelineExecutableSmokeTest extends AbstractIntegrationTest {
                                 + ";125000.00;KZT\n")
                         .getBytes(StandardCharsets.UTF_8);
 
-        var mapped =
-                mappingExecution.executeBatch(tenant.getId(), mapping.profile().getId(), fixture);
-        assertThat(mapped.documents()).singleElement();
-        var normalized = mapped.documents().get(0);
-        assertThat(normalized.documentKey()).isEqualTo("ERP-I-I0");
+        var normalized =
+                mappingExecution.execute(tenant.getId(), mapping.profile().getId(), fixture);
         assertThat(normalized.normalizedPayload().at("/customer/externalId").asText())
                 .isEqualTo("ERP-C-I0");
+        assertThat(normalized.normalizedPayload().at("/invoice/externalId").asText())
+                .isEqualTo("ERP-I-I0");
         assertThat(normalized.normalizedPayload().at("/invoice/amount").decimalValue())
                 .isEqualByComparingTo("125000.00");
 
         var persisted =
                 persistence.persist(
-                        tenant.getId(), mapped.documentType(), normalized.normalizedPayload());
+                        tenant.getId(), normalized.documentType(), normalized.normalizedPayload());
         assertThat(persisted.created()).isTrue();
         assertThat(persisted.externalId()).isEqualTo("ERP-I-I0");
         var invoice = receivables.findInvoiceByExternalId(tenant.getId(), "ERP-I-I0").orElseThrow();
@@ -243,7 +242,7 @@ class IntegrationPipelineExecutableSmokeTest extends AbstractIntegrationTest {
 
         assertThatThrownBy(
                         () ->
-                                mappingExecution.executeBatch(
+                                mappingExecution.execute(
                                         tenant.getId(), mapping.profile().getId(), invalid))
                 .isInstanceOf(IllegalArgumentException.class);
         assertThat(receivables.findInvoiceByExternalId(tenant.getId(), "ERP-I-BAD")).isEmpty();
