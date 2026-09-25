@@ -51,6 +51,21 @@ public class ServiceClientController {
         return service.list(TenantContext.requireTenantId());
     }
 
+    @GetMapping("/service-clients/{id}")
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('SERVICE_CLIENT_READ')")
+    ServiceClientService.ClientResponse get(@PathVariable UUID id) {
+        return service.get(TenantContext.requireTenantId(), id);
+    }
+
+    @GetMapping("/service-client-scopes")
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('SERVICE_CLIENT_READ')")
+    List<ServiceClientScopeResponse> scopes() {
+        return ServiceClientService.ALLOWED_SCOPES.stream()
+                .sorted()
+                .map(ServiceClientScopeResponse::new)
+                .toList();
+    }
+
     @PostMapping("/service-clients/{id}/rotate-secret")
     @PreAuthorize(
             "hasAuthority('ROLE_HUMAN') and hasAuthority('SERVICE_CLIENT_ROTATE_SECRET')")
@@ -92,6 +107,8 @@ public class ServiceClientController {
             @NotEmpty Set<String> scopes,
             Instant expiresAt,
             Instant secretExpiresAt) {}
+
+    record ServiceClientScopeResponse(String code) {}
 
     record RotateSecretRequest(
             @Size(min = 32, max = 72) String clientSecret, Instant secretExpiresAt) {}
