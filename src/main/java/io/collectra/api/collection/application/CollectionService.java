@@ -197,19 +197,40 @@ public class CollectionService {
     @Transactional
     public PromiseToPay fulfillPromise(
             UUID tenantId, UUID caseId, UUID promiseId, long version, String actor) {
-        return transitionPromise(tenantId, caseId, promiseId, version, actor, "PROMISE_FULFILLED", PromiseToPay::fulfill);
+        return transitionPromise(
+                tenantId,
+                caseId,
+                promiseId,
+                version,
+                actor,
+                "PROMISE_FULFILLED",
+                PromiseToPay::fulfill);
     }
 
     @Transactional
     public PromiseToPay breakPromise(
             UUID tenantId, UUID caseId, UUID promiseId, long version, String actor) {
-        return transitionPromise(tenantId, caseId, promiseId, version, actor, "PROMISE_BROKEN", PromiseToPay::breakPromise);
+        return transitionPromise(
+                tenantId,
+                caseId,
+                promiseId,
+                version,
+                actor,
+                "PROMISE_BROKEN",
+                PromiseToPay::breakPromise);
     }
 
     @Transactional
     public PromiseToPay cancelPromise(
             UUID tenantId, UUID caseId, UUID promiseId, long version, String actor) {
-        return transitionPromise(tenantId, caseId, promiseId, version, actor, "PROMISE_CANCELLED", PromiseToPay::cancel);
+        return transitionPromise(
+                tenantId,
+                caseId,
+                promiseId,
+                version,
+                actor,
+                "PROMISE_CANCELLED",
+                PromiseToPay::cancel);
     }
 
     @Transactional
@@ -217,7 +238,14 @@ public class CollectionService {
             UUID tenantId, UUID caseId, String reason, String description, String actor) {
         CollectionCase collectionCase = requireActiveCase(tenantId, caseId);
         Dispute value = disputes.save(new Dispute(tenantId, caseId, reason, description));
-        event(collectionCase, "DISPUTE_OPENED", "DISPUTE", value.getId(), actor, reason, Instant.now(clock));
+        event(
+                collectionCase,
+                "DISPUTE_OPENED",
+                "DISPUTE",
+                value.getId(),
+                actor,
+                reason,
+                Instant.now(clock));
         return value;
     }
 
@@ -246,7 +274,14 @@ public class CollectionService {
         } catch (IllegalStateException ex) {
             throw invalidTransition(ex);
         }
-        event(collectionCase, "DISPUTE_RESOLVED", "DISPUTE", value.getId(), actor, resolutionCode, now);
+        event(
+                collectionCase,
+                "DISPUTE_RESOLVED",
+                "DISPUTE",
+                value.getId(),
+                actor,
+                resolutionCode,
+                now);
         return value;
     }
 
@@ -280,7 +315,14 @@ public class CollectionService {
                 actions.save(
                         new CollectionAction(
                                 tenantId, caseId, actionType, description, dueAt, priority));
-        event(collectionCase, "ACTION_CREATED", "COLLECTION_ACTION", value.getId(), actor, actionType, Instant.now(clock));
+        event(
+                collectionCase,
+                "ACTION_CREATED",
+                "COLLECTION_ACTION",
+                value.getId(),
+                actor,
+                actionType,
+                Instant.now(clock));
         return value;
     }
 
@@ -294,13 +336,27 @@ public class CollectionService {
     @Transactional
     public CollectionAction completeAction(
             UUID tenantId, UUID caseId, UUID actionId, long version, String actor) {
-        return transitionAction(tenantId, caseId, actionId, version, actor, "ACTION_COMPLETED", CollectionAction::complete);
+        return transitionAction(
+                tenantId,
+                caseId,
+                actionId,
+                version,
+                actor,
+                "ACTION_COMPLETED",
+                CollectionAction::complete);
     }
 
     @Transactional
     public CollectionAction cancelAction(
             UUID tenantId, UUID caseId, UUID actionId, long version, String actor) {
-        return transitionAction(tenantId, caseId, actionId, version, actor, "ACTION_CANCELLED", CollectionAction::cancel);
+        return transitionAction(
+                tenantId,
+                caseId,
+                actionId,
+                version,
+                actor,
+                "ACTION_CANCELLED",
+                CollectionAction::cancel);
     }
 
     @Transactional(readOnly = true)
