@@ -1,16 +1,16 @@
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
-import { AppI18nProvider } from '../../app/AppI18nProvider';
+import { I18nProvider } from '../../shared/i18n/i18n-context';
 import { IntegrationJourneyPage } from './IntegrationJourneyPage';
 
 describe('IntegrationJourneyPage', () => {
   it('explains the business journey and exposes available next actions', () => {
     render(
       <MemoryRouter>
-        <AppI18nProvider>
+        <I18nProvider requestedLocale="ru" requestedTimeZone="UTC">
           <IntegrationJourneyPage />
-        </AppI18nProvider>
+        </I18nProvider>
       </MemoryRouter>,
     );
 
@@ -27,9 +27,9 @@ describe('IntegrationJourneyPage', () => {
   it('does not present planned backend gaps as clickable functionality', () => {
     render(
       <MemoryRouter>
-        <AppI18nProvider>
+        <I18nProvider requestedLocale="ru" requestedTimeZone="UTC">
           <IntegrationJourneyPage />
-        </AppI18nProvider>
+        </I18nProvider>
       </MemoryRouter>,
     );
 
