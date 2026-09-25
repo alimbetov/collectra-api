@@ -47,23 +47,24 @@ public class FileController {
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("@fileAuthorization.canUpload(authentication)")
-    public FileMetadata upload(
+    public FileResponse upload(
             @RequestPart("file") MultipartFile file,
             @RequestParam FileCategory category,
             @RequestParam(required = false) UUID projectId,
             Authentication authentication)
             throws IOException {
         UUID tenantId = TenantContext.requireTenantId();
-        return fileService.upload(
-                new UploadFileCommand(
+        return FileResponse.from(
+                fileService.upload(
+                        new UploadFileCommand(
                         tenantId,
                         projectId,
                         category,
                         requiredFilename(file),
                         file.getContentType(),
                         file.getSize(),
-                        file.getInputStream(),
-                        subjectId(authentication)));
+                                file.getInputStream(),
+                                subjectId(authentication))));
     }
 
     @GetMapping

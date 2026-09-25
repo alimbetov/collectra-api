@@ -67,7 +67,8 @@ class FileControllerIntegrationTest extends AbstractIntegrationTest {
         assertThat(uploaded.get("status").asText()).isEqualTo("READY");
         assertThat(uploaded.get("category").asText()).isEqualTo("IMPORT_SOURCE");
         assertThat(uploaded.get("sizeBytes").asLong()).isEqualTo(CONTENT.length);
-        assertThat(uploaded.get("checksumSha256").asText()).hasSize(64);
+        assertThat(uploaded.has("tenantId")).isFalse();
+        assertThat(uploaded.has("checksumSha256")).isFalse();
 
         mockMvc.perform(
                         get("/api/v1/files/{fileId}", fileId)
