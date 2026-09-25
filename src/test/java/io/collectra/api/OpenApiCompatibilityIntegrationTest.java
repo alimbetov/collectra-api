@@ -186,6 +186,18 @@ class OpenApiCompatibilityIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void invoiceCreateReconciliationLookupIsDocumented() throws Exception {
+        JsonNode document = objectMapper.readTree(currentPublicApi());
+        JsonNode operation =
+                document.path("paths")
+                        .path("/api/v1/invoices/by-external-id/{externalId}")
+                        .path("get");
+        assertThat(operation.isMissingNode()).isFalse();
+        assertThat(findParameter(operation.path("parameters"), "externalId").path("required").asBoolean())
+                .isTrue();
+    }
+
+    @Test
     void receivableAllocationHistoryIsPagedAndBounded() throws Exception {
         JsonNode document = objectMapper.readTree(currentPublicApi());
 

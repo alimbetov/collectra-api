@@ -244,6 +244,39 @@ class ReceivableFrontendApiIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void invoiceCreateCanBeReconciledByTenantScopedExternalId() throws Exception {
+        String token = register("receivable-reconcile");
+        String foreignToken = register("receivable-reconcile-foreign");
+        JsonNode customer = createCustomer(token, "CUST-RECONCILE", "Reconcile Customer");
+        JsonNode invoice =
+                createInvoice(
+                        token,
+                        customer.get("id").asText(),
+                        null,
+                        "INV-RECONCILE",
+                        "INV-RECONCILE",
+                        "125.5000",
+                        "KZT");
+
+        mockMvc.perform(
+                        get("/api/v1/invoices/by-external-id/{externalId}", "INV-RECONCILE")
+                                .header("Authorization", bearer(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(invoice.get("id").asText()))
+                .andExpect(jsonPath("$.externalId").value("INV-RECONCILE"));
+
+        mockMvc.perform(
+                        get("/api/v1/invoices/by-external-id/{externalId}", "INV-RECONCILE")
+                                .header("Authorization", bearer(foreignToken)))
+                .andExpect(status().isNotFound());
+
+        mockMvc.perform(
+                        get("/api/v1/invoices/by-external-id/{externalId}", "UNKNOWN-INVOICE")
+                                .header("Authorization", bearer(token)))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
     void allocationHistoryIsPagedBoundedOrderedAndTenantScoped() throws Exception {
         String token = register("receivable-allocation-page");
         String foreignToken = register("receivable-allocation-page-foreign");
