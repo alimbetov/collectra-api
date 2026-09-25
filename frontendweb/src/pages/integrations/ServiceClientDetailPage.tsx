@@ -10,7 +10,7 @@ import { Alert, Button, ConfirmDialog, Spinner, StatusBadge } from '../../shared
 export function ServiceClientDetailPage() {
  const {clientId=''}=useParams(); const {hasPermission}=useAuth(); const qc=useQueryClient(); const q=useQuery(integrationQueries.serviceClient(clientId));
  const [confirm,setConfirm]=useState<'block'|'unblock'|null>(null); const [secret,setSecret]=useState<string|null>(null); const [issuedCredential,setIssuedCredential]=useState<string|null>(null); const [ack,setAck]=useState(false);
- const refresh=async()=>{await qc.invalidateQueries({queryKey:integrationKeys.serviceClients()});};
+ const refresh=async()=>{await qc.invalidateQueries({queryKey:integrationKeys.serviceClients()}); await qc.invalidateQueries({queryKey:integrationKeys.serviceClient(clientId)});};
  const block=useMutation({mutationFn:()=>q.data?.status==='BLOCKED'?unblockServiceClient(clientId):blockServiceClient(clientId),onSuccess:async()=>{setConfirm(null);await refresh();}});
  const rotate=useMutation({mutationFn:()=>rotateServiceClientSecret(clientId,{}),onSuccess:r=>{setSecret(r.clientSecret);setIssuedCredential(r.client.credentialId);setAck(false);}});
  const activate=useMutation({mutationFn:()=>activateServiceClientCredential(clientId,issuedCredential!),onSuccess:async()=>{setSecret(null);setIssuedCredential(null);setAck(false);await refresh();}});
