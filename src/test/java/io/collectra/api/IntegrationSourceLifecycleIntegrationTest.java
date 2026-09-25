@@ -66,7 +66,7 @@ class IntegrationSourceLifecycleIntegrationTest extends AbstractIntegrationTest 
         assertThatThrownBy(()->service.update(a.tenant.getId(),created.id(),created.version()+1,
                 new IntegrationSourceService.UpdateCommand("Changed",a.client.getId(),a.schemaDefinition.getId(),
                         a.mappingDefinition.getId(),"STANDARD",json.createObjectNode(),json.createObjectNode(),json.createObjectNode())))
-                .isInstanceOf(IllegalStateException.class).hasMessageContaining("version conflict");
+                .isInstanceOf(IntegrationSourceService.class.getPackageName().isEmpty() ? RuntimeException.class : io.collectra.api.integration.application.IntegrationSourceConflictException.class).hasMessageContaining("version conflict");
         assertThatThrownBy(()->service.get(b.tenant.getId(),created.id()))
                 .isInstanceOf(java.util.NoSuchElementException.class);
     }
@@ -84,7 +84,7 @@ class IntegrationSourceLifecycleIntegrationTest extends AbstractIntegrationTest 
         assertThat(readiness.checks()).anyMatch(c->c.code().equals("MAPPING_SCHEMA_COHERENT")
                 && c.state()==IntegrationSourceService.CheckState.BLOCKED);
         assertThatThrownBy(()->service.activate(f.tenant.getId(),created.id(),created.version()))
-                .isInstanceOf(IllegalStateException.class).hasMessageContaining("not ready");
+                .isInstanceOf(io.collectra.api.integration.application.IntegrationSourceConflictException.class).hasMessageContaining("not ready");
     }
 
     private IntegrationSourceService.CreateCommand command(Fixture f){
