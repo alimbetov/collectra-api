@@ -34,9 +34,7 @@ class ServiceClientLifecycleIntegrationTest extends AbstractIntegrationTest {
                                 .content(
                                         "{\"clientId\":\""
                                                 + clientId
-                                                + "\",\"name\":\"ERP\",\"clientSecret\":\""
-                                                + oldSecret
-                                                + "\",\"scopes\":[\"integration:imports:read\"]}"));
+                                                + "\",\"name\":\"ERP\",\"scopes\":[\"integration:imports:read\"]}"));
 
         oldSecret = client.get("clientSecret").asText();
         assertThat(oldSecret).hasSizeGreaterThanOrEqualTo(32);
@@ -58,7 +56,7 @@ class ServiceClientLifecycleIntegrationTest extends AbstractIntegrationTest {
                         post(
                                         "/api/v1/integration/service-clients/{id}/credentials/{credentialId}/activate",
                                         client.has("client") ? client.get("client").get("id").asText() : client.get("id").asText(),
-                                        rotating.get("credentialId").asText())
+                                        rotating.get("client").get("credentialId").asText())
                                 .header("Authorization", "Bearer " + accessToken))
                 .andExpect(status().isOk());
 
@@ -79,9 +77,7 @@ class ServiceClientLifecycleIntegrationTest extends AbstractIntegrationTest {
                                 .content(
                                         "{\"clientId\":\""
                                                 + clientId
-                                                + "\",\"name\":\"ERP\",\"clientSecret\":\""
-                                                + secret
-                                                + "\",\"scopes\":[\"integration:imports:read\"]}"));
+                                                + "\",\"name\":\"ERP\",\"scopes\":[\"integration:imports:read\"]}"));
 
         secret = client.get("clientSecret").asText();
         JsonNode safeClient = client.get("client");
