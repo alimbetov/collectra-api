@@ -253,8 +253,8 @@ public class CollectionQueryService {
                                         rs.getTimestamp("due_at") == null
                                                 ? null
                                                 : rs.getTimestamp("due_at").toInstant()));
-        long total = jdbc.queryForObject(
-                "SELECT count(*) " + from + where, parameters, Long.class);
+        long total =
+                jdbc.queryForObject("SELECT count(*) " + from + where, parameters, Long.class);
         List<UUID> ids = rows.stream().map(QueueRow::id).toList();
         Map<UUID, CollectionCase> casesById =
                 cases.findAllById(ids).stream()
