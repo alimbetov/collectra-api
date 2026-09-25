@@ -1,4 +1,4 @@
-import type { DecimalString, LocalDate, PageDto, UUID } from '../../../shared/api/contracts';
+import type { DecimalString, Instant, LocalDate, PageDto, UUID } from '../../../shared/api/contracts';
 
 export type PaymentStatus = 'OPEN' | 'PARTIALLY_PAID' | 'PAID' | 'CANCELLED';
 
@@ -45,4 +45,40 @@ export interface InvoiceListQuery {
   page: number;
   size: number;
   sort: string;
+}
+
+export interface InvoiceDetailDto {
+  id: UUID;
+  customerId: UUID;
+  contractId?: UUID | null;
+  externalId: string;
+  invoiceNumber: string;
+  invoiceDate?: LocalDate | null;
+  dueDate: LocalDate;
+  originalAmount: DecimalString;
+  paidAmount: DecimalString;
+  outstandingAmount: DecimalString;
+  currency: string;
+  paymentStatus: PaymentStatus;
+  overdue: boolean;
+  daysOverdue: number;
+  businessDate: LocalDate;
+  documentFileId?: UUID | null;
+  customFields?: unknown | null;
+  createdAt: Instant;
+  updatedAt: Instant;
+  version: number;
+}
+
+export interface InvoiceCreateCommand {
+  customerId: UUID;
+  contractId?: UUID | null;
+  externalId: string;
+  invoiceNumber: string;
+  invoiceDate?: LocalDate | null;
+  dueDate: LocalDate;
+  originalAmount: DecimalString;
+  currency: string;
+  documentFileId?: UUID | null;
+  customFields?: unknown | null;
 }
