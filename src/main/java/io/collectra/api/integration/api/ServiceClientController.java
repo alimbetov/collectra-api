@@ -6,7 +6,6 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Pattern;
-import jakarta.validation.constraints.Size;
 import java.time.Instant;
 import java.util.List;
 import java.util.Set;
@@ -34,7 +33,7 @@ public class ServiceClientController {
     @PostMapping("/service-clients")
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('SERVICE_CLIENT_CREATE')")
-    ServiceClientService.ClientResponse create(@Valid @RequestBody CreateRequest request) {
+    ServiceClientService.CredentialIssuedResponse create(@Valid @RequestBody CreateRequest request) {
         return service.create(
                 TenantContext.requireTenantId(),
                 request.clientId(),
@@ -68,7 +67,7 @@ public class ServiceClientController {
     @PostMapping("/service-clients/{id}/rotate-secret")
     @PreAuthorize(
             "hasAuthority('ROLE_HUMAN') and hasAuthority('SERVICE_CLIENT_ROTATE_SECRET')")
-    ServiceClientService.ClientResponse startRotation(
+    ServiceClientService.CredentialIssuedResponse startRotation(
             @PathVariable UUID id, @Valid @RequestBody RotateSecretRequest request) {
         return service.startRotation(
                 TenantContext.requireTenantId(),
@@ -101,14 +100,12 @@ public class ServiceClientController {
     record CreateRequest(
             @Pattern(regexp = "[a-z0-9-]{3,100}") String clientId,
             @NotBlank String name,
-            @Size(min = 32, max = 72) String clientSecret,
             @NotEmpty Set<String> scopes,
             Instant expiresAt,
             Instant secretExpiresAt) {}
 
     record ServiceClientScopeResponse(String code) {}
 
-    record RotateSecretRequest(
-            @Size(min = 32, max = 72) String clientSecret, Instant secretExpiresAt) {}
+    record RotateSecretRequest(Instant secretExpiresAt) {}
 
 }
