@@ -69,3 +69,11 @@ export const createMappingProfileVersion = (id:string,sourceSchemaVersionId:stri
 export const getMappingRules = (versionId:string) => apiRequest<MappingRuleDto[]>(`/api/v1/mapping-profiles/versions/${enc(versionId)}/rules`);
 export const validateMappingProfile = (versionId:string) => apiRequest<DefinitionValidationDto>(`/api/v1/mapping-profiles/versions/${enc(versionId)}/validate`,{method:'POST'});
 export const transitionMappingProfile = (versionId:string,action:'publish'|'reopen'|'archive') => apiRequest<MappingProfileVersionDto>(`/api/v1/mapping-profiles/versions/${enc(versionId)}/${action}`,{method:'POST'});
+
+export interface TargetFieldDto { id:string; key:string; label:string; dataType:string; category:string; required:boolean; system:boolean }
+export const getTargetFields = () => apiRequest<TargetFieldDto[]>('/api/v1/templates/fields');
+export const updateSourceField = (versionId:string,fieldId:string,body:Omit<SourceFieldDto,'id'>) => apiRequest<SourceFieldDto>(`/api/v1/source-schemas/versions/${enc(versionId)}/fields/${enc(fieldId)}`,{method:'PUT',body});
+export const deleteSourceField = (versionId:string,fieldId:string) => apiRequest<void>(`/api/v1/source-schemas/versions/${enc(versionId)}/fields/${enc(fieldId)}`,{method:'DELETE'});
+export const addMappingRule = (versionId:string,body:Omit<MappingRuleDto,'id'>) => apiRequest<MappingRuleDto>(`/api/v1/mapping-profiles/versions/${enc(versionId)}/rules`,{method:'POST',body});
+export const updateMappingRule = (versionId:string,ruleId:string,body:Omit<MappingRuleDto,'id'>) => apiRequest<MappingRuleDto>(`/api/v1/mapping-profiles/versions/${enc(versionId)}/rules/${enc(ruleId)}`,{method:'PUT',body});
+export const deleteMappingRule = (versionId:string,ruleId:string) => apiRequest<void>(`/api/v1/mapping-profiles/versions/${enc(versionId)}/rules/${enc(ruleId)}`,{method:'DELETE'});
