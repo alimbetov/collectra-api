@@ -80,6 +80,11 @@ A capability is DONE only when its real UI-to-database path is usable, authorize
 19. `CONTRACT` is optional domain context and is not a mandatory ingestion dependency or MVP business document type.
 20. Transport idempotency and business idempotency are separate invariants and both are required.
 21. Every public contract introduced or changed by a VC is verified against generated OpenAPI and the reviewed baseline in that same VC.
+22. Business-record partial success uses a bounded transaction per normalized business record; the entire ingestion batch is not one business transaction.
+23. `INVOICE` and `PAYMENT` may resolve-or-create their Customer by canonical external identity; a preceding standalone `CUSTOMER` record is not required.
+24. `contractId = null` is a valid Invoice state across ingestion, receivables and UI; Contract is never a hidden prerequisite.
+25. Optimistic-concurrency `version` is required input where commands use it; missing version is validation failure, stale version is a stable conflict.
+26. Business-ingestion and document-generation lifecycles remain distinct in API/UI semantics and status presentation.
 
 ## 4. Blocker/dependency matrix
 
@@ -195,6 +200,7 @@ Required:
 - selectors for tenant-owned Service Client, schema and mapping;
 - activate/suspend/archive;
 - optimistic `version` commands;
+- `version` is required and non-negative for versioned commands; missing version is validation failure, not implicit `0`;
 - `VERSION_CONFLICT`: preserve intent, reload authoritative resource, require explicit re-apply; never silent overwrite.
 
 Readiness is backend-driven. The response must be sufficient for:
@@ -287,6 +293,8 @@ HTTP ingest
 
 Large parsing/mapping/business work is not performed in the request transaction that reserves the operation. The HTTP-to-worker handoff must survive process crash after acceptance.
 
+Each normalized business record is persisted in its own bounded transaction (or equivalent independent rollback unit). One record conflict/failure must not roll back already committed successful records. Do not wrap the full business batch in one transaction.
+
 ## Terminal and record semantics
 
 Operation:
@@ -303,6 +311,8 @@ Record:
 
 Do not silently classify changed data as REUSED only because `externalId` exists. Before VC-3 is DONE, define a deterministic equivalence/fingerprint policy per canonical type, excluding volatile/internal fields. MVP defaults to conflict rather than silent overwrite unless an explicit update policy is designed and tested.
 
+Minimum equivalence inputs: CUSTOMER uses type/name components/company name/locale/timezone and canonical customer custom fields; INVOICE uses customer external identity, invoice number/date/due date, original amount/currency, optional contract/document context and canonical invoice custom fields; PAYMENT uses customer external identity, payment date, amount/currency, reference/source and canonical payment custom fields. DB UUIDs, audit timestamps and processing metadata are excluded. JSON object key order must not affect equivalence.
+
 ## Two idempotency layers
 
 **Transport idempotency:** tenant + IntegrationSource + Idempotency-Key plus request equivalence. Same key/same request replays the same operation; same key/different request returns a stable conflict.
@@ -313,7 +323,7 @@ Both are mandatory.
 
 ## Customer reference rule
 
-INVOICE and PAYMENT resolve customer through normalized customer external identity supported by the existing business persistence seam. External integrations do not need Collectra customer UUIDs for the canonical path. Customer is reused or created according to canonical persistence policy.
+INVOICE and PAYMENT resolve customer through normalized customer external identity supported by the existing business persistence seam. External integrations do not need Collectra customer UUIDs for the canonical path. Customer is reused or created according to canonical persistence policy. A standalone CUSTOMER record does not have to precede INVOICE or PAYMENT; input ordering is not a hidden dependency.
 
 ## Security and recovery
 
@@ -331,7 +341,7 @@ INVOICE and PAYMENT resolve customer through normalized customer external identi
 
 ## VC-3 contract gate
 
-The ingestion endpoint/status/problem contracts are generated into OpenAPI, covered by integration tests, and the compatibility baseline is reviewed in VC-3 itself.
+The ingestion endpoint/status/problem contracts are generated into OpenAPI, covered by explicit contract regression tests, and the compatibility baseline is reviewed in VC-3 itself.
 
 Rolling E2E: service submits canonical CUSTOMER/INVOICE/PAYMENT input and replays the same transport intent; one logical operation and no duplicate business effect result.
 
@@ -403,6 +413,7 @@ Routes:
 
 Backend closure before DONE:
 - Invoice list projection includes bounded server-resolved customer display name and optional contract number;
+- `contractId = null` is valid in create/detail/list/import flows and renders as normal absence of optional context, never an error/blocker;
 - Payment list projection includes customer display name;
 - allocation histories are paged or protected by documented hard bounds;
 - preserve the already implemented/tested lossless decimal-string money contract; do not redesign it;
@@ -688,6 +699,7 @@ A VC is DONE only when:
 - critical frontend behavior is tested;
 - rolling golden E2E is extended through this VC;
 - OpenAPI compatibility remains green and any changed public contract was reviewed in the same VC;
+- every changed endpoint/DTO/stable ProblemDetail code has explicit contract regression coverage in its owning VC;
 - CI is green on exact SHA;
 - no placeholder/mock/hardcoded business data remains in the primary path.
 
