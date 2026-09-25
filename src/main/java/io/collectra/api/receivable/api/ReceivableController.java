@@ -219,7 +219,9 @@ public class ReceivableController {
     public AllocationPageResponse allocations(
             @PathVariable UUID id,
             @RequestParam(defaultValue = "0") @Min(0) int page,
-            @RequestParam(defaultValue = "50") @Min(1) @Max(ReceivableService.MAX_ALLOCATION_PAGE_SIZE)
+            @RequestParam(defaultValue = "50")
+                    @Min(1)
+                    @Max(ReceivableService.MAX_ALLOCATION_PAGE_SIZE)
                     int size) {
         return AllocationPageResponse.from(service.allocations(tenant(), id, page, size));
     }
@@ -228,7 +230,9 @@ public class ReceivableController {
     public AllocationPageResponse invoiceAllocations(
             @PathVariable UUID id,
             @RequestParam(defaultValue = "0") @Min(0) int page,
-            @RequestParam(defaultValue = "50") @Min(1) @Max(ReceivableService.MAX_ALLOCATION_PAGE_SIZE)
+            @RequestParam(defaultValue = "50")
+                    @Min(1)
+                    @Max(ReceivableService.MAX_ALLOCATION_PAGE_SIZE)
                     int size) {
         return AllocationPageResponse.from(service.invoiceAllocations(tenant(), id, page, size));
     }
