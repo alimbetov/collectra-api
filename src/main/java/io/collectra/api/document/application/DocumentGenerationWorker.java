@@ -29,7 +29,7 @@ public class DocumentGenerationWorker {
     }
 
     public void generate(UUID tenantId, UUID jobId) {
-        var job = states.begin(tenantId, jobId);
+        var job = begin(tenantId, jobId);
         if (job == null) {
             return;
         }
@@ -46,5 +46,13 @@ public class DocumentGenerationWorker {
             outputs.storePdf(job.tenantId(), job.jobId(), pdf.render(html, version.getLocale()));
         }
         states.complete(tenantId, jobId);
+    }
+
+    private GenerationJobStateService.Snapshot begin(UUID tenantId, UUID jobId) {
+        try {
+            return states.begin(tenantId, jobId);
+        } catch (NoSuchElementException ignored) {
+            return null;
+        }
     }
 }

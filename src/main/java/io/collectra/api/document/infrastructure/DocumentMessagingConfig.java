@@ -82,7 +82,8 @@ public class DocumentMessagingConfig {
 
     @Bean
     Jackson2JsonMessageConverter rabbitJsonConverter(ObjectMapper json) {
-        return new Jackson2JsonMessageConverter(json);
+        return new Jackson2JsonMessageConverter(
+                json, "com.fasterxml.jackson.databind.node", "io.collectra.api");
     }
 
     private Queue retryQueue(String name, int ttl) {

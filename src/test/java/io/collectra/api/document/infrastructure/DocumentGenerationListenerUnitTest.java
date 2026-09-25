@@ -10,6 +10,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.collectra.api.document.application.DocumentGenerationWorker;
 import io.collectra.api.document.application.GenerationJobStateService;
 import io.collectra.api.document.infrastructure.MinioDocumentStorage.DocumentStorageException;
+import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.amqp.core.Message;
@@ -21,9 +22,9 @@ class DocumentGenerationListenerUnitTest {
     private final DocumentGenerationWorker worker = mock(DocumentGenerationWorker.class);
     private final GenerationJobStateService states = mock(GenerationJobStateService.class);
     private final RabbitTemplate rabbit = mock(RabbitTemplate.class);
-    private final DocumentGenerationListener listener =
-            new DocumentGenerationListener(worker, states, rabbit);
     private final ObjectMapper json = new ObjectMapper();
+    private final DocumentGenerationListener listener =
+            new DocumentGenerationListener(worker, states, rabbit, json);
 
     @Test
     void routesTransientFailureThroughDelayedRetryQueue() {
@@ -37,7 +38,7 @@ class DocumentGenerationListenerUnitTest {
                 .when(worker)
                 .generate(tenantId, jobId);
 
-        listener.consume(payload, new Message(new byte[0], new MessageProperties()));
+        listener.consume(message(payload.toString()));
 
         verify(states).retry(tenantId, jobId, "GENERATION_RETRY", "IOException");
         verify(rabbit)
@@ -60,7 +61,7 @@ class DocumentGenerationListenerUnitTest {
                 .when(worker)
                 .generate(tenantId, jobId);
 
-        listener.consume(payload, new Message(new byte[0], new MessageProperties()));
+        listener.consume(message(payload.toString()));
 
         verify(states).fail(tenantId, jobId, "GENERATION_FAILED", "invalid template");
         verify(rabbit)
@@ -69,5 +70,9 @@ class DocumentGenerationListenerUnitTest {
                         eq("generation.dead"),
                         eq(payload),
                         any(MessagePostProcessor.class));
+    }
+
+    private Message message(String payload) {
+        return new Message(payload.getBytes(StandardCharsets.UTF_8), new MessageProperties());
     }
 }

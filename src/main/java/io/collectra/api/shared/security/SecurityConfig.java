@@ -76,8 +76,6 @@ public class SecurityConfig {
                                         .requestMatchers("/api/v1/identity/**", "/api/v1/audit/**")
                                         .hasAuthority("ROLE_HUMAN")
                                         .requestMatchers(
-                                                "/api/v1/integration/service-clients/**",
-                                                "/api/v1/integration/service-client-scopes",
                                                 "/api/v1/integration/sources/*/ingestions/**")
                                         .hasAuthority("ROLE_SERVICE")
                                         .requestMatchers(

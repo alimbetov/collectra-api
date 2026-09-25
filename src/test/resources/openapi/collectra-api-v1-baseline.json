@@ -3092,6 +3092,65 @@
         }
       }
     },
+    "/api/v1/integration/sources/{sourceCode}/ingestions" : {
+      "post" : {
+        "tags" : [ "ingestion-controller" ],
+        "operationId" : "ingest",
+        "parameters" : [ {
+          "name" : "sourceCode",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "X-Request-Id",
+          "in" : "header",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "Content-Type",
+          "in" : "header",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "default" : "application/json"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "type" : "string",
+                "format" : "byte"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "202" : {
+            "description" : "Accepted",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Reservation"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/integration/sources/{id}/suspend" : {
       "post" : {
         "tags" : [ "integration-source-controller" ],
@@ -3391,6 +3450,81 @@
       }
     },
     "/api/v1/import-batches" : {
+      "get" : {
+        "tags" : [ "import-operations-controller" ],
+        "operationId" : "list_7",
+        "parameters" : [ {
+          "name" : "status",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "from",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "to",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "idempotencyKey",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "page",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 50
+          }
+        }, {
+          "name" : "sort",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PageBatchSummary"
+                }
+              }
+            }
+          }
+        }
+      },
       "post" : {
         "tags" : [ "import-batch-controller" ],
         "operationId" : "create_7",
@@ -3670,7 +3804,7 @@
     "/api/v1/identity/invitations" : {
       "get" : {
         "tags" : [ "tenant-invitation-controller" ],
-        "operationId" : "list_7",
+        "operationId" : "list_8",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -3768,7 +3902,7 @@
     "/api/v1/customers" : {
       "get" : {
         "tags" : [ "customer-controller" ],
-        "operationId" : "list_8",
+        "operationId" : "list_9",
         "parameters" : [ {
           "name" : "search",
           "in" : "query",
@@ -4102,7 +4236,7 @@
     "/api/v1/customer-segments" : {
       "get" : {
         "tags" : [ "customer-segment-controller" ],
-        "operationId" : "list_9",
+        "operationId" : "list_10",
         "parameters" : [ {
           "name" : "search",
           "in" : "query",
@@ -4190,7 +4324,7 @@
     "/api/v1/contracts" : {
       "get" : {
         "tags" : [ "contract-controller" ],
-        "operationId" : "list_10",
+        "operationId" : "list_11",
         "parameters" : [ {
           "name" : "search",
           "in" : "query",
@@ -4474,7 +4608,7 @@
     "/api/v1/collection-cases" : {
       "get" : {
         "tags" : [ "collection-controller" ],
-        "operationId" : "list_11",
+        "operationId" : "list_12",
         "parameters" : [ {
           "name" : "customerId",
           "in" : "query",
@@ -5209,7 +5343,7 @@
     "/api/v1/campaigns" : {
       "get" : {
         "tags" : [ "campaign-controller" ],
-        "operationId" : "list_12",
+        "operationId" : "list_13",
         "parameters" : [ {
           "name" : "search",
           "in" : "query",
@@ -6671,7 +6805,7 @@
     "/api/v1/platform/tenants" : {
       "get" : {
         "tags" : [ "platform-tenant-controller" ],
-        "operationId" : "list_13",
+        "operationId" : "list_14",
         "parameters" : [ {
           "name" : "search",
           "in" : "query",
@@ -8083,6 +8217,40 @@
         }
       }
     },
+    "/api/v1/integration/sources/{sourceCode}/ingestions/{id}" : {
+      "get" : {
+        "tags" : [ "ingestion-controller" ],
+        "operationId" : "status_1",
+        "parameters" : [ {
+          "name" : "sourceCode",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Reservation"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/integration/sources/{id}/readiness" : {
       "get" : {
         "tags" : [ "integration-source-controller" ],
@@ -8158,10 +8326,148 @@
         }
       }
     },
+    "/api/v1/integration/ingestion-batches" : {
+      "get" : {
+        "tags" : [ "ingestion-operations-controller" ],
+        "operationId" : "list_15",
+        "parameters" : [ {
+          "name" : "status",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "from",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "to",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "sourceCode",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "idempotencyKey",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "pageable",
+          "in" : "query",
+          "required" : true,
+          "schema" : {
+            "$ref" : "#/components/schemas/Pageable"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PageBatchSummary"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/integration/ingestion-batches/{id}" : {
+      "get" : {
+        "tags" : [ "ingestion-operations-controller" ],
+        "operationId" : "get_7",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BatchDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/integration/ingestion-batches/{id}/records" : {
+      "get" : {
+        "tags" : [ "ingestion-operations-controller" ],
+        "operationId" : "records",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "outcome",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "targetType",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "pageable",
+          "in" : "query",
+          "required" : true,
+          "schema" : {
+            "$ref" : "#/components/schemas/Pageable"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PageRecordDiagnostic"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/imports" : {
       "get" : {
         "tags" : [ "import-history-controller" ],
-        "operationId" : "list_14",
+        "operationId" : "list_16",
         "parameters" : [ {
           "name" : "status",
           "in" : "query",
@@ -8221,7 +8527,7 @@
     "/api/v1/imports/{importId}" : {
       "get" : {
         "tags" : [ "import-history-controller" ],
-        "operationId" : "get_7",
+        "operationId" : "get_8",
         "parameters" : [ {
           "name" : "importId",
           "in" : "path",
@@ -8290,10 +8596,37 @@
         }
       }
     },
+    "/api/v1/import-batches/{id}/operations" : {
+      "get" : {
+        "tags" : [ "import-operations-controller" ],
+        "operationId" : "detail_2",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BatchDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/import-batches/{batchId}" : {
       "get" : {
         "tags" : [ "import-batch-controller" ],
-        "operationId" : "get_8",
+        "operationId" : "get_9",
         "parameters" : [ {
           "name" : "batchId",
           "in" : "path",
@@ -8310,6 +8643,61 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/BatchResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/import-batches/{batchId}/errors" : {
+      "get" : {
+        "tags" : [ "import-batch-controller" ],
+        "operationId" : "errors_1",
+        "parameters" : [ {
+          "name" : "batchId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "page",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 50
+          }
+        }, {
+          "name" : "sort",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PageDiagnostic"
                 }
               }
             }
@@ -8399,7 +8787,7 @@
     "/api/v1/identity/permissions" : {
       "get" : {
         "tags" : [ "tenant-permission-controller" ],
-        "operationId" : "list_15",
+        "operationId" : "list_17",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -8489,7 +8877,7 @@
     "/api/v1/generated-documents" : {
       "get" : {
         "tags" : [ "generated-document-query-controller" ],
-        "operationId" : "list_16",
+        "operationId" : "list_18",
         "parameters" : [ {
           "name" : "format",
           "in" : "query",
@@ -8557,7 +8945,7 @@
     "/api/v1/generated-documents/{documentId}" : {
       "get" : {
         "tags" : [ "generated-document-query-controller" ],
-        "operationId" : "get_9",
+        "operationId" : "get_10",
         "parameters" : [ {
           "name" : "documentId",
           "in" : "path",
@@ -8584,7 +8972,7 @@
     "/api/v1/files/{fileId}" : {
       "get" : {
         "tags" : [ "file-controller" ],
-        "operationId" : "get_10",
+        "operationId" : "get_11",
         "parameters" : [ {
           "name" : "fileId",
           "in" : "path",
@@ -8684,7 +9072,7 @@
     "/api/v1/documents/generation-jobs/{jobId}" : {
       "get" : {
         "tags" : [ "generation-job-controller" ],
-        "operationId" : "get_11",
+        "operationId" : "get_12",
         "parameters" : [ {
           "name" : "jobId",
           "in" : "path",
@@ -8992,7 +9380,7 @@
     "/api/v1/campaigns/{campaignId}/runs/{runId}/messages" : {
       "get" : {
         "tags" : [ "message-controller" ],
-        "operationId" : "list_17",
+        "operationId" : "list_19",
         "parameters" : [ {
           "name" : "campaignId",
           "in" : "path",
@@ -9072,7 +9460,7 @@
     "/api/v1/campaigns/{campaignId}/runs/{runId}/messages/{messageId}" : {
       "get" : {
         "tags" : [ "message-controller" ],
-        "operationId" : "detail_2",
+        "operationId" : "detail_3",
         "parameters" : [ {
           "name" : "campaignId",
           "in" : "path",
@@ -10609,7 +10997,7 @@
             "format" : "int64"
           }
         },
-        "required" : [ "mappingProfileDefinitionId", "name", "serviceClientId", "sourceSchemaDefinitionId" ]
+        "required" : [ "mappingProfileDefinitionId", "name", "serviceClientId", "sourceSchemaDefinitionId", "version" ]
       },
       "SourceResponse" : {
         "type" : "object",
@@ -12125,6 +12513,65 @@
           "version" : {
             "type" : "integer",
             "format" : "int64"
+          }
+        }
+      },
+      "Reservation" : {
+        "type" : "object",
+        "properties" : {
+          "ingestionId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "sourceCode" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "replayed" : {
+            "type" : "boolean"
+          },
+          "requestId" : {
+            "type" : "string"
+          },
+          "sourceSchemaVersionId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "mappingProfileVersionId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "receivedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "recordCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "createdCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "reusedCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "conflictCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "failedCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "errorCode" : {
+            "type" : "string"
+          },
+          "errorMessage" : {
+            "type" : "string"
           }
         }
       },
@@ -15331,6 +15778,328 @@
           }
         }
       },
+      "Pageable" : {
+        "type" : "object",
+        "properties" : {
+          "page" : {
+            "type" : "integer",
+            "format" : "int32",
+            "minimum" : 0
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32",
+            "minimum" : 1
+          },
+          "sort" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }
+      },
+      "BatchSummary" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "sourceCode" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "idempotencyKey" : {
+            "type" : "string"
+          },
+          "requestId" : {
+            "type" : "string"
+          },
+          "receivedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "completedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "recordCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "createdCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "reusedCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "conflictCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "failedCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "PageBatchSummary" : {
+        "type" : "object",
+        "properties" : {
+          "totalElements" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "totalPages" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "number" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "first" : {
+            "type" : "boolean"
+          },
+          "last" : {
+            "type" : "boolean"
+          },
+          "numberOfElements" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "sort" : {
+            "$ref" : "#/components/schemas/SortObject"
+          },
+          "pageable" : {
+            "$ref" : "#/components/schemas/PageableObject"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "content" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/BatchSummary"
+            }
+          },
+          "empty" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "PageableObject" : {
+        "type" : "object",
+        "properties" : {
+          "sort" : {
+            "$ref" : "#/components/schemas/SortObject"
+          },
+          "paged" : {
+            "type" : "boolean"
+          },
+          "pageNumber" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "pageSize" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "unpaged" : {
+            "type" : "boolean"
+          },
+          "offset" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "SortObject" : {
+        "type" : "object",
+        "properties" : {
+          "sorted" : {
+            "type" : "boolean"
+          },
+          "unsorted" : {
+            "type" : "boolean"
+          },
+          "empty" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "BatchDetail" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "sourceCode" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "idempotencyKey" : {
+            "type" : "string"
+          },
+          "requestId" : {
+            "type" : "string"
+          },
+          "rawSourceFileId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "sourceSchemaVersionId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "mappingProfileVersionId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "receivedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "processingStartedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "completedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "processingAttempts" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "recordCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "createdCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "reusedCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "conflictCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "failedCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "errorCode" : {
+            "type" : "string"
+          },
+          "errorMessage" : {
+            "type" : "string"
+          }
+        }
+      },
+      "PageRecordDiagnostic" : {
+        "type" : "object",
+        "properties" : {
+          "totalElements" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "totalPages" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "number" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "first" : {
+            "type" : "boolean"
+          },
+          "last" : {
+            "type" : "boolean"
+          },
+          "numberOfElements" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "sort" : {
+            "$ref" : "#/components/schemas/SortObject"
+          },
+          "pageable" : {
+            "$ref" : "#/components/schemas/PageableObject"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "content" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/RecordDiagnostic"
+            }
+          },
+          "empty" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "RecordDiagnostic" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "recordOrder" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "documentKey" : {
+            "type" : "string"
+          },
+          "outcome" : {
+            "type" : "string"
+          },
+          "stage" : {
+            "type" : "string"
+          },
+          "targetType" : {
+            "type" : "string"
+          },
+          "targetId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "externalId" : {
+            "type" : "string"
+          },
+          "errorCode" : {
+            "type" : "string"
+          },
+          "errorMessage" : {
+            "type" : "string"
+          },
+          "fieldPath" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
       "ImportItem" : {
         "type" : "object",
         "properties" : {
@@ -15445,6 +16214,91 @@
             "format" : "int32"
           },
           "hasNext" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "Diagnostic" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "recordNumber" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "recordOrder" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "documentKey" : {
+            "type" : "string"
+          },
+          "stage" : {
+            "type" : "string"
+          },
+          "fieldPath" : {
+            "type" : "string"
+          },
+          "errorCode" : {
+            "type" : "string"
+          },
+          "safeDetail" : {
+            "type" : "string"
+          },
+          "maskedSourceValue" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "PageDiagnostic" : {
+        "type" : "object",
+        "properties" : {
+          "totalElements" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "totalPages" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "number" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "first" : {
+            "type" : "boolean"
+          },
+          "last" : {
+            "type" : "boolean"
+          },
+          "numberOfElements" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "sort" : {
+            "$ref" : "#/components/schemas/SortObject"
+          },
+          "pageable" : {
+            "$ref" : "#/components/schemas/PageableObject"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "content" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Diagnostic"
+            }
+          },
+          "empty" : {
             "type" : "boolean"
           }
         }

@@ -19,8 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class ImportDiagnosticService {
     public static final int MAX_PAGE_SIZE = 100;
-    private static final Set<String> SUPPORTED_SORT =
-            Set.of("recordNumber", "fieldPath", "id");
+    private static final Set<String> SUPPORTED_SORT = Set.of("recordNumber", "fieldPath", "id");
 
     private final ImportBatchRepository batches;
     private final ImportRecordDiagnosticRepository diagnostics;
@@ -53,7 +52,8 @@ public class ImportDiagnosticService {
         requireImport(tenantId, importId);
         if (recordNumber < 0 || recordOrder < 0) {
             throw new InvalidRequestException(
-                    "INVALID_IMPORT_DIAGNOSTIC", "recordNumber and recordOrder must be non-negative");
+                    "INVALID_IMPORT_DIAGNOSTIC",
+                    "recordNumber and recordOrder must be non-negative");
         }
         ImportRecordDiagnostic entity =
                 new ImportRecordDiagnostic(
@@ -72,7 +72,8 @@ public class ImportDiagnosticService {
     }
 
     @Transactional(readOnly = true)
-    public Page<Diagnostic> errors(UUID tenantId, UUID importId, int page, int size, List<String> sort) {
+    public Page<Diagnostic> errors(
+            UUID tenantId, UUID importId, int page, int size, List<String> sort) {
         requireImport(tenantId, importId);
         if (page < 0 || size <= 0 || size > MAX_PAGE_SIZE) {
             throw new InvalidRequestException(
@@ -82,10 +83,11 @@ public class ImportDiagnosticService {
         Sort stable =
                 Sort.by(
                         Sort.Order.asc("recordNumber"),
-                        Sort.Order.asc("fieldPath").nullsFirst(),
+                        Sort.Order.asc("fieldPath"),
                         Sort.Order.asc("id"));
         return diagnostics
-                .findAllByTenantIdAndImportId(tenantId, importId, PageRequest.of(page, size, stable))
+                .findAllByTenantIdAndImportId(
+                        tenantId, importId, PageRequest.of(page, size, stable))
                 .map(this::toDto);
     }
 

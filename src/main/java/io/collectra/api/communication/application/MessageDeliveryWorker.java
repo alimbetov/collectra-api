@@ -2,6 +2,7 @@ package io.collectra.api.communication.application;
 
 import java.time.Clock;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -43,7 +44,7 @@ public class MessageDeliveryWorker {
     }
 
     public void deliver(UUID tenantId, UUID messageId) {
-        var claimed = states.begin(tenantId, messageId);
+        var claimed = begin(tenantId, messageId);
         if (claimed.isEmpty()) {
             return;
         }
@@ -124,5 +125,13 @@ public class MessageDeliveryWorker {
         }
         states.markFailed(
                 message.tenantId(), message.messageId(), failure.code(), failure.getMessage());
+    }
+
+    private java.util.Optional<MessageDeliverySnapshot> begin(UUID tenantId, UUID messageId) {
+        try {
+            return states.begin(tenantId, messageId);
+        } catch (NoSuchElementException ignored) {
+            return java.util.Optional.empty();
+        }
     }
 }

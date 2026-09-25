@@ -1,9 +1,11 @@
 package io.collectra.api.document.infrastructure;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.collectra.api.document.application.DocumentGenerationWorker;
 import io.collectra.api.document.application.GenerationJobStateService;
 import io.collectra.api.document.application.PdfRenderer;
+import java.io.IOException;
 import java.util.UUID;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
@@ -15,18 +17,22 @@ public class DocumentGenerationListener {
     private final DocumentGenerationWorker worker;
     private final GenerationJobStateService states;
     private final RabbitTemplate rabbit;
+    private final ObjectMapper json;
 
     public DocumentGenerationListener(
             DocumentGenerationWorker worker,
             GenerationJobStateService states,
-            RabbitTemplate rabbit) {
+            RabbitTemplate rabbit,
+            ObjectMapper json) {
         this.worker = worker;
         this.states = states;
         this.rabbit = rabbit;
+        this.json = json;
     }
 
     @RabbitListener(queues = DocumentMessagingConfig.QUEUE)
-    public void consume(JsonNode payload, Message message) {
+    public void consume(Message message) {
+        JsonNode payload = readPayload(message);
         UUID tenantId = requiredUuid(payload, "tenantId");
         UUID jobId = requiredUuid(payload, "jobId");
         int retry =
@@ -59,6 +65,14 @@ public class DocumentGenerationListener {
                         outgoing.getMessageProperties().setHeader("x-retry-count", retry + 1);
                         return outgoing;
                     });
+        }
+    }
+
+    private JsonNode readPayload(Message message) {
+        try {
+            return json.readTree(message.getBody());
+        } catch (IOException ex) {
+            throw new IllegalArgumentException("Invalid document generation message payload", ex);
         }
     }
 

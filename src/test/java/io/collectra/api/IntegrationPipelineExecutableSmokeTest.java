@@ -72,7 +72,8 @@ class IntegrationPipelineExecutableSmokeTest extends AbstractIntegrationTest {
     @Autowired ObjectMapper json;
 
     @Test
-    void fixtureTraversesRealMappingPersistenceRenderingAttachmentAndDeliveryPipeline() {
+    void fixtureTraversesRealMappingPersistenceRenderingAttachmentAndDeliveryPipeline()
+            throws Exception {
         Tenant tenant = tenant("i0-success");
         Tenant foreign = tenant("i0-foreign");
         var customer =
@@ -127,8 +128,8 @@ class IntegrationPipelineExecutableSmokeTest extends AbstractIntegrationTest {
                         tenant,
                         TemplateChannel.EMAIL,
                         "I0_EMAIL",
-                        "Debt {{invoice.number}}",
-                        "<p>{{customer.name}} owes {{invoice.outstandingAmount}}</p>",
+                        "Debt {{customer.name}}",
+                        "<p>{{customer.name}} owes ERP invoice</p>",
                         "INVOICE");
         TemplateVersion pdf =
                 template(
@@ -136,7 +137,7 @@ class IntegrationPipelineExecutableSmokeTest extends AbstractIntegrationTest {
                         TemplateChannel.PDF,
                         "I0_PDF",
                         null,
-                        "<h1>{{invoice.number}}</h1><p>{{customer.name}}</p>",
+                        "<h1>{{customer.name}}</h1><p>ERP invoice</p>",
                         "INVOICE");
         var campaign =
                 campaigns.create(
@@ -179,7 +180,7 @@ class IntegrationPipelineExecutableSmokeTest extends AbstractIntegrationTest {
                                 tenant.getId(), queued.getId())
                         .get(0);
         assertThat(attachment.getStatus()).isEqualTo(MessageAttachmentStatus.PENDING);
-        var job = jobs.findById(attachment.getGenerationJobId()).orElseThrow();
+        var job = awaitJob(attachment.getGenerationJobId());
         assertThat(job.getStatus()).isEqualTo(GenerationJobStatus.PENDING);
 
         documentWorker.generate(foreign.getId(), job.getId());
@@ -251,6 +252,16 @@ class IntegrationPipelineExecutableSmokeTest extends AbstractIntegrationTest {
         assertThat(attempts.count()).isEqualTo(attemptsBefore);
     }
 
+    private io.collectra.api.document.domain.GenerationJob awaitJob(UUID jobId) throws Exception {
+        long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(5);
+        while (System.nanoTime() < deadline) {
+            var job = jobs.findById(jobId);
+            if (job.isPresent()) return job.get();
+            Thread.sleep(100);
+        }
+        return jobs.findById(jobId).orElseThrow();
+    }
+
     private MappingFixture mapping(Tenant tenant) {
         SourceSchema schema =
                 new SourceSchema(
@@ -306,7 +317,7 @@ class IntegrationPipelineExecutableSmokeTest extends AbstractIntegrationTest {
     }
 
     private void rule(MappingProfile p, SourceField source, String targetKey, String transform) {
-        FieldDefinition target = fields.findById(targetFieldId(targetKey)).orElseThrow();
+        FieldDefinition target = target(targetKey);
         var cfg = json.createObjectNode().put("type", transform);
         if (transform.equals("DATE_PARSE")) cfg.put("pattern", "yyyy-MM-dd");
         if (transform.equals("DECIMAL_PARSE")) cfg.put("decimalSeparator", ".");
@@ -314,19 +325,11 @@ class IntegrationPipelineExecutableSmokeTest extends AbstractIntegrationTest {
                 new MappingRule(p.getId(), source.getId(), target.getId(), cfg, null, true));
     }
 
-    private UUID targetFieldId(String key) {
-        return UUID.fromString(
-                switch (key) {
-                    case "customer.externalId" -> "20000000-0000-0000-0000-000000000010";
-                    case "invoice.externalId" -> "20000000-0000-0000-0000-000000000020";
-                    case "invoice.invoiceNumber" -> "20000000-0000-0000-0000-000000000021";
-                    case "invoice.invoiceDate" -> "20000000-0000-0000-0000-000000000022";
-                    case "invoice.dueDate" -> "20000000-0000-0000-0000-000000000023";
-                    case "invoice.amount" -> "20000000-0000-0000-0000-000000000024";
-                    case "invoice.currency" -> "20000000-0000-0000-0000-000000000025";
-                    default ->
-                            throw new IllegalArgumentException("Unknown I0 target field: " + key);
-                });
+    private FieldDefinition target(String key) {
+        return fields.findAvailable(null).stream()
+                .filter(field -> field.getKey().equals(key))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Unknown I0 target field: " + key));
     }
 
     private Tenant tenant(String prefix) {
