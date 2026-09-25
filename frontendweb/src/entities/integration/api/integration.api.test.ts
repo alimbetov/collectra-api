@@ -14,6 +14,7 @@ import {
   activateIntegrationSource, suspendIntegrationSource, archiveIntegrationSource, getSourceSchemaDefinitions, getMappingProfileDefinitions,
   createSourceSchema, getSourceSchemaVersions, createSourceSchemaVersion, getSourceFields, validateSourceSchema, transitionSourceSchema,
   createMappingProfile, getMappingProfileVersions, createMappingProfileVersion, getMappingRules, validateMappingProfile, transitionMappingProfile,
+  updateSourceField, deleteSourceField, addMappingRule, updateMappingRule, deleteMappingRule, getTargetFields,
 } from './integration.api';
 
 vi.mock('../../../shared/api/http-client', () => ({ apiRequest: vi.fn() }));
@@ -76,6 +77,9 @@ describe('integration api contracts', () => {
     await getSourceFields('v'); expect(request).toHaveBeenLastCalledWith('/api/v1/source-schemas/versions/v/fields');
     await validateSourceSchema('v'); expect(request).toHaveBeenLastCalledWith('/api/v1/source-schemas/versions/v/validate',{method:'POST'});
     await transitionSourceSchema('v','publish'); expect(request).toHaveBeenLastCalledWith('/api/v1/source-schemas/versions/v/publish',{method:'POST'});
+    const field={sourcePath:'customer.id',detectedType:null,sampleValue:null,required:true,position:1,scope:'DOCUMENT' as const,documentKey:true,valuePolicy:'FIRST_NON_EMPTY'};
+    await updateSourceField('v','f',field); expect(request).toHaveBeenLastCalledWith('/api/v1/source-schemas/versions/v/fields/f',{method:'PUT',body:field});
+    await deleteSourceField('v','f'); expect(request).toHaveBeenLastCalledWith('/api/v1/source-schemas/versions/v/fields/f',{method:'DELETE'});
   });
 
   it('uses exact mapping studio contracts', async () => {
@@ -85,6 +89,11 @@ describe('integration api contracts', () => {
     await getMappingRules('v'); expect(request).toHaveBeenLastCalledWith('/api/v1/mapping-profiles/versions/v/rules');
     await validateMappingProfile('v'); expect(request).toHaveBeenLastCalledWith('/api/v1/mapping-profiles/versions/v/validate',{method:'POST'});
     await transitionMappingProfile('v','publish'); expect(request).toHaveBeenLastCalledWith('/api/v1/mapping-profiles/versions/v/publish',{method:'POST'});
+    const rule={sourceFieldId:'s',targetFieldId:'t',transformation:{type:'TRIM'},defaultValue:null,required:true};
+    await addMappingRule('v',rule); expect(request).toHaveBeenLastCalledWith('/api/v1/mapping-profiles/versions/v/rules',{method:'POST',body:rule});
+    await updateMappingRule('v','r',rule); expect(request).toHaveBeenLastCalledWith('/api/v1/mapping-profiles/versions/v/rules/r',{method:'PUT',body:rule});
+    await deleteMappingRule('v','r'); expect(request).toHaveBeenLastCalledWith('/api/v1/mapping-profiles/versions/v/rules/r',{method:'DELETE'});
+    await getTargetFields(); expect(request).toHaveBeenLastCalledWith('/api/v1/templates/fields');
   });
 
   it('uses backend-owned mapping metadata', async () => {
