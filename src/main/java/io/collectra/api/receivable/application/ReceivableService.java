@@ -23,12 +23,15 @@ import java.util.Optional;
 import java.util.UUID;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class ReceivableService {
+    public static final int MAX_ALLOCATION_PAGE_SIZE = 100;
     private final InvoiceRepository invoices;
     private final PaymentRepository payments;
     private final PaymentAllocationRepository allocations;
@@ -286,15 +289,31 @@ public class ReceivableService {
     }
 
     @Transactional(readOnly = true)
-    public List<PaymentAllocation> allocations(UUID tenantId, UUID paymentId) {
+    public Page<PaymentAllocation> allocations(UUID tenantId, UUID paymentId, int page, int size) {
         payment(tenantId, paymentId);
-        return allocations.findAllByTenantIdAndPaymentIdOrderByCreatedAtAsc(tenantId, paymentId);
+        return allocations.findAllByTenantIdAndPaymentId(
+                tenantId, paymentId, allocationPage(page, size));
     }
 
     @Transactional(readOnly = true)
-    public List<PaymentAllocation> invoiceAllocations(UUID tenantId, UUID invoiceId) {
+    public Page<PaymentAllocation> invoiceAllocations(
+            UUID tenantId, UUID invoiceId, int page, int size) {
         invoice(tenantId, invoiceId);
-        return allocations.findAllByTenantIdAndInvoiceIdOrderByCreatedAtAsc(tenantId, invoiceId);
+        return allocations.findAllByTenantIdAndInvoiceId(
+                tenantId, invoiceId, allocationPage(page, size));
+    }
+
+    private Pageable allocationPage(int page, int size) {
+        if (page < 0 || size <= 0 || size > MAX_ALLOCATION_PAGE_SIZE) {
+            throw new io.collectra.api.shared.error.InvalidRequestException(
+                    "INVALID_PAGE_REQUEST",
+                    "page must be >= 0 and size must be between 1 and "
+                            + MAX_ALLOCATION_PAGE_SIZE);
+        }
+        return PageRequest.of(
+                page,
+                size,
+                Sort.by(Sort.Order.asc("createdAt"), Sort.Order.asc("id")));
     }
 
     private Payment lockPayment(UUID tenantId, UUID id) {

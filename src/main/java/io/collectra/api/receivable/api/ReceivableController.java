@@ -25,6 +25,7 @@ import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -208,15 +209,21 @@ public class ReceivableController {
     }
 
     @GetMapping("/api/v1/payments/{id}/allocations")
-    public List<AllocationResponse> allocations(@PathVariable UUID id) {
-        return service.allocations(tenant(), id).stream().map(AllocationResponse::from).toList();
+    public AllocationPageResponse allocations(
+            @PathVariable UUID id,
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "50") @Min(1) @Max(ReceivableService.MAX_ALLOCATION_PAGE_SIZE)
+                    int size) {
+        return AllocationPageResponse.from(service.allocations(tenant(), id, page, size));
     }
 
     @GetMapping("/api/v1/invoices/{id}/allocations")
-    public List<AllocationResponse> invoiceAllocations(@PathVariable UUID id) {
-        return service.invoiceAllocations(tenant(), id).stream()
-                .map(AllocationResponse::from)
-                .toList();
+    public AllocationPageResponse invoiceAllocations(
+            @PathVariable UUID id,
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "50") @Min(1) @Max(ReceivableService.MAX_ALLOCATION_PAGE_SIZE)
+                    int size) {
+        return AllocationPageResponse.from(service.invoiceAllocations(tenant(), id, page, size));
     }
 
     @PostMapping("/api/v1/payments/{paymentId}/allocations/{allocationId}/reverse")
@@ -384,6 +391,25 @@ public class ReceivableController {
                     value.getReversalReason(),
                     value.getCreatedAt(),
                     value.getVersion());
+        }
+    }
+
+    @Schema(name = "AllocationPage")
+    public record AllocationPageResponse(
+            List<AllocationResponse> items,
+            int page,
+            int size,
+            long totalElements,
+            int totalPages,
+            boolean hasNext) {
+        static AllocationPageResponse from(Page<PaymentAllocation> value) {
+            return new AllocationPageResponse(
+                    value.getContent().stream().map(AllocationResponse::from).toList(),
+                    value.getNumber(),
+                    value.getSize(),
+                    value.getTotalElements(),
+                    value.getTotalPages(),
+                    value.hasNext());
         }
     }
 
