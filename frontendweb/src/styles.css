@@ -952,3 +952,28 @@ button:disabled {
     flex-direction: column;
   }
 }
+
+
+.integration-page { display:grid; gap:20px; max-width:1100px; }
+.integration-page h1 { margin:4px 0 6px; }
+.integration-page__header { display:flex; justify-content:space-between; align-items:flex-start; gap:20px; }
+.integration-card-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:16px; }
+.integration-card { display:grid; gap:8px; padding:20px; border:1px solid #e5e7eb; border-radius:12px; background:#fff; color:#111827; text-decoration:none; }
+.integration-card span,.integration-list__row span { color:#6b7280; }
+.integration-list { display:grid; border:1px solid #e5e7eb; border-radius:12px; overflow:hidden; background:#fff; }
+.integration-list__row { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:16px 18px; border-bottom:1px solid #e5e7eb; color:#111827; text-decoration:none; }
+.integration-list__row:last-child { border-bottom:0; }
+.integration-list__row > div { display:grid; gap:4px; }
+.integration-form { display:grid; gap:18px; max-width:720px; padding:20px; border:1px solid #e5e7eb; border-radius:12px; background:#fff; }
+.integration-form > label { display:grid; gap:6px; font-weight:650; }
+.integration-form input { min-height:40px; border:1px solid #d1d5db; border-radius:8px; padding:8px 10px; }
+.integration-form fieldset { display:grid; gap:10px; border:1px solid #d1d5db; border-radius:8px; padding:14px; }
+.integration-facts { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; margin:0; }
+.integration-facts > div { padding:16px; border:1px solid #e5e7eb; border-radius:10px; background:#fff; }
+.integration-facts dt { color:#6b7280; font-size:13px; }
+.integration-facts dd { margin:5px 0 0; overflow-wrap:anywhere; font-weight:650; }
+.integration-actions { display:flex; flex-wrap:wrap; gap:10px; }
+.integration-secret { display:grid; gap:16px; max-width:760px; }
+.integration-secret code { display:block; overflow-wrap:anywhere; user-select:all; padding:16px; border-radius:8px; background:#111827; color:#f9fafb; font-size:15px; }
+.integration-secret label { display:flex; align-items:center; gap:8px; }
+@media(max-width:700px){.integration-page__header{flex-direction:column}.integration-facts{grid-template-columns:1fr}}
