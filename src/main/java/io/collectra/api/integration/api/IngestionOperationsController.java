@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.*;
 @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('INTEGRATION_SOURCE_READ')")
 public class IngestionOperationsController {
     private final IngestionQueryService service;
+
     public IngestionOperationsController(IngestionQueryService service) {
         this.service = service;
     }
@@ -29,13 +30,17 @@ public class IngestionOperationsController {
             @PageableDefault(size = 50, sort = "receivedAt", direction = Sort.Direction.DESC) Pageable pageable) {
         return service.list(TenantContext.requireTenantId(), status, from, to, sourceCode, idempotencyKey, pageable);
     }
+
     @GetMapping("/{id}")
     public IngestionQueryService.BatchDetail get(@PathVariable UUID id) {
         return service.get(TenantContext.requireTenantId(), id);
     }
+
     @GetMapping("/{id}/records")
-    public Page<IngestionQueryService.RecordDiagnostic> records(@PathVariable UUID id,
-            @RequestParam(required = false) String outcome,@RequestParam(required = false) String targetType,
+    public Page<IngestionQueryService.RecordDiagnostic> records(
+            @PathVariable UUID id,
+            @RequestParam(required = false) String outcome,
+            @RequestParam(required = false) String targetType,
             @PageableDefault(size = 50, sort = "recordOrder", direction = Sort.Direction.ASC) Pageable pageable) {
         return service.records(TenantContext.requireTenantId(), id, outcome, targetType, pageable);
     }
