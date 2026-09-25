@@ -349,6 +349,140 @@ A tenant admin can, without Postman/database edits: create/select source; config
 
 CI includes acceptance matrix, tenant/security tests, parser fixture matrix, simulated-provider smoke, frontend contract tests/build, backend Testcontainers verify and OpenAPI verification.
 
+## 21. Frontend-backend contract audit defects and required corrections
+
+This section is normative. It records defects found by comparing the planned ISC screens with the actual backend contracts on the baseline branch.
+
+### D1 — Service Client detail screen has no GET-by-id contract
+
+ISC-2 requires a reloadable/deep-linkable detail route `/integrations/service-clients/:clientId`, but the current backend exposes only create/list and action endpoints. A detail page must not depend on filtering the list response.
+
+**Required backend correction:** add tenant-scoped `GET /api/v1/integration/service-clients/{id}` guarded by `SERVICE_CLIENT_READ`. Return the same safe DTO shape as list. Never return a secret/hash.
+
+### D2 — Service Client UI cannot safely offer a complete scope catalogue
+
+The backend owns `ALLOWED_SCOPES`, but there is no discovery endpoint. Hardcoding scope values in React would create contract drift.
+
+**Required correction:** expose a human-admin metadata endpoint such as `GET /api/v1/integration/service-client-scopes` returning code + safe label/description, or move the catalogue to a shared backend metadata contract exposed through API. ISC-2 must consume backend metadata.
+
+### D3 — Secret handling wording was incorrect
+
+Current backend create/rotate requests require the caller to supply `clientSecret`; the backend does **not** return a generated secret. Therefore the UI cannot implement a conventional “show generated secret once” flow against the existing contract.
+
+**Required product decision before ISC-2:** choose one explicit model:
+- preferred: backend generates a cryptographically secure secret on create/rotate and returns it exactly once in the mutation response; or
+- compatibility: UI generates/accepts a 32–72 UTF-8 byte secret and submits it, with explicit copy/confirmation UX.
+
+In either model, list/detail responses expose only `secretHint`; the full secret must never enter URL, logs, local/session storage or persistent query cache.
+
+### D4 — Source Schema deep-link editing is supportable, but read-only permissions need separate validation semantics
+
+Current schema `validate` endpoint requires `SOURCE_SCHEMA_MANAGE`. A read-only user can list versions/fields but cannot obtain validation/readiness state through the validation endpoint.
+
+**Required correction:** ISC-3 must distinguish read-only display from mutating validation. If validation is needed for read-only readiness, add a non-mutating read/inspection endpoint protected by `SOURCE_SCHEMA_READ`; do not weaken publish/manage authorization.
+
+### D5 — Source Schema Studio must model the real lifecycle including VALIDATED
+
+The backend lifecycle contains `DRAFT | VALIDATED | PUBLISHED | ARCHIVED`, while the high-level ISC text only described draft/published editing.
+
+**Required correction:** UI state machine and tests must explicitly support VALIDATED and legal publish/reopen/archive transitions. Buttons are derived from backend state, not inferred locally.
+
+### D6 — Mapping target catalogue permission differs from mapping permission
+
+Mapping rules reference `targetFieldId`. The authoritative target catalogue is `GET /api/v1/templates/fields`, guarded by `FIELD_READ`, while mapping read/manage uses `MAPPING_PROFILE_READ/MANAGE`.
+
+**Required correction:** Mapping Studio readiness must require `FIELD_READ` in addition to mapping permissions, or backend must expose an importing-specific read-only target-field metadata endpoint. Do not hardcode target fields in frontend.
+
+### D7 — Mapping transformation catalogue is not discoverable
+
+The backend executes a finite transformation set, but the current Mapping Profile API does not expose transformation metadata/schema. A visual Mapping Studio would otherwise duplicate enum/config knowledge and transformation JSON shapes.
+
+**Required correction before ISC-4:** add metadata API for supported transformations including code, label key/description, input compatibility and parameter schema. Frontend renders editors from this contract and keeps an unknown-transformation fallback for forward compatibility.
+
+### D8 — Mapping whole-file test currently supports multipart only
+
+`POST /api/v1/mapping-profiles/versions/{versionId}/test` consumes multipart file. ISC-4/ISC-5 must not claim an inline JSON/XML mapping test unless a matching backend endpoint exists.
+
+**Required correction:** either use a Blob/File multipart upload even for pasted JSON/XML, or add explicit content-type test endpoints. Contract tests must lock the selected behavior.
+
+### D9 — Existing ImportBatch test mode is not format-symmetric
+
+Current ImportBatch exposes multipart generic file, `/json`, and `/xml`. CSV/XLSX go through multipart; JSON/XML may use body endpoints. The UI must map input mode to the real contract and must not invent `/csv` or `/xlsx` endpoints.
+
+### D10 — Existing ImportBatch requires internal template/mapping IDs and is not a production source test
+
+Legacy ImportBatch requires `mappingProfileVersionId`, `templateVersionId` and output formats. It is suitable only as a configuration/generation test until I2/I3 provide the sourceCode-oriented ingestion API.
+
+**Required correction:** ISC-5 has two explicitly labelled modes during migration:
+- configuration test: existing MappingProfile/ImportBatch APIs;
+- production-source test: new IntegrationSource ingestion API.
+Only the latter may satisfy the activation readiness criterion “successful source test”.
+
+### D11 — IntegrationSource permissions must be defined before frontend guards are implemented
+
+The master spec proposed source APIs but did not freeze human permission codes. Frontend navigation/route guards cannot safely invent them.
+
+**Required correction in I1:** add and seed explicit permissions, at minimum `INTEGRATION_SOURCE_READ` and `INTEGRATION_SOURCE_MANAGE`, assign tenant-admin defaults, expose them through existing current-user permissions, and use the same codes in navigation/route guards.
+
+### D12 — Ingestion observation permissions need human/service separation
+
+Machine scopes already include `integration:imports:create/read`, while human UI uses RBAC authorities. Setup Center activity/diagnostics requires human read authorization distinct from service JWT scopes.
+
+**Required correction:** define human `INGESTION_READ` (and an admin/replay permission if replay becomes a human action) while preserving machine scope checks for source ingestion/status. Tests must prove both paths and prevent authority/scope confusion.
+
+### D13 — Setup Center next-action logic must be permission-aware
+
+A backend blocker may identify a missing schema/mapping/client that the current user is not authorized to modify.
+
+**Required correction:** the readiness DTO should expose stable blocker code/resource reference, while frontend combines it with current-user permissions. If the user cannot resolve it, show a blocked state and required permission/administrator action rather than a dead CTA.
+
+### D14 — Readiness DTO must be specified, not just the endpoint
+
+ISC-6 depends on deterministic backend readiness, but the response schema was unspecified.
+
+**Required contract:** return sourceId/sourceCode/status/ready plus ordered checks with stable `code`, `state` (`READY|BLOCKED|NOT_APPLICABLE`), `resourceType`, optional safe `resourceId`, safe message key/arguments, and optional frontend-neutral `recommendedAction` code. Frontend must not parse human error strings to choose navigation.
+
+### D15 — Optimistic concurrency is planned but HTTP contract is unspecified
+
+IntegrationSource has a version field and ISC expects conflict handling, but update/transition request semantics were not defined.
+
+**Required correction:** choose and document one contract (for example request `version` with deterministic 409 conflict, or ETag/If-Match with 412). ISC-6/ISC-7 tests must exercise stale edit/activation.
+
+### D16 — Navigation information architecture needs a permission contract
+
+Current navigation has no Integrations item on the audited baseline. Adding it without a guard would expose a dead area to users lacking all integration permissions.
+
+**Required correction:** show the Integrations root when the user has at least one relevant read capability; child navigation is independently permission-filtered. Direct routes remain backend/route-guard protected.
+
+### D17 — API error UX must map actual ProblemDetail and stable business codes
+
+The shared frontend client currently exposes HTTP status + ProblemDetail. New setup screens need actionable mapping for 400/403/404/409/413/422/429 and transient 5xx without leaking backend detail.
+
+**Required correction:** new backend domain failures must publish stable safe problem/error codes (prefer ProblemDetail extension field). Frontend maps codes, never brittle English `detail` text.
+
+### D18 — Test-ingestion polling contract needs explicit terminal states and cadence
+
+ISC-5 requires status observation, but the polling/backoff/terminal-state contract was unspecified.
+
+**Required correction:** production ingestion status DTO must expose the canonical state and timestamps/counters. Frontend polls only QUEUED/PROCESSING with bounded backoff, stops on COMPLETED/PARTIALLY_COMPLETED/FAILED, cancels polling on unmount/navigation and offers manual refresh.
+
+### D19 — Setup Center must distinguish configuration completeness from operational health
+
+A source can be correctly configured yet have recent failed ingestions/provider failures.
+
+**Required correction:** model two independent summaries:
+- configuration readiness: can this source be activated/configured?
+- operational health: what happened recently?
+Do not downgrade configuration readiness merely because a provider is temporarily unhealthy.
+
+### D20 — Existing frontend placeholders must not be confused with the new integration flow
+
+Current `/imports` and `/files` routes are placeholders guarded by DOCUMENT_READ/FILE_READ. Integration Test Ingestion and source activity must live under `/integrations`; FileService screens may be linked only when useful. Do not overload the old Imports placeholder as the IntegrationSource control plane.
+
+### Contract exit gate
+
+ISC-1 is complete only when every screen action has a verified backend endpoint, method, permission/scope, request/response DTO, error contract and lifecycle state. A route/button with no verified backend contract remains disabled/PLANNED and cannot count toward Setup Center readiness.
+
 ## 20. Explicit non-goals
 
 No generic BPM engine, arbitrary scripts, mandatory Kafka, new object store, duplicate mapping/template/delivery system, renderer-side remote fetch or premature microservice split. Legacy APIs remain compatible until the source-oriented path has tested parity and consumers migrate.
