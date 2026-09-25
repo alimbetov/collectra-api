@@ -78,7 +78,8 @@ class IntegrationSourceLifecycleIntegrationTest extends AbstractIntegrationTest 
 
         var created = service.create(a.tenant.getId(), command(a));
         assertThatThrownBy(() -> service.create(a.tenant.getId(), command(a)))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(io.collectra.api.integration.application.IntegrationSourceConflictException.class)
+                .hasMessageContaining("already exists");
         assertThatThrownBy(
                         () ->
                                 service.update(
