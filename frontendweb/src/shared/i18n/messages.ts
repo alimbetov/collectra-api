@@ -878,6 +878,7 @@ export const kkMessages: Record<MessageKey, string> = {
   'templates.assetsLoading': 'Assets жүктелуде…',
   'templates.assetsEmpty': 'Assets әлі жоқ',
   'navigation.imports': 'Импорт',
+  'navigation.integrations': 'Интеграциялар',
   'navigation.files': 'Файлдар',
   'shell.navigation': 'Негізгі навигация',
   'shell.workspace': 'Жұмыс кеңістігі',
