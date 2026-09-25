@@ -377,3 +377,95 @@ Each slice requires Liquibase migrations where applicable, tenant-isolation test
 ## 17. Definition of Done
 
 The reference golden path is executable end-to-end without supplying internal mapping/template UUIDs from the external system; no arbitrary remote URL is fetched by template/provider code; accepted requests are durable and auditable; large ingestion is asynchronous; diagnostics identify failed record/stage/code safely; tenant isolation is proven by tests; retries cannot duplicate durable business or communication effects; and the frontend can derive a deterministic activation checklist from backend readiness APIs.
+
+
+## 18. Pre-implementation verification matrix: receive -> parse -> render -> mock delivery
+
+Before I1 implementation starts, CI must prove the existing reusable foundation with an executable fixture matrix. This is a release gate, not documentation-only confidence.
+
+### 18.1 Inbound format matrix
+
+The same logical invoice dataset must be available as fixtures in all currently supported source formats and parsed through the real `DocumentInputParser`:
+
+| Input | Required proof |
+|---|---|
+| JSON | multiple documents, nested item arrays, null/blank values, recipient/channel fields preserved |
+| XML | repeated document/item nodes, ordering preserved, XXE/DOCTYPE rejected |
+| CSV | multiple flat detail rows, delimiters/blank cells/order preserved |
+| XLSX | first-sheet header mapping, numeric/string/null values and row order preserved |
+
+The fixture contract must assert semantic equivalence where formats represent the same logical data. Existing parser/fixture tests are the baseline and must remain green.
+
+### 18.2 End-to-end smoke fixture
+
+Add a deterministic integration smoke that exercises the real boundaries, with infrastructure adapters replaced only at the final provider boundary when necessary:
+
+```text
+fixture JSON/CSV/XLSX/XML
+ -> parser
+ -> published mapping
+ -> normalized document
+ -> business persistence (when configured)
+ -> template render
+ -> generated output
+ -> Message + required attachment
+ -> attachment READY gate
+ -> delivery request/outbox/listener
+ -> MessageDeliveryWorker
+ -> SimulatedDeliveryGateway
+ -> SENT / RETRY_WAIT / FAILED
+```
+
+The test must inspect the actual `DeliveryCommand`/simulation boundary and prove destination, channel, subject/body and attachment bytes/filename/content-type. A test that only asserts a Message row was created is insufficient.
+
+### 18.3 Channel matrix
+
+Run the smoke for every `CommunicationChannel` supported by the domain. EMAIL must prove subject + body + attachment handling. Non-email channels must prove channel/destination/body and must not inherit email-only assumptions. If a channel does not support binary attachments at the provider contract, the routing policy must reject or transform that configuration explicitly rather than silently discard files.
+
+The simulated provider remains provider-neutral and deterministic. CI should use explicit simulation rates/configuration so success/failure expectations do not depend on randomness.
+
+### 18.4 File/attachment lifecycle matrix
+
+Required scenarios:
+
+1. generated PDF becomes READY and is read from object storage into `DeliveryAttachment`;
+2. required PENDING attachment blocks delivery;
+3. required FAILED generation prevents provider invocation;
+4. optional failed/pending attachment does not block when policy permits;
+5. missing object is a permanent failure;
+6. transient object-storage read error follows retry policy;
+7. file-count, per-file size and total-size limits are enforced before provider invocation;
+8. unsafe filenames are rejected;
+9. metadata/object size mismatch is rejected;
+10. tenant A cannot resolve tenant B generated document/file.
+
+After I4, extend the same matrix with remote URL `IMPORT` -> internal FileService object -> attachment -> mock delivery and `REFERENCE` -> no fetch.
+
+### 18.5 Orchestration proof
+
+I2/I6 are not complete until at least one test starts at the source-oriented ingestion API and reaches the simulated provider without direct test calls that bypass orchestration. It must prove:
+
+```text
+HTTP ingestion
+ -> durable batch/raw source
+ -> worker
+ -> parse/map
+ -> downstream action
+ -> render/generate
+ -> message
+ -> attachment resolution
+ -> simulated provider
+ -> terminal/reportable state
+```
+
+For asynchronous execution the test may drive/wait for workers deterministically, but must not manually manufacture intermediate database state.
+
+### 18.6 Evidence retained by CI
+
+For each golden fixture the test/report should make these values observable in assertions or diagnostic output: ingestionId, source format, mapping version/hash, normalized document key, generated document ID/checksum/size, message ID/channel, attachment metadata, provider result ID or stable failure code, and final ingestion/message state.
+
+Raw PII payloads and secrets must not be printed to CI logs.
+
+### 18.7 Completion rule
+
+A capability is marked **implemented end-to-end** only when both production code exists and the corresponding executable smoke path is green. Unit tests for parser, mapping, attachment resolver, worker, or simulated gateway independently do not qualify as end-to-end proof.
