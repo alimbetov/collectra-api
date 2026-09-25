@@ -29,3 +29,9 @@ export interface CreateIntegrationSourceCommand {
 export interface UpdateIntegrationSourceCommand extends Omit<CreateIntegrationSourceCommand, 'code'> { version: number }
 export interface SourceSchemaDefinitionDto { id: string; code: string; name: string }
 export interface MappingProfileDefinitionDto { id: string; code: string; name: string; documentType: string }
+
+export interface SourceSchemaVersionDto { id:string; definitionId:string; version:number; format:'EXCEL'|'CSV'|'JSON'|'XML'; status:string; recordPath:string|null; rowTypeFieldId:string|null }
+export interface SourceFieldDto { id:string; sourcePath:string; detectedType:string|null; sampleValue:string|null; required:boolean; position:number|null; scope:'DOCUMENT'|'ITEM'|'ROW_CONTROL'|'IGNORE'; documentKey:boolean; valuePolicy:string }
+export interface MappingProfileVersionDto { id:string; definitionId:string; sourceSchemaVersionId:string; version:number; documentType:string; status:string }
+export interface MappingRuleDto { id:string; sourceFieldId:string; targetFieldId:string; transformation:Record<string,unknown>|null; defaultValue:string|null; required:boolean }
+export interface DefinitionValidationDto { valid:boolean; errors:string[]; warnings?:string[] }
