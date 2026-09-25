@@ -32,7 +32,7 @@ CREATE TABLE ingestion_batches (
     CONSTRAINT uq_ingestion_transport_idempotency
         UNIQUE (tenant_id, integration_source_id, service_client_id, idempotency_key),
     CONSTRAINT fk_ingestion_source FOREIGN KEY (integration_source_id) REFERENCES integration_sources(id),
-    CONSTRAINT fk_ingestion_raw_file FOREIGN KEY (raw_source_file_id) REFERENCES stored_files(id),
+    CONSTRAINT fk_ingestion_raw_file FOREIGN KEY (raw_source_file_id) REFERENCES stored_file(id),
     CONSTRAINT ck_ingestion_status CHECK (status IN ('QUEUED','PROCESSING','RETRY_WAIT','COMPLETED','PARTIALLY_COMPLETED','FAILED'))
 );
 CREATE INDEX idx_ingestion_batches_tenant_received
