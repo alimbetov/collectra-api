@@ -45,6 +45,13 @@ describe('integration api contracts', () => {
     expect(request).toHaveBeenLastCalledWith('/api/v1/integration/service-clients/client/unblock', { method: 'POST' });
   });
 
+  it('never sends or expects a client secret on safe read contracts', async () => {
+    await getServiceClients();
+    expect(request).toHaveBeenLastCalledWith('/api/v1/integration/service-clients');
+    await getServiceClient('client');
+    expect(request).toHaveBeenLastCalledWith('/api/v1/integration/service-clients/client');
+  });
+
   it('uses backend-owned mapping metadata', async () => {
     await getMappingTransformations();
     expect(request).toHaveBeenLastCalledWith('/api/v1/mapping-metadata/transformations');

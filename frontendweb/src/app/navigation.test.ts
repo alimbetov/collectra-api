@@ -18,4 +18,11 @@ describe('workspace navigation permissions', () => {
     expect(canAccessNavigationItem(campaigns!, (code) => code === 'CAMPAIGN_READ')).toBe(true);
     expect(canAccessNavigationItem(campaigns!, () => false)).toBe(false);
   });
+
+  it('guards Integrations navigation with backend Service Client read permission', () => {
+    const integrations = navigation.find((item) => item.path === '/integrations');
+    expect(integrations).toBeDefined();
+    expect(canAccessNavigationItem(integrations!, (code) => code === 'SERVICE_CLIENT_READ')).toBe(true);
+    expect(canAccessNavigationItem(integrations!, () => false)).toBe(false);
+  });
 });
