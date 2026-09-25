@@ -66,7 +66,7 @@ class IntegrationSourceLifecycleIntegrationTest extends AbstractIntegrationTest 
         assertThatThrownBy(()->service.update(a.tenant.getId(),created.id(),created.version()+1,
                 new IntegrationSourceService.UpdateCommand("Changed",a.client.getId(),a.schemaDefinition.getId(),
                         a.mappingDefinition.getId(),"STANDARD",json.createObjectNode(),json.createObjectNode(),json.createObjectNode())))
-                .isInstanceOf(IntegrationSourceService.class.getPackageName().isEmpty() ? RuntimeException.class : io.collectra.api.integration.application.IntegrationSourceConflictException.class).hasMessageContaining("version conflict");
+                .isInstanceOf(io.collectra.api.integration.application.IntegrationSourceConflictException.class).hasMessageContaining("version conflict");
         assertThatThrownBy(()->service.get(b.tenant.getId(),created.id()))
                 .isInstanceOf(java.util.NoSuchElementException.class);
     }
