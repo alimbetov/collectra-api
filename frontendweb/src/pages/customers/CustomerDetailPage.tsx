@@ -46,6 +46,8 @@ export function CustomerDetailPage({ tab }: { tab: CustomerDetailTab }) {
   const { t } = useI18n();
   const { hasPermission } = useAuth();
   const canManageCustomer = hasPermission('CUSTOMER_MANAGE');
+  const canReadContracts = hasPermission('CONTRACT_READ');
+  const canManageContract = hasPermission('CONTRACT_MANAGE');
   const { showToast } = useToast();
   const queryClient = useQueryClient();
   const [editOpen, setEditOpen] = useState(false);
@@ -140,7 +142,7 @@ export function CustomerDetailPage({ tab }: { tab: CustomerDetailTab }) {
         onChangeStatus={() => { profileMutation.reset(); statusMutation.reset(); setStatusOpen(true); }}
         canManage={canManageCustomer}
       />
-      <CustomerDetailTabs customerId={id} />
+      <CustomerDetailTabs customerId={id} canReadContracts={canReadContracts} />
       {tab === 'overview' ? <CustomerOverview customer={detail.data} canManage={canManageCustomer} onManageSegments={() => { membershipMutation.reset(); setSegmentsOpen(true); }} /> : tab === 'contacts' ? (
         <div className="customer-detail-grid">
           {emails.isLoading ? <div className="customer-detail-card"><Spinner label={t('customerDetail.loadingEmails')} /></div> : null}
@@ -150,7 +152,7 @@ export function CustomerDetailPage({ tab }: { tab: CustomerDetailTab }) {
           {phones.error ? <ProblemDetailPanel error={phones.error} onRetry={() => void phones.refetch()} /> : null}
           {phones.data ? <CustomerPhones values={phones.data} canManage={canManageCustomer} onAdd={() => openContact('phone')} onEdit={(contact: CustomerPhoneDto) => openContact('phone', contact)} /> : null}
         </div>
-      ) : <CustomerContractsPanel customer={detail.data} onDirtyChange={setEditDirty} />}
+      ) : <CustomerContractsPanel customer={detail.data} onDirtyChange={setEditDirty} canManageContract={canManageContract} />}
       {canManageCustomer ? <CustomerEditDialog
         open={editOpen}
         customer={detail.data}
