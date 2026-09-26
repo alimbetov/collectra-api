@@ -48,6 +48,8 @@ export function CustomerDetailPage({ tab }: { tab: CustomerDetailTab }) {
   const canManageCustomer = hasPermission('CUSTOMER_MANAGE');
   const canReadContracts = hasPermission('CONTRACT_READ');
   const canManageContract = hasPermission('CONTRACT_MANAGE');
+  const canReadReceivables = hasPermission('RECEIVABLE_READ');
+  const canReadCollections = hasPermission('COLLECTION_READ');
   const { showToast } = useToast();
   const queryClient = useQueryClient();
   const [editOpen, setEditOpen] = useState(false);
@@ -142,7 +144,7 @@ export function CustomerDetailPage({ tab }: { tab: CustomerDetailTab }) {
         onChangeStatus={() => { profileMutation.reset(); statusMutation.reset(); setStatusOpen(true); }}
         canManage={canManageCustomer}
       />
-      <CustomerDetailTabs customerId={id} canReadContracts={canReadContracts} />
+      <CustomerDetailTabs customerId={id} canReadContracts={canReadContracts} canReadReceivables={canReadReceivables} canReadCollections={canReadCollections} />
       {tab === 'overview' ? <CustomerOverview customer={detail.data} canManage={canManageCustomer} onManageSegments={() => { membershipMutation.reset(); setSegmentsOpen(true); }} /> : tab === 'contacts' ? (
         <div className="customer-detail-grid">
           {emails.isLoading ? <div className="customer-detail-card"><Spinner label={t('customerDetail.loadingEmails')} /></div> : null}
