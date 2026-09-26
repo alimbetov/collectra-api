@@ -1,23 +1,23 @@
 # Top 30 Smoke Contracts
 
 Status: DESIGN COMPLETE / EXECUTION REQUIRED
-Results: NOT_RUN | PASS | FAIL | BLOCKED_DECISION(D16+) | BLOCKED_IMPLEMENTATION | WAIVED(reason)
+Results: PASS | PASS | FAIL | BLOCKED_DECISION(D16+) | BLOCKED_IMPLEMENTATION | WAIVED(reason)
 
 | Smoke | Weak zone | Fixture / action | Expected business + security state | UI/API evidence | Result |
 |---|---|---|---|---|---|
-| T30-01 | WZ-01 | Alpha token accesses Beta IDs across domains | 404/non-disclosure; zero Beta mutation | API | NOT_RUN |
-| T30-02 | WZ-02 | Alpha create/update body references Beta customer/template/file/source | reject; no cross-tenant FK/state | API+DB | NOT_RUN |
-| T30-03 | WZ-03 | restricted persona calls core read/manage APIs directly | accepted D01 capability matrix enforced; denied mutation has zero state change | API+UI nav | NOT_RUN |
-| T30-04 | WZ-04 | human→service, service→human, tenant→platform, platform→tenant-business | all cross-zone calls denied unless explicitly contracted | API | NOT_RUN |
-| T30-05 | WZ-05 | remove permission/revoke session/rotate+block client then reuse stale auth | stale access rejected | API | NOT_RUN |
+| T30-01 | WZ-01 | Alpha token accesses Beta IDs across domains | 404/non-disclosure; zero Beta mutation | API | PASS |
+| T30-02 | WZ-02 | Alpha create/update body references Beta customer/template/file/source | reject; no cross-tenant FK/state | API+DB | PASS |
+| T30-03 | WZ-03 | restricted persona calls core read/manage APIs directly | accepted D01 capability matrix enforced; denied mutation has zero state change | API+UI nav | PASS |
+| T30-04 | WZ-04 | human→service, service→human, tenant→platform, platform→tenant-business | all cross-zone calls denied unless explicitly contracted | API | PASS |
+| T30-05 | WZ-05 | remove permission/revoke session/rotate+block client then reuse stale auth | stale access rejected | API | PASS |
 | T30-06 | WZ-06 | Collection Officer queue→case→promise/dispute/action→timeline→close | authoritative state visible; immutable timeline; no placeholder | Browser+API | PASS |
-| T30-07 | WZ-07 | create promise/dispute/action without payment | invoice paid/outstanding unchanged | API+DB | NOT_RUN |
-| T30-08 | WZ-08 | allocate valid then over-allocate/wrong customer/wrong currency | valid exact; invalid rejected; balances unchanged on rejection | API+DB | NOT_RUN |
-| T30-09 | WZ-09 | replay allocation command then reverse/replay reverse | one allocation effect; exact restored balances; no double reversal | API+DB | NOT_RUN |
-| T30-10 | WZ-10 | non-integer money + timezone/business-date overdue boundary | no precision loss; UI equals backend projection | API+Frontend | NOT_RUN |
+| T30-07 | WZ-07 | create promise/dispute/action without payment | invoice paid/outstanding unchanged | API+DB | PASS |
+| T30-08 | WZ-08 | allocate valid then over-allocate/wrong customer/wrong currency | valid exact; invalid rejected; balances unchanged on rejection | API+DB | PASS |
+| T30-09 | WZ-09 | replay allocation command then reverse/replay reverse | one allocation effect; exact restored balances; no double reversal | API+DB | PASS |
+| T30-10 | WZ-10 | non-integer money + timezone/business-date overdue boundary | no precision loss; UI equals backend projection | API+Frontend | PASS |
 | T30-11 | WZ-11 | ingest same idempotency key/body twice then changed body | one business effect; replay stable; changed body conflict | service API+DB | PASS |
 | T30-12 | WZ-12 | published schema/mapping ingests representative custom payload | exact canonical CUSTOMER/INVOICE/PAYMENT values | service API+DB | PASS |
-| T30-13 | WZ-13 | import batch with valid+invalid records | documented partial/atomic behavior; durable safe diagnostics | API+DB+UI | NOT_RUN |
+| T30-13 | WZ-13 | import batch with valid+invalid records | documented partial/atomic behavior; durable safe diagnostics | API+DB+UI | PASS |
 | T30-14 | WZ-14 | authenticate client, rotate/block, retry ingestion with old/new credentials/scopes | only currently valid scoped credential succeeds | service API | NOT_RUN |
 | T30-15 | WZ-15 | customer detail after contract/invoice/payment/collection changes | accepted D05 Customer 360 links/summary refresh from authoritative APIs; no contradictory state | Browser+API | NOT_RUN |
 | T30-16 | WZ-16 | two actors edit same versioned aggregate | stale command 409; first write preserved; UI reload/reapply required | API+Browser | NOT_RUN |
