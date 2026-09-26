@@ -30,10 +30,20 @@ describe('workspace navigation permissions', () => {
     expect(canAccessNavigationItem(campaigns!, () => false)).toBe(false);
   });
 
-  it('guards Integrations navigation with backend Service Client read permission', () => {
+  it.each([
+    'INTEGRATION_SOURCE_READ',
+    'SERVICE_CLIENT_READ',
+    'SOURCE_SCHEMA_READ',
+    'MAPPING_PROFILE_READ',
+  ])('shows Integrations navigation for %s', (permission) => {
     const integrations = navigation.find((item) => item.path === '/integrations');
     expect(integrations).toBeDefined();
-    expect(canAccessNavigationItem(integrations!, (code) => code === 'SERVICE_CLIENT_READ')).toBe(true);
+    expect(canAccessNavigationItem(integrations!, (code) => code === permission)).toBe(true);
+  });
+
+  it('hides Integrations navigation without any integration read capability', () => {
+    const integrations = navigation.find((item) => item.path === '/integrations');
+    expect(integrations).toBeDefined();
     expect(canAccessNavigationItem(integrations!, () => false)).toBe(false);
   });
 });
