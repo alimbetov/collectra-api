@@ -4,7 +4,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RequireAuth } from './RequireAuth';
 
 const auth = vi.hoisted(() => ({
-  value: { sessionKind: 'tenant', status: 'authenticated' },
+  value: { sessionKind: 'tenant', status: 'authenticated' } as {
+    sessionKind: 'tenant' | 'platform' | 'none';
+    status: 'authenticated' | 'unauthenticated' | 'loading';
+  },
 }));
 
 vi.mock('../model/auth-context', () => ({
