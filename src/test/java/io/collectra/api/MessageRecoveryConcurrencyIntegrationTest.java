@@ -66,7 +66,7 @@ class MessageRecoveryConcurrencyIntegrationTest extends AbstractIntegrationTest 
     void staleRecoveryRacingLateAcceptanceProducesOneLegalTerminalTransition() throws Exception {
         Fixture fixture = fixture();
         assertThat(states.begin(fixture.tenantId(), fixture.messageId())).isPresent();
-        assertThat(states.beginProviderAttempt(fixture.tenantId(), fixture.messageId())).isPresent();
+        assertThat(states.beginProviderAttempt(fixture.tenantId(), fixture.messageId()))\n                .isPresent();
         jdbc.update(
                 "UPDATE messages SET processing_started_at = ? WHERE id = ?",
                 Timestamp.from(NOW.minusSeconds(360)),
