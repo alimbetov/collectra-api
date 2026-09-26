@@ -89,7 +89,7 @@ class FunctionalHardeningSecuritySmokeIntegrationTest extends AbstractIntegratio
                                 .content(
                                         "{\"externalId\":\"restricted-"
                                                 + code()
-                                                + "\",\"customerType\":\"PERSON\",\"displayName\":\"Restricted Created\"}"))
+                                                + "\",\"customerType\":\"INDIVIDUAL\",\"displayName\":\"Restricted Created\"}"))
                 .andExpect(status().isForbidden());
         mockMvc.perform(get("/api/v1/contracts").header("Authorization", bearer(restricted)))
                 .andExpect(status().isForbidden());
@@ -208,7 +208,7 @@ class FunctionalHardeningSecuritySmokeIntegrationTest extends AbstractIntegratio
                                 .content(
                                         "{\"externalId\":\"read-only-"
                                                 + code()
-                                                + "\",\"customerType\":\"PERSON\",\"displayName\":\"Denied\"}"))
+                                                + "\",\"customerType\":\"INDIVIDUAL\",\"displayName\":\"Denied\"}"))
                 .andExpect(status().isForbidden());
 
         String manager =
@@ -289,7 +289,7 @@ class FunctionalHardeningSecuritySmokeIntegrationTest extends AbstractIntegratio
                         .content(
                                 "{\"externalId\":\"customer-"
                                         + code()
-                                        + "\",\"customerType\":\"PERSON\",\"displayName\":\"Beta Customer\"}"));
+                                        + "\",\"customerType\":\"INDIVIDUAL\",\"displayName\":\"Beta Customer\"}"));
     }
 
     private JsonNode createContract(String token, String customerId) throws Exception {
