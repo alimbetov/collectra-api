@@ -7,7 +7,7 @@ Results: NOT_RUN | PASS | FAIL | BLOCKED_DECISION | BLOCKED_IMPLEMENTATION | WAI
 |---|---|---|---|---|---|
 | T30-01 | WZ-01 | Alpha token accesses Beta IDs across domains | 404/non-disclosure; zero Beta mutation | API | NOT_RUN |
 | T30-02 | WZ-02 | Alpha create/update body references Beta customer/template/file/source | reject; no cross-tenant FK/state | API+DB | NOT_RUN |
-| T30-03 | WZ-03 | restricted persona calls core read/manage APIs directly | accepted D01 permission matrix enforced; denied mutation has zero state change | API+UI nav | BLOCKED_DECISION |
+| T30-03 | WZ-03 | restricted persona calls core read/manage APIs directly | accepted D01 capability matrix enforced; denied mutation has zero state change | API+UI nav | NOT_RUN |
 | T30-04 | WZ-04 | human→service, service→human, tenant→platform, platform→tenant-business | all cross-zone calls denied unless explicitly contracted | API | NOT_RUN |
 | T30-05 | WZ-05 | remove permission/revoke session/rotate+block client then reuse stale auth | stale access rejected | API | NOT_RUN |
 | T30-06 | WZ-06 | Collection Officer queue→case→promise/dispute/action→timeline→close | authoritative state visible; immutable timeline; no placeholder | Browser+API | BLOCKED_IMPLEMENTATION |
@@ -19,7 +19,7 @@ Results: NOT_RUN | PASS | FAIL | BLOCKED_DECISION | BLOCKED_IMPLEMENTATION | WAI
 | T30-12 | WZ-12 | published schema/mapping ingests representative custom payload | exact canonical CUSTOMER/INVOICE/PAYMENT values | service API+DB | NOT_RUN |
 | T30-13 | WZ-13 | import batch with valid+invalid records | documented partial/atomic behavior; durable safe diagnostics | API+DB+UI | NOT_RUN |
 | T30-14 | WZ-14 | authenticate client, rotate/block, retry ingestion with old/new credentials/scopes | only currently valid scoped credential succeeds | service API | NOT_RUN |
-| T30-15 | WZ-15 | customer detail after contract/invoice/payment/collection changes | links/summary refresh from authoritative APIs; no contradictory state | Browser+API | BLOCKED_DECISION |
+| T30-15 | WZ-15 | customer detail after contract/invoice/payment/collection changes | accepted D05 Customer 360 links/summary refresh from authoritative APIs; no contradictory state | Browser+API | NOT_RUN |
 | T30-16 | WZ-16 | two actors edit same versioned aggregate | stale command 409; first write preserved; UI reload/reapply required | API+Browser | NOT_RUN |
 | T30-17 | WZ-17 | prepare overdue recipient, fully pay+allocate, recheck | recipient SKIPPED reason PAID; no message delivery | API+DB | NOT_RUN |
 | T30-18 | WZ-18 | Alpha campaign selection contains Beta customer/segment | rejected/ignored per explicit contract without disclosure; no Beta recipient | API+DB | NOT_RUN |
@@ -29,7 +29,7 @@ Results: NOT_RUN | PASS | FAIL | BLOCKED_DECISION | BLOCKED_IMPLEMENTATION | WAI
 | T30-22 | WZ-22 | required attachment PENDING then FAILED/READY | provider calls 0 for blocked states; READY allows one | worker+DB | NOT_RUN |
 | T30-23 | WZ-23 | 100 duplicate events, 8 workers | exactly one provider call; one SENT; sentCount=1 | concurrency integration | NOT_RUN |
 | T30-24 | WZ-24 | transient failure→retry→success and retry exhaustion | exact Message status/attempt/retry + CampaignRun counters transactionally consistent | worker+DB | NOT_RUN |
-| T30-25 | WZ-25 | provider accepts then response is lost/ambiguous | no unsafe blind resend; stable delivery key; explicit safe state | adapter+worker | BLOCKED_DECISION |
+| T30-25 | WZ-25 | provider accepts then response is lost/ambiguous | accepted D15: no unsafe blind resend; stable delivery key; explicit safe handling/state | adapter+worker | NOT_RUN |
 | T30-26 | WZ-26 | stale PROCESSING + concurrent recovery/late event | one legal final transition; no backward terminal transition/double count | recovery+DB | NOT_RUN |
 | T30-27 | WZ-27 | competing outbox publishers + retry/duplicate consumer delivery | one claim owner; eventual publish; downstream idempotent business effect | PostgreSQL+RabbitMQ | NOT_RUN |
 | T30-28 | WZ-28 | Support opens message list/detail for own/foreign tenant | own data masked/safe; foreign hidden; no fabricated attempt timeline | Browser+API | NOT_RUN |

@@ -57,7 +57,7 @@ Execute T30-30 from a clean environment through real authentication/API boundari
 Run all repository-required gates plus:
 - backend formatting/static/architecture checks;
 - unit + integration suites;
-- PostgreSQL/RabbitMQ Testcontainers;
+- PostgreSQL Testcontainers plus a real RabbitMQ Testcontainers broker-wiring smoke;
 - frontend typecheck/test/build;
 - OpenAPI compatibility;
 - clean Liquibase/bootstrap;
@@ -79,7 +79,7 @@ E. personas J01-J10;
 F. T30-01..30;
 G. existing smoke/security/integration/frontend tests;
 H. open defects FH-*;
-I. decisions D01-D14;
+I. decisions D01-D15;
 J. migrations/configuration/OpenAPI contracts.
 
 Every item must map to one of:
@@ -127,7 +127,7 @@ Codex MUST NOT say DONE, READY, GREEN, PRODUCTION-READY or recommend VC-9 if any
 - T30 item NOT_RUN/FAIL;
 - unwaived P0/P1 exists;
 - required P2 unresolved;
-- required D01-D14 decision unresolved for an exercised scope;
+- new D16+ decision unresolved for an exercised scope;
 - Collections remains an unintended placeholder;
 - inventory contains an unmapped primary route/controller/permission/tenant resource;
 - Golden Journey has not passed;
