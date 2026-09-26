@@ -368,14 +368,14 @@ class RabbitMqMessageDeliverySmokeIntegrationTest extends AbstractIntegrationTes
         await().atMost(Duration.ofSeconds(15))
                 .pollInterval(Duration.ofMillis(100))
                 .untilAsserted(
-                        () ->
-                                assertThat(
-                                                        ingestion
-                                                                .status(tenantId, reservation.ingestionId())
-                                                                .status())
-                                        .isIn(
-                                                IngestionStatus.COMPLETED.name(),
-                                                IngestionStatus.PARTIALLY_COMPLETED.name()));
+                        () -> {
+                            String status =
+                                    ingestion.status(tenantId, reservation.ingestionId()).status();
+                            assertThat(status)
+                                    .isIn(
+                                            IngestionStatus.COMPLETED.name(),
+                                            IngestionStatus.PARTIALLY_COMPLETED.name());
+                        });
         return reservation;
     }
 
