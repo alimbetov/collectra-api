@@ -1,10 +1,11 @@
 # AGENTS.md — Collectra pre-VC9 functional hardening
 
 ## Mission
-On branch `spec/functional-hardening-user-journeys`, harden VC-0..VC-8 into one coherent production-ready candidate. Do not implement VC-9.
+On branch `fix/pre-vc9-functional-hardening-remediation`, implement and verify the accepted pre-VC9 hardening specification for VC-0..VC-8 as one coherent production-ready candidate. `spec/functional-hardening-user-journeys` is the accepted specification baseline, not the implementation target. Do not modify that spec branch as part of remediation and do not implement VC-9.
 
 ## Normative source order
 Read before code changes:
+0. `docs/qa/CODEX-START-HERE.md` — remediation-branch entry point and execution bootstrap.
 1. `docs/qa/codex-pre-vc9-completion-contract.md` — ONLY execution order and final gate.
 2. `docs/qa/architecture-business-decision-register.md` — ACCEPTED D01-D15 product/architecture semantics.
 3. `docs/qa/full-stack-consistency-contract.md` — frontend/backend/data/broker traceability.
