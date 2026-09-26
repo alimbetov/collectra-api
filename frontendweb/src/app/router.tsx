@@ -14,8 +14,6 @@ import { PlatformAdministratorsPage } from '../pages/platform/PlatformAdministra
 import { PlatformPlaceholderPage } from '../pages/platform/PlatformPlaceholderPage';
 import { ForbiddenPage } from '../pages/system/ForbiddenPage';
 import { NotFoundPage } from '../pages/system/NotFoundPage';
-import { useI18n } from '../shared/i18n/i18n-context';
-import type { MessageKey } from '../shared/i18n/messages';
 import { RouteErrorPage } from '../pages/system/RouteErrorPage';
 import { DashboardPage } from '../pages/dashboard/DashboardPage';
 import { CustomersPage } from '../pages/customers/CustomersPage';
@@ -56,17 +54,6 @@ import { MessagesPage } from '../pages/messages/MessagesPage';
 import { MessageDetailPage } from '../pages/messages/MessageDetailPage';
 import { CollectionsPage } from '../pages/collections/CollectionsPage';
 import { CollectionCasePage } from '../pages/collections/CollectionCasePage';
-
-function PlaceholderPage({ titleKey }: { titleKey: MessageKey }) {
-  const { t } = useI18n();
-  return (
-    <div className="placeholder-page">
-      <p className="eyebrow">{t('placeholder.eyebrow')}</p>
-      <h1>{t(titleKey)}</h1>
-      <p>{t('placeholder.description')}</p>
-    </div>
-  );
-}
 
 export const router = createBrowserRouter([
   {
