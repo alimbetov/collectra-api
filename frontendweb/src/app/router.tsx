@@ -80,14 +80,6 @@ export const router = createBrowserRouter([
         path: 'analytics',
         element: <PlatformPlaceholderPage titleKey="platform.navigation.analytics" />,
       },
-      {
-        path: 'audit',
-        element: <PlatformPlaceholderPage titleKey="platform.navigation.audit" />,
-      },
-      {
-        path: 'operations',
-        element: <PlatformPlaceholderPage titleKey="platform.navigation.operations" />,
-      },
     ],
   },
   {
