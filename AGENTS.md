@@ -80,3 +80,8 @@ Mandatory code execution order:
 7. Full production-readiness verification and anti-omission reconciliation.
 
 Do not stop merely because currently failing tests are green. Re-enumerate routes/controllers/permissions/tenant-owned resources/tests/defects/decisions and prove there are no unmapped items. Final verdict is exactly PRE-VC9_GATE_PASS or BLOCKED. PRE-VC9_GATE_PASS is forbidden unless all completion-contract conditions have executed evidence on exact HEAD.
+
+
+## Final handoff audit
+
+Read `docs/qa/final-handoff-audit.md` before execution. It defines document precedence and records resolved handoff inconsistencies. If any instruction appears contradictory, do not choose the easier path: apply the precedence order and record any still-unresolvable conflict as BLOCKED.
