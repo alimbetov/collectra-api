@@ -52,6 +52,8 @@ import { InvoiceCreatePage } from '../pages/receivables/InvoiceCreatePage';
 import { FilesPage } from '../pages/files/FilesPage';
 import { FileDetailPage } from '../pages/files/FileDetailPage';
 import { FileUploadPage } from '../pages/files/FileUploadPage';
+import { MessagesPage } from '../pages/messages/MessagesPage';
+import { MessageDetailPage } from '../pages/messages/MessageDetailPage';
 
 function PlaceholderPage({ titleKey }: { titleKey: MessageKey }) {
   const { t } = useI18n();
@@ -145,6 +147,14 @@ export const router = createBrowserRouter([
             <CampaignRunPage />
           </RequirePermission>
         ),
+      },
+      {
+        path: 'campaigns/:campaignId/runs/:runId/messages',
+        element: <RequirePermission permission="CAMPAIGN_READ"><MessagesPage /></RequirePermission>,
+      },
+      {
+        path: 'campaigns/:campaignId/runs/:runId/messages/:messageId',
+        element: <RequirePermission permission="CAMPAIGN_READ"><MessageDetailPage /></RequirePermission>,
       },
       {
         path: 'templates',
