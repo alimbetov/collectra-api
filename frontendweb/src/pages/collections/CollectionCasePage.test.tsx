@@ -12,9 +12,12 @@ import {
 import { I18nProvider } from '../../shared/i18n/i18n-context';
 import { CollectionCasePage } from './CollectionCasePage';
 
+let canManage = false;
+
 vi.mock('../../features/auth/model/auth-context', () => ({
   useAuth: () => ({
-    hasPermission: (permission: string) => permission === 'COLLECTION_READ',
+    hasPermission: (permission: string) =>
+      permission === 'COLLECTION_READ' || (permission === 'COLLECTION_MANAGE' && canManage),
     hasRole: () => false,
     user: null,
     status: 'authenticated',
@@ -60,6 +63,7 @@ function renderPage() {
 }
 
 beforeEach(() => {
+  canManage = false;
   vi.mocked(getCollectionCase).mockResolvedValue({
     id: caseId,
     customerId,
@@ -114,6 +118,18 @@ describe('CollectionCasePage', () => {
     expect(getDisputes).toHaveBeenCalledWith(caseId);
     expect(getActions).toHaveBeenCalledWith(caseId);
     expect(getTimeline).toHaveBeenCalledWith(caseId);
+  });
+
+  it('shows collection commands only to a managing actor', async () => {
+    canManage = true;
+    renderPage();
+
+    expect(await screen.findByText('Priority: HIGH')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Start' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Close' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add promise' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Open dispute' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add action' })).toBeInTheDocument();
   });
 
   it('keeps collection mutations hidden for a read-only actor', async () => {
