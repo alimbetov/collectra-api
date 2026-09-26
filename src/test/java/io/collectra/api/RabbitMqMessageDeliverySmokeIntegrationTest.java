@@ -28,6 +28,7 @@ import io.collectra.api.template.domain.DocumentTemplate;
 import io.collectra.api.template.domain.TemplateChannel;
 import io.collectra.api.template.domain.TemplateVersion;
 import io.collectra.api.template.infrastructure.DocumentTemplateRepository;
+import io.collectra.api.template.infrastructure.FieldDefinitionRepository;
 import io.collectra.api.template.infrastructure.TemplateVersionRepository;
 import io.collectra.api.tenant.domain.Tenant;
 import io.collectra.api.tenant.infrastructure.TenantRepository;
