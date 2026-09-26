@@ -54,6 +54,8 @@ import { FileDetailPage } from '../pages/files/FileDetailPage';
 import { FileUploadPage } from '../pages/files/FileUploadPage';
 import { MessagesPage } from '../pages/messages/MessagesPage';
 import { MessageDetailPage } from '../pages/messages/MessageDetailPage';
+import { CollectionsPage } from '../pages/collections/CollectionsPage';
+import { CollectionCasePage } from '../pages/collections/CollectionCasePage';
 
 function PlaceholderPage({ titleKey }: { titleKey: MessageKey }) {
   const { t } = useI18n();
@@ -123,7 +125,8 @@ export const router = createBrowserRouter([
       { path: 'receivables/invoices/:invoiceId', element: <RequirePermission permission="RECEIVABLE_READ"><InvoiceDetailPage /></RequirePermission> },
       { path: 'contracts', element: <RequirePermission permission="CONTRACT_READ"><ContractsPage /></RequirePermission> },
       { path: 'contracts/:contractId', element: <RequirePermission permission="CONTRACT_READ"><ContractDetailPage /></RequirePermission> },
-      { path: 'collections', element: <PlaceholderPage titleKey="navigation.collections" /> },
+      { path: 'collections', element: <RequirePermission permission="COLLECTION_READ"><CollectionsPage /></RequirePermission> },
+      { path: 'collections/:caseId', element: <RequirePermission permission="COLLECTION_READ"><CollectionCasePage /></RequirePermission> },
       {
         path: 'campaigns',
         element: (
