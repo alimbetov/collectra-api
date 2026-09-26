@@ -56,7 +56,7 @@ Rules:
 | T30-26 | top-30-smoke-contracts.md | per contract | map concrete route/API | map | Alpha/Beta where applicable | exact automated test | NOT_STARTED | — | map FH/D/WP |
 | T30-27 | top-30-smoke-contracts.md | system | outbox -> RabbitMQ -> listener -> worker | system | tenant header/context retained | OutboxClaimIntegrationTest; RabbitMqMessageDeliverySmokeIntegrationTest; MessageProcessingIntegrationTest#duplicateDeliveryEventCausesOneProviderAttempt | TESTED | 76893d00f6421aade57fbc8d96ef3c68a98a9a1e / run 36235512652 | WP-09/WP-10 |
 | T30-28 | top-30-smoke-contracts.md | per contract | map concrete route/API | map | Alpha/Beta where applicable | exact automated test | NOT_STARTED | — | map FH/D/WP |
-| T30-29 | top-30-smoke-contracts.md | per contract | map concrete route/API | map | Alpha/Beta where applicable | exact automated test | NOT_STARTED | — | map FH/D/WP |
+| T30-29 | top-30-smoke-contracts.md | human personas | every REAL/PARTIAL primary frontend route | route capability guards | applicable tenant context | existing 51 frontend tests + direct page inventory | IMPLEMENTING | latest inventory: 51 page components, 18 direct Page tests; 30 primary page components still lack direct-page test | FH-007; WP-11; P1-P15/J01-J09 |
 | T30-30 | top-30-smoke-contracts.md | per contract | map concrete route/API | map | Alpha/Beta where applicable | exact automated test | NOT_STARTED | — | map FH/D/WP |
 | P1 | full-stack consistency / frontend processes | map persona(s) | map journey surfaces | least privilege | applicable | exact process evidence | NOT_STARTED | — | map WP/T30/D |
 | P2 | full-stack consistency / frontend processes | map persona(s) | map journey surfaces | least privilege | applicable | exact process evidence | NOT_STARTED | — | map WP/T30/D |
@@ -83,7 +83,7 @@ Rules:
 | J08 | functional-hardening-master-plan.md | named persona | map journey surfaces | least privilege | applicable | exact journey evidence | NOT_STARTED | — | map WP/T30/P |
 | J09 | functional-hardening-master-plan.md | named persona | map journey surfaces | least privilege | applicable | exact journey evidence | NOT_STARTED | — | map WP/T30/P |
 | J10 | functional-hardening-master-plan.md | named persona | map journey surfaces | least privilege | applicable | exact journey evidence | NOT_STARTED | — | map WP/T30/P |
-| Route/controller/permission/resource reconciliation | completion contract | all | all primary surfaces | all | all tenant-owned | generated inventory + mapped tests | NOT_STARTED | — | anti-omission |
+| Route/controller/permission/resource reconciliation | completion contract | all | 54 explicit router paths; 49 backend controllers | all | all tenant-owned | wave-a inventory + repository tree reconciliation | IMPLEMENTING | current branch inventory: 49 controllers, 153 backend test classes, 51 frontend tests | anti-omission; T30-29 direct-route gap remains |
 | Real RabbitMQ production-topology smoke | WP-10 | system | outbox -> AMQP -> listener -> worker | service/system | tenant preserved | RabbitMQ Testcontainers smoke | NOT_STARTED | — | T30-27/T30-30 |
 | Clean bootstrap/Liquibase | production gate | system | startup | n/a | n/a | clean DB bootstrap | NOT_STARTED | — | WP-12 |
 | OpenAPI compatibility | production gate | clients/frontend | public APIs | n/a | n/a | compatibility gate | NOT_STARTED | — | all API WPs |
