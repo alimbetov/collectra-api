@@ -15,6 +15,7 @@ import io.collectra.api.communication.domain.MessageStatus;
 import io.collectra.api.communication.infrastructure.MessageRepository;
 import io.collectra.api.customer.application.CustomerService;
 import io.collectra.api.customer.domain.CustomerType;
+import io.collectra.api.integration.application.ServiceClientService;
 import io.collectra.api.localization.domain.TenantLocale;
 import io.collectra.api.localization.infrastructure.TenantLocaleRepository;
 import io.collectra.api.receivable.application.ReceivableService;
@@ -67,6 +68,7 @@ class RabbitMqMessageDeliverySmokeIntegrationTest extends AbstractIntegrationTes
 
     @Autowired TenantRepository tenants;
     @Autowired TenantLocaleRepository locales;
+    @Autowired ServiceClientService serviceClients;
     @Autowired CustomerService customers;
     @Autowired ReceivableService receivables;
     @Autowired CollectionService collections;
@@ -84,6 +86,22 @@ class RabbitMqMessageDeliverySmokeIntegrationTest extends AbstractIntegrationTes
                 tenants.saveAndFlush(
                         new Tenant("rabbit-smoke-" + UUID.randomUUID(), "Rabbit Smoke"));
         locales.saveAndFlush(new TenantLocale(tenant.getId(), "ru", true, true, 0));
+        String serviceClientId = "rabbit-smoke-" + UUID.randomUUID();
+        var credential =
+                serviceClients.create(
+                        tenant.getId(),
+                        serviceClientId,
+                        "Rabbit smoke integration client",
+                        Set.of("integration:imports:create", "integration:imports:read"),
+                        null,
+                        null);
+        var serviceToken =
+                serviceClients.token(
+                        serviceClientId,
+                        credential.clientSecret(),
+                        Set.of("integration:imports:create"));
+        assertThat(serviceToken.accessToken()).isNotBlank();
+
         var customer =
                 customers.create(
                         tenant.getId(),
