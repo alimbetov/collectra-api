@@ -8,7 +8,9 @@ import {
   getDisputes,
   getPromises,
   getTimeline,
+  transitionPromise,
 } from '../../entities/collection/api/collection.api';
+import { ApiError } from '../../shared/api/http-client';
 import { I18nProvider } from '../../shared/i18n/i18n-context';
 import { CollectionCasePage } from './CollectionCasePage';
 
@@ -36,6 +38,7 @@ vi.mock('../../entities/collection/api/collection.api', async () => {
     getDisputes: vi.fn(),
     getActions: vi.fn(),
     getTimeline: vi.fn(),
+    transitionPromise: vi.fn(),
   };
 });
 
@@ -130,6 +133,34 @@ describe('CollectionCasePage', () => {
     expect(screen.getByRole('button', { name: 'Add promise' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Open dispute' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Add action' })).toBeInTheDocument();
+  });
+
+  it('routes child mutation authorization failures to forbidden', async () => {
+    canManage = true;
+    vi.mocked(getPromises).mockResolvedValueOnce({
+      ...emptyPage,
+      items: [
+        {
+          id: '55555555-5555-4555-8555-555555555555',
+          amount: '125.5000',
+          currency: 'KZT',
+          promisedDate: '2026-10-15',
+          status: 'OPEN',
+          overdue: false,
+          businessDate: '2026-09-26',
+          resolvedAt: null,
+          version: 1,
+        },
+      ],
+      totalElements: 1,
+      totalPages: 1,
+    });
+    vi.mocked(transitionPromise).mockRejectedValueOnce(new ApiError(403, { status: 403 }));
+    const user = (await import('@testing-library/user-event')).default.setup();
+    renderPage();
+
+    await user.click(await screen.findByRole('button', { name: 'Fulfill' }));
+    expect(await screen.findByText('Forbidden')).toBeInTheDocument();
   });
 
   it('keeps collection mutations hidden for a read-only actor', async () => {
