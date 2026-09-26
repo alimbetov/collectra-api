@@ -2,6 +2,8 @@ package io.collectra.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.collectra.api.campaign.application.CampaignMessageMaterializer;
@@ -46,10 +48,13 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.web.servlet.MockMvc;
 import org.testcontainers.containers.RabbitMQContainer;
 
 @Import(ProductionIngestionAcceptanceTest.StorageConfig.class)
+@AutoConfigureMockMvc
 @SpringBootTest(
         properties = {
             "collectra.messaging.outbox-enabled=true",
@@ -97,9 +102,10 @@ class RabbitMqMessageDeliverySmokeIntegrationTest extends AbstractIntegrationTes
     @Autowired MessageRepository messages;
     @Autowired OutboxPublisher outbox;
     @Autowired ObjectMapper json;
+    @Autowired MockMvc mockMvc;
 
     @Test
-    void outboxTraversesRealRabbitTopologyIntoDeliveryWorker() {
+    void outboxTraversesRealRabbitTopologyIntoDeliveryWorker() throws Exception {
         Tenant tenant =
                 tenants.saveAndFlush(
                         new Tenant("rabbit-smoke-" + UUID.randomUUID(), "Rabbit Smoke"));
@@ -198,20 +204,16 @@ class RabbitMqMessageDeliverySmokeIntegrationTest extends AbstractIntegrationTes
                         .getBytes(StandardCharsets.UTF_8);
         var customerReservation =
                 ingestAndAwait(
-                        tenant.getId(),
-                        clientId,
+                        serviceToken.accessToken(),
                         customerSource.code(),
                         "customer-key",
                         customerBody);
         assertThat(
-                        ingestion
-                                .reserve(
-                                        tenant.getId(),
-                                        clientId,
+                        ingest(
+                                        serviceToken.accessToken(),
                                         customerSource.code(),
                                         "customer-key",
                                         "customer-replay",
-                                        "text/csv",
                                         customerBody)
                                 .ingestionId())
                 .isEqualTo(customerReservation.ingestionId());
@@ -231,7 +233,8 @@ class RabbitMqMessageDeliverySmokeIntegrationTest extends AbstractIntegrationTes
                                 + businessDate.minusDays(10)
                                 + ";1000.0000;KZT\n")
                         .getBytes(StandardCharsets.UTF_8);
-        ingestAndAwait(tenant.getId(), clientId, invoiceSource.code(), "invoice-key", invoiceBody);
+        ingestAndAwait(
+                serviceToken.accessToken(), invoiceSource.code(), "invoice-key", invoiceBody);
         var invoice =
                 receivables
                         .findInvoiceByExternalId(tenant.getId(), invoiceExternalId)
@@ -246,7 +249,8 @@ class RabbitMqMessageDeliverySmokeIntegrationTest extends AbstractIntegrationTes
                                 + businessDate
                                 + ";100.0000;KZT;rabbit-smoke;TEST\n")
                         .getBytes(StandardCharsets.UTF_8);
-        ingestAndAwait(tenant.getId(), clientId, paymentSource.code(), "payment-key", paymentBody);
+        ingestAndAwait(
+                serviceToken.accessToken(), paymentSource.code(), "payment-key", paymentBody);
         var payment =
                 receivables
                         .findPaymentByExternalId(tenant.getId(), paymentExternalId)
@@ -362,23 +366,53 @@ class RabbitMqMessageDeliverySmokeIntegrationTest extends AbstractIntegrationTes
     }
 
     private IngestionApplicationService.Reservation ingestAndAwait(
-            UUID tenantId, UUID clientId, String sourceCode, String key, byte[] body) {
-        var reservation =
-                ingestion.reserve(
-                        tenantId, clientId, sourceCode, key, "golden-journey", "text/csv", body);
+            String accessToken, String sourceCode, String key, byte[] body) throws Exception {
+        var reservation = ingest(accessToken, sourceCode, key, "golden-journey", body);
         outbox.publishPending();
         await().atMost(Duration.ofSeconds(15))
                 .pollInterval(Duration.ofMillis(100))
                 .untilAsserted(
                         () -> {
-                            String status =
-                                    ingestion.status(tenantId, reservation.ingestionId()).status();
-                            assertThat(status)
+                            var result =
+                                    mockMvc.perform(
+                                                    org.springframework.test.web.servlet.request
+                                                            .MockMvcRequestBuilders.get(
+                                                                    "/api/v1/integration/sources/{sourceCode}/ingestions/{id}",
+                                                                    sourceCode,
+                                                                    reservation.ingestionId())
+                                                            .header(
+                                                                    "Authorization",
+                                                                    "Bearer " + accessToken))
+                                            .andExpect(status().isOk())
+                                            .andReturn();
+                            var current =
+                                    json.readValue(
+                                            result.getResponse().getContentAsByteArray(),
+                                            IngestionApplicationService.Reservation.class);
+                            assertThat(current.status())
                                     .isIn(
                                             IngestionStatus.COMPLETED.name(),
                                             IngestionStatus.PARTIALLY_COMPLETED.name());
                         });
         return reservation;
+    }
+
+    private IngestionApplicationService.Reservation ingest(
+            String accessToken, String sourceCode, String key, String requestId, byte[] body)
+            throws Exception {
+        var result =
+                mockMvc.perform(
+                                post("/api/v1/integration/sources/{sourceCode}/ingestions", sourceCode)
+                                        .header("Authorization", "Bearer " + accessToken)
+                                        .header("Idempotency-Key", key)
+                                        .header("X-Request-Id", requestId)
+                                        .contentType("text/csv")
+                                        .content(body))
+                        .andExpect(status().isAccepted())
+                        .andReturn();
+        return json.readValue(
+                result.getResponse().getContentAsByteArray(),
+                IngestionApplicationService.Reservation.class);
     }
 
     private SourceFixture source(
