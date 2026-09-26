@@ -55,7 +55,9 @@ import org.springframework.data.domain.PageRequest;
             "collectra.communication.delivery.enabled=true",
             "collectra.communication.delivery.provider=simulated",
             "collectra.communication.delivery.simulation.success-rate-percent=100",
-            "collectra.communication.delivery.simulation.permanent-failure-rate-percent=0"
+            "collectra.communication.delivery.simulation.permanent-failure-rate-percent=0",
+            "collectra.messaging.outbox-enabled=false",
+            "spring.rabbitmq.listener.simple.auto-startup=false"
         })
 class MultichannelMockDeliverySmokeIntegrationTest extends AbstractIntegrationTest {
 
