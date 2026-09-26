@@ -1,0 +1,22 @@
+name: Remediation format report
+on:
+  push:
+    branches: ["fix/pre-vc9-functional-hardening-remediation"]
+permissions:
+  contents: read
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+      - name: Emit deterministic Spotless patch
+        run: |
+          mvn --batch-mode --no-transfer-progress spotless:apply
+          git diff --no-ext-diff -- src/main/java src/test/java
