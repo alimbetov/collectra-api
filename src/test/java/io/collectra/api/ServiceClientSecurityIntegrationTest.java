@@ -144,9 +144,7 @@ class ServiceClientSecurityIntegrationTest extends AbstractIntegrationTest {
 
     private JsonNode createClient(String adminToken, String clientId, String... scopes)
             throws Exception {
-        String scopeJson = java.util.Arrays.stream(scopes)
-                .map(value -> \"\\\"\" + value + \"\\\"\")
-                .collect(java.util.stream.Collectors.joining(\",\"));
+        String scopeJson = java.util.Arrays.stream(scopes)\n                .map(value -> "\\\"" + value + "\\\"")\n                .collect(java.util.stream.Collectors.joining(","));
         return read(
                 post("/api/v1/integration/service-clients")
                         .header("Authorization", "Bearer " + adminToken)
