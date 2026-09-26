@@ -13,6 +13,10 @@ Success is not "known tests pass". Success is traceable P1-P15 + J01-J10 + T30-0
 
 ## 2. Normative inputs
 
+Implementation companion: `docs/qa/pre-vc9-remediation-code-level-guide.md` is mandatory for code-level patterns, current-code anchors and forbidden shortcuts.
+
+
+
 In precedence order:
 1. root `AGENTS.md`;
 2. `docs/qa/codex-pre-vc9-completion-contract.md`;
