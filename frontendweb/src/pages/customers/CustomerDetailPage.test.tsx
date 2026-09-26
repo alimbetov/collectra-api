@@ -34,7 +34,7 @@ vi.mock('../../entities/customer/api/customer.api', () => ({
 }));
 
 vi.mock('../../features/auth/model/auth-context', () => ({
-  useAuth: () => ({ hasPermission: () => false }),
+  useAuth: () => ({ hasPermission: (permission: string) => ['CUSTOMER_MANAGE', 'CONTRACT_READ', 'CONTRACT_MANAGE'].includes(permission) }),
 }));
 
 const id = '11111111-1111-4111-8111-111111111111';
