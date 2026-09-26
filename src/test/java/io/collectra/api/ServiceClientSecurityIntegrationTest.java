@@ -68,7 +68,7 @@ class ServiceClientSecurityIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void ingestionRequiresCurrentCreateScopeAndBlockedClientCannotMintAnotherToken() throws Exception {
+    void ingestionRequiresCurrentCreateScopeAndBlockedClientCannotMintAnotherToken()\n            throws Exception {
         String adminToken = registerTenant();
         String clientId = "ingest-" + UUID.randomUUID().toString().substring(0, 8);
         JsonNode issued =
@@ -82,7 +82,7 @@ class ServiceClientSecurityIntegrationTest extends AbstractIntegrationTest {
 
         String readOnlyJwt = issueToken(clientId, secret, "integration:imports:read");
         mockMvc.perform(
-                        post("/api/v1/integration/sources/{sourceCode}/ingestions", "missing-source")
+                        post(\n                                        "/api/v1/integration/sources/{sourceCode}/ingestions",\n                                        "missing-source")
                                 .header("Authorization", "Bearer " + readOnlyJwt)
                                 .header("Idempotency-Key", "scope-denied")
                                 .contentType(MediaType.APPLICATION_JSON)
