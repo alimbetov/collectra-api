@@ -116,7 +116,7 @@ export const router = createBrowserRouter([
       { path: 'customers/segments/:segmentId', element: <RequirePermission permission="CUSTOMER_READ"><CustomerSegmentsPage /></RequirePermission> },
       { path: 'customers/:customerId', element: <RequirePermission permission="CUSTOMER_READ"><CustomerDetailPage tab="overview" /></RequirePermission> },
       { path: 'customers/:customerId/contacts', element: <RequirePermission permission="CUSTOMER_READ"><CustomerDetailPage tab="contacts" /></RequirePermission> },
-      { path: 'customers/:customerId/contracts', element: <RequirePermission permission="CUSTOMER_READ"><CustomerDetailPage tab="contracts" /></RequirePermission> },
+      { path: 'customers/:customerId/contracts', element: <RequirePermission permission="CUSTOMER_READ"><RequirePermission permission="CONTRACT_READ"><CustomerDetailPage tab="contracts" /></RequirePermission></RequirePermission> },
       { path: 'customers/:customerId/overview', element: <Navigate to=".." relative="path" replace /> },
       { path: 'receivables', element: <RequirePermission permission="RECEIVABLE_READ"><ReceivablesPage /></RequirePermission> },
       { path: 'receivables/invoices/new', element: <RequirePermission permission="RECEIVABLE_MANAGE"><InvoiceCreatePage /></RequirePermission> },
