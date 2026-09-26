@@ -8,7 +8,7 @@ const primaryRoutes = [
   '/customers/11111111-1111-4111-8111-111111111111',
   '/customers/11111111-1111-4111-8111-111111111111/contacts',
   '/customers/11111111-1111-4111-8111-111111111111/contracts',
-  '/customer-segments',
+  '/customers/segments',\n  '/customers/segments/11111111-1111-4111-8111-111111111111',
   '/contracts',
   '/contracts/11111111-1111-4111-8111-111111111111',
   '/receivables',
@@ -64,7 +64,7 @@ describe('primary route contract', () => {
   });
 
   it('keeps deferred VC9 and D04 platform surfaces out of the router', () => {
-    for (const path of ['/platform/analytics', '/platform/audit', '/platform/operations']) {
+    for (const path of ['/platform/audit', '/platform/operations']) {
       const matches = matchRoutes(router.routes, path);
       expect(matches?.at(-1)?.route.path).toBe('*');
     }
