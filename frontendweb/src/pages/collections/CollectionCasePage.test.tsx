@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -156,7 +157,7 @@ describe('CollectionCasePage', () => {
       totalPages: 1,
     });
     vi.mocked(transitionPromise).mockRejectedValueOnce(new ApiError(403, { status: 403 }));
-    const user = (await import('@testing-library/user-event')).default.setup();
+    const user = userEvent.setup();
     renderPage();
 
     await user.click(await screen.findByRole('button', { name: 'Fulfill' }));
