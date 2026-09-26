@@ -68,9 +68,7 @@ class IngestionServiceAuthorizationIntegrationTest extends AbstractIntegrationTe
                                 "name",
                                 "Ingestion client",
                                 "scopes",
-                                Set.of(
-                                        "integration:imports:create",
-                                        "integration:imports:read")));
+                                Set.of("integration:imports:create", "integration:imports:read")));
         String response =
                 mockMvc.perform(
                                 post("/api/v1/integration/service-clients")
@@ -119,7 +117,7 @@ class IngestionServiceAuthorizationIntegrationTest extends AbstractIntegrationTe
                                                 json.writeValueAsString(
                                                         Map.of(
                                                                 "slug",
-                                                                "ingestion-auth-"\n                                                                        + UUID.randomUUID(),
+                                                                "ingestion-auth-" + UUID.randomUUID(),
                                                                 "companyName",
                                                                 "Ingestion Authorization",
                                                                 "email",
