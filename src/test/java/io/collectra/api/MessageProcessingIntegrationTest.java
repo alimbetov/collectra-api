@@ -196,6 +196,32 @@ class MessageProcessingIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void recoveryQuarantinesInFlightProviderAttemptWithoutAutomaticResend() {
+        Fixture fixture = fixture();
+        assertThat(states.begin(fixture.tenantId(), fixture.messageId())).isPresent();
+        assertThat(states.beginProviderAttempt(fixture.tenantId(), fixture.messageId())).isPresent();
+        jdbc.update(
+                "UPDATE messages SET processing_started_at = ? WHERE id = ?",
+                Timestamp.from(NOW.minusSeconds(360)),
+                fixture.messageId());
+
+        assertThat(recovery.recoverStale()).isOne();
+
+        Message quarantined = messages.findById(fixture.messageId()).orElseThrow();
+        assertThat(quarantined.getStatus()).isEqualTo(MessageStatus.UNKNOWN);
+        assertThat(quarantined.getLastErrorCode())
+                .isEqualTo(MessageStateService.AMBIGUOUS_PROVIDER_OUTCOME);
+        assertThat(states.begin(fixture.tenantId(), fixture.messageId())).isEmpty();
+        assertThat(retryDispatcher.dispatchDue()).isZero();
+
+        CampaignRun run = runs.findById(fixture.runId()).orElseThrow();
+        assertThat(run.getSentCount()).isZero();
+        assertThat(run.getFailedCount()).isZero();
+        assertThat(run.getRetryCount()).isZero();
+        assertThat(run.getStatus()).isEqualTo(CampaignRunStatus.RUNNING);
+    }
+
+    @Test
     void dispatcherAtomicallyRequeuesDueRetryAndAppendsOneDeliveryEvent() throws Exception {
         Fixture due = fixture();
         Fixture future = fixture();
