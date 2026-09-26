@@ -58,7 +58,9 @@ describe('MessageDetailPage', () => {
     expect(await screen.findByRole('heading', { name: 'r***@example.test' })).toBeInTheDocument();
     expect(screen.getByText('PROVIDER_TIMEOUT')).toBeInTheDocument();
     expect(screen.getByText('Provider did not acknowledge request')).toBeInTheDocument();
-    expect(screen.getByText('—')).toBeInTheDocument();
+    expect(screen.getByText('Provider message ID').parentElement).toHaveTextContent(
+      'Provider message ID—',
+    );
     expect(screen.queryByRole('button', { name: /retry|cancel|повтор|отмен/i })).not.toBeInTheDocument();
   });
 
