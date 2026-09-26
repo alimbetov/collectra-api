@@ -74,6 +74,75 @@ class FunctionalHardeningSecuritySmokeIntegrationTest extends AbstractIntegratio
                 .andExpect(status().isForbidden());
     }
 
+    @Test
+    void businessCoreReadAndManageCapabilitiesAreComposedExplicitly() throws Exception {
+        Auth admin = register("fh-capabilities");
+
+        String readOnly = userWithPermissions(
+                admin,
+                "CUSTOMER_READ",
+                "CONTRACT_READ",
+                "RECEIVABLE_READ",
+                "COLLECTION_READ");
+
+        mockMvc.perform(get("/api/v1/customers").header("Authorization", bearer(readOnly)))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/contracts").header("Authorization", bearer(readOnly)))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/invoices").header("Authorization", bearer(readOnly)))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/collection-cases").header("Authorization", bearer(readOnly)))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/v1/customers")
+                        .header("Authorization", bearer(readOnly))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"externalId\":\"read-only-" + code()
+                                + "\",\"customerType\":\"PERSON\",\"displayName\":\"Denied\"}"))
+                .andExpect(status().isForbidden());
+
+        String manager = userWithPermissions(
+                admin,
+                "CUSTOMER_READ",
+                "CUSTOMER_MANAGE",
+                "CONTRACT_READ",
+                "CONTRACT_MANAGE",
+                "RECEIVABLE_READ",
+                "RECEIVABLE_MANAGE",
+                "COLLECTION_READ",
+                "COLLECTION_MANAGE");
+
+        JsonNode customer = createCustomer(manager);
+        JsonNode contract = createContract(manager, customer.get("id").asText());
+        JsonNode invoice = createInvoice(manager, customer.get("id").asText());
+        JsonNode collectionCase =
+                createCollectionCase(manager, customer.get("id").asText(), invoice.get("id").asText());
+
+        mockMvc.perform(get("/api/v1/contracts/" + contract.get("id").asText())
+                        .header("Authorization", bearer(manager)))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/collection-cases/" + collectionCase.get("id").asText())
+                        .header("Authorization", bearer(manager)))
+                .andExpect(status().isOk());
+    }
+
+    private String userWithPermissions(Auth admin, String... permissions) throws Exception {
+        String permissionJson = "[\"" + String.join("\",\"", permissions) + "\"]";
+        JsonNode role = read(post("/api/v1/identity/roles")
+                .header("Authorization", bearer(admin.token()))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"code\":\"CAP_" + code() + "\",\"permissions\":" + permissionJson + "}"));
+        String email = code().toLowerCase() + "@example.test";
+        JsonNode invitation = read(post("/api/v1/identity/invitations")
+                .header("Authorization", bearer(admin.token()))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"" + email + "\",\"roleIds\":[\"" + role.get("id").asText() + "\"]}"));
+        JsonNode accepted = read(post("/api/v1/auth/invitations/accept")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"token\":\"" + invitation.get("developmentToken").asText()
+                        + "\",\"password\":\"WaveBPassword123!\",\"displayName\":\"Capability Smoke\"}"));
+        return accepted.get("accessToken").asText();
+    }
+
     private void foreignGet(String token, String path) throws Exception {
         mockMvc.perform(get(path).header("Authorization", bearer(token))).andExpect(status().isNotFound());
     }
