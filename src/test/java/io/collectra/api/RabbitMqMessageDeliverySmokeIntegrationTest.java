@@ -442,9 +442,10 @@ class RabbitMqMessageDeliverySmokeIntegrationTest extends AbstractIntegrationTes
         mapping.publish();
         mappings.saveAndFlush(mapping);
         for (int i = 0; i < fields.length; i++) {
+            int index = i;
             FieldDefinition target =
                     fieldDefinitions.findAvailable(null).stream()
-                            .filter(value -> value.getKey().equals(targetKeys[i]))
+                            .filter(value -> value.getKey().equals(targetKeys[index]))
                             .findFirst()
                             .orElseThrow();
             var config = json.createObjectNode().put("type", transforms[i]);
