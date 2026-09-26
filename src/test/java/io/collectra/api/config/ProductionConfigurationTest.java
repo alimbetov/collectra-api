@@ -46,7 +46,8 @@ class ProductionConfigurationTest {
         assertThat(shared.getProperty("spring.datasource.password")).isNull();
         assertThat(shared.getProperty("collectra.security.jwt-secret")).isNull();
         assertThat(shared.getProperty("collectra.security.otp-pepper")).isNull();
-        assertThat(shared.getProperty("collectra.security.platform-bootstrap.enabled")).isEqualTo(false);
+        assertThat(shared.getProperty("collectra.security.platform-bootstrap.enabled"))
+                .isEqualTo(false);
         assertThat(shared.getProperty("collectra.security.platform-bootstrap.email")).isNull();
         assertThat(shared.getProperty("collectra.security.platform-bootstrap.password")).isNull();
         assertThat(shared.getProperty("collectra.file.storage.access-key")).isNull();
