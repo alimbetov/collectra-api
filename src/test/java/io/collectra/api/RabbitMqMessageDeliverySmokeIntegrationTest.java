@@ -138,7 +138,13 @@ class RabbitMqMessageDeliverySmokeIntegrationTest extends AbstractIntegrationTes
                         clientId,
                         "INVOICE",
                         new String[] {
-                            "Invoice", "Customer", "Number", "InvoiceDate", "DueDate", "Amount", "Currency"
+                            "Invoice",
+                            "Customer",
+                            "Number",
+                            "InvoiceDate",
+                            "DueDate",
+                            "Amount",
+                            "Currency"
                         },
                         new String[] {
                             "invoice.externalId",
@@ -182,13 +188,7 @@ class RabbitMqMessageDeliverySmokeIntegrationTest extends AbstractIntegrationTes
                             "payment.source"
                         },
                         new String[] {
-                            "TRIM",
-                            "TRIM",
-                            "DATE_PARSE",
-                            "DECIMAL_PARSE",
-                            "TRIM",
-                            "TRIM",
-                            "TRIM"
+                            "TRIM", "TRIM", "DATE_PARSE", "DECIMAL_PARSE", "TRIM", "TRIM", "TRIM"
                         });
 
         byte[] customerBody =
@@ -196,7 +196,11 @@ class RabbitMqMessageDeliverySmokeIntegrationTest extends AbstractIntegrationTes
                         .getBytes(StandardCharsets.UTF_8);
         var customerReservation =
                 ingestAndAwait(
-                        tenant.getId(), clientId, customerSource.code(), "customer-key", customerBody);
+                        tenant.getId(),
+                        clientId,
+                        customerSource.code(),
+                        "customer-key",
+                        customerBody);
         assertThat(
                         ingestion
                                 .reserve(
@@ -354,6 +358,7 @@ class RabbitMqMessageDeliverySmokeIntegrationTest extends AbstractIntegrationTes
                                     .isEqualTo("simulated:email:" + messageId);
                         });
     }
+
     private IngestionApplicationService.Reservation ingestAndAwait(
             UUID tenantId, UUID clientId, String sourceCode, String key, byte[] body) {
         var reservation =
@@ -462,5 +467,4 @@ class RabbitMqMessageDeliverySmokeIntegrationTest extends AbstractIntegrationTes
     }
 
     private record SourceFixture(String code) {}
-
 }
