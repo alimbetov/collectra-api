@@ -9,9 +9,10 @@ import { Pagination, Spinner, StatusBadge } from '../../shared/ui';
 export function CollectionsPage(){
  const [p,setP]=useSearchParams();
  const page=Math.max(0,Number(p.get('page')??0)||0),size=Number(p.get('size')??50)||50;
+ const customerId=p.get('customerId')??'',invoiceId=p.get('invoiceId')??'';
  const status=(p.get('status')??'') as ''|CollectionCaseStatus,priority=(p.get('priority')??'') as ''|CollectionPriority;
  const assignedTo=p.get('assignedTo')??'';const overdue=p.get('nextActionOverdue')??'';
- const q=useQuery({...collectionQueries.list({...(status?{status}:{}),...(priority?{priority}:{}),...(assignedTo?{assignedTo}:{}),...(overdue?{nextActionOverdue:overdue==='true'}:{}),page,size,sort:p.get('sort')??'createdAt,desc'}),placeholderData:keepPreviousData});
+ const q=useQuery({...collectionQueries.list({...(customerId?{customerId}:{}),...(invoiceId?{invoiceId}:{}),...(status?{status}:{}),...(priority?{priority}:{}),...(assignedTo?{assignedTo}:{}),...(overdue?{nextActionOverdue:overdue==='true'}:{}),page,size,sort:p.get('sort')??'createdAt,desc'}),placeholderData:keepPreviousData});
  const change=(k:string,v:string)=>{const n=new URLSearchParams(p);if(v)n.set(k,v);else n.delete(k);n.set('page','0');setP(n)};
  if(q.error instanceof ApiError&&q.error.status===403)return <Navigate to="/forbidden" replace/>;
  return <div className="customers-page"><header className="customers-page__header"><div><p className="eyebrow">Collections</p><h1>Работа с задолженностью</h1><p>{q.data?`${q.data.totalElements} кейсов`:'Загрузка очереди'}</p></div></header>
