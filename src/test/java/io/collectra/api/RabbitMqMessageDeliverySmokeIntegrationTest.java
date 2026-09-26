@@ -194,7 +194,7 @@ class RabbitMqMessageDeliverySmokeIntegrationTest extends AbstractIntegrationTes
                         });
 
         byte[] customerBody =
-                ("Customer;DisplayName\\n" + customerExternalId + ";Rabbit Customer\\n")
+                ("Customer;DisplayName\n" + customerExternalId + ";Rabbit Customer\n")
                         .getBytes(StandardCharsets.UTF_8);
         var customerReservation =
                 ingestAndAwait(
@@ -221,7 +221,7 @@ class RabbitMqMessageDeliverySmokeIntegrationTest extends AbstractIntegrationTes
                 tenant.getId(), customer.getId(), "rabbit-smoke@example.test", "WORK", true);
 
         byte[] invoiceBody =
-                ("Invoice;Customer;Number;InvoiceDate;DueDate;Amount;Currency\\n"
+                ("Invoice;Customer;Number;InvoiceDate;DueDate;Amount;Currency\n"
                                 + invoiceExternalId
                                 + ";"
                                 + customerExternalId
@@ -229,7 +229,7 @@ class RabbitMqMessageDeliverySmokeIntegrationTest extends AbstractIntegrationTes
                                 + businessDate.minusDays(20)
                                 + ";"
                                 + businessDate.minusDays(10)
-                                + ";1000.0000;KZT\\n")
+                                + ";1000.0000;KZT\n")
                         .getBytes(StandardCharsets.UTF_8);
         ingestAndAwait(tenant.getId(), clientId, invoiceSource.code(), "invoice-key", invoiceBody);
         var invoice =
@@ -238,13 +238,13 @@ class RabbitMqMessageDeliverySmokeIntegrationTest extends AbstractIntegrationTes
                         .orElseThrow();
 
         byte[] paymentBody =
-                ("Payment;Customer;PaymentDate;Amount;Currency;Reference;Source\\n"
+                ("Payment;Customer;PaymentDate;Amount;Currency;Reference;Source\n"
                                 + paymentExternalId
                                 + ";"
                                 + customerExternalId
                                 + ";"
                                 + businessDate
-                                + ";100.0000;KZT;rabbit-smoke;TEST\\n")
+                                + ";100.0000;KZT;rabbit-smoke;TEST\n")
                         .getBytes(StandardCharsets.UTF_8);
         ingestAndAwait(tenant.getId(), clientId, paymentSource.code(), "payment-key", paymentBody);
         var payment =
