@@ -1,7 +1,8 @@
 # Codex Completion Contract — Pre-VC9 to Production-Ready Candidate
 
 Status: FAIL-CLOSED
-Branch: `spec/functional-hardening-user-journeys`
+Branch: `fix/pre-vc9-functional-hardening-remediation`
+Specification baseline: `spec/functional-hardening-user-journeys@fae4e1ef2a30a716325fc4bbd1822694243ef498`
 
 ## Purpose
 
