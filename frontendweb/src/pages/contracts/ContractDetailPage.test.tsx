@@ -10,6 +10,10 @@ import { ContractDetailPage } from './ContractDetailPage';
 
 vi.mock('../../entities/contract/api/contract.api', () => ({ getContract: vi.fn(), transitionContract: vi.fn(), updateContract: vi.fn() }));
 
+vi.mock('../../features/auth/model/auth-context', () => ({
+  useAuth: () => ({ hasPermission: () => true }),
+}));
+
 const id = '11111111-1111-4111-8111-111111111111';
 const contract = {
   id, customerId: '22222222-2222-4222-8222-222222222222', customerExternalId: 'C-1', customerDisplayName: 'Acme',
