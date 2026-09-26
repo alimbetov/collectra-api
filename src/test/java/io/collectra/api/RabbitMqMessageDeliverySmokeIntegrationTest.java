@@ -15,7 +15,12 @@ import io.collectra.api.communication.domain.MessageStatus;
 import io.collectra.api.communication.infrastructure.MessageRepository;
 import io.collectra.api.customer.application.CustomerService;
 import io.collectra.api.customer.domain.CustomerType;
+import io.collectra.api.importing.domain.*;
+import io.collectra.api.importing.infrastructure.*;
+import io.collectra.api.integration.application.IngestionApplicationService;
+import io.collectra.api.integration.application.IntegrationSourceService;
 import io.collectra.api.integration.application.ServiceClientService;
+import io.collectra.api.integration.domain.IngestionStatus;
 import io.collectra.api.localization.domain.TenantLocale;
 import io.collectra.api.localization.infrastructure.TenantLocaleRepository;
 import io.collectra.api.receivable.application.ReceivableService;
@@ -31,16 +36,19 @@ import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.nio.charset.StandardCharsets;
 import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.RabbitMQContainer;
 
+@Import(ProductionIngestionAcceptanceTest.StorageConfig.class)
 @SpringBootTest(
         properties = {
             "collectra.messaging.outbox-enabled=true",
@@ -69,6 +77,15 @@ class RabbitMqMessageDeliverySmokeIntegrationTest extends AbstractIntegrationTes
     @Autowired TenantRepository tenants;
     @Autowired TenantLocaleRepository locales;
     @Autowired ServiceClientService serviceClients;
+    @Autowired IntegrationSourceService integrationSources;
+    @Autowired IngestionApplicationService ingestion;
+    @Autowired SourceSchemaDefinitionRepository schemaDefinitions;
+    @Autowired SourceSchemaRepository schemas;
+    @Autowired SourceFieldRepository sourceFields;
+    @Autowired MappingProfileDefinitionRepository mappingDefinitions;
+    @Autowired MappingProfileRepository mappings;
+    @Autowired MappingRuleRepository mappingRules;
+    @Autowired FieldDefinitionRepository fieldDefinitions;
     @Autowired CustomerService customers;
     @Autowired ReceivableService receivables;
     @Autowired CollectionService collections;
@@ -102,48 +119,111 @@ class RabbitMqMessageDeliverySmokeIntegrationTest extends AbstractIntegrationTes
                         Set.of("integration:imports:create"));
         assertThat(serviceToken.accessToken()).isNotBlank();
 
-        var customer =
-                customers.create(
+        UUID clientId = credential.client().id();
+        String customerExternalId = "RABBIT-C-" + UUID.randomUUID();
+        String invoiceExternalId = "RABBIT-I-" + UUID.randomUUID();
+        String paymentExternalId = "RABBIT-P-" + UUID.randomUUID();
+        LocalDate businessDate = LocalDate.now();
+
+        SourceFixture customerSource =
+                source(
                         tenant.getId(),
-                        "RABBIT-" + UUID.randomUUID(),
-                        CustomerType.INDIVIDUAL,
-                        "Rabbit Customer",
-                        "Rabbit",
-                        "Customer",
-                        null,
-                        null,
-                        null,
-                        "ru",
-                        "Asia/Almaty",
-                        json.createObjectNode());
+                        clientId,
+                        "CUSTOMER",
+                        new String[] {"Customer", "DisplayName"},
+                        new String[] {"customer.externalId", "customer.displayName"},
+                        new String[] {"TRIM", "TRIM"});
+        SourceFixture invoiceSource =
+                source(
+                        tenant.getId(),
+                        clientId,
+                        "INVOICE",
+                        new String[] {
+                            "Invoice", "Customer", "Number", "InvoiceDate", "DueDate", "Amount", "Currency"
+                        },
+                        new String[] {
+                            "invoice.externalId",
+                            "customer.externalId",
+                            "invoice.invoiceNumber",
+                            "invoice.invoiceDate",
+                            "invoice.dueDate",
+                            "invoice.amount",
+                            "invoice.currency"
+                        },
+                        new String[] {
+                            "TRIM", "TRIM", "TRIM", "DATE_PARSE", "DATE_PARSE", "DECIMAL_PARSE", "TRIM"
+                        });
+        SourceFixture paymentSource =
+                source(
+                        tenant.getId(),
+                        clientId,
+                        "PAYMENT",
+                        new String[] {"Payment", "Customer", "PaymentDate", "Amount", "Currency", "Reference", "Source"},
+                        new String[] {
+                            "payment.externalId",
+                            "customer.externalId",
+                            "payment.paymentDate",
+                            "payment.amount",
+                            "payment.currency",
+                            "payment.reference",
+                            "payment.source"
+                        },
+                        new String[] {"TRIM", "TRIM", "DATE_PARSE", "DECIMAL_PARSE", "TRIM", "TRIM", "TRIM"});
+
+        byte[] customerBody =
+                ("Customer;DisplayName\\n" + customerExternalId + ";Rabbit Customer\\n")
+                        .getBytes(StandardCharsets.UTF_8);
+        var customerReservation =
+                ingestAndAwait(
+                        tenant.getId(), clientId, customerSource.code(), "customer-key", customerBody);
+        assertThat(
+                        ingestion
+                                .reserve(
+                                        tenant.getId(),
+                                        clientId,
+                                        customerSource.code(),
+                                        "customer-key",
+                                        "customer-replay",
+                                        "text/csv",
+                                        customerBody)
+                                .ingestionId())
+                .isEqualTo(customerReservation.ingestionId());
+
+        var customer = customers.findByExternalId(tenant.getId(), customerExternalId).orElseThrow();
         customers.addEmail(
                 tenant.getId(), customer.getId(), "rabbit-smoke@example.test", "WORK", true);
 
-        LocalDate businessDate = LocalDate.now();
+        byte[] invoiceBody =
+                ("Invoice;Customer;Number;InvoiceDate;DueDate;Amount;Currency\\n"
+                                + invoiceExternalId
+                                + ";"
+                                + customerExternalId
+                                + ";RABBIT-INV;"
+                                + businessDate.minusDays(20)
+                                + ";"
+                                + businessDate.minusDays(10)
+                                + ";1000.0000;KZT\\n")
+                        .getBytes(StandardCharsets.UTF_8);
+        ingestAndAwait(tenant.getId(), clientId, invoiceSource.code(), "invoice-key", invoiceBody);
         var invoice =
-                receivables.createInvoice(
-                        tenant.getId(),
-                        customer.getId(),
-                        null,
-                        "RABBIT-INV-" + UUID.randomUUID(),
-                        "RABBIT-INV",
-                        businessDate.minusDays(20),
-                        businessDate.minusDays(10),
-                        new BigDecimal("1000.0000"),
-                        "KZT",
-                        null,
-                        json.createObjectNode());
+                receivables
+                        .findInvoiceByExternalId(tenant.getId(), invoiceExternalId)
+                        .orElseThrow();
+
+        byte[] paymentBody =
+                ("Payment;Customer;PaymentDate;Amount;Currency;Reference;Source\\n"
+                                + paymentExternalId
+                                + ";"
+                                + customerExternalId
+                                + ";"
+                                + businessDate
+                                + ";100.0000;KZT;rabbit-smoke;TEST\\n")
+                        .getBytes(StandardCharsets.UTF_8);
+        ingestAndAwait(tenant.getId(), clientId, paymentSource.code(), "payment-key", paymentBody);
         var payment =
-                receivables.createPayment(
-                        tenant.getId(),
-                        customer.getId(),
-                        "RABBIT-PAY-" + UUID.randomUUID(),
-                        businessDate,
-                        new BigDecimal("100.0000"),
-                        "KZT",
-                        "rabbit-smoke",
-                        "TEST",
-                        json.createObjectNode());
+                receivables
+                        .findPaymentByExternalId(tenant.getId(), paymentExternalId)
+                        .orElseThrow();
         UUID allocationCommand = UUID.randomUUID();
         var allocation =
                 receivables.allocate(
@@ -253,4 +333,113 @@ class RabbitMqMessageDeliverySmokeIntegrationTest extends AbstractIntegrationTes
                                     .isEqualTo("simulated:email:" + messageId);
                         });
     }
+    private IngestionApplicationService.Reservation ingestAndAwait(
+            UUID tenantId, UUID clientId, String sourceCode, String key, byte[] body) {
+        var reservation =
+                ingestion.reserve(
+                        tenantId, clientId, sourceCode, key, "golden-journey", "text/csv", body);
+        outbox.publishPending();
+        await().atMost(Duration.ofSeconds(15))
+                .pollInterval(Duration.ofMillis(100))
+                .untilAsserted(
+                        () ->
+                                assertThat(ingestion.status(tenantId, reservation.ingestionId()).status())
+                                        .isIn(
+                                                IngestionStatus.COMPLETED.name(),
+                                                IngestionStatus.PARTIALLY_COMPLETED.name()));
+        return reservation;
+    }
+
+    private SourceFixture source(
+            UUID tenantId,
+            UUID clientId,
+            String documentType,
+            String[] sourcePaths,
+            String[] targetKeys,
+            String[] transforms) {
+        String suffix = UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+        SourceSchemaDefinition schemaDefinition =
+                schemaDefinitions.saveAndFlush(
+                        new SourceSchemaDefinition(tenantId, "GJ_S_" + suffix, documentType + " schema"));
+        SourceSchema schema =
+                schemas.saveAndFlush(
+                        new SourceSchema(
+                                tenantId,
+                                schemaDefinition.getId(),
+                                schemaDefinition.getCode(),
+                                documentType + " schema",
+                                SourceFormat.CSV,
+                                1));
+        SourceField[] fields = new SourceField[sourcePaths.length];
+        for (int i = 0; i < sourcePaths.length; i++) {
+            fields[i] =
+                    sourceFields.saveAndFlush(
+                            new SourceField(
+                                    schema.getId(),
+                                    sourcePaths[i],
+                                    "STRING",
+                                    null,
+                                    true,
+                                    i + 1,
+                                    SourceFieldScope.DOCUMENT,
+                                    i == 0,
+                                    FieldValuePolicy.REQUIRE_SAME));
+        }
+        schema.validated();
+        schema.publish();
+        schemas.saveAndFlush(schema);
+
+        MappingProfileDefinition mappingDefinition =
+                mappingDefinitions.saveAndFlush(
+                        new MappingProfileDefinition(
+                                tenantId, "GJ_M_" + suffix, documentType + " mapping", documentType));
+        MappingProfile mapping =
+                mappings.saveAndFlush(
+                        new MappingProfile(
+                                tenantId,
+                                mappingDefinition.getId(),
+                                schema.getId(),
+                                mappingDefinition.getCode(),
+                                documentType + " mapping",
+                                documentType,
+                                1));
+        mapping.validated();
+        mapping.publish();
+        mappings.saveAndFlush(mapping);
+        for (int i = 0; i < fields.length; i++) {
+            FieldDefinition target =
+                    fieldDefinitions.findAvailable(null).stream()
+                            .filter(value -> value.getKey().equals(targetKeys[i]))
+                            .findFirst()
+                            .orElseThrow();
+            var config = json.createObjectNode().put("type", transforms[i]);
+            if ("DATE_PARSE".equals(transforms[i])) config.put("pattern", "yyyy-MM-dd");
+            if ("DECIMAL_PARSE".equals(transforms[i])) config.put("decimalSeparator", ".");
+            mappingRules.saveAndFlush(
+                    new MappingRule(
+                            mapping.getId(), fields[i].getId(), target.getId(), config, null, true));
+        }
+
+        String code = "gj-" + documentType.toLowerCase() + "-" + suffix.toLowerCase();
+        var created =
+                integrationSources.create(
+                        tenantId,
+                        new IntegrationSourceService.CreateCommand(
+                                code,
+                                documentType + " golden source",
+                                clientId,
+                                schemaDefinition.getId(),
+                                mappingDefinition.getId(),
+                                "STANDARD",
+                                json.createObjectNode(),
+                                json.createObjectNode(),
+                                json.createObjectNode()));
+        assertThat(integrationSources.validate(tenantId, created.id()).ready()).isTrue();
+        var active = integrationSources.activate(tenantId, created.id(), created.version());
+        assertThat(active.status()).isEqualTo("ACTIVE");
+        return new SourceFixture(code);
+    }
+
+    private record SourceFixture(String code) {}
+
 }
