@@ -52,7 +52,10 @@ describe('MessagesPage', () => {
     expect(await screen.findByText('r***@example.test')).toBeInTheDocument();
     expect(screen.queryByText('raw@example.test')).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'r***@example.test' }))
-      .toHaveAttribute('href', messageId);
+      .toHaveAttribute(
+        'href',
+        `/campaigns/${campaignId}/runs/${runId}/messages/${messageId}`,
+      );
     expect(screen.getByRole('link', { name: customerId }))
       .toHaveAttribute('href', `/customers/${customerId}`);
   });
