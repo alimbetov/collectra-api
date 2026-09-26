@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom';
 import { useI18n } from '../../../shared/i18n/i18n-context';
 
-export function CustomerDetailTabs({ customerId, canReadContracts }: { customerId: string; canReadContracts: boolean }) {
+export function CustomerDetailTabs({ customerId, canReadContracts, canReadReceivables, canReadCollections }: { customerId: string; canReadContracts: boolean; canReadReceivables: boolean; canReadCollections: boolean }) {
   const { t } = useI18n();
   return (
     <nav className="customer-detail-tabs" aria-label={t('customerDetail.tabs.label')}>
@@ -14,6 +14,8 @@ export function CustomerDetailTabs({ customerId, canReadContracts }: { customerI
       {canReadContracts ? <NavLink to={`/customers/${customerId}/contracts`}>
         {t('customerDetail.tabs.contracts')}
       </NavLink> : null}
+      {canReadReceivables ? <NavLink to={`/receivables?customerId=${customerId}`}>Receivables</NavLink> : null}
+      {canReadCollections ? <NavLink to={`/collections?customerId=${customerId}`}>Collections</NavLink> : null}
     </nav>
   );
 }
