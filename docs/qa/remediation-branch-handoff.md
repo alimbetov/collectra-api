@@ -10,3 +10,6 @@ This branch is for production code, migrations, frontend code, tests and documen
 Start by regenerating the inventory and expanding the completion ledger; then execute Phase A-G. Do not treat the known FH-001..007 list as exhaustive.
 
 Mandatory code companion: `docs/qa/pre-vc9-remediation-code-level-guide.md`. It binds each WP to current Collectra classes, frontend patterns, Liquibase conventions and test architecture. Read it before changing production code.
+
+Execution entry point: `docs/qa/CODEX-START-HERE.md`.
+Every WP must satisfy `docs/qa/wp-definition-of-done.md`; CODE_COMPLETE/TESTED do not mean VERIFIED.
