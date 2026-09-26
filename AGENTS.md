@@ -54,3 +54,13 @@ For every remediation:
 reproducer -> root cause -> focused fix -> regression test -> affected suites -> full required gate.
 
 Do not claim green without executed evidence on the exact SHA.
+
+
+## Top-30 risk-based smoke gate
+
+Before VC-9, also read and execute:
+- `docs/qa/top-30-weak-zones.md`
+- `docs/qa/top-30-smoke-contracts.md`
+- `docs/qa/top-30-smoke-implementation-plan.md`
+
+These T30 scenarios are the prioritized cross-domain smoke layer. Do not replace existing focused regression suites with them. Implement shared fixtures/parameterized matrices, link every T30 to exact automated evidence, and keep its result NOT_RUN/BLOCKED until executed. T30-30 is the final composite Golden Journey gate.
