@@ -80,7 +80,8 @@ class FileServiceApiIntegrationTest extends AbstractIntegrationTest {
                         .andExpect(status().isCreated())
                         .andExpect(jsonPath("$.status").value("READY"))
                         .andExpect(jsonPath("$.originalFilename").value("source.xlsx"))
-                        .andExpect(jsonPath("$.checksumSha256").isString())
+                        .andExpect(jsonPath("$.tenantId").doesNotExist())
+                        .andExpect(jsonPath("$.checksumSha256").doesNotExist())
                         .andReturn()
                         .getResponse()
                         .getContentAsString();

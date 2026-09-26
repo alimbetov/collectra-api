@@ -7,10 +7,12 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-public interface StoredFileRepository extends JpaRepository<StoredFile, UUID> {
+public interface StoredFileRepository
+        extends JpaRepository<StoredFile, UUID>, JpaSpecificationExecutor<StoredFile> {
     Optional<StoredFile> findByIdAndTenantId(UUID id, UUID tenantId);
 
     long countByStatus(FileStatus status);

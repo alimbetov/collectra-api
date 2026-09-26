@@ -92,9 +92,10 @@ class CollectionHistoryApiIntegrationTest extends AbstractIntegrationTest {
                         .header("Authorization", bearer(token))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(
-                                "{\"amount\":\""
-                                        + amount
-                                        + "\",\"currency\":\"KZT\",\"promisedDate\":\"2026-10-15\"}"),
+                                """
+                                {"amount":"%s","currency":"KZT","promisedDate":"2026-10-15"}
+                                """
+                                        .formatted(amount)),
                 201);
     }
 
@@ -113,7 +114,9 @@ class CollectionHistoryApiIntegrationTest extends AbstractIntegrationTest {
                         .header("Authorization", bearer(token))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(
-                                "{\"actionType\":\"CALL\",\"dueAt\":\"2026-10-15T10:00:00Z\",\"priority\":\"NORMAL\"}"),
+                                """
+                                {"actionType":"CALL","dueAt":"2026-10-15T10:00:00Z","priority":"NORMAL"}
+                                """),
                 201);
     }
 
@@ -124,9 +127,10 @@ class CollectionHistoryApiIntegrationTest extends AbstractIntegrationTest {
                         .header("Authorization", bearer(token))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(
-                                "{\"externalId\":\"C-"
-                                        + suffix
-                                        + "\",\"customerType\":\"COMPANY\",\"displayName\":\"Collection Customer\",\"companyName\":\"Collection Customer\"}"),
+                                """
+                                {"externalId":"C-%s","customerType":"COMPANY","displayName":"Collection Customer","companyName":"Collection Customer"}
+                                """
+                                        .formatted(suffix)),
                 201);
     }
 
@@ -137,13 +141,10 @@ class CollectionHistoryApiIntegrationTest extends AbstractIntegrationTest {
                         .header("Authorization", bearer(token))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(
-                                "{\"customerId\":\""
-                                        + customerId
-                                        + "\",\"externalId\":\"INV-"
-                                        + suffix
-                                        + "\",\"invoiceNumber\":\"N-"
-                                        + suffix
-                                        + "\",\"invoiceDate\":\"2026-09-01\",\"dueDate\":\"2026-09-10\",\"originalAmount\":\"1000.0000\",\"currency\":\"KZT\"}"),
+                                """
+                                {"customerId":"%s","externalId":"INV-%s","invoiceNumber":"N-%s","invoiceDate":"2026-09-01","dueDate":"2026-09-10","originalAmount":"1000.0000","currency":"KZT"}
+                                """
+                                        .formatted(customerId, suffix, suffix)),
                 201);
     }
 
@@ -153,13 +154,13 @@ class CollectionHistoryApiIntegrationTest extends AbstractIntegrationTest {
                         post("/api/v1/auth/tenants/register")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(
-                                        "{\"slug\":\""
-                                                + prefix
-                                                + "-"
-                                                + UUID.randomUUID()
-                                                + "\",\"companyName\":\"Collection API Test\",\"email\":\""
-                                                + UUID.randomUUID()
-                                                + "@example.test\",\"password\":\"StrongPassword123!\"}"),
+                                        """
+                                        {"slug":"%s-%s","companyName":"Collection API Test","email":"%s@example.test","password":"StrongPassword123!"}
+                                        """
+                                                .formatted(
+                                                        prefix,
+                                                        UUID.randomUUID(),
+                                                        UUID.randomUUID())),
                         201);
         return response.get("accessToken").asText();
     }

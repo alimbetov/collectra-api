@@ -2,12 +2,17 @@ package io.collectra.api.file.api;
 
 import io.collectra.api.file.application.FileDownload;
 import io.collectra.api.file.application.FileMetadata;
+import io.collectra.api.file.application.FileRegistryQueryService;
 import io.collectra.api.file.application.FileService;
 import io.collectra.api.file.application.PresignedDownload;
 import io.collectra.api.file.application.UploadFileCommand;
 import io.collectra.api.file.domain.FileCategory;
+import io.collectra.api.file.domain.FileStatus;
+import io.collectra.api.file.domain.StoredFile;
 import io.collectra.api.shared.tenant.TenantContext;
 import java.io.IOException;
+import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.ContentDisposition;
@@ -32,37 +37,73 @@ import org.springframework.web.multipart.MultipartFile;
 @RequestMapping("/api/v1/files")
 public class FileController {
     private final FileService fileService;
+    private final FileRegistryQueryService registry;
 
-    public FileController(FileService fileService) {
+    public FileController(FileService fileService, FileRegistryQueryService registry) {
         this.fileService = fileService;
+        this.registry = registry;
     }
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("@fileAuthorization.canUpload(authentication)")
-    public FileMetadata upload(
+    public FileResponse upload(
             @RequestPart("file") MultipartFile file,
             @RequestParam FileCategory category,
             @RequestParam(required = false) UUID projectId,
             Authentication authentication)
             throws IOException {
         UUID tenantId = TenantContext.requireTenantId();
-        return fileService.upload(
-                new UploadFileCommand(
+        return FileResponse.from(
+                fileService.upload(
+                        new UploadFileCommand(
                         tenantId,
                         projectId,
                         category,
                         requiredFilename(file),
                         file.getContentType(),
                         file.getSize(),
-                        file.getInputStream(),
-                        subjectId(authentication)));
+                                file.getInputStream(),
+                                subjectId(authentication))));
+    }
+
+    @GetMapping
+    @PreAuthorize("@fileAuthorization.canRead(authentication)")
+    public FilePageResponse list(
+            @RequestParam(required = false) FileCategory category,
+            @RequestParam(required = false) FileStatus status,
+            @RequestParam(required = false) UUID projectId,
+            @RequestParam(required = false) String filename,
+            @RequestParam(required = false) Instant createdFrom,
+            @RequestParam(required = false) Instant createdTo,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size,
+            @RequestParam(defaultValue = "createdAt,desc") String sort) {
+        var result =
+                registry.list(
+                        TenantContext.requireTenantId(),
+                        category,
+                        status,
+                        projectId,
+                        filename,
+                        createdFrom,
+                        createdTo,
+                        page,
+                        size,
+                        sort);
+        return new FilePageResponse(
+                result.getContent().stream().map(FileResponse::from).toList(),
+                result.getNumber(),
+                result.getSize(),
+                result.getTotalElements(),
+                result.getTotalPages(),
+                result.hasNext());
     }
 
     @GetMapping("/{fileId}")
     @PreAuthorize("@fileAuthorization.canRead(authentication)")
-    public FileMetadata get(@PathVariable UUID fileId) {
-        return fileService.get(TenantContext.requireTenantId(), fileId);
+    public FileResponse get(@PathVariable UUID fileId) {
+        return FileResponse.from(fileService.get(TenantContext.requireTenantId(), fileId));
     }
 
     @GetMapping("/{fileId}/content")
@@ -86,7 +127,9 @@ public class FileController {
         }
         headers.setContentDisposition(
                 ContentDisposition.attachment()
-                        .filename(metadata.originalFilename(), java.nio.charset.StandardCharsets.UTF_8)
+                        .filename(
+                                metadata.originalFilename(),
+                                java.nio.charset.StandardCharsets.UTF_8)
                         .build());
         return ResponseEntity.ok()
                 .headers(headers)
@@ -127,6 +170,54 @@ public class FileController {
             return null;
         }
     }
+
+    public record FileResponse(
+            UUID fileId,
+            UUID projectId,
+            FileCategory category,
+            String originalFilename,
+            String contentType,
+            Long sizeBytes,
+            FileStatus status,
+            Instant createdAt,
+            Instant expiresAt,
+            Instant deletedAt) {
+        static FileResponse from(FileMetadata value) {
+            return new FileResponse(
+                    value.fileId(),
+                    value.projectId(),
+                    value.category(),
+                    value.originalFilename(),
+                    value.contentType(),
+                    value.sizeBytes(),
+                    value.status(),
+                    value.createdAt(),
+                    value.expiresAt(),
+                    value.deletedAt());
+        }
+
+        static FileResponse from(StoredFile value) {
+            return new FileResponse(
+                    value.getId(),
+                    value.getProjectId(),
+                    value.getCategory(),
+                    value.getOriginalFilename(),
+                    value.getContentType(),
+                    value.getSizeBytes(),
+                    value.getStatus(),
+                    value.getCreatedAt(),
+                    value.getExpiresAt(),
+                    value.getDeletedAt());
+        }
+    }
+
+    public record FilePageResponse(
+            List<FileResponse> items,
+            int page,
+            int size,
+            long totalElements,
+            int totalPages,
+            boolean hasNext) {}
 
     public record DownloadUrlResponse(UUID fileId, String url, long expiresInSeconds) {}
 }

@@ -52,8 +52,7 @@ class FileControllerIntegrationTest extends AbstractIntegrationTest {
                             byte[] bytes = upload.content().readAllBytes();
                             return new StoredObject(bytes.length, "test-etag");
                         });
-        when(storage.download(any()))
-                .thenAnswer(invocation -> new ByteArrayInputStream(CONTENT));
+        when(storage.download(any())).thenAnswer(invocation -> new ByteArrayInputStream(CONTENT));
         when(storage.generatePresignedGetUrl(any(), any()))
                 .thenReturn(URI.create("https://storage.example.test/download?signature=test"));
         doNothing().when(storage).delete(any());
@@ -68,7 +67,8 @@ class FileControllerIntegrationTest extends AbstractIntegrationTest {
         assertThat(uploaded.get("status").asText()).isEqualTo("READY");
         assertThat(uploaded.get("category").asText()).isEqualTo("IMPORT_SOURCE");
         assertThat(uploaded.get("sizeBytes").asLong()).isEqualTo(CONTENT.length);
-        assertThat(uploaded.get("checksumSha256").asText()).hasSize(64);
+        assertThat(uploaded.has("tenantId")).isFalse();
+        assertThat(uploaded.has("checksumSha256")).isFalse();
 
         mockMvc.perform(
                         get("/api/v1/files/{fileId}", fileId)
@@ -109,6 +109,67 @@ class FileControllerIntegrationTest extends AbstractIntegrationTest {
                                 .header("Authorization", "Bearer " + admin.accessToken()))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("FILE_STATE_CONFLICT"));
+    }
+
+    @Test
+    void registryIsTenantScopedPagedFilteredAndDoesNotLeakStorageInternals() throws Exception {
+        Auth owner = register("registry-owner-" + UUID.randomUUID(), "registry-owner@example.test");
+        Auth outsider =
+                register(
+                        "registry-outsider-" + UUID.randomUUID(), "registry-outsider@example.test");
+
+        upload(owner.accessToken());
+        upload(owner.accessToken());
+        upload(outsider.accessToken());
+
+        String body =
+                mockMvc.perform(
+                                get("/api/v1/files")
+                                        .param("category", "IMPORT_SOURCE")
+                                        .param("filename", "source")
+                                        .param("page", "0")
+                                        .param("size", "1")
+                                        .param("sort", "createdAt,desc")
+                                        .header("Authorization", "Bearer " + owner.accessToken()))
+                        .andExpect(status().isOk())
+                        .andExpect(jsonPath("$.items.length()").value(1))
+                        .andExpect(jsonPath("$.page").value(0))
+                        .andExpect(jsonPath("$.size").value(1))
+                        .andExpect(jsonPath("$.totalElements").value(2))
+                        .andExpect(jsonPath("$.totalPages").value(2))
+                        .andExpect(jsonPath("$.hasNext").value(true))
+                        .andExpect(jsonPath("$.items[0].tenantId").doesNotExist())
+                        .andExpect(jsonPath("$.items[0].storageProvider").doesNotExist())
+                        .andExpect(jsonPath("$.items[0].bucket").doesNotExist())
+                        .andExpect(jsonPath("$.items[0].objectKey").doesNotExist())
+                        .andExpect(jsonPath("$.items[0].checksumSha256").doesNotExist())
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString();
+
+        UUID visibleFileId =
+                UUID.fromString(json.readTree(body).get("items").get(0).get("fileId").asText());
+        mockMvc.perform(
+                        get("/api/v1/files/{fileId}", visibleFileId)
+                                .header("Authorization", "Bearer " + owner.accessToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.tenantId").doesNotExist())
+                .andExpect(jsonPath("$.storageProvider").doesNotExist())
+                .andExpect(jsonPath("$.bucket").doesNotExist())
+                .andExpect(jsonPath("$.objectKey").doesNotExist())
+                .andExpect(jsonPath("$.checksumSha256").doesNotExist());
+
+        mockMvc.perform(
+                        get("/api/v1/files")
+                                .param("page", "0")
+                                .param("size", "201")
+                                .header("Authorization", "Bearer " + owner.accessToken()))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(
+                        get("/api/v1/files")
+                                .param("sort", "bucket,asc")
+                                .header("Authorization", "Bearer " + owner.accessToken()))
+                .andExpect(status().isBadRequest());
     }
 
     @Test

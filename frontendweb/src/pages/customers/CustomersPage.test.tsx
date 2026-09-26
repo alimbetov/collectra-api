@@ -106,7 +106,7 @@ describe('CustomersPage', () => {
       () => expect(screen.getByTestId('location')).toHaveTextContent('/customers?search=Acme'),
       { timeout: 1000 },
     );
-    expect(getCustomers).toHaveBeenCalledTimes(2);
+    await waitFor(() => expect(getCustomers).toHaveBeenCalledTimes(2), { timeout: 1000 });
     expect(getCustomers).toHaveBeenLastCalledWith({ search: 'Acme' });
   });
 

@@ -49,6 +49,9 @@ import { ImportErrorsPage } from '../pages/imports/ImportErrorsPage';
 import { ReceivablesPage } from '../pages/receivables/ReceivablesPage';
 import { InvoiceDetailPage } from '../pages/receivables/InvoiceDetailPage';
 import { InvoiceCreatePage } from '../pages/receivables/InvoiceCreatePage';
+import { FilesPage } from '../pages/files/FilesPage';
+import { FileDetailPage } from '../pages/files/FileDetailPage';
+import { FileUploadPage } from '../pages/files/FileUploadPage';
 
 function PlaceholderPage({ titleKey }: { titleKey: MessageKey }) {
   const { t } = useI18n();
@@ -253,11 +256,15 @@ export const router = createBrowserRouter([
       },
       {
         path: 'files',
-        element: (
-          <RequirePermission permission="FILE_READ">
-            <PlaceholderPage titleKey="navigation.files" />
-          </RequirePermission>
-        ),
+        element: <RequirePermission permission="FILE_READ"><FilesPage /></RequirePermission>,
+      },
+      {
+        path: 'files/new',
+        element: <RequirePermission permission="FILE_UPLOAD"><FileUploadPage /></RequirePermission>,
+      },
+      {
+        path: 'files/:fileId',
+        element: <RequirePermission permission="FILE_READ"><FileDetailPage /></RequirePermission>,
       },
       { path: 'forbidden', element: <ForbiddenPage /> },
       { path: '*', element: <NotFoundPage /> },
