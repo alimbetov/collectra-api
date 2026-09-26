@@ -74,6 +74,12 @@ export function CampaignRunPage() {
         <StatusBadge tone={value.status === 'COMPLETED' ? 'success' : 'info'}>{value.status}</StatusBadge>
       </header>
 
+      <div className="form-actions">
+        <Link className="ui-button ui-button--primary" to={`/campaigns/${campaignId}/runs/${runId}/messages`}>
+          Message monitoring
+        </Link>
+      </div>
+
       <section className="platform-kpi-grid">
         <Kpi label={t('campaigns.recipientCount')} value={value.recipientCount} />
         <Kpi label={t('campaigns.sent')} value={value.sentCount} />
