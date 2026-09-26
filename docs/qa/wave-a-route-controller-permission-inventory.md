@@ -9,13 +9,13 @@ Legend: REAL = usable route/API with matching implementation; PARTIAL = implemen
 |---|---|---|---|---|---|
 | Platform overview/tenants/users/admins | /platform/* | ROLE_PLATFORM_SUPER_ADMIN | PlatformAuthentication, Overview, TenantLifecycle, UserAdministration, AdministratorManagement + page tests | REAL | retain tenant-principal denial matrix |
 | Platform analytics | /platform/analytics + platform analytics API | ROLE_PLATFORM_SUPER_ADMIN | CommunicationAnalyticsIntegrationTest | VC9 | UI deferred |
-| Platform audit | /platform/audit | no matching platform audit UI contract established | security/audit backend tests | PLACEHOLDER | product decision |
-| Platform operations | /platform/operations | no primary UI contract established | operational tests fragmented | PLACEHOLDER | product decision |
+| Platform audit | deferred by D04 | no current MVP route | security/audit backend tests | DEFERRED_ACCEPTED | route removed from current navigation/router |
+| Platform operations | deferred by D04 | no current MVP route | operational tests fragmented | DEFERRED_ACCEPTED | route removed from current navigation/router |
 | Dashboard | / + /api/v1/dashboard/* | ROLE_HUMAN | Dashboard page/model + receivable integration | PARTIAL | capability permission not explicit |
-| Customers/segments | /customers/* + /api/v1/customers* | ROLE_HUMAN | CustomerFrontendApiIntegrationTest + page/model tests | PARTIAL | tenant predicates evidenced; capability permission not explicit |
-| Contracts | /contracts/* + /api/v1/contracts | ROLE_HUMAN | ContractFrontendApiIntegrationTest + page/model tests | PARTIAL | capability permission not explicit |
-| Receivables | /receivables/* | ROLE_HUMAN at business zone | ReceivableFrontendApiIntegrationTest + API/filter tests | PARTIAL | authorization granularity review |
-| Collections | /collections + /api/v1/collection-cases | ROLE_HUMAN | CollectionHistoryApiIntegrationTest, CollectionQueuePostgresIntegrationTest | PLACEHOLDER | P1 UI gap; no collection capability authority |
+| Customers/segments | /customers/* + /api/v1/customers* | CUSTOMER_READ / CUSTOMER_MANAGE | CustomerFrontendApiIntegrationTest + FunctionalHardeningSecuritySmokeIntegrationTest + page/model tests | REAL | direct-route/error coverage remains part of T30-29 gate |
+| Contracts | /contracts/* + /api/v1/contracts | CONTRACT_READ / CONTRACT_MANAGE | ContractFrontendApiIntegrationTest + FunctionalHardeningSecuritySmokeIntegrationTest + page/model tests | REAL | direct-route/error coverage remains part of T30-29 gate |
+| Receivables | /receivables/* | RECEIVABLE_READ / RECEIVABLE_MANAGE | ReceivableFrontendApiIntegrationTest + CustomerReceivableCoreIntegrationTest + FunctionalHardeningSecuritySmokeIntegrationTest | REAL | frontend direct-route/error coverage remains part of T30-29 gate |
+| Collections | /collections + /api/v1/collection-cases | COLLECTION_READ / COLLECTION_MANAGE | CollectionHistoryApiIntegrationTest + CollectionQueuePostgresIntegrationTest + CollectionsPage.test.tsx + FunctionalHardeningSecuritySmokeIntegrationTest | PARTIAL | workspace implemented; full lifecycle/direct case route verification remains T30-06/T30-29 |
 | Campaigns | /campaigns/* + /api/v1/campaigns | CAMPAIGN_READ / CAMPAIGN_MANAGE | campaign integration/scenario tests | PARTIAL | direct page tests missing |
 | Messages | campaign run message routes | CAMPAIGN_READ | Slice10aP11MessageSecurityIntegrationTest + API/model tests | REAL | preserve masking/hierarchy controls |
 | Templates | /templates/* | TEMPLATE_READ/MANAGE/PUBLISH | template integration/unit + selected page tests | PARTIAL | create/detail direct page tests missing |
@@ -46,3 +46,8 @@ CollectionController is ROLE_HUMAN-only while Campaign/Message/File/Integration/
 - CustomerFrontendApiIntegrationTest and ReceivableFrontendApiIntegrationTest: tenant-scoped reads and foreign-resource/business invariant coverage.
 
 Presence of evidence is not a pre-VC9 PASS. All mapped suites must execute on the final hardening SHA.
+
+
+## Remediation reconciliation note
+
+This inventory was reconciled on `fix/pre-vc9-functional-hardening-remediation` after D01-D15 acceptance. `REAL`/`PARTIAL` describes implementation state only; it is not PASS evidence. Final route classification remains subject to T30-29 and the exact-SHA anti-omission gate.
