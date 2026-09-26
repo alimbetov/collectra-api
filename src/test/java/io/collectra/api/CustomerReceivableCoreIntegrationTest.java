@@ -134,6 +134,56 @@ class CustomerReceivableCoreIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void exactAllocationReversalReplayIsIdempotentAndDifferentIntentConflicts() {
+        Fixture f = fixture("100.00", "100.00");
+        var allocation =
+                receivableService.allocate(
+                        f.tenantId(),
+                        f.payment().getId(),
+                        UUID.randomUUID(),
+                        f.invoice().getId(),
+                        new BigDecimal("60.00"));
+
+        var reversed =
+                receivableService.reverseAllocation(
+                        f.tenantId(),
+                        f.payment().getId(),
+                        allocation.getId(),
+                        allocation.getVersion(),
+                        "duplicate bank allocation",
+                        "finance-operator");
+        var replay =
+                receivableService.reverseAllocation(
+                        f.tenantId(),
+                        f.payment().getId(),
+                        allocation.getId(),
+                        allocation.getVersion(),
+                        "duplicate bank allocation",
+                        "finance-operator");
+
+        assertThat(replay.getId()).isEqualTo(reversed.getId());
+        assertThat(replay.getReversalReason()).isEqualTo("duplicate bank allocation");
+        assertThat(replay.getReversedBy()).isEqualTo("finance-operator");
+        assertThat(receivableService.invoice(f.tenantId(), f.invoice().getId()).getPaidAmount())
+                .isEqualByComparingTo("0.00");
+        assertThat(receivableService.invoice(f.tenantId(), f.invoice().getId()).getOutstandingAmount())
+                .isEqualByComparingTo("100.00");
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () ->
+                                receivableService.reverseAllocation(
+                                        f.tenantId(),
+                                        f.payment().getId(),
+                                        allocation.getId(),
+                                        allocation.getVersion(),
+                                        "different reason",
+                                        "finance-operator"))
+                .hasMessageContaining("another intent");
+        assertThat(receivableService.invoice(f.tenantId(), f.invoice().getId()).getOutstandingAmount())
+                .isEqualByComparingTo("100.00");
+    }
+
+    @Test
     void concurrentAllocationsCannotOverAllocatePaymentOrInvoice() throws Exception {
         Fixture f = fixture("100.00", "100.00");
         var ready = new CountDownLatch(2);
