@@ -107,7 +107,8 @@ class CustomerReceivableCoreIntegrationTest extends AbstractIntegrationTest {
         Fixture f = fixture("100.00", "100.00");
         var ready = new CountDownLatch(2);
         var start = new CountDownLatch(1);
-        try (var executor = Executors.newFixedThreadPool(2)) {
+        var executor = Executors.newFixedThreadPool(2);
+        try {
             java.util.concurrent.Callable<Boolean> task = () -> {
                 ready.countDown();
                 start.await(5, TimeUnit.SECONDS);
@@ -126,6 +127,8 @@ class CustomerReceivableCoreIntegrationTest extends AbstractIntegrationTest {
 
             assertThat(java.util.List.of(one.get(10, TimeUnit.SECONDS), two.get(10, TimeUnit.SECONDS)))
                     .containsExactlyInAnyOrder(true, false);
+        } finally {
+            executor.shutdownNow();
         }
 
         Invoice invoice = receivableService.invoice(f.tenantId(), f.invoice().getId());
