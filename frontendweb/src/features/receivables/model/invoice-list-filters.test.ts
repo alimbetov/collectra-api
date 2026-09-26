@@ -7,7 +7,7 @@ describe('invoice list URL state', () => {
     expect(state).toEqual({...defaultInvoiceListState,currency:'KZT'});
   });
   it('round trips supported filters and resets page on filter changes', () => {
-    const state={...defaultInvoiceListState,page:3,size:50 as const,overdue:'true' as const,dueFrom:'2026-01-01',outstandingMin:'10.2500'};
+    const state={...defaultInvoiceListState,customerId:'11111111-1111-4111-8111-111111111111',page:3,size:50 as const,overdue:'true' as const,dueFrom:'2026-01-01',outstandingMin:'10.2500'};
     expect(parseInvoiceListState(serializeInvoiceListState(state))).toEqual(state);
     expect(updateInvoiceListState(state,{overdue:'false'}).page).toBe(0);
   });
