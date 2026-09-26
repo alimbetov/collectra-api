@@ -50,6 +50,7 @@ public class CustomerController {
         this.queries = queries;
     }
 
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('CUSTOMER_READ')")
     @GetMapping
     public CustomerQueryService.CustomerPage list(
             @RequestParam(required = false) String search,
@@ -82,11 +83,13 @@ public class CustomerController {
                 sort);
     }
 
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('CUSTOMER_READ')")
     @GetMapping("/{id}")
     public CustomerResponse get(@PathVariable UUID id) {
         return response(queries.customer(tenant(), id));
     }
 
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('CUSTOMER_MANAGE')")
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public CustomerResponse create(@Valid @RequestBody CustomerRequest request) {
@@ -108,6 +111,7 @@ public class CustomerController {
         return response(tenantId, value);
     }
 
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('CUSTOMER_MANAGE')")
     @PutMapping("/{id}")
     public CustomerResponse update(
             @PathVariable UUID id, @Valid @RequestBody CustomerUpdateRequest request) {
@@ -129,6 +133,7 @@ public class CustomerController {
         return response(tenantId, value);
     }
 
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('CUSTOMER_MANAGE')")
     @PatchMapping("/{id}/status")
     public CustomerResponse status(
             @PathVariable UUID id, @Valid @RequestBody StatusRequest request) {
@@ -137,6 +142,7 @@ public class CustomerController {
                 tenantId, service.changeStatus(tenantId, id, request.status(), request.version()));
     }
 
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('CUSTOMER_MANAGE')")
     @PostMapping("/{id}/emails")
     @ResponseStatus(HttpStatus.CREATED)
     public EmailResponse addEmail(
@@ -146,11 +152,13 @@ public class CustomerController {
         return EmailResponse.from(value);
     }
 
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('CUSTOMER_READ')")
     @GetMapping("/{id}/emails")
     public List<EmailResponse> emails(@PathVariable UUID id) {
         return service.emails(tenant(), id).stream().map(EmailResponse::from).toList();
     }
 
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('CUSTOMER_MANAGE')")
     @PatchMapping("/{id}/emails/{emailId}")
     public EmailResponse updateEmail(
             @PathVariable UUID id,
@@ -167,6 +175,7 @@ public class CustomerController {
                         request.version()));
     }
 
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('CUSTOMER_MANAGE')")
     @PostMapping("/{id}/phones")
     @ResponseStatus(HttpStatus.CREATED)
     public PhoneResponse addPhone(
@@ -176,11 +185,13 @@ public class CustomerController {
         return PhoneResponse.from(value);
     }
 
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('CUSTOMER_READ')")
     @GetMapping("/{id}/phones")
     public List<PhoneResponse> phones(@PathVariable UUID id) {
         return service.phones(tenant(), id).stream().map(PhoneResponse::from).toList();
     }
 
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('CUSTOMER_MANAGE')")
     @PatchMapping("/{id}/phones/{phoneId}")
     public PhoneResponse updatePhone(
             @PathVariable UUID id,
@@ -197,12 +208,14 @@ public class CustomerController {
                         request.version()));
     }
 
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('CUSTOMER_MANAGE')")
     @PostMapping("/{id}/segments/{segmentId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void addSegment(@PathVariable UUID id, @PathVariable UUID segmentId) {
         service.addSegment(tenant(), id, segmentId);
     }
 
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('CUSTOMER_MANAGE')")
     @DeleteMapping("/{id}/segments/{segmentId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void removeSegment(@PathVariable UUID id, @PathVariable UUID segmentId) {

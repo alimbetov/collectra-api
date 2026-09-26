@@ -43,7 +43,7 @@ class FunctionalHardeningSecuritySmokeIntegrationTest extends AbstractIntegratio
     }
 
     @Test
-    void roleHumanOnlyActorCurrentlyReachesCoreBusinessReadsAndMutations() throws Exception {
+    void roleHumanWithoutBusinessCapabilitiesCannotReachCoreBusinessReadsOrMutations() throws Exception {
         Auth admin = register("fh-vertical");
         JsonNode role = read(post("/api/v1/identity/roles")
                 .header("Authorization", bearer(admin.token()))
@@ -59,22 +59,19 @@ class FunctionalHardeningSecuritySmokeIntegrationTest extends AbstractIntegratio
                 .content("{\"token\":\"" + invitation.get("developmentToken").asText() + "\",\"password\":\"WaveBPassword123!\",\"displayName\":\"Restricted Smoke\"}"));
         String restricted = accepted.get("accessToken").asText();
 
-        // Characterization assertions: Wave B deliberately records the current broad ROLE_HUMAN
-        // boundary. If product policy requires capability separation these 2xx responses become
-        // the reproducible evidence for FH-005 and the follow-up fix changes expectations to 403.
         mockMvc.perform(get("/api/v1/customers").header("Authorization", bearer(restricted)))
-                .andExpect(status().isOk());
+                .andExpect(status().isForbidden());
         mockMvc.perform(post("/api/v1/customers")
                         .header("Authorization", bearer(restricted))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"externalId\":\"restricted-" + code() + "\",\"customerType\":\"PERSON\",\"displayName\":\"Restricted Created\"}"))
-                .andExpect(status().isCreated());
+                .andExpect(status().isForbidden());
         mockMvc.perform(get("/api/v1/contracts").header("Authorization", bearer(restricted)))
-                .andExpect(status().isOk());
+                .andExpect(status().isForbidden());
         mockMvc.perform(get("/api/v1/invoices").header("Authorization", bearer(restricted)))
-                .andExpect(status().isOk());
+                .andExpect(status().isForbidden());
         mockMvc.perform(get("/api/v1/collection-cases").header("Authorization", bearer(restricted)))
-                .andExpect(status().isOk());
+                .andExpect(status().isForbidden());
     }
 
     private void foreignGet(String token, String path) throws Exception {
