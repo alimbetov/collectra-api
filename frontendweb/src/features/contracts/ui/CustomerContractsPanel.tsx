@@ -10,15 +10,12 @@ import { ProblemDetailPanel } from '../../../shared/errors/ProblemDetailPanel';
 import { useI18n } from '../../../shared/i18n/i18n-context';
 import { Button, EmptyState, Pagination, Spinner, useToast } from '../../../shared/ui';
 import { applyContractCreate } from '../model/contract-mutations';
-import { useAuth } from '../../../features/auth/model/auth-context';
 import { ContractFormDialog } from './ContractFormDialog';
 import { ContractTable } from './ContractTable';
 
-export function CustomerContractsPanel({ customer, onDirtyChange }: { customer: CustomerDetailDto; onDirtyChange: (dirty: boolean) => void }) {
+export function CustomerContractsPanel({ customer, onDirtyChange, canManageContract }: { customer: CustomerDetailDto; onDirtyChange: (dirty: boolean) => void; canManageContract: boolean }) {
   const { t } = useI18n();
   const { showToast } = useToast();
-  const { hasPermission } = useAuth();
-  const canManageContract = hasPermission('CONTRACT_MANAGE');
   const client = useQueryClient();
   const [page, setPage] = useState(0);
   const [status, setStatus] = useState<'' | ContractStatus>('');
