@@ -24,11 +24,13 @@ npm run typecheck
 npm run dev
 ```
 
-By default Vite proxies `/api` to `http://localhost:8080`. To override the backend target for the Vite development server:
+By default Vite proxies `/api` to `http://localhost:8080`. `API_BASE_URL` is the standard backend origin used by local Vite proxy and build-time browser API calls:
 
 ```bash
-COLLECTRA_API_URL=http://localhost:8081 npm run dev
+API_BASE_URL=http://localhost:8081 npm run dev
 ```
+
+For deployed browser builds, expose the same value to Vite as `VITE_API_BASE_URL` during build time.
 
 ## Build
 

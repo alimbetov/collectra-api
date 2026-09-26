@@ -1,4 +1,5 @@
 import type { ProblemDetailDto } from './contracts';
+import { buildApiUrl } from './api-base-url';
 import { emitSessionLost } from '../auth/auth-events';
 import {
   clearTokens,
@@ -77,7 +78,7 @@ function prepareRequest(options: ApiRequestOptions): RequestInit {
 }
 
 async function execute(path: string, options: ApiRequestOptions): Promise<Response> {
-  return fetch(path, prepareRequest(options));
+  return fetch(buildApiUrl(path), prepareRequest(options));
 }
 
 function invalidateSession(): false {
@@ -110,7 +111,7 @@ async function performRefresh(refreshToken: string): Promise<boolean> {
       getSessionKind() === 'platform'
         ? '/api/v1/platform/auth/refresh'
         : '/api/v1/auth/refresh';
-    const response = await fetch(path, {
+    const response = await fetch(buildApiUrl(path), {
       method: 'POST',
       headers: {
         Accept: 'application/json',

@@ -22,6 +22,7 @@ class ProductionConfigurationTest {
                 .isEqualTo("${COLLECTRA_JWT_SECRET}");
         assertThat(prod.getProperty("collectra.security.otp-pepper"))
                 .isEqualTo("${COLLECTRA_OTP_PEPPER}");
+        assertThat(prod.getProperty("collectra.api-base-url")).isEqualTo("${API_BASE_URL}");
         assertThat(prod.getProperty("collectra.file.storage.endpoint"))
                 .isEqualTo("${RUSTFS_ENDPOINT}");
         assertThat(prod.getProperty("collectra.file.storage.access-key"))

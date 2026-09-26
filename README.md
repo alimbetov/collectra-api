@@ -46,6 +46,8 @@ mvn spotless:check
 Swagger UI: `http://localhost:8080/swagger-ui.html`
 Health: `http://localhost:8080/actuator/health`
 
+Public/backend URLs are built from `API_BASE_URL`. Local default is `http://localhost:8080`; set `API_BASE_URL=https://api.example.kz` when moving the backend to another domain.
+
 Матрица REST-доступа: [`docs/identity-rbac-rest-api.md`](docs/identity-rbac-rest-api.md).
 
 ## Первый сценарий

@@ -11,6 +11,7 @@ management:
   tracing.sampling.probability: ${TRACING_SAMPLING_PROBABILITY:0.1}
 
 collectra:
+  api-base-url: ${API_BASE_URL}
   communication:
     delivery:
       enabled: ${COMMUNICATION_DELIVERY_ENABLED:false}

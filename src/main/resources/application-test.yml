@@ -10,6 +10,7 @@ collectra.security.jwt-secret: test-secret-with-at-least-thirty-two-characters
 collectra.security.otp-pepper: test-otp-pepper-with-at-least-thirty-two-characters
 collectra.security.expose-otp: true
 collectra.security.expose-development-tokens: true
+collectra.api-base-url: http://localhost:8080
 collectra.storage.endpoint: http://localhost:9000
 collectra.storage.access-key: test
 collectra.storage.secret-key: test-secret

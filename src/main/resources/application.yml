@@ -26,6 +26,7 @@ management:
 springdoc:
   swagger-ui.path: /swagger-ui.html
 collectra:
+  api-base-url: ${API_BASE_URL:http://localhost:8080}
   reporting:
     projections:
       enabled: false
@@ -42,6 +43,8 @@ collectra:
     statement-timeout: 30s
     tables: []
   communication:
+    document-links:
+      public-base-url: ${collectra.api-base-url}
     delivery:
       enabled: false
       provider: disabled
