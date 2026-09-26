@@ -75,6 +75,67 @@ class FunctionalHardeningSecuritySmokeIntegrationTest extends AbstractIntegratio
     }
 
     @Test
+    void alphaCannotInjectBetaBusinessReferencesOrUseFiltersAsExistenceOracle() throws Exception {
+        Auth alpha = register("fh-alpha-ref");
+        Auth beta = register("fh-beta-ref");
+
+        JsonNode betaCustomer = createCustomer(beta.token());
+        JsonNode betaInvoice = createInvoice(beta.token(), betaCustomer.get("id").asText());
+
+        mockMvc.perform(post("/api/v1/contracts")
+                        .header("Authorization", bearer(alpha.token()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"customerId\":\"" + betaCustomer.get("id").asText()
+                                + "\",\"externalId\":\"foreign-contract-" + code()
+                                + "\",\"contractNumber\":\"FOREIGN-" + code()
+                                + "\",\"validFrom\":\"2026-01-01\"}"))
+                .andExpect(status().isNotFound());
+
+        mockMvc.perform(post("/api/v1/invoices")
+                        .header("Authorization", bearer(alpha.token()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"customerId\":\"" + betaCustomer.get("id").asText()
+                                + "\",\"externalId\":\"foreign-invoice-" + code()
+                                + "\",\"invoiceNumber\":\"FOREIGN-" + code()
+                                + "\",\"invoiceDate\":\"2026-01-01\",\"dueDate\":\"2026-01-31\","
+                                + "\"originalAmount\":\"100.00\",\"currency\":\"USD\"}"))
+                .andExpect(status().isNotFound());
+
+        mockMvc.perform(post("/api/v1/collection-cases")
+                        .header("Authorization", bearer(alpha.token()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"customerId\":\"" + betaCustomer.get("id").asText()
+                                + "\",\"invoiceId\":\"" + betaInvoice.get("id").asText()
+                                + "\",\"title\":\"Foreign Case\",\"priority\":\"NORMAL\"}"))
+                .andExpect(status().isNotFound());
+
+        assertEmptyItems(alpha.token(), "/api/v1/contracts?customerId=" + betaCustomer.get("id").asText());
+        assertEmptyItems(alpha.token(), "/api/v1/invoices?customerId=" + betaCustomer.get("id").asText());
+        assertEmptyItems(alpha.token(), "/api/v1/collection-cases?customerId=" + betaCustomer.get("id").asText());
+
+        foreignGet(alpha.token(), "/api/v1/customers/" + betaCustomer.get("id").asText());
+        foreignGet(alpha.token(), "/api/v1/invoices/" + betaInvoice.get("id").asText());
+
+        mockMvc.perform(get("/api/v1/customers/" + betaCustomer.get("id").asText())
+                        .header("Authorization", bearer(beta.token())))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/invoices/" + betaInvoice.get("id").asText())
+                        .header("Authorization", bearer(beta.token())))
+                .andExpect(status().isOk());
+    }
+
+    private void assertEmptyItems(String token, String path) throws Exception {
+        String body = mockMvc.perform(get(path).header("Authorization", bearer(token)))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        JsonNode page = json.readTree(body);
+        org.assertj.core.api.Assertions.assertThat(page.get("items").size()).isZero();
+        org.assertj.core.api.Assertions.assertThat(page.get("totalElements").asLong()).isZero();
+    }
+
+    @Test
     void businessCoreReadAndManageCapabilitiesAreComposedExplicitly() throws Exception {
         Auth admin = register("fh-capabilities");
 
