@@ -7,6 +7,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.collectra.api.campaign.application.CampaignMessageMaterializer;
 import io.collectra.api.campaign.application.CampaignSelection;
 import io.collectra.api.campaign.application.CampaignService;
+import io.collectra.api.collection.application.CollectionService;
+import io.collectra.api.collection.domain.CollectionPriority;
 import io.collectra.api.communication.domain.CommunicationChannel;
 import io.collectra.api.communication.domain.Message;
 import io.collectra.api.communication.domain.MessageStatus;
@@ -15,6 +17,7 @@ import io.collectra.api.customer.application.CustomerService;
 import io.collectra.api.customer.domain.CustomerType;
 import io.collectra.api.localization.domain.TenantLocale;
 import io.collectra.api.localization.infrastructure.TenantLocaleRepository;
+import io.collectra.api.receivable.application.ReceivableService;
 import io.collectra.api.shared.outbox.OutboxPublisher;
 import io.collectra.api.template.domain.DocumentTemplate;
 import io.collectra.api.template.domain.TemplateChannel;
@@ -23,7 +26,10 @@ import io.collectra.api.template.infrastructure.DocumentTemplateRepository;
 import io.collectra.api.template.infrastructure.TemplateVersionRepository;
 import io.collectra.api.tenant.domain.Tenant;
 import io.collectra.api.tenant.infrastructure.TenantRepository;
+import java.math.BigDecimal;
 import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -62,6 +68,8 @@ class RabbitMqMessageDeliverySmokeIntegrationTest extends AbstractIntegrationTes
     @Autowired TenantRepository tenants;
     @Autowired TenantLocaleRepository locales;
     @Autowired CustomerService customers;
+    @Autowired ReceivableService receivables;
+    @Autowired CollectionService collections;
     @Autowired DocumentTemplateRepository templates;
     @Autowired TemplateVersionRepository versions;
     @Autowired CampaignService campaigns;
@@ -92,6 +100,82 @@ class RabbitMqMessageDeliverySmokeIntegrationTest extends AbstractIntegrationTes
                         json.createObjectNode());
         customers.addEmail(
                 tenant.getId(), customer.getId(), "rabbit-smoke@example.test", "WORK", true);
+
+        LocalDate businessDate = LocalDate.now();
+        var invoice =
+                receivables.createInvoice(
+                        tenant.getId(),
+                        customer.getId(),
+                        null,
+                        "RABBIT-INV-" + UUID.randomUUID(),
+                        "RABBIT-INV",
+                        businessDate.minusDays(20),
+                        businessDate.minusDays(10),
+                        new BigDecimal("1000.0000"),
+                        "KZT",
+                        null,
+                        json.createObjectNode());
+        var payment =
+                receivables.createPayment(
+                        tenant.getId(),
+                        customer.getId(),
+                        "RABBIT-PAY-" + UUID.randomUUID(),
+                        businessDate,
+                        new BigDecimal("100.0000"),
+                        "KZT",
+                        "rabbit-smoke",
+                        "TEST",
+                        json.createObjectNode());
+        UUID allocationCommand = UUID.randomUUID();
+        var allocation =
+                receivables.allocate(
+                        tenant.getId(),
+                        payment.getId(),
+                        allocationCommand,
+                        invoice.getId(),
+                        new BigDecimal("100.0000"));
+        assertThat(
+                        receivables
+                                .allocate(
+                                        tenant.getId(),
+                                        payment.getId(),
+                                        allocationCommand,
+                                        invoice.getId(),
+                                        new BigDecimal("100.0000"))
+                                .getId())
+                .isEqualTo(allocation.getId());
+        assertThat(receivables.invoice(tenant.getId(), invoice.getId()).getOutstandingAmount())
+                .isEqualByComparingTo("900.0000");
+
+        var collectionCase =
+                collections.createCase(
+                        tenant.getId(),
+                        customer.getId(),
+                        invoice.getId(),
+                        CollectionPriority.HIGH,
+                        null,
+                        "golden-journey");
+        collectionCase =
+                collections.start(
+                        tenant.getId(),
+                        collectionCase.getId(),
+                        collectionCase.getVersion(),
+                        "golden-journey");
+        var action =
+                collections.createAction(
+                        tenant.getId(),
+                        collectionCase.getId(),
+                        "CALL",
+                        "Rabbit golden journey",
+                        Instant.now().plus(Duration.ofDays(1)),
+                        CollectionPriority.NORMAL,
+                        "golden-journey");
+        collections.completeAction(
+                tenant.getId(),
+                collectionCase.getId(),
+                action.getId(),
+                action.getVersion(),
+                "golden-journey");
 
         DocumentTemplate template =
                 templates.saveAndFlush(
