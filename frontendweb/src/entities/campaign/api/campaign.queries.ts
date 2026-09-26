@@ -41,6 +41,10 @@ export const campaignQueries = {
       queryKey: campaignKeys.run(campaignId, runId),
       queryFn: () => getCampaignRun(campaignId, runId),
       enabled: Boolean(campaignId && runId),
+      refetchInterval: (query) => {
+        const status = query.state.data?.status;
+        return status && ['COMPLETED', 'FAILED', 'CANCELLED'].includes(status) ? false : 3000;
+      },
     }),
   recipients: (campaignId: string, runId: string, page = 0) =>
     queryOptions({
