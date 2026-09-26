@@ -14,7 +14,6 @@ import io.collectra.api.communication.domain.Message;
 import io.collectra.api.communication.domain.MessageStatus;
 import io.collectra.api.communication.infrastructure.MessageRepository;
 import io.collectra.api.customer.application.CustomerService;
-import io.collectra.api.customer.domain.CustomerType;
 import io.collectra.api.importing.domain.*;
 import io.collectra.api.importing.infrastructure.*;
 import io.collectra.api.integration.application.IngestionApplicationService;
@@ -33,10 +32,10 @@ import io.collectra.api.template.infrastructure.TemplateVersionRepository;
 import io.collectra.api.tenant.domain.Tenant;
 import io.collectra.api.tenant.infrastructure.TenantRepository;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.nio.charset.StandardCharsets;
 import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -151,14 +150,28 @@ class RabbitMqMessageDeliverySmokeIntegrationTest extends AbstractIntegrationTes
                             "invoice.currency"
                         },
                         new String[] {
-                            "TRIM", "TRIM", "TRIM", "DATE_PARSE", "DATE_PARSE", "DECIMAL_PARSE", "TRIM"
+                            "TRIM",
+                            "TRIM",
+                            "TRIM",
+                            "DATE_PARSE",
+                            "DATE_PARSE",
+                            "DECIMAL_PARSE",
+                            "TRIM"
                         });
         SourceFixture paymentSource =
                 source(
                         tenant.getId(),
                         clientId,
                         "PAYMENT",
-                        new String[] {"Payment", "Customer", "PaymentDate", "Amount", "Currency", "Reference", "Source"},
+                        new String[] {
+                            "Payment",
+                            "Customer",
+                            "PaymentDate",
+                            "Amount",
+                            "Currency",
+                            "Reference",
+                            "Source"
+                        },
                         new String[] {
                             "payment.externalId",
                             "customer.externalId",
@@ -168,7 +181,15 @@ class RabbitMqMessageDeliverySmokeIntegrationTest extends AbstractIntegrationTes
                             "payment.reference",
                             "payment.source"
                         },
-                        new String[] {"TRIM", "TRIM", "DATE_PARSE", "DECIMAL_PARSE", "TRIM", "TRIM", "TRIM"});
+                        new String[] {
+                            "TRIM",
+                            "TRIM",
+                            "DATE_PARSE",
+                            "DECIMAL_PARSE",
+                            "TRIM",
+                            "TRIM",
+                            "TRIM"
+                        });
 
         byte[] customerBody =
                 ("Customer;DisplayName\\n" + customerExternalId + ";Rabbit Customer\\n")
