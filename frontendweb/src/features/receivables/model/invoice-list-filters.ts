@@ -1,6 +1,7 @@
 import type { InvoiceListQuery, PaymentStatus } from '../../../entities/receivable/model/receivable.types';
 
 export interface InvoiceListState {
+  customerId: string;
   search: string;
   paymentStatus: '' | PaymentStatus;
   currency: string;
@@ -15,7 +16,7 @@ export interface InvoiceListState {
 }
 
 export const defaultInvoiceListState: InvoiceListState = {
-  search: '', paymentStatus: '', currency: '', dueFrom: '', dueTo: '', overdue: '',
+  customerId: '', search: '', paymentStatus: '', currency: '', dueFrom: '', dueTo: '', overdue: '',
   outstandingMin: '', outstandingMax: '', page: 0, size: 20, sort: 'createdAt,desc',
 };
 
@@ -31,6 +32,7 @@ export function parseInvoiceListState(p: URLSearchParams): InvoiceListState {
   const sort = one(p, 'sort');
   const overdue = one(p, 'overdue');
   return {
+    customerId: one(p, 'customerId'),
     search: one(p, 'search'),
     paymentStatus: statuses.includes(status as PaymentStatus) ? status as PaymentStatus : '',
     currency: one(p, 'currency').toUpperCase().slice(0, 3),
@@ -45,7 +47,7 @@ export function parseInvoiceListState(p: URLSearchParams): InvoiceListState {
 
 export function serializeInvoiceListState(s: InvoiceListState) {
   const p = new URLSearchParams();
-  for (const k of ['search','paymentStatus','currency','dueFrom','dueTo','overdue','outstandingMin','outstandingMax'] as const) if (s[k]) p.set(k, s[k]);
+  for (const k of ['customerId','search','paymentStatus','currency','dueFrom','dueTo','overdue','outstandingMin','outstandingMax'] as const) if (s[k]) p.set(k, s[k]);
   if (s.page) p.set('page', String(s.page));
   if (s.size !== 20) p.set('size', String(s.size));
   if (s.sort !== 'createdAt,desc') p.set('sort', s.sort);
@@ -62,6 +64,7 @@ export const validInvoiceRanges = (s: InvoiceListState) =>
 
 export function toInvoiceListQuery(s: InvoiceListState): InvoiceListQuery {
   return {
+    ...(s.customerId ? { customerId: s.customerId } : {}),
     ...(s.search ? { search: s.search } : {}),
     ...(s.paymentStatus ? { paymentStatus: s.paymentStatus } : {}),
     ...(s.currency ? { currency: s.currency } : {}),
