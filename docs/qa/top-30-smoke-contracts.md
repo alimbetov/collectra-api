@@ -1,7 +1,7 @@
 # Top 30 Smoke Contracts
 
 Status: DESIGN COMPLETE / EXECUTION REQUIRED
-Results: NOT_RUN | PASS | FAIL | BLOCKED_DECISION | BLOCKED_IMPLEMENTATION | WAIVED(reason)
+Results: NOT_RUN | PASS | FAIL | BLOCKED_DECISION(D16+) | BLOCKED_IMPLEMENTATION | WAIVED(reason)
 
 | Smoke | Weak zone | Fixture / action | Expected business + security state | UI/API evidence | Result |
 |---|---|---|---|---|---|

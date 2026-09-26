@@ -69,4 +69,4 @@ Existing focused tests remain authoritative regression tests; smoke suites prove
 
 ## Evidence rule
 
-A WZ becomes PASS only after its named smoke and affected existing regressions execute successfully on the same verification SHA. A missing business decision yields BLOCKED_DECISION, never PASS or FAIL.
+A WZ becomes PASS only after its named smoke and affected existing regressions execute successfully on the same verification SHA. D01-D15 are accepted. Only a newly discovered D16+ semantic conflict may yield BLOCKED_DECISION.

@@ -26,12 +26,12 @@ Search the entire repository. Do not rely only on files already named in docs/qa
 
 Update the Wave-A inventory and smoke matrix with exact test class/file names. Classify each surface REAL, PARTIAL, PLACEHOLDER, API_ONLY or VC9. Test existence is not PASS.
 
-## 3. Decision workshop backlog
+## 3. Accepted decision evidence checklist
 
-For each item below, gather evidence first. If current desired behavior is not already explicit, create a decision-register entry rather than guessing.
+D01-D15 are accepted in architecture-business-decision-register.md. The items below are evidence/remediation checklists, not approval stops. If a genuinely new semantic conflict is discovered, create D16+ and BLOCKED rather than guessing.
 
 ### D01 Business-core RBAC
-Question: should all TENANT_USER actors read/mutate Customers, Contracts, Receivables and Collections, or should these surfaces use capability permissions such as READ/MANAGE?
+Accepted rule: Customer, Contract, Receivable and Collection use capability READ/MANAGE authorization; ROLE_HUMAN alone is insufficient.
 
 Architect recommendation to present: capability-based server authorization, with read/manage separation and persona composition. Verify whether existing permission vocabulary can be reused before adding permissions.
 

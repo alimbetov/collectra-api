@@ -27,7 +27,7 @@ If documents appear to conflict, Codex follows this order:
 Repository contains a substantial existing test/spec surface (151 backend Java test files, 49 frontend test files, 62 spec documents, 49 controller files at the audited HEAD). These counts are audit observations, not completion evidence; Codex must regenerate counts because implementation work changes them.
 
 Known hard blockers at handoff remain intentional:
-- D01-D15 are product decisions until accepted where required.
+- D01-D15 are accepted and no longer approval blockers.
 - FH-001 Collections frontend placeholder.
 - T30 scenarios are not executed/verified by this documentation audit.
 - final Golden Journey and exact-SHA full gate are not yet proven.
@@ -41,3 +41,8 @@ At the end, Codex must regenerate route/controller/permission/resource/test inve
 ## CI evidence rule
 
 A GitHub Actions run on exact HEAD is useful evidence but does not replace T30/persona/Golden Journey reconciliation. Conversely, local green without the required exact-SHA CI run does not satisfy the final production-readiness gate when GitHub CI is available.
+
+
+## Full-stack clarification addendum
+
+D01-D15 are accepted. P1-P15 business-process reconciliation and real RabbitMQ broker wiring are mandatory additions to the original Top-30-only view. The completion contract remains the sole execution order. This audit is a handoff snapshot, not an alternate instruction source.

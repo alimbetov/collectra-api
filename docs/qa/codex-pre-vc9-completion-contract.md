@@ -21,7 +21,7 @@ Implement and execute T30-01..05:
 - human/service/platform trust-zone separation;
 - stale user authorization and service credential revocation.
 
-Exit: no unresolved P0; T30-01..05 PASS on exact SHA or explicit BLOCKED_DECISION.
+Exit: no unresolved P0; T30-01..05 PASS on exact SHA. D01-D15 are accepted; only a newly discovered D16+ semantic conflict may BLOCK this phase.
 
 ### Phase B — financial and ingestion spine
 Implement and execute T30-07..14:
