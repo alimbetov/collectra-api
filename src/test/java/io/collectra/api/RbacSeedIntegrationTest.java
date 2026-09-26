@@ -21,7 +21,7 @@ class RbacSeedIntegrationTest extends AbstractIntegrationTest {
         assertThat(scopeOf("TENANT_USER")).isEqualTo("TENANT");
 
         assertThat(permissionCodes("TENANT_ADMIN"))
-                .hasSize(36)
+                .hasSize(44)
                 .contains(
                         "FILE_READ",
                         "FILE_UPLOAD",
