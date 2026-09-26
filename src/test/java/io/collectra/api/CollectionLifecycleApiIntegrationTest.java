@@ -126,11 +126,11 @@ class CollectionLifecycleApiIntegrationTest extends AbstractIntegrationTest {
         assertThat(timeline.get("totalElements").asInt()).isGreaterThanOrEqualTo(8);
         assertThat(timeline.get("items").toString())
                 .contains(
-                        "CASE_CREATED",
+                        "CASE_OPENED",
                         "CASE_STARTED",
                         "PROMISE_CREATED",
                         "PROMISE_FULFILLED",
-                        "DISPUTE_CREATED",
+                        "DISPUTE_OPENED",
                         "DISPUTE_RESOLVED",
                         "ACTION_CREATED",
                         "ACTION_COMPLETED",
