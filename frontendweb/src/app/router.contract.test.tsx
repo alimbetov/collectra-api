@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { router } from './router';
 
 const primaryRoutes = [
-  '/dashboard',
+  '/',
   '/customers',
   '/customers/11111111-1111-4111-8111-111111111111',
   '/customers/11111111-1111-4111-8111-111111111111/contacts',
