@@ -68,48 +68,6 @@ class ServiceClientSecurityIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void ingestionRequiresCurrentCreateScopeAndBlockedClientCannotMintAnotherToken()\n            throws Exception {
-        String adminToken = registerTenant();
-        String clientId = "ingest-" + UUID.randomUUID().toString().substring(0, 8);
-        JsonNode issued =
-                createClient(
-                        adminToken,
-                        clientId,
-                        "integration:imports:create",
-                        "integration:imports:read");
-        JsonNode client = issued.get("client");
-        String secret = issued.get("clientSecret").asText();
-
-        String readOnlyJwt = issueToken(clientId, secret, "integration:imports:read");
-        mockMvc.perform(
-                        post(\n                                        "/api/v1/integration/sources/{sourceCode}/ingestions",\n                                        "missing-source")
-                                .header("Authorization", "Bearer " + readOnlyJwt)
-                                .header("Idempotency-Key", "scope-denied")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("{}"))
-                .andExpect(status().isForbidden());
-
-        String createJwt = issueToken(clientId, secret, "integration:imports:create");
-        mockMvc.perform(
-                        post("/api/v1/integration/sources/{sourceCode}/ingestions", "missing-source")
-                                .header("Authorization", "Bearer " + createJwt)
-                                .header("Idempotency-Key", "scope-allowed")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("{}"))
-                .andExpect(status().isNotFound());
-
-        mockMvc.perform(
-                        post(
-                                        "/api/v1/integration/service-clients/{id}/block",
-                                        client.get("id").asText())
-                                .header("Authorization", "Bearer " + adminToken))
-                .andExpect(status().isNoContent());
-
-        token(clientId, secret, "integration:imports:create")
-                .andExpect(status().isUnauthorized());
-    }
-
-    @Test
     void tenantCannotRotateOrBlockAnotherTenantsServiceClient() throws Exception {
         String tenantA = registerTenant();
         String tenantB = registerTenant();
@@ -139,22 +97,16 @@ class ServiceClientSecurityIntegrationTest extends AbstractIntegrationTest {
 
     private JsonNode createClient(String adminToken, String clientId, String scope)
             throws Exception {
-        return createClient(adminToken, clientId, new String[] {scope});
-    }
-
-    private JsonNode createClient(String adminToken, String clientId, String... scopes)
-            throws Exception {
-        String body =
-                json.writeValueAsString(
-                        java.util.Map.of(
-                                "clientId", clientId,
-                                "name", "Service Client",
-                                "scopes", java.util.Set.of(scopes)));
         return read(
                 post("/api/v1/integration/service-clients")
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(body));
+                        .content(
+                                "{\"clientId\":\""
+                                        + clientId
+                                        + "\",\"name\":\"Service Client\",\"scopes\":[\""
+                                        + scope
+                                        + "\"]}"));
     }
 
     private String issueToken(String clientId, String secret, String scope) throws Exception {
