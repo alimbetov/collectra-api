@@ -82,6 +82,9 @@ tenant/admin -> integration configuration -> idempotent CUSTOMER/INVOICE/PAYMENT
 ### D14 VC-9 prerequisite
 Do not start VC-9 while an unwaived P0/P1 exists or Golden Journey/security persona matrix is not proven.
 
+### D15 Ambiguous provider outcome
+Define the adapter/worker contract for accept-then-timeout or otherwise ambiguous acceptance. Architect recommendation: stable delivery/idempotency key, explicit ambiguous state/handling, and no unsafe blind resend.
+
 ## 4. Security test model
 
 Provision two symmetric tenants per isolated test run:
@@ -147,15 +150,7 @@ Never downgrade severity just to unblock VC-9.
 
 ## 8. Execution order
 
-Wave A: finish exhaustive route/controller/permission/test/spec inventory.
-Wave B1: execute restricted-user vertical authorization characterization (FH-005).
-Wave B2: exhaustive Alpha->Beta BOLA/IDOR path/query/body matrix.
-Wave B3: persona happy/negative journeys J01-J10.
-Decision workshop: surface unresolved D01-D14 decisions with evidence and recommendation.
-Wave C: Golden Journey frontend+backend to channel boundary.
-Wave D: delivery/retry/recovery/concurrency matrix.
-Wave E: close P0/P1 then P2 with regression evidence.
-Wave F: full pre-VC9 verification.
+The single authoritative execution order is `docs/qa/codex-pre-vc9-completion-contract.md` Phase A through G. This brief supplies discovery and decision semantics only; it does not define a competing sequence. Surface unresolved D01-D15 decisions with evidence and recommendation at the earliest phase that depends on them. Persona J01-J10 evidence is accumulated throughout the phases and reconciled before the final gate.
 
 ## 9. Required artifacts kept current
 

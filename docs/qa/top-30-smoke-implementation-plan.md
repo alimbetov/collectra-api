@@ -1,7 +1,7 @@
 # Top-30 Smoke Implementation Plan
 
 ## Phase 0 — decisions that gate semantics
-Resolve D01/D02/D03/D05/D06/D09/D10/D12/D13. D04 can remain outside Golden Journey if navigation is honestly deferred. D08 is validated against existing capability model. D25 ambiguous-provider behavior requires an explicit implementation-state review before changing code.
+Resolve D01/D02/D03/D05/D06/D09/D10/D12/D13. D04 can remain outside Golden Journey if navigation is honestly deferred. D08 is validated against existing capability model. D15 ambiguous-provider behavior requires an explicit implementation-state review before changing code.
 
 ## Phase 1 — security spine
 Implement/expand T30-01..05, 18, 21, 28 with reusable Alpha/Beta fixtures. Parameterize resource access. Every denied mutation verifies zero state change.

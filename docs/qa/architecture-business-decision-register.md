@@ -18,7 +18,7 @@ Rule: Codex gathers evidence and recommendation; product owner accepts the busin
 | D11 | Smoke personas | Alpha/Beta symmetric design documented | personas as permission compositions; no new hard-coded system roles | realistic least-privilege smoke | create many system roles | REQUIRED |
 | D12 | Delivery boundary | current hardening plan ends at deterministic adapter/mock | keep real provider outside pre-VC9 gate | deterministic CI | require external provider acceptance now | REQUIRED |
 | D13 | Golden Journey | cross-domain path documented but not yet proven end-to-end | make it mandatory release smoke | exposes integration gaps before analytics | rely on independent slice tests | REQUIRED |
-| D14 | VC-9 prerequisite | analytics risks hiding unstable upstream behavior | block VC-9 on unwaived P0/P1 + proven Golden Journey/security matrix | delays analytics until foundation is credible | develop analytics in parallel | REQUIRED |
+| D14 | VC-9 prerequisite | analytics risks hiding unstable upstream behavior | block VC-9 on unwaived P0/P1 + proven Golden Journey/security matrix | delays analytics until foundation is credible | develop analytics in parallel | REQUIRED |\n| D15 | Ambiguous provider outcome | provider may accept a delivery and lose/timeout the response; blind retry can duplicate customer communication | preserve a stable delivery/idempotency key and model ambiguous acceptance explicitly; never blindly resend when acceptance cannot be disproved | requires adapter/worker state contract and deterministic fault scenario | treat timeout as ordinary transient failure and accept duplicate-send risk | REQUIRED |
 
 ## Decision recording
 
