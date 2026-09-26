@@ -55,11 +55,7 @@ class GenerationJobStateConcurrencyIntegrationTest extends AbstractIntegrationTe
                     if (!start.await(5, TimeUnit.SECONDS)) {
                         throw new IllegalStateException("generation race did not start");
                     }
-                    try {
-                        return states.begin(job.getTenantId(), job.getId());
-                    } catch (IllegalStateException alreadyProcessing) {
-                        return alreadyProcessing;
-                    }
+                    return states.begin(job.getTenantId(), job.getId());
                 };
 
         try {
@@ -76,8 +72,7 @@ class GenerationJobStateConcurrencyIntegrationTest extends AbstractIntegrationTe
                                     .filter(GenerationJobStateService.Snapshot.class::isInstance)
                                     .count())
                     .isEqualTo(1);
-            assertThat(results.stream().filter(IllegalStateException.class::isInstance).count())
-                    .isEqualTo(1);
+            assertThat(results.stream().filter(java.util.Objects::isNull).count()).isEqualTo(1);
             assertThat(jobs.findById(job.getId()).orElseThrow().getStatus())
                     .isEqualTo(GenerationJobStatus.PROCESSING);
         } finally {
