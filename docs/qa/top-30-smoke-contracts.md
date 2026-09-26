@@ -11,13 +11,13 @@ Results: PASS | PASS | FAIL | BLOCKED_DECISION(D16+) | BLOCKED_IMPLEMENTATION | 
 | T30-04 | WZ-04 | human→service, service→human, tenant→platform, platform→tenant-business | all cross-zone calls denied unless explicitly contracted | API | PASS |
 | T30-05 | WZ-05 | remove permission/revoke session/rotate+block client then reuse stale auth | stale access rejected | API | PASS |
 | T30-06 | WZ-06 | Collection Officer queue→case→promise/dispute/action→timeline→close | authoritative state visible; immutable timeline; no placeholder | Browser+API | PASS |
-| T30-07 | WZ-07 | create promise/dispute/action without payment | invoice paid/outstanding unchanged | API+DB | PASS |
+| T30-07 | WZ-07 | create promise/dispute/action without payment | invoice paid/outstanding unchanged | API+DB | NOT_RUN |
 | T30-08 | WZ-08 | allocate valid then over-allocate/wrong customer/wrong currency | valid exact; invalid rejected; balances unchanged on rejection | API+DB | PASS |
 | T30-09 | WZ-09 | replay allocation command then reverse/replay reverse | one allocation effect; exact restored balances; no double reversal | API+DB | PASS |
-| T30-10 | WZ-10 | non-integer money + timezone/business-date overdue boundary | no precision loss; UI equals backend projection | API+Frontend | PASS |
+| T30-10 | WZ-10 | non-integer money + timezone/business-date overdue boundary | no precision loss; UI equals backend projection | API+Frontend | NOT_RUN |
 | T30-11 | WZ-11 | ingest same idempotency key/body twice then changed body | one business effect; replay stable; changed body conflict | service API+DB | PASS |
 | T30-12 | WZ-12 | published schema/mapping ingests representative custom payload | exact canonical CUSTOMER/INVOICE/PAYMENT values | service API+DB | PASS |
-| T30-13 | WZ-13 | import batch with valid+invalid records | documented partial/atomic behavior; durable safe diagnostics | API+DB+UI | PASS |
+| T30-13 | WZ-13 | import batch with valid+invalid records | documented partial/atomic behavior; durable safe diagnostics | API+DB+UI | NOT_RUN |
 | T30-14 | WZ-14 | authenticate client, rotate/block, retry ingestion with old/new credentials/scopes | only currently valid scoped credential succeeds | service API | NOT_RUN |
 | T30-15 | WZ-15 | customer detail after contract/invoice/payment/collection changes | accepted D05 Customer 360 links/summary refresh from authoritative APIs; no contradictory state | Browser+API | NOT_RUN |
 | T30-16 | WZ-16 | two actors edit same versioned aggregate | stale command 409; first write preserved; UI reload/reapply required | API+Browser | NOT_RUN |
@@ -28,7 +28,7 @@ Results: PASS | PASS | FAIL | BLOCKED_DECISION(D16+) | BLOCKED_IMPLEMENTATION | 
 | T30-21 | WZ-21 | Alpha uses Beta file/asset in template/message and requests metadata/content | non-disclosure; no storage key/bucket leakage | API+DB | NOT_RUN |
 | T30-22 | WZ-22 | required attachment PENDING then FAILED/READY | provider calls 0 for blocked states; READY allows one | worker+DB | PASS |
 | T30-23 | WZ-23 | 100 duplicate events, 8 workers | exactly one provider call; one SENT; sentCount=1 | concurrency integration | PASS |
-| T30-24 | WZ-24 | transient failure→retry→success and retry exhaustion | exact Message status/attempt/retry + CampaignRun counters transactionally consistent | worker+DB | NOT_RUN |
+| T30-24 | WZ-24 | transient failure→retry→success and retry exhaustion | exact Message status/attempt/retry + CampaignRun counters transactionally consistent | worker+DB | PASS |
 | T30-25 | WZ-25 | provider accepts then response is lost/ambiguous | accepted D15: no unsafe blind resend; stable delivery key; explicit safe handling/state | adapter+worker | PASS |
 | T30-26 | WZ-26 | stale PROCESSING + concurrent recovery/late event | one legal final transition; no backward terminal transition/double count | recovery+DB | NOT_RUN |
 | T30-27 | WZ-27 | competing outbox publishers + retry/duplicate consumer delivery | one claim owner; eventual publish; downstream idempotent business effect | PostgreSQL+RabbitMQ | PASS |
