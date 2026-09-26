@@ -1,25 +1,26 @@
 # Architecture / Business Decision Register
 
-Status: OPEN FOR WORKSHOP
-Rule: Codex gathers evidence and recommendation; product owner accepts the business rule before policy-dependent remediation.
+Status: ACCEPTED BASELINE FOR PRE-VC9 HARDENING
+Authority: product/architecture decisions delegated by the product owner for this hardening scope.
+Rule: Codex implements these decisions. Re-open only if repository evidence proves a material conflict with an already shipped external contract; record BLOCKED instead of silently changing semantics.
 
-| ID | Topic | Current evidence / problem | Architect recommendation | Consequences | Alternatives | Decision |
-|---|---|---|---|---|---|---|
-| D01 | Business-core RBAC | Customer/Contract/Receivable/Collection expose broad ROLE_HUMAN boundaries in Wave-A inspection | Capability READ/MANAGE authorization composed into personas; server-side enforcement | migration/seed + controller/API/frontend permission updates + regression matrix | retain all-human access if explicitly intended | REQUIRED |
-| D02 | Collections Workspace | backend/spec exist; /collections is PlaceholderPage (FH-001 P1) | implement complete queue/case/promise/dispute/action/timeline workspace | closes Golden Journey UI gap | remove Collections from MVP/navigation | REQUIRED |
-| D03 | Auditor / Support | read-only intent exists but must be exhaustive | explicit least-privilege read-only permission compositions; all mutations 403 | additional negative tests/navigation gates | broader operational mutation role | REQUIRED |
-| D04 | Platform Audit / Operations | routes are placeholders | either implement a defined MVP workflow or remove/defer navigation honestly | avoids false-complete product surfaces | leave placeholders | REQUIRED |
-| D05 | Customer 360 | customer is central cross-domain anchor; exact required sections need finalization | expose authoritative linked views for contacts/segments/contracts/receivables/collections; avoid duplicated derived truth | more deep-link/browser coverage | keep fragmented navigation | REQUIRED |
-| D06 | Receivable operations | allocation/reversal are financial mutations | restrict to explicit manage capability; require idempotency/concurrency/audit semantics | RBAC and audit tests | every human may mutate | REQUIRED |
-| D07 | Integration operations | multiple capability permissions and service scopes already exist | keep human manage/read separate from service scopes; diagnostic read least privilege | persona composition + negative tests | broad tenant-admin-only operation | REQUIRED |
-| D08 | Campaign/Template/File SoD | explicit capability families exist | retain capability separation and grant only cross-domain reads required by workflow | permission matrix refinement | merge into broad campaign role | REQUIRED |
-| D09 | Delivery operations | VC-8 is read-only; no attempt history API | keep monitoring/support read-only; no retry/cancel in current scope | fewer unsafe operator actions; later command contract possible | introduce manual commands now | REQUIRED |
-| D10 | Tenant isolation | tenant predicates/security tests exist; platform is separate trust zone | absolute isolation; no implicit platform tenant-data access; future impersonation separate/audited | exhaustive BOLA matrix | platform omniscient business access | REQUIRED |
-| D11 | Smoke personas | Alpha/Beta symmetric design documented | personas as permission compositions; no new hard-coded system roles | realistic least-privilege smoke | create many system roles | REQUIRED |
-| D12 | Delivery boundary | current hardening plan ends at deterministic adapter/mock | keep real provider outside pre-VC9 gate | deterministic CI | require external provider acceptance now | REQUIRED |
-| D13 | Golden Journey | cross-domain path documented but not yet proven end-to-end | make it mandatory release smoke | exposes integration gaps before analytics | rely on independent slice tests | REQUIRED |
-| D14 | VC-9 prerequisite | analytics risks hiding unstable upstream behavior | block VC-9 on unwaived P0/P1 + proven Golden Journey/security matrix | delays analytics until foundation is credible | develop analytics in parallel | REQUIRED |\n| D15 | Ambiguous provider outcome | provider may accept a delivery and lose/timeout the response; blind retry can duplicate customer communication | preserve a stable delivery/idempotency key and model ambiguous acceptance explicitly; never blindly resend when acceptance cannot be disproved | requires adapter/worker state contract and deterministic fault scenario | treat timeout as ordinary transient failure and accept duplicate-send risk | REQUIRED |
+| ID | Accepted decision | Required consequence |
+|---|---|---|
+| D01 | Business-core RBAC is capability-based; ROLE_HUMAN alone is insufficient for Customer/Contract/Receivable/Collection authorization. | Add/reuse READ/MANAGE capabilities, seeds/migrations, backend guards, frontend gates and persona tests. |
+| D02 | Collections is MVP and must be a real workspace. | Implement queue, detail, promise/dispute/action/timeline, lifecycle, paging/filter/deep-link/409/permission UX. |
+| D03 | Auditor and Support/Ops are read-only compositions; Support gets safe delivery diagnostics only. | Mutations return 403/no state change; navigation/actions match server capabilities. |
+| D04 | Platform Audit and Platform Operations are outside current MVP; placeholders must not look completed. Platform Analytics stays VC-9. | Remove/hide navigation or expose explicitly unavailable/deferred behavior with tests. |
+| D05 | Customer detail is the Customer 360 operational anchor. | Link authoritative contacts/segments/contracts/receivables/collections/campaign context where supported; no browser-derived financial truth or N+1 fan-out. |
+| D06 | Allocation/reversal are privileged financial mutations. | Explicit receivable-manage authority, idempotency, concurrency, reversal reason/audit and exact balance invariants. |
+| D07 | Human integration management and service ingestion are separate trust zones. | Human READ/MANAGE authorities; service ROLE_SERVICE+scopes; stale rotated/blocked credentials rejected. |
+| D08 | Campaign/Template/File remain separate capability families. | Cross-domain workflows grant only required reads; no manage/publish/delete privilege leakage. |
+| D09 | VC-8 delivery monitoring is read-only; no manual retry/cancel in this hardening. | Safe state/attempt/provider/error projection; no fabricated attempt history or mutation controls. |
+| D10 | Tenant isolation is absolute; platform admin has no implicit tenant-business access. | Tenant-scope all path/query/body references; impersonation is separate/audited/out of scope. |
+| D11 | Personas are permission compositions, not new system roles. | Keep existing system trust roles; build smoke personas from authorities. |
+| D12 | External delivery acceptance stops at deterministic adapter boundary. | No live external provider dependency in CI. |
+| D13 | Full Golden Journey is mandatory release evidence. | Composite clean-environment journey plus focused boundary suites. |
+| D14 | VC-9 is blocked until fail-closed pre-VC9 gate passes. | No analytics implementation while mandatory blockers remain. |
+| D15 | Ambiguous provider acceptance must not cause blind resend. | Stable delivery/idempotency identity and explicit safe handling of accept-then-timeout/unknown acceptance; unsafe current behavior is a P1 defect. |
 
-## Decision recording
-
-Replace REQUIRED only with an explicit accepted value, date/context and any scope qualification. If the accepted choice differs from the recommendation, preserve the rationale. Once accepted, derive concrete acceptance criteria and link affected defect/smoke IDs before implementation.
+## Change control
+Technical implementation choices do not reopen these decisions. A semantic exception requires a new D16+ entry with evidence and product-owner acceptance; Codex cannot self-approve it.
