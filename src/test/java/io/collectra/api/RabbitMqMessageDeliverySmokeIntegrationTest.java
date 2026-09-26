@@ -123,7 +123,7 @@ class RabbitMqMessageDeliverySmokeIntegrationTest extends AbstractIntegrationTes
                 serviceClients.token(
                         serviceClientId,
                         credential.clientSecret(),
-                        Set.of("integration:imports:create"));
+                        Set.of("integration:imports:create", "integration:imports:read"));
         assertThat(serviceToken.accessToken()).isNotBlank();
 
         UUID clientId = credential.client().id();
@@ -208,15 +208,15 @@ class RabbitMqMessageDeliverySmokeIntegrationTest extends AbstractIntegrationTes
                         customerSource.code(),
                         "customer-key",
                         customerBody);
-        assertThat(
-                        ingest(
-                                        serviceToken.accessToken(),
-                                        customerSource.code(),
-                                        "customer-key",
-                                        "customer-replay",
-                                        customerBody)
-                                .ingestionId())
-                .isEqualTo(customerReservation.ingestionId());
+        var customerReplay =
+                ingest(
+                        serviceToken.accessToken(),
+                        customerSource.code(),
+                        "customer-key",
+                        "customer-replay",
+                        customerBody);
+        assertThat(customerReplay.ingestionId()).isEqualTo(customerReservation.ingestionId());
+        assertThat(customerReplay.replayed()).isTrue();
 
         var customer = customers.findByExternalId(tenant.getId(), customerExternalId).orElseThrow();
         customers.addEmail(
