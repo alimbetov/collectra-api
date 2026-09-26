@@ -369,7 +369,12 @@ class RabbitMqMessageDeliverySmokeIntegrationTest extends AbstractIntegrationTes
                 .pollInterval(Duration.ofMillis(100))
                 .untilAsserted(
                         () ->
-                                assertThat(ingestion.status(tenantId, reservation.ingestionId()).status())
+                                assertThat(
+                                                        ingestion
+                                                                .status(
+                                                                        tenantId,
+                                                                        reservation.ingestionId())
+                                                                .status())
                                         .isIn(
                                                 IngestionStatus.COMPLETED.name(),
                                                 IngestionStatus.PARTIALLY_COMPLETED.name()));
@@ -386,7 +391,8 @@ class RabbitMqMessageDeliverySmokeIntegrationTest extends AbstractIntegrationTes
         String suffix = UUID.randomUUID().toString().replace("-", "").substring(0, 8);
         SourceSchemaDefinition schemaDefinition =
                 schemaDefinitions.saveAndFlush(
-                        new SourceSchemaDefinition(tenantId, "GJ_S_" + suffix, documentType + " schema"));
+                        new SourceSchemaDefinition(
+                                tenantId, "GJ_S_" + suffix, documentType + " schema"));
         SourceSchema schema =
                 schemas.saveAndFlush(
                         new SourceSchema(
@@ -418,7 +424,10 @@ class RabbitMqMessageDeliverySmokeIntegrationTest extends AbstractIntegrationTes
         MappingProfileDefinition mappingDefinition =
                 mappingDefinitions.saveAndFlush(
                         new MappingProfileDefinition(
-                                tenantId, "GJ_M_" + suffix, documentType + " mapping", documentType));
+                                tenantId,
+                                "GJ_M_" + suffix,
+                                documentType + " mapping",
+                                documentType));
         MappingProfile mapping =
                 mappings.saveAndFlush(
                         new MappingProfile(
@@ -443,7 +452,12 @@ class RabbitMqMessageDeliverySmokeIntegrationTest extends AbstractIntegrationTes
             if ("DECIMAL_PARSE".equals(transforms[i])) config.put("decimalSeparator", ".");
             mappingRules.saveAndFlush(
                     new MappingRule(
-                            mapping.getId(), fields[i].getId(), target.getId(), config, null, true));
+                            mapping.getId(),
+                            fields[i].getId(),
+                            target.getId(),
+                            config,
+                            null,
+                            true));
         }
 
         String code = "gj-" + documentType.toLowerCase() + "-" + suffix.toLowerCase();
