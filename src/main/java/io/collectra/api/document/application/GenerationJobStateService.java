@@ -33,7 +33,7 @@ public class GenerationJobStateService {
             return null;
         }
         if (job.getStatus() == GenerationJobStatus.PROCESSING) {
-            throw new IllegalStateException("Generation job is already processing");
+            return null;
         }
         job.start("RENDER_HTML", clock.instant());
         return snapshot(job);
