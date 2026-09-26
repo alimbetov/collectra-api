@@ -16,16 +16,17 @@ function typeLabel(type: string, t: ReturnType<typeof useI18n>['t']): string {
   return type || t('customerDetail.contactType.OTHER');
 }
 
-export function CustomerEmails({ values, onAdd, onEdit }: {
+export function CustomerEmails({ values, onAdd, onEdit, canManage }: {
   values: readonly CustomerEmailDto[];
   onAdd: () => void;
   onEdit: (contact: CustomerEmailDto) => void;
+  canManage: boolean;
 }) {
   const { t } = useI18n();
   const rows = orderCustomerEmails(values);
   return (
     <section className="customer-detail-card customer-contact-section">
-      <div className="customer-contact-section__header"><h2>{t('customerDetail.emails')}</h2><Button variant="secondary" onClick={onAdd}>{t('contactEdit.addEmail')}</Button></div>
+      <div className="customer-contact-section__header"><h2>{t('customerDetail.emails')}</h2>{canManage ? <Button variant="secondary" onClick={onAdd}>{t('contactEdit.addEmail')}</Button> : null}</div>
       {!rows.length ? <EmptyState title={t('customerDetail.noEmails')} /> : (
         <div className="ui-data-table-scroll">
           <table className="ui-data-table" aria-label={t('customerDetail.emails')}>
@@ -36,7 +37,7 @@ export function CustomerEmails({ values, onAdd, onEdit }: {
                 <td>{typeLabel(email.type, t)}</td>
                 <td><StatusBadge tone={email.status === 'ACTIVE' ? 'success' : 'neutral'}>{t(`customerDetail.contactStatus.${email.status}`)}</StatusBadge></td>
                 <td>{marker(email.primary, t('customerDetail.primary'), t('customerDetail.notPrimary'))}; {marker(email.verified, t('customerDetail.verified'), t('customerDetail.notVerified'))}</td>
-                <td><Button variant="secondary" onClick={() => onEdit(email)}>{t('contactEdit.edit')}</Button></td>
+                <td>{canManage ? <Button variant="secondary" onClick={() => onEdit(email)}>{t('contactEdit.edit')}</Button> : null}</td>
               </tr>
             ))}</tbody>
           </table>
@@ -46,16 +47,17 @@ export function CustomerEmails({ values, onAdd, onEdit }: {
   );
 }
 
-export function CustomerPhones({ values, onAdd, onEdit }: {
+export function CustomerPhones({ values, onAdd, onEdit, canManage }: {
   values: readonly CustomerPhoneDto[];
   onAdd: () => void;
   onEdit: (contact: CustomerPhoneDto) => void;
+  canManage: boolean;
 }) {
   const { t } = useI18n();
   const rows = orderCustomerPhones(values);
   return (
     <section className="customer-detail-card customer-contact-section">
-      <div className="customer-contact-section__header"><h2>{t('customerDetail.phones')}</h2><Button variant="secondary" onClick={onAdd}>{t('contactEdit.addPhone')}</Button></div>
+      <div className="customer-contact-section__header"><h2>{t('customerDetail.phones')}</h2>{canManage ? <Button variant="secondary" onClick={onAdd}>{t('contactEdit.addPhone')}</Button> : null}</div>
       {!rows.length ? <EmptyState title={t('customerDetail.noPhones')} /> : (
         <div className="ui-data-table-scroll">
           <table className="ui-data-table" aria-label={t('customerDetail.phones')}>
@@ -66,7 +68,7 @@ export function CustomerPhones({ values, onAdd, onEdit }: {
                 <td>{typeLabel(phone.type, t)}</td>
                 <td><StatusBadge tone={phone.status === 'ACTIVE' ? 'success' : 'neutral'}>{t(`customerDetail.contactStatus.${phone.status}`)}</StatusBadge></td>
                 <td>{marker(phone.primary, t('customerDetail.primary'), t('customerDetail.notPrimary'))}; {marker(phone.verified, t('customerDetail.verified'), t('customerDetail.notVerified'))}</td>
-                <td><Button variant="secondary" onClick={() => onEdit(phone)}>{t('contactEdit.edit')}</Button></td>
+                <td>{canManage ? <Button variant="secondary" onClick={() => onEdit(phone)}>{t('contactEdit.edit')}</Button> : null}</td>
               </tr>
             ))}</tbody>
           </table>

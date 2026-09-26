@@ -60,6 +60,7 @@ public class CollectionController {
         this.businessZone = businessZone;
     }
 
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('COLLECTION_READ')")
     @GetMapping
     public CasePageResponse list(
             @RequestParam(required = false) UUID customerId,
@@ -90,11 +91,13 @@ public class CollectionController {
                         sort));
     }
 
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('COLLECTION_READ')")
     @GetMapping("/{caseId}")
     public CaseResponse get(@PathVariable UUID caseId) {
         return CaseResponse.from(service.getCase(tenant(), caseId));
     }
 
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('COLLECTION_MANAGE')")
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public CaseResponse create(@Valid @RequestBody CaseCreateRequest request) {
@@ -108,6 +111,7 @@ public class CollectionController {
                         actor()));
     }
 
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('COLLECTION_MANAGE')")
     @PutMapping("/{caseId}")
     public CaseResponse update(
             @PathVariable UUID caseId, @Valid @RequestBody CaseUpdateRequest request) {
@@ -121,24 +125,28 @@ public class CollectionController {
                         actor()));
     }
 
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('COLLECTION_MANAGE')")
     @PostMapping("/{caseId}/start")
     public CaseResponse start(
             @PathVariable UUID caseId, @Valid @RequestBody VersionRequest request) {
         return CaseResponse.from(service.start(tenant(), caseId, request.version(), actor()));
     }
 
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('COLLECTION_MANAGE')")
     @PostMapping("/{caseId}/hold")
     public CaseResponse hold(
             @PathVariable UUID caseId, @Valid @RequestBody VersionRequest request) {
         return CaseResponse.from(service.hold(tenant(), caseId, request.version(), actor()));
     }
 
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('COLLECTION_MANAGE')")
     @PostMapping("/{caseId}/close")
     public CaseResponse close(@PathVariable UUID caseId, @Valid @RequestBody CloseRequest request) {
         return CaseResponse.from(
                 service.close(tenant(), caseId, request.version(), request.reason(), actor()));
     }
 
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('COLLECTION_MANAGE')")
     @PostMapping("/{caseId}/promises")
     @ResponseStatus(HttpStatus.CREATED)
     public PromiseResponse createPromise(
@@ -153,6 +161,7 @@ public class CollectionController {
                         actor()));
     }
 
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('COLLECTION_READ')")
     @GetMapping("/{caseId}/promises")
     public HistoryPageResponse<PromiseResponse> promises(
             @PathVariable UUID caseId,
@@ -163,6 +172,7 @@ public class CollectionController {
                 service.promises(tenant(), caseId, page, size), this::promise);
     }
 
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('COLLECTION_MANAGE')")
     @PostMapping("/{caseId}/promises/{promiseId}/fulfill")
     public PromiseResponse fulfillPromise(
             @PathVariable UUID caseId,
@@ -172,6 +182,7 @@ public class CollectionController {
                 service.fulfillPromise(tenant(), caseId, promiseId, request.version(), actor()));
     }
 
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('COLLECTION_MANAGE')")
     @PostMapping("/{caseId}/promises/{promiseId}/break")
     public PromiseResponse breakPromise(
             @PathVariable UUID caseId,
@@ -181,6 +192,7 @@ public class CollectionController {
                 service.breakPromise(tenant(), caseId, promiseId, request.version(), actor()));
     }
 
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('COLLECTION_MANAGE')")
     @PostMapping("/{caseId}/promises/{promiseId}/cancel")
     public PromiseResponse cancelPromise(
             @PathVariable UUID caseId,
@@ -190,6 +202,7 @@ public class CollectionController {
                 service.cancelPromise(tenant(), caseId, promiseId, request.version(), actor()));
     }
 
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('COLLECTION_MANAGE')")
     @PostMapping("/{caseId}/disputes")
     @ResponseStatus(HttpStatus.CREATED)
     public DisputeResponse createDispute(
@@ -199,6 +212,7 @@ public class CollectionController {
                         tenant(), caseId, request.reason(), request.description(), actor()));
     }
 
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('COLLECTION_READ')")
     @GetMapping("/{caseId}/disputes")
     public HistoryPageResponse<DisputeResponse> disputes(
             @PathVariable UUID caseId,
@@ -209,6 +223,7 @@ public class CollectionController {
                 service.disputes(tenant(), caseId, page, size), DisputeResponse::from);
     }
 
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('COLLECTION_MANAGE')")
     @PostMapping("/{caseId}/disputes/{disputeId}/resolve")
     public DisputeResponse resolveDispute(
             @PathVariable UUID caseId,
@@ -225,6 +240,7 @@ public class CollectionController {
                         actor()));
     }
 
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('COLLECTION_MANAGE')")
     @PostMapping("/{caseId}/disputes/{disputeId}/cancel")
     public DisputeResponse cancelDispute(
             @PathVariable UUID caseId,
@@ -234,6 +250,7 @@ public class CollectionController {
                 service.cancelDispute(tenant(), caseId, disputeId, request.version(), actor()));
     }
 
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('COLLECTION_MANAGE')")
     @PostMapping("/{caseId}/actions")
     @ResponseStatus(HttpStatus.CREATED)
     public ActionResponse createAction(
@@ -249,6 +266,7 @@ public class CollectionController {
                         actor()));
     }
 
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('COLLECTION_READ')")
     @GetMapping("/{caseId}/actions")
     public HistoryPageResponse<ActionResponse> actions(
             @PathVariable UUID caseId,
@@ -259,6 +277,7 @@ public class CollectionController {
                 service.actions(tenant(), caseId, page, size), this::action);
     }
 
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('COLLECTION_MANAGE')")
     @PostMapping("/{caseId}/actions/{actionId}/complete")
     public ActionResponse completeAction(
             @PathVariable UUID caseId,
@@ -268,6 +287,7 @@ public class CollectionController {
                 service.completeAction(tenant(), caseId, actionId, request.version(), actor()));
     }
 
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('COLLECTION_MANAGE')")
     @PostMapping("/{caseId}/actions/{actionId}/cancel")
     public ActionResponse cancelAction(
             @PathVariable UUID caseId,
@@ -276,6 +296,7 @@ public class CollectionController {
         return action(service.cancelAction(tenant(), caseId, actionId, request.version(), actor()));
     }
 
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('COLLECTION_READ')")
     @GetMapping("/{caseId}/timeline")
     public HistoryPageResponse<TimelineItem> timeline(
             @PathVariable UUID caseId,

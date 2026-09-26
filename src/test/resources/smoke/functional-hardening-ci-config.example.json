@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "environment": "development-ci",
+  "tenantAlpha": {
+    "slugPrefix": "smoke-alpha",
+    "adminEmailPrefix": "alpha-admin",
+    "personas": ["operator", "collections", "content", "campaign", "support", "auditor", "restricted"]
+  },
+  "tenantBeta": {
+    "slugPrefix": "smoke-beta",
+    "adminEmailPrefix": "beta-admin",
+    "personas": ["operator", "collections", "content", "campaign", "support", "auditor", "restricted"]
+  },
+  "serviceClients": {
+    "alpha": "alpha-service-ingest",
+    "beta": "beta-service-ingest"
+  },
+  "rules": {
+    "emailDomain": "example.test",
+    "generateUniquePasswordsPerIdentity": true,
+    "persistCredentials": false,
+    "cleanupAfterRun": true
+  }
+}

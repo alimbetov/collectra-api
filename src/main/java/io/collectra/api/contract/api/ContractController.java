@@ -42,6 +42,7 @@ public class ContractController {
         this.queries = queries;
     }
 
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('CONTRACT_READ')")
     @GetMapping
     public ContractQueryService.ContractPage list(
             @RequestParam(required = false) String search,
@@ -70,11 +71,13 @@ public class ContractController {
                 sort);
     }
 
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('CONTRACT_READ')")
     @GetMapping("/{id}")
     public ContractResponse get(@PathVariable UUID id) {
         return ContractResponse.from(queries.detail(tenant(), id));
     }
 
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('CONTRACT_MANAGE')")
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public ContractResponse create(@Valid @RequestBody CreateRequest request) {
@@ -92,6 +95,7 @@ public class ContractController {
         return ContractResponse.from(queries.detail(tenantId, value.getId()));
     }
 
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('CONTRACT_MANAGE')")
     @PutMapping("/{id}")
     public ContractResponse update(
             @PathVariable UUID id, @Valid @RequestBody UpdateRequest request) {
@@ -108,24 +112,28 @@ public class ContractController {
         return ContractResponse.from(queries.detail(tenantId, id));
     }
 
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('CONTRACT_MANAGE')")
     @PostMapping("/{id}/suspend")
     public ContractResponse suspend(
             @PathVariable UUID id, @Valid @RequestBody VersionRequest request) {
         return transition(id, request.version(), service::suspend);
     }
 
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('CONTRACT_MANAGE')")
     @PostMapping("/{id}/activate")
     public ContractResponse activate(
             @PathVariable UUID id, @Valid @RequestBody VersionRequest request) {
         return transition(id, request.version(), service::activate);
     }
 
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('CONTRACT_MANAGE')")
     @PostMapping("/{id}/close")
     public ContractResponse close(
             @PathVariable UUID id, @Valid @RequestBody VersionRequest request) {
         return transition(id, request.version(), service::close);
     }
 
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('CONTRACT_MANAGE')")
     @PostMapping("/{id}/cancel")
     public ContractResponse cancel(
             @PathVariable UUID id, @Valid @RequestBody VersionRequest request) {

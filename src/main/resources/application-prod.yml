@@ -43,3 +43,7 @@ collectra:
   security:
     jwt-secret: ${COLLECTRA_JWT_SECRET}
     otp-pepper: ${COLLECTRA_OTP_PEPPER}
+    platform-bootstrap:
+      enabled: ${PLATFORM_BOOTSTRAP_ENABLED:false}
+      email: ${PLATFORM_BOOTSTRAP_EMAIL:}
+      password: ${PLATFORM_BOOTSTRAP_PASSWORD:}

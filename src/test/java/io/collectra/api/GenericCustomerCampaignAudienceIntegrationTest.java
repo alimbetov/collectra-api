@@ -103,6 +103,39 @@ class GenericCustomerCampaignAudienceIntegrationTest extends AbstractIntegration
         customers.addEmail(
                 tenant.getId(), outsideSegment.getId(), "outside@example.com", "WORK", true);
 
+        Tenant foreignTenant =
+                tenants.saveAndFlush(
+                        new Tenant("foreign-audience-" + UUID.randomUUID(), "Foreign Audience"));
+        tenantLocales.saveAndFlush(new TenantLocale(foreignTenant.getId(), "ru", true, true, 0));
+        var foreignCustomer =
+                customers.create(
+                        foreignTenant.getId(),
+                        "foreign-customer-" + UUID.randomUUID(),
+                        CustomerType.INDIVIDUAL,
+                        "Foreign Customer",
+                        "Foreign",
+                        "Customer",
+                        null,
+                        null,
+                        null,
+                        "ru",
+                        "Asia/Almaty",
+                        json.createObjectNode());
+        customers.addEmail(
+                foreignTenant.getId(),
+                foreignCustomer.getId(),
+                "foreign@example.com",
+                "WORK",
+                true);
+        var foreignSegment =
+                customers.createSegment(
+                        foreignTenant.getId(),
+                        "FOREIGN_" + UUID.randomUUID().toString().replace("-", "").substring(0, 8),
+                        "Foreign audience",
+                        null);
+        customers.addSegment(
+                foreignTenant.getId(), foreignCustomer.getId(), foreignSegment.getId());
+
         var segment =
                 customers.createSegment(
                         tenant.getId(),
@@ -118,7 +151,9 @@ class GenericCustomerCampaignAudienceIntegrationTest extends AbstractIntegration
                         version.getId(),
                         "EMAIL",
                         null,
-                        CampaignSelection.customer(Set.of(), Set.of(segment.getId())),
+                        CampaignSelection.customer(
+                                Set.of(included.getId(), foreignCustomer.getId()),
+                                Set.of(segment.getId(), foreignSegment.getId())),
                         null);
         campaigns.activate(tenant.getId(), campaign.getId());
 

@@ -16,6 +16,7 @@ import io.collectra.api.receivable.domain.Invoice;
 import io.collectra.api.shared.error.InvalidRequestException;
 import jakarta.persistence.criteria.Predicate;
 import java.math.BigDecimal;
+import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -186,9 +187,9 @@ public class CollectionQueryService {
                         .addValue("status", status == null ? null : status.name())
                         .addValue("priority", priority == null ? null : priority.name())
                         .addValue("assignedTo", assignedTo)
-                        .addValue("asOf", asOf)
-                        .addValue("dueFrom", nextActionDueFrom)
-                        .addValue("dueTo", nextActionDueTo)
+                        .addValue("asOf", timestamp(asOf))
+                        .addValue("dueFrom", timestamp(nextActionDueFrom))
+                        .addValue("dueTo", timestamp(nextActionDueTo))
                         .addValue("limit", size)
                         .addValue("offset", (long) page * size);
 
@@ -324,6 +325,10 @@ public class CollectionQueryService {
                 };
         String nulls = parts[0].trim().equals("nextActionDueAt") ? " NULLS LAST" : "";
         return new SortSpec(field + " " + direction + nulls + ", c.id " + direction);
+    }
+
+    private static Timestamp timestamp(Instant value) {
+        return value == null ? null : Timestamp.from(value);
     }
 
     private record QueueRow(UUID id, String actionType, Instant dueAt) {}

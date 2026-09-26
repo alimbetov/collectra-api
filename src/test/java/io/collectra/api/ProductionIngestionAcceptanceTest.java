@@ -80,7 +80,12 @@ class ProductionIngestionAcceptanceTest extends AbstractIntegrationTest {
         awaitTerminal(f.tenantId, first.ingestionId());
         var batch = batches.findByIdAndTenantId(first.ingestionId(), f.tenantId).orElseThrow();
         assertThat(batch.getStatus())
-                .describedAs(batch.getErrorCode() + ": " + batch.getSafeErrorMessage())
+                .describedAs(
+                        batch.getErrorCode()
+                                + ": "
+                                + batch.getSafeErrorMessage()
+                                + "; batch diagnostic: "
+                                + recordDiagnostic(f.tenantId, first.ingestionId(), 0))
                 .isEqualTo(IngestionStatus.COMPLETED);
         assertThat(batch.getCreatedCount()).isEqualTo(1);
         assertThat(receivables.findInvoiceByExternalId(f.tenantId, "INV-1")).isPresent();
@@ -171,6 +176,7 @@ class ProductionIngestionAcceptanceTest extends AbstractIntegrationTest {
             assertThat(ready.await(5, TimeUnit.SECONDS)).isTrue();
             start.countDown();
             assertThat(a.get(20, TimeUnit.SECONDS)).isEqualTo(b.get(20, TimeUnit.SECONDS));
+            awaitTerminal(f.tenantId, a.get(20, TimeUnit.SECONDS));
             assertThat(
                             batches.findAll().stream()
                                     .filter(
@@ -185,16 +191,17 @@ class ProductionIngestionAcceptanceTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void sameTransportKeyWithDifferentBodyConflicts() {
+    void sameTransportKeyWithDifferentBodyConflicts() throws Exception {
         Fixture f = fixture("hash");
-        ingestion.reserve(
-                f.tenantId,
-                f.clientId,
-                f.sourceCode,
-                "hash-key",
-                null,
-                "text/csv",
-                csv("INV-H", "100.00"));
+        var first =
+                ingestion.reserve(
+                        f.tenantId,
+                        f.clientId,
+                        f.sourceCode,
+                        "hash-key",
+                        null,
+                        "text/csv",
+                        csv("INV-H", "100.00"));
         org.assertj.core.api.Assertions.assertThatThrownBy(
                         () ->
                                 ingestion.reserve(
@@ -207,6 +214,7 @@ class ProductionIngestionAcceptanceTest extends AbstractIntegrationTest {
                                         csv("INV-H", "200.00")))
                 .isInstanceOf(IngestionConflictException.class)
                 .hasMessageContaining("different request body");
+        awaitTerminal(f.tenantId, first.ingestionId());
     }
 
     private void awaitTerminal(UUID tenantId, UUID id) throws Exception {

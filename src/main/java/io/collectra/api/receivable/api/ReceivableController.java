@@ -56,6 +56,7 @@ public class ReceivableController {
         this.businessZone = businessZone;
     }
 
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('RECEIVABLE_MANAGE')")
     @PostMapping("/api/v1/invoices")
     @ResponseStatus(HttpStatus.CREATED)
     public InvoiceResponse createInvoice(@Valid @RequestBody InvoiceRequest request) {
@@ -74,6 +75,7 @@ public class ReceivableController {
                         request.customFields()));
     }
 
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('RECEIVABLE_READ')")
     @GetMapping("/api/v1/invoices")
     public InvoicePageResponse invoices(
             @RequestParam(required = false) UUID customerId,
@@ -128,11 +130,13 @@ public class ReceivableController {
                         sort));
     }
 
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('RECEIVABLE_READ')")
     @GetMapping("/api/v1/invoices/{id}")
     public InvoiceResponse invoice(@PathVariable UUID id) {
         return invoiceResponse(service.invoice(tenant(), id));
     }
 
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('RECEIVABLE_READ')")
     @GetMapping("/api/v1/invoices/by-external-id/{externalId}")
     public InvoiceResponse invoiceByExternalId(@PathVariable String externalId) {
         return service.findInvoiceByExternalId(tenant(), externalId)
@@ -140,6 +144,7 @@ public class ReceivableController {
                 .orElseThrow(() -> new java.util.NoSuchElementException("Invoice not found"));
     }
 
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('RECEIVABLE_MANAGE')")
     @PostMapping("/api/v1/payments")
     @ResponseStatus(HttpStatus.CREATED)
     public PaymentResponse createPayment(@Valid @RequestBody PaymentRequest request) {
@@ -156,6 +161,7 @@ public class ReceivableController {
                         request.customFields()));
     }
 
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('RECEIVABLE_READ')")
     @GetMapping("/api/v1/payments")
     public PaymentPageResponse payments(
             @RequestParam(required = false) UUID customerId,
@@ -196,11 +202,13 @@ public class ReceivableController {
                         sort));
     }
 
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('RECEIVABLE_READ')")
     @GetMapping("/api/v1/payments/{id}")
     public PaymentResponse payment(@PathVariable UUID id) {
         return PaymentResponse.from(service.payment(tenant(), id));
     }
 
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('RECEIVABLE_MANAGE')")
     @PostMapping("/api/v1/payments/{id}/allocations")
     @ResponseStatus(HttpStatus.CREATED)
     public AllocationResponse allocate(
@@ -215,6 +223,7 @@ public class ReceivableController {
         return AllocationResponse.from(value);
     }
 
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('RECEIVABLE_READ')")
     @GetMapping("/api/v1/payments/{id}/allocations")
     public AllocationPageResponse allocations(
             @PathVariable UUID id,
@@ -226,6 +235,7 @@ public class ReceivableController {
         return AllocationPageResponse.from(service.allocations(tenant(), id, page, size));
     }
 
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('RECEIVABLE_READ')")
     @GetMapping("/api/v1/invoices/{id}/allocations")
     public AllocationPageResponse invoiceAllocations(
             @PathVariable UUID id,
@@ -237,6 +247,7 @@ public class ReceivableController {
         return AllocationPageResponse.from(service.invoiceAllocations(tenant(), id, page, size));
     }
 
+    @PreAuthorize("hasAuthority('ROLE_HUMAN') and hasAuthority('RECEIVABLE_MANAGE')")
     @PostMapping("/api/v1/payments/{paymentId}/allocations/{allocationId}/reverse")
     public AllocationResponse reverseAllocation(
             @PathVariable UUID paymentId,

@@ -13,7 +13,7 @@ import { applyContractCreate } from '../model/contract-mutations';
 import { ContractFormDialog } from './ContractFormDialog';
 import { ContractTable } from './ContractTable';
 
-export function CustomerContractsPanel({ customer, onDirtyChange }: { customer: CustomerDetailDto; onDirtyChange: (dirty: boolean) => void }) {
+export function CustomerContractsPanel({ customer, onDirtyChange, canManageContract }: { customer: CustomerDetailDto; onDirtyChange: (dirty: boolean) => void; canManageContract: boolean }) {
   const { t } = useI18n();
   const { showToast } = useToast();
   const client = useQueryClient();
@@ -30,12 +30,12 @@ export function CustomerContractsPanel({ customer, onDirtyChange }: { customer: 
   });
   if (contracts.error instanceof ApiError && contracts.error.status === 403) return <Navigate to="/forbidden" replace />;
   return <section className="customer-contracts">
-    <div className="customer-contracts__toolbar"><label>{t('contracts.status')} <select value={status} onChange={(event) => { setStatus(event.target.value as '' | ContractStatus); setPage(0); }}><option value="">{t('customers.filters.any')}</option>{contractStatuses.map((value) => <option key={value} value={value}>{t(`contracts.status.${value}`)}</option>)}</select></label><Button onClick={() => { createMutation.reset(); setCreateOpen(true); }}>{t('contracts.create')}</Button></div>
+    <div className="customer-contracts__toolbar"><label>{t('contracts.status')} <select value={status} onChange={(event) => { setStatus(event.target.value as '' | ContractStatus); setPage(0); }}><option value="">{t('customers.filters.any')}</option>{contractStatuses.map((value) => <option key={value} value={value}>{t(`contracts.status.${value}`)}</option>)}</select></label>{canManageContract ? <Button onClick={() => { createMutation.reset(); setCreateOpen(true); }}>{t('contracts.create')}</Button> : null}</div>
     {contracts.isLoading ? <Spinner label={t('contracts.loading')} /> : null}
     {contracts.error ? <ProblemDetailPanel error={contracts.error} onRetry={() => void contracts.refetch()} /> : null}
     {contracts.data?.items.length ? <ContractTable rows={contracts.data.items} showCustomer={false} /> : null}
     {contracts.data && !contracts.data.items.length ? <EmptyState title={t('contracts.empty')} description={t('contracts.customerEmptyDescription')} /> : null}
     {contracts.data ? <Pagination page={contracts.data.page} totalPages={contracts.data.totalPages} onPageChange={setPage} label={t('contracts.pagination')} previousLabel={t('customers.pagination.previous')} nextLabel={t('customers.pagination.next')} /> : null}
-    <ContractFormDialog open={createOpen} customer={{ id: customer.id, label: `${customer.displayName} (${customer.externalId})` }} pending={createMutation.isPending} error={createMutation.error} onCreate={(command) => createMutation.mutate(command)} onUpdate={() => undefined} onReload={async () => { createMutation.reset(); }} onClose={() => { createMutation.reset(); setCreateOpen(false); }} onDirtyChange={onDirtyChange} />
+    {canManageContract ? <ContractFormDialog open={createOpen} customer={{ id: customer.id, label: `${customer.displayName} (${customer.externalId})` }} pending={createMutation.isPending} error={createMutation.error} onCreate={(command) => createMutation.mutate(command)} onUpdate={() => undefined} onReload={async () => { createMutation.reset(); }} onClose={() => { createMutation.reset(); setCreateOpen(false); }} onDirtyChange={onDirtyChange} /> : null}
   </section>;
 }

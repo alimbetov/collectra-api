@@ -8,8 +8,6 @@ const navigation = [
   { to: '/platform/users', label: 'platform.navigation.users' as const },
   { to: '/platform/administrators', label: 'platform.navigation.administrators' as const },
   { to: '/platform/analytics', label: 'platform.navigation.analytics' as const },
-  { to: '/platform/audit', label: 'platform.navigation.audit' as const },
-  { to: '/platform/operations', label: 'platform.navigation.operations' as const },
 ];
 
 export function PlatformLayout() {

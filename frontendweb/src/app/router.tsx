@@ -14,8 +14,6 @@ import { PlatformAdministratorsPage } from '../pages/platform/PlatformAdministra
 import { PlatformPlaceholderPage } from '../pages/platform/PlatformPlaceholderPage';
 import { ForbiddenPage } from '../pages/system/ForbiddenPage';
 import { NotFoundPage } from '../pages/system/NotFoundPage';
-import { useI18n } from '../shared/i18n/i18n-context';
-import type { MessageKey } from '../shared/i18n/messages';
 import { RouteErrorPage } from '../pages/system/RouteErrorPage';
 import { DashboardPage } from '../pages/dashboard/DashboardPage';
 import { CustomersPage } from '../pages/customers/CustomersPage';
@@ -54,17 +52,8 @@ import { FileDetailPage } from '../pages/files/FileDetailPage';
 import { FileUploadPage } from '../pages/files/FileUploadPage';
 import { MessagesPage } from '../pages/messages/MessagesPage';
 import { MessageDetailPage } from '../pages/messages/MessageDetailPage';
-
-function PlaceholderPage({ titleKey }: { titleKey: MessageKey }) {
-  const { t } = useI18n();
-  return (
-    <div className="placeholder-page">
-      <p className="eyebrow">{t('placeholder.eyebrow')}</p>
-      <h1>{t(titleKey)}</h1>
-      <p>{t('placeholder.description')}</p>
-    </div>
-  );
-}
+import { CollectionsPage } from '../pages/collections/CollectionsPage';
+import { CollectionCasePage } from '../pages/collections/CollectionCasePage';
 
 export const router = createBrowserRouter([
   {
@@ -91,14 +80,6 @@ export const router = createBrowserRouter([
         path: 'analytics',
         element: <PlatformPlaceholderPage titleKey="platform.navigation.analytics" />,
       },
-      {
-        path: 'audit',
-        element: <PlatformPlaceholderPage titleKey="platform.navigation.audit" />,
-      },
-      {
-        path: 'operations',
-        element: <PlatformPlaceholderPage titleKey="platform.navigation.operations" />,
-      },
     ],
   },
   {
@@ -111,19 +92,20 @@ export const router = createBrowserRouter([
     ),
     children: [
       { index: true, element: <DashboardPage /> },
-      { path: 'customers', element: <CustomersPage /> },
-      { path: 'customers/segments', element: <CustomerSegmentsPage /> },
-      { path: 'customers/segments/:segmentId', element: <CustomerSegmentsPage /> },
-      { path: 'customers/:customerId', element: <CustomerDetailPage tab="overview" /> },
-      { path: 'customers/:customerId/contacts', element: <CustomerDetailPage tab="contacts" /> },
-      { path: 'customers/:customerId/contracts', element: <CustomerDetailPage tab="contracts" /> },
+      { path: 'customers', element: <RequirePermission permission="CUSTOMER_READ"><CustomersPage /></RequirePermission> },
+      { path: 'customers/segments', element: <RequirePermission permission="CUSTOMER_READ"><CustomerSegmentsPage /></RequirePermission> },
+      { path: 'customers/segments/:segmentId', element: <RequirePermission permission="CUSTOMER_READ"><CustomerSegmentsPage /></RequirePermission> },
+      { path: 'customers/:customerId', element: <RequirePermission permission="CUSTOMER_READ"><CustomerDetailPage tab="overview" /></RequirePermission> },
+      { path: 'customers/:customerId/contacts', element: <RequirePermission permission="CUSTOMER_READ"><CustomerDetailPage tab="contacts" /></RequirePermission> },
+      { path: 'customers/:customerId/contracts', element: <RequirePermission permission="CUSTOMER_READ"><RequirePermission permission="CONTRACT_READ"><CustomerDetailPage tab="contracts" /></RequirePermission></RequirePermission> },
       { path: 'customers/:customerId/overview', element: <Navigate to=".." relative="path" replace /> },
-      { path: 'receivables', element: <ReceivablesPage /> },
-      { path: 'receivables/invoices/new', element: <InvoiceCreatePage /> },
-      { path: 'receivables/invoices/:invoiceId', element: <InvoiceDetailPage /> },
-      { path: 'contracts', element: <ContractsPage /> },
-      { path: 'contracts/:contractId', element: <ContractDetailPage /> },
-      { path: 'collections', element: <PlaceholderPage titleKey="navigation.collections" /> },
+      { path: 'receivables', element: <RequirePermission permission="RECEIVABLE_READ"><ReceivablesPage /></RequirePermission> },
+      { path: 'receivables/invoices/new', element: <RequirePermission permission="RECEIVABLE_MANAGE"><InvoiceCreatePage /></RequirePermission> },
+      { path: 'receivables/invoices/:invoiceId', element: <RequirePermission permission="RECEIVABLE_READ"><InvoiceDetailPage /></RequirePermission> },
+      { path: 'contracts', element: <RequirePermission permission="CONTRACT_READ"><ContractsPage /></RequirePermission> },
+      { path: 'contracts/:contractId', element: <RequirePermission permission="CONTRACT_READ"><ContractDetailPage /></RequirePermission> },
+      { path: 'collections', element: <RequirePermission permission="COLLECTION_READ"><CollectionsPage /></RequirePermission> },
+      { path: 'collections/:caseId', element: <RequirePermission permission="COLLECTION_READ"><CollectionCasePage /></RequirePermission> },
       {
         path: 'campaigns',
         element: (

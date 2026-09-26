@@ -271,12 +271,19 @@ public class ReceivableService {
                 allocations
                         .findByIdAndTenantIdAndPaymentId(allocationId, tenantId, paymentId)
                         .orElseThrow(() -> new NoSuchElementException("Allocation not found"));
+        if (allocation.getStatus() == AllocationStatus.REVERSED) {
+            if (java.util.Objects.equals(
+                            allocation.getReversalReason(), reason == null ? null : reason.trim())
+                    && java.util.Objects.equals(
+                            allocation.getReversedBy(), actor == null ? null : actor.trim())) {
+                return allocation;
+            }
+            throw new BusinessConflictException(
+                    "ALLOCATION_ALREADY_REVERSED",
+                    "Allocation already reversed with another intent");
+        }
         if (allocation.getVersion() != version) {
             throw new BusinessConflictException("VERSION_CONFLICT", "Allocation version conflict");
-        }
-        if (allocation.getStatus() == AllocationStatus.REVERSED) {
-            throw new BusinessConflictException(
-                    "ALLOCATION_ALREADY_REVERSED", "Allocation already reversed");
         }
         Invoice invoice = lockInvoice(tenantId, allocation.getInvoiceId());
         if (!payment.getCustomerId().equals(invoice.getCustomerId())) {
@@ -307,13 +314,10 @@ public class ReceivableService {
         if (page < 0 || size <= 0 || size > MAX_ALLOCATION_PAGE_SIZE) {
             throw new io.collectra.api.shared.error.InvalidRequestException(
                     "INVALID_PAGE_REQUEST",
-                    "page must be >= 0 and size must be between 1 and "
-                            + MAX_ALLOCATION_PAGE_SIZE);
+                    "page must be >= 0 and size must be between 1 and " + MAX_ALLOCATION_PAGE_SIZE);
         }
         return PageRequest.of(
-                page,
-                size,
-                Sort.by(Sort.Order.asc("createdAt"), Sort.Order.asc("id")));
+                page, size, Sort.by(Sort.Order.asc("createdAt"), Sort.Order.asc("id")));
     }
 
     private Payment lockPayment(UUID tenantId, UUID id) {

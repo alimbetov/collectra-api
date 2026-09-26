@@ -34,7 +34,7 @@ vi.mock('../../entities/customer/api/customer.api', () => ({
 }));
 
 vi.mock('../../features/auth/model/auth-context', () => ({
-  useAuth: () => ({ hasPermission: () => false }),
+  useAuth: () => ({ hasPermission: (permission: string) => ['CUSTOMER_MANAGE', 'CONTRACT_READ', 'CONTRACT_MANAGE', 'RECEIVABLE_READ', 'COLLECTION_READ'].includes(permission) }),
 }));
 
 const id = '11111111-1111-4111-8111-111111111111';
@@ -118,6 +118,8 @@ describe('CustomerDetailPage', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Acme Kazakhstan' })).toBeInTheDocument();
     expect(screen.getByText('Иван Менеджер')).toBeInTheDocument();
     expect(screen.getByText('VIP')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Receivables' })).toHaveAttribute('href', `/receivables?customerId=${id}`);
+    expect(screen.getByRole('link', { name: 'Collections' })).toHaveAttribute('href', `/collections?customerId=${id}`);
     expect(screen.getByText(/<script>not html<\/script>/)).toBeInTheDocument();
     expect(screen.queryByRole('script')).not.toBeInTheDocument();
     expect(getCustomer).toHaveBeenCalledTimes(1);
