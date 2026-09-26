@@ -2,6 +2,7 @@
 
 Status: NORMATIVE IMPLEMENTATION COMPANION
 Use with: pre-vc9-functional-hardening-remediation-spec.md
+Mandatory review addendum: `docs/qa/pre-vc9-wp-architecture-review.md`. Its high-value improvements and cross-WP dependency graph are part of the implementation contract.
 Rule: examples show the intended pattern against current Collectra code. Codex must inspect current signatures before editing and preserve existing conventions where equivalent. Do not copy an example blindly if the repository has evolved.
 
 ## 0. Current-code anchors
