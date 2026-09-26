@@ -119,7 +119,7 @@ class IngestionServiceAuthorizationIntegrationTest extends AbstractIntegrationTe
                                                 json.writeValueAsString(
                                                         Map.of(
                                                                 "slug",
-                                                                "ingestion-auth-" + UUID.randomUUID(),
+                                                                "ingestion-auth-"\n                                                                        + UUID.randomUUID(),
                                                                 "companyName",
                                                                 "Ingestion Authorization",
                                                                 "email",
