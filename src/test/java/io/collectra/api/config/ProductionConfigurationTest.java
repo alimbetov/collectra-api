@@ -23,6 +23,10 @@ class ProductionConfigurationTest {
         assertThat(prod.getProperty("collectra.security.otp-pepper"))
                 .isEqualTo("${COLLECTRA_OTP_PEPPER}");
         assertThat(prod.getProperty("collectra.api-base-url")).isEqualTo("${API_BASE_URL}");
+        assertThat(prod.getProperty("collectra.security.platform-bootstrap.enabled"))
+                .isEqualTo("${PLATFORM_BOOTSTRAP_ENABLED:false}");
+        assertThat(prod.getProperty("collectra.security.platform-bootstrap.password"))
+                .isEqualTo("${PLATFORM_BOOTSTRAP_PASSWORD:}");
         assertThat(prod.getProperty("collectra.file.storage.endpoint"))
                 .isEqualTo("${RUSTFS_ENDPOINT}");
         assertThat(prod.getProperty("collectra.file.storage.access-key"))
@@ -42,6 +46,9 @@ class ProductionConfigurationTest {
         assertThat(shared.getProperty("spring.datasource.password")).isNull();
         assertThat(shared.getProperty("collectra.security.jwt-secret")).isNull();
         assertThat(shared.getProperty("collectra.security.otp-pepper")).isNull();
+        assertThat(shared.getProperty("collectra.security.platform-bootstrap.enabled")).isEqualTo(false);
+        assertThat(shared.getProperty("collectra.security.platform-bootstrap.email")).isNull();
+        assertThat(shared.getProperty("collectra.security.platform-bootstrap.password")).isNull();
         assertThat(shared.getProperty("collectra.file.storage.access-key")).isNull();
         assertThat(shared.getProperty("collectra.file.storage.secret-key")).isNull();
         assertThat(shared.getProperty("collectra.communication.delivery.enabled")).isEqualTo(false);
