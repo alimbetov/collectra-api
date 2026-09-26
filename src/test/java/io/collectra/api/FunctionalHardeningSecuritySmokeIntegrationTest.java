@@ -382,7 +382,7 @@ class FunctionalHardeningSecuritySmokeIntegrationTest extends AbstractIntegratio
     }
 
     private String code() {
-        return UUID.randomUUID().toString().replace("-", "").substring(0, 12).toUpperCase(java.util.Locale.ROOT);
+        return UUID.randomUUID()\n                .toString()\n                .replace("-", "")\n                .substring(0, 12)\n                .toUpperCase(java.util.Locale.ROOT);
     }
 
     private record Auth(String token) {}
