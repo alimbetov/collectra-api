@@ -27,8 +27,7 @@ class CollectionLifecycleApiIntegrationTest extends AbstractIntegrationTest {
         String invoiceId = invoice.get("id").asText();
         JsonNode before = getInvoice(token, invoiceId);
 
-        JsonNode collectionCase =
-                createCase(token, customer.get("id").asText(), invoiceId);
+        JsonNode collectionCase = createCase(token, customer.get("id").asText(), invoiceId);
         String caseId = collectionCase.get("id").asText();
 
         JsonNode started =
@@ -64,7 +63,8 @@ class CollectionLifecycleApiIntegrationTest extends AbstractIntegrationTest {
                         post("/api/v1/collection-cases/{id}/disputes", caseId)
                                 .header("Authorization", bearer(token))
                                 .contentType(MediaType.APPLICATION_JSON)
-                                .content("{\"reason\":\"AMOUNT_CONTESTED\",\"description\":\"verify\"}"),
+                                .content(
+                                        "{\"reason\":\"AMOUNT_CONTESTED\",\"description\":\"verify\"}"),
                         201);
         JsonNode resolved =
                 read(
@@ -195,8 +195,7 @@ class CollectionLifecycleApiIntegrationTest extends AbstractIntegrationTest {
 
     private JsonNode getInvoice(String token, String invoiceId) throws Exception {
         return read(
-                get("/api/v1/invoices/{id}", invoiceId)
-                        .header("Authorization", bearer(token)),
+                get("/api/v1/invoices/{id}", invoiceId).header("Authorization", bearer(token)),
                 200);
     }
 
@@ -209,8 +208,7 @@ class CollectionLifecycleApiIntegrationTest extends AbstractIntegrationTest {
                                         """
                                         {"slug":"collection-lifecycle-%s","companyName":"Collection Lifecycle","email":"%s@example.test","password":"StrongPassword123!"}
                                         """
-                                                .formatted(
-                                                        UUID.randomUUID(), UUID.randomUUID())),
+                                                .formatted(UUID.randomUUID(), UUID.randomUUID())),
                         201);
         return response.get("accessToken").asText();
     }
