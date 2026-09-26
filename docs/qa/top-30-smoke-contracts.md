@@ -30,9 +30,9 @@ Results: NOT_RUN | PASS | FAIL | BLOCKED_DECISION(D16+) | BLOCKED_IMPLEMENTATION
 | T30-23 | WZ-23 | 100 duplicate events, 8 workers | exactly one provider call; one SENT; sentCount=1 | concurrency integration | PASS |
 | T30-24 | WZ-24 | transient failure→retry→success and retry exhaustion | exact Message status/attempt/retry + CampaignRun counters transactionally consistent | worker+DB | NOT_RUN |
 | T30-25 | WZ-25 | provider accepts then response is lost/ambiguous | accepted D15: no unsafe blind resend; stable delivery key; explicit safe handling/state | adapter+worker | PASS |
-| T30-26 | WZ-26 | stale PROCESSING + concurrent recovery/late event | one legal final transition; no backward terminal transition/double count | recovery+DB | PASS |
+| T30-26 | WZ-26 | stale PROCESSING + concurrent recovery/late event | one legal final transition; no backward terminal transition/double count | recovery+DB | NOT_RUN |
 | T30-27 | WZ-27 | competing outbox publishers + retry/duplicate consumer delivery | one claim owner; eventual publish; downstream idempotent business effect | PostgreSQL+RabbitMQ | PASS |
-| T30-28 | WZ-28 | Support opens message list/detail for own/foreign tenant | own data masked/safe; foreign hidden; no fabricated attempt timeline | Browser+API | PASS |
+| T30-28 | WZ-28 | Support opens message list/detail for own/foreign tenant | own data masked/safe; foreign hidden; no fabricated attempt timeline | Browser+API | NOT_RUN |
 | T30-29 | WZ-29 | traverse every REAL/PARTIAL primary route with persona/deep link/filter/error | correct page/API/permission; no unexpected placeholder; URL state stable | Frontend | NOT_RUN |
 | T30-30 | WZ-30 | clean DB bootstrap then full Golden Journey to mock adapter | all migrations/contracts work together; monitoring reflects final state | Full stack | PASS |
 
