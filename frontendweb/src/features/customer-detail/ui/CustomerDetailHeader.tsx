@@ -15,9 +15,10 @@ interface Props {
   customer: CustomerDetailDto;
   onEdit: () => void;
   onChangeStatus: () => void;
+  canManage: boolean;
 }
 
-export function CustomerDetailHeader({ customer, onEdit, onChangeStatus }: Props) {
+export function CustomerDetailHeader({ customer, onEdit, onChangeStatus, canManage }: Props) {
   const { t } = useI18n();
   return (
     <header className="customer-detail__header">
@@ -33,8 +34,8 @@ export function CustomerDetailHeader({ customer, onEdit, onChangeStatus }: Props
         <StatusBadge tone={statusTones[customer.status]}>
           {t(`customers.status.${customer.status}`)}
         </StatusBadge>
-        <Button type="button" variant="secondary" onClick={onEdit}>{t('customerEdit.action')}</Button>
-        <Button type="button" variant="secondary" onClick={onChangeStatus}>{t('customerStatus.action')}</Button>
+        {canManage ? <><Button type="button" variant="secondary" onClick={onEdit}>{t('customerEdit.action')}</Button>
+        <Button type="button" variant="secondary" onClick={onChangeStatus}>{t('customerStatus.action')}</Button></> : null}
       </div>
     </header>
   );

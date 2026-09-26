@@ -45,6 +45,7 @@ export function CustomerDetailPage({ tab }: { tab: CustomerDetailTab }) {
   const { customerId } = useParams();
   const { t } = useI18n();
   const { hasPermission } = useAuth();
+  const canManageCustomer = hasPermission('CUSTOMER_MANAGE');
   const { showToast } = useToast();
   const queryClient = useQueryClient();
   const [editOpen, setEditOpen] = useState(false);
@@ -137,19 +138,20 @@ export function CustomerDetailPage({ tab }: { tab: CustomerDetailTab }) {
         customer={detail.data}
         onEdit={() => { statusMutation.reset(); profileMutation.reset(); setEditOpen(true); }}
         onChangeStatus={() => { profileMutation.reset(); statusMutation.reset(); setStatusOpen(true); }}
+        canManage={canManageCustomer}
       />
       <CustomerDetailTabs customerId={id} />
-      {tab === 'overview' ? <CustomerOverview customer={detail.data} onManageSegments={() => { membershipMutation.reset(); setSegmentsOpen(true); }} /> : tab === 'contacts' ? (
+      {tab === 'overview' ? <CustomerOverview customer={detail.data} canManage={canManageCustomer} onManageSegments={() => { membershipMutation.reset(); setSegmentsOpen(true); }} /> : tab === 'contacts' ? (
         <div className="customer-detail-grid">
           {emails.isLoading ? <div className="customer-detail-card"><Spinner label={t('customerDetail.loadingEmails')} /></div> : null}
           {emails.error ? <ProblemDetailPanel error={emails.error} onRetry={() => void emails.refetch()} /> : null}
-          {emails.data ? <CustomerEmails values={emails.data} onAdd={() => openContact('email')} onEdit={(contact: CustomerEmailDto) => openContact('email', contact)} /> : null}
+          {emails.data ? <CustomerEmails values={emails.data} canManage={canManageCustomer} onAdd={() => openContact('email')} onEdit={(contact: CustomerEmailDto) => openContact('email', contact)} /> : null}
           {phones.isLoading ? <div className="customer-detail-card"><Spinner label={t('customerDetail.loadingPhones')} /></div> : null}
           {phones.error ? <ProblemDetailPanel error={phones.error} onRetry={() => void phones.refetch()} /> : null}
-          {phones.data ? <CustomerPhones values={phones.data} onAdd={() => openContact('phone')} onEdit={(contact: CustomerPhoneDto) => openContact('phone', contact)} /> : null}
+          {phones.data ? <CustomerPhones values={phones.data} canManage={canManageCustomer} onAdd={() => openContact('phone')} onEdit={(contact: CustomerPhoneDto) => openContact('phone', contact)} /> : null}
         </div>
       ) : <CustomerContractsPanel customer={detail.data} onDirtyChange={setEditDirty} />}
-      <CustomerEditDialog
+      {canManageCustomer ? <CustomerEditDialog
         open={editOpen}
         customer={detail.data}
         canReadUsers={hasPermission('USER_READ')}
@@ -159,8 +161,8 @@ export function CustomerDetailPage({ tab }: { tab: CustomerDetailTab }) {
         onReload={async () => { profileMutation.reset(); return detail.refetch(); }}
         onClose={() => { profileMutation.reset(); setEditOpen(false); }}
         onDirtyChange={setEditDirty}
-      />
-      <CustomerStatusDialog
+      /> : null}
+      {canManageCustomer ? <CustomerStatusDialog
         open={statusOpen}
         customer={detail.data}
         pending={statusMutation.isPending}
@@ -168,8 +170,8 @@ export function CustomerDetailPage({ tab }: { tab: CustomerDetailTab }) {
         onConfirm={(status, version) => statusMutation.mutate({ status, version })}
         onReload={async () => { statusMutation.reset(); return detail.refetch(); }}
         onClose={() => { statusMutation.reset(); setStatusOpen(false); }}
-      />
-      {contactEditor ? <CustomerContactDialog
+      /> : null}
+      {canManageCustomer && contactEditor ? <CustomerContactDialog
         open
         kind={contactEditor.kind}
         contact={contactEditor.contact}
@@ -190,7 +192,7 @@ export function CustomerDetailPage({ tab }: { tab: CustomerDetailTab }) {
         onClose={() => { contactMutation.reset(); setContactEditor(null); }}
         onDirtyChange={setEditDirty}
       /> : null}
-      {segmentsOpen ? <CustomerSegmentsDialog
+      {canManageCustomer && segmentsOpen ? <CustomerSegmentsDialog
         open
         customer={detail.data}
         pending={membershipMutation.isPending}

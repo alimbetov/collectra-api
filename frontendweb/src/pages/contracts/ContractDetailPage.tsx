@@ -12,6 +12,7 @@ import { ApiError } from '../../shared/api/http-client';
 import { ProblemDetailPanel } from '../../shared/errors/ProblemDetailPanel';
 import { formatInstant, formatLocalDate } from '../../shared/i18n/formatters';
 import { useI18n } from '../../shared/i18n/i18n-context';
+import { useAuth } from '../../features/auth/model/auth-context';
 import { Button, ConfirmDialog, EmptyState, Spinner, StatusBadge, useToast } from '../../shared/ui';
 
 export function ContractDetailPage() {
@@ -19,6 +20,8 @@ export function ContractDetailPage() {
   const validId = isCustomerId(contractId);
   const id = validId ? contractId : '';
   const { t, locale, timeZone } = useI18n();
+  const { hasPermission } = useAuth();
+  const canManageContract = hasPermission('CONTRACT_MANAGE');
   const client = useQueryClient();
   const { showToast } = useToast();
   const [editOpen, setEditOpen] = useState(false);
@@ -43,7 +46,7 @@ export function ContractDetailPage() {
   if (!contract) return null;
   const lifecycleCode = lifecycle.error instanceof ApiError ? lifecycle.error.problem?.code : null;
   return <div className="customer-detail contract-detail">
-    <header className="customer-detail__header"><div><Link className="customer-detail__back" to="/contracts">← {t('contracts.back')}</Link><p className="eyebrow">{contract.externalId}</p><h1>{contract.contractNumber}</h1></div><div className="customer-detail__classification"><StatusBadge tone={contract.status === 'ACTIVE' ? 'success' : contract.status === 'SUSPENDED' ? 'warning' : contract.status === 'CANCELLED' ? 'danger' : 'neutral'}>{t(`contracts.status.${contract.status}`)}</StatusBadge><Button variant="secondary" onClick={() => { updateMutation.reset(); setEditOpen(true); }}>{t('customerEdit.action')}</Button>{allowedContractActions[contract.status].map((value) => <Button key={value} variant={value === 'cancel' ? 'danger' : 'secondary'} onClick={() => { lifecycle.reset(); setAction(value); }}>{t(`contracts.action.${value}` as const)}</Button>)}</div></header>
+    <header className="customer-detail__header"><div><Link className="customer-detail__back" to="/contracts">← {t('contracts.back')}</Link><p className="eyebrow">{contract.externalId}</p><h1>{contract.contractNumber}</h1></div><div className="customer-detail__classification"><StatusBadge tone={contract.status === 'ACTIVE' ? 'success' : contract.status === 'SUSPENDED' ? 'warning' : contract.status === 'CANCELLED' ? 'danger' : 'neutral'}>{t(`contracts.status.${contract.status}`)}</StatusBadge>{canManageContract ? <><Button variant="secondary" onClick={() => { updateMutation.reset(); setEditOpen(true); }}>{t('customerEdit.action')}</Button>{allowedContractActions[contract.status].map((value) => <Button key={value} variant={value === 'cancel' ? 'danger' : 'secondary'} onClick={() => { lifecycle.reset(); setAction(value); }}>{t(`contracts.action.${value}` as const)}</Button>)}</> : null}</div></header>
     {lifecycle.error ? <ProblemDetailPanel error={lifecycle.error} onRetry={lifecycleCode === 'VERSION_CONFLICT' || lifecycleCode === 'INVALID_STATE_TRANSITION' ? () => void detail.refetch().then(() => lifecycle.reset()) : undefined} /> : null}
     <div className="customer-detail-grid">
       <section className="customer-detail-card"><h2>{t('contracts.customer')}</h2><div className="customer-name-cell"><Link to={`/customers/${contract.customerId}`}>{contract.customerDisplayName ?? contract.customerExternalId}</Link><span>{contract.customerExternalId}</span></div></section>
@@ -51,8 +54,8 @@ export function ContractDetailPage() {
       <section className="customer-detail-card"><h2>{t('contracts.audit')}</h2><dl className="customer-detail-fields"><div><dt>{t('customerDetail.created')}</dt><dd>{formatInstant(contract.createdAt, locale, timeZone)}</dd></div><div><dt>{t('customers.columns.updated')}</dt><dd>{formatInstant(contract.updatedAt, locale, timeZone)}</dd></div><div><dt>{t('contracts.version')}</dt><dd>{contract.version}</dd></div></dl></section>
       <section className="customer-detail-card"><h2>{t('contracts.customFields')}</h2>{contract.customFields == null ? <p>{t('customerDetail.noCustomFields')}</p> : <pre className="customer-custom-fields">{JSON.stringify(contract.customFields, null, 2)}</pre>}</section>
     </div>
-    <ContractFormDialog open={editOpen} contract={contract} pending={updateMutation.isPending} error={updateMutation.error} onCreate={() => undefined} onUpdate={(command) => updateMutation.mutate(command)} onReload={async () => { updateMutation.reset(); return detail.refetch(); }} onClose={() => { updateMutation.reset(); setEditOpen(false); }} onDirtyChange={setDirty} />
-    <ConfirmDialog open={Boolean(action)} title={t(action ? `contracts.confirm.${action}.title` as const : 'contracts.lifecycleTitle')} confirmLabel={t(action ? `contracts.action.${action}` as const : 'contracts.lifecycleConfirm')} cancelLabel={t('customerEdit.cancel')} closeLabel={t('customerEdit.close')} pending={lifecycle.isPending} destructive={action === 'cancel' || action === 'close'} onConfirm={() => { if (action) lifecycle.mutate(action); }} onCancel={() => setAction(null)}>{t(action ? `contracts.confirm.${action}.description` as const : 'contracts.lifecycleDescription')}</ConfirmDialog>
+    {canManageContract ? <ContractFormDialog open={editOpen} contract={contract} pending={updateMutation.isPending} error={updateMutation.error} onCreate={() => undefined} onUpdate={(command) => updateMutation.mutate(command)} onReload={async () => { updateMutation.reset(); return detail.refetch(); }} onClose={() => { updateMutation.reset(); setEditOpen(false); }} onDirtyChange={setDirty} /> : null}
+    {canManageContract ? <ConfirmDialog open={Boolean(action)} title={t(action ? `contracts.confirm.${action}.title` as const : 'contracts.lifecycleTitle')} confirmLabel={t(action ? `contracts.action.${action}` as const : 'contracts.lifecycleConfirm')} cancelLabel={t('customerEdit.cancel')} closeLabel={t('customerEdit.close')} pending={lifecycle.isPending} destructive={action === 'cancel' || action === 'close'} onConfirm={() => { if (action) lifecycle.mutate(action); }} onCancel={() => setAction(null)}>{t(action ? `contracts.confirm.${action}.description` as const : 'contracts.lifecycleDescription')}</ConfirmDialog> : null}
     <ConfirmDialog open={blocker.state === 'blocked'} title={t('customerEdit.unsavedTitle')} confirmLabel={t('customerEdit.discard')} cancelLabel={t('customerEdit.continue')} closeLabel={t('customerEdit.close')} destructive onConfirm={() => { setDirty(false); blocker.proceed?.(); }} onCancel={() => blocker.reset?.()}>{t('customerEdit.unsavedDescription')}</ConfirmDialog>
   </div>;
 }

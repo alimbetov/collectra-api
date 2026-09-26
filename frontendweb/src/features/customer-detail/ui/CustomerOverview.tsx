@@ -19,7 +19,7 @@ function Field({ label, value }: FieldProps) {
   );
 }
 
-export function CustomerOverview({ customer, onManageSegments }: { customer: CustomerDetailDto; onManageSegments: () => void }) {
+export function CustomerOverview({ customer, onManageSegments, canManage }: { customer: CustomerDetailDto; onManageSegments: () => void; canManage: boolean }) {
   const { t, locale, timeZone } = useI18n();
   const customFields = customFieldsText(customer.customFields);
   return (
@@ -50,7 +50,7 @@ export function CustomerOverview({ customer, onManageSegments }: { customer: Cus
       <section className="customer-detail-card">
         <div className="customer-detail-card__heading">
           <h2>{t('customers.columns.segments')}</h2>
-          <Button variant="secondary" onClick={onManageSegments}>{t('segments.membershipAction')}</Button>
+          {canManage ? <Button variant="secondary" onClick={onManageSegments}>{t('segments.membershipAction')}</Button> : null}
         </div>
         {customer.segments.length ? (
           <div className="customer-segments">

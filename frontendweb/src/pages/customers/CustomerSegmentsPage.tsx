@@ -16,12 +16,15 @@ import { ProblemDetailPanel } from '../../shared/errors/ProblemDetailPanel';
 import { formatInstant } from '../../shared/i18n/formatters';
 import { useI18n } from '../../shared/i18n/i18n-context';
 import { Button, ConfirmDialog, DataTable, EmptyState, FormField, Pagination, Spinner, StatusBadge, useToast } from '../../shared/ui';
+import { useAuth } from '../../features/auth/model/auth-context';
 
 export function CustomerSegmentsPage() {
   const { segmentId } = useParams();
   const validSegmentId = !segmentId || isCustomerId(segmentId);
   const { t, locale, timeZone } = useI18n();
   const { showToast } = useToast();
+  const { hasPermission } = useAuth();
+  const canManageCustomer = hasPermission('CUSTOMER_MANAGE');
   const queryClient = useQueryClient();
   const navigateRoute = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -80,7 +83,7 @@ export function CustomerSegmentsPage() {
     <header className="customers-page__header">
       <div><p className="eyebrow">{t('customers.eyebrow')}</p><h1>{t('segments.title')}</h1>
         <p>{list.data ? t('segments.total').replace('{count}', String(list.data.totalElements)) : t('customers.totalPending')}</p></div>
-      <div className="segments-page__actions"><Link to="/customers">{t('customerDetail.back')}</Link><Button onClick={() => { createMutation.reset(); setCreateOpen(true); }}>{t('segments.create')}</Button></div>
+      <div className="segments-page__actions"><Link to="/customers">{t('customerDetail.back')}</Link>{canManageCustomer ? <Button onClick={() => { createMutation.reset(); setCreateOpen(true); }}>{t('segments.create')}</Button> : null}</div>
     </header>
     <div className="customer-filters__quick">
       <FormField label={t('segments.search')}><input type="search" value={searchDraft} onChange={(event) => setSearchDraft(event.target.value)} /></FormField>
@@ -112,7 +115,7 @@ export function CustomerSegmentsPage() {
           { key: 'name', header: t('segments.name'), render: (segment) => segment.name },
           { key: 'status', header: t('segments.status'), render: (segment) => <StatusBadge tone={segment.active ? 'success' : 'neutral'}>{t(segment.active ? 'segments.active' : 'segments.inactive')}</StatusBadge> },
           { key: 'updated', header: t('customers.columns.updated'), render: (segment) => formatInstant(segment.updatedAt, locale, timeZone) },
-          { key: 'actions', header: t('contactEdit.actions'), render: (segment) => <Button variant="secondary" onClick={() => navigateRoute({ pathname: `/customers/segments/${segment.id}`, search: searchParams.toString() ? `?${searchParams}` : '' })}>{t('contactEdit.edit')}</Button> },
+          { key: 'actions', header: t('contactEdit.actions'), render: (segment) => canManageCustomer ? <Button variant="secondary" onClick={() => navigateRoute({ pathname: `/customers/segments/${segment.id}`, search: searchParams.toString() ? `?${searchParams}` : '' })} >{t('contactEdit.edit')}</Button> : null },
         ]}
       />
       <Pagination page={list.data.page} totalPages={list.data.totalPages} onPageChange={(page) => navigate(updateSegmentListState(filters, { page }))} label={t('segments.pagination')} previousLabel={t('customers.pagination.previous')} nextLabel={t('customers.pagination.next')} />
@@ -121,15 +124,15 @@ export function CustomerSegmentsPage() {
     {segmentId && validSegmentId && detail.isLoading ? <Spinner label={t('segments.loadingDetail')} /> : null}
     {segmentId && detail.error && !missingDetail && !(detail.error instanceof ApiError && detail.error.status === 403)
       ? <ProblemDetailPanel error={detail.error} onRetry={() => void detail.refetch()} /> : null}
-    <SegmentFormDialog
+    {canManageCustomer ? <SegmentFormDialog
       open={createOpen}
       pending={createMutation.isPending}
       error={createMutation.error}
       onCreate={(command) => createMutation.mutate(command)} onUpdate={() => undefined}
       onReload={async () => { createMutation.reset(); return undefined; }}
       onClose={() => { createMutation.reset(); setCreateOpen(false); }} onDirtyChange={setDirty}
-    />
-    {detail.data ? <SegmentFormDialog
+    /> : null}
+    {canManageCustomer && detail.data ? <SegmentFormDialog
       open segment={detail.data} pending={updateMutation.isPending} error={updateMutation.error}
       onCreate={() => undefined} onUpdate={(command) => updateMutation.mutate(command)}
       onReload={async () => { updateMutation.reset(); return detail.refetch(); }}
