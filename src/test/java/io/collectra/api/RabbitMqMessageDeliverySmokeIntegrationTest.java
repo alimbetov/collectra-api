@@ -25,6 +25,7 @@ import io.collectra.api.localization.infrastructure.TenantLocaleRepository;
 import io.collectra.api.receivable.application.ReceivableService;
 import io.collectra.api.shared.outbox.OutboxPublisher;
 import io.collectra.api.template.domain.DocumentTemplate;
+import io.collectra.api.template.domain.FieldDefinition;
 import io.collectra.api.template.domain.TemplateChannel;
 import io.collectra.api.template.domain.TemplateVersion;
 import io.collectra.api.template.infrastructure.DocumentTemplateRepository;
