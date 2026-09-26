@@ -166,7 +166,10 @@ class CustomerReceivableCoreIntegrationTest extends AbstractIntegrationTest {
         assertThat(replay.getReversedBy()).isEqualTo("finance-operator");
         assertThat(receivableService.invoice(f.tenantId(), f.invoice().getId()).getPaidAmount())
                 .isEqualByComparingTo("0.00");
-        assertThat(receivableService.invoice(f.tenantId(), f.invoice().getId()).getOutstandingAmount())
+        assertThat(
+                        receivableService
+                                .invoice(f.tenantId(), f.invoice().getId())
+                                .getOutstandingAmount())
                 .isEqualByComparingTo("100.00");
 
         org.assertj.core.api.Assertions.assertThatThrownBy(
@@ -179,7 +182,10 @@ class CustomerReceivableCoreIntegrationTest extends AbstractIntegrationTest {
                                         "different reason",
                                         "finance-operator"))
                 .hasMessageContaining("another intent");
-        assertThat(receivableService.invoice(f.tenantId(), f.invoice().getId()).getOutstandingAmount())
+        assertThat(
+                        receivableService
+                                .invoice(f.tenantId(), f.invoice().getId())
+                                .getOutstandingAmount())
                 .isEqualByComparingTo("100.00");
     }
 
