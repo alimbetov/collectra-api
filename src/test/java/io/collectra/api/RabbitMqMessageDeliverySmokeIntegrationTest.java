@@ -371,9 +371,7 @@ class RabbitMqMessageDeliverySmokeIntegrationTest extends AbstractIntegrationTes
                         () ->
                                 assertThat(
                                                         ingestion
-                                                                .status(
-                                                                        tenantId,
-                                                                        reservation.ingestionId())
+                                                                .status(tenantId, reservation.ingestionId())
                                                                 .status())
                                         .isIn(
                                                 IngestionStatus.COMPLETED.name(),
