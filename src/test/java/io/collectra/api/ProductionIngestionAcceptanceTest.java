@@ -122,12 +122,7 @@ class ProductionIngestionAcceptanceTest extends AbstractIntegrationTest {
                         "text/csv",
                         csv("INV-X", "100.00"));
         awaitTerminal(f.tenantId, same.ingestionId());
-        assertThat(
-                        diagnostics
-                                .findByTenantIdAndBatchIdAndRecordOrder(
-                                        f.tenantId, same.ingestionId(), 1)
-                                .orElseThrow()
-                                .getOutcome())
+        assertThat(awaitDiagnosticOutcome(f.tenantId, same.ingestionId(), 1))
                 .describedAs(recordDiagnostic(f.tenantId, same.ingestionId(), 1))
                 .isEqualTo("REUSED");
         var changed =
@@ -140,12 +135,7 @@ class ProductionIngestionAcceptanceTest extends AbstractIntegrationTest {
                         "text/csv",
                         csv("INV-X", "200.00"));
         awaitTerminal(f.tenantId, changed.ingestionId());
-        assertThat(
-                        diagnostics
-                                .findByTenantIdAndBatchIdAndRecordOrder(
-                                        f.tenantId, changed.ingestionId(), 1)
-                                .orElseThrow()
-                                .getOutcome())
+        assertThat(awaitDiagnosticOutcome(f.tenantId, changed.ingestionId(), 1))
                 .describedAs(recordDiagnostic(f.tenantId, changed.ingestionId(), 1))
                 .isEqualTo("CONFLICT");
     }
@@ -229,6 +219,17 @@ class ProductionIngestionAcceptanceTest extends AbstractIntegrationTest {
             Thread.sleep(100);
         }
         throw new AssertionError("ingestion did not become terminal");
+    }
+
+    private String awaitDiagnosticOutcome(UUID tenantId, UUID batchId, int order) throws Exception {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(20);
+        while (System.nanoTime() < deadline) {
+            var diagnostic =
+                    diagnostics.findByTenantIdAndBatchIdAndRecordOrder(tenantId, batchId, order);
+            if (diagnostic.isPresent()) return diagnostic.get().getOutcome();
+            Thread.sleep(100);
+        }
+        throw new AssertionError(recordDiagnostic(tenantId, batchId, order));
     }
 
     private String recordDiagnostic(UUID tenantId, UUID batchId, int order) {
