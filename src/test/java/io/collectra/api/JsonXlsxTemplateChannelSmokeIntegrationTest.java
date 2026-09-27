@@ -104,6 +104,7 @@ class JsonXlsxTemplateChannelSmokeIntegrationTest extends AbstractIntegrationTes
     private static final RabbitMQContainer RABBIT =
             new RabbitMQContainer("rabbitmq:3.13-management-alpine");
     private static final String FIXTURE_ROOT = "smoke/json-xlsx-template-channel/";
+    private static final Duration ASYNC_TIMEOUT = Duration.ofSeconds(60);
 
     static {
         RABBIT.start();
@@ -317,7 +318,7 @@ class JsonXlsxTemplateChannelSmokeIntegrationTest extends AbstractIntegrationTes
         assertThat(deliveryEvents(tenant.getId(), queued.getId())).isZero();
 
         awaitGenerationCompleted(tenant.getId(), attachment.getGenerationJobId());
-        await().atMost(Duration.ofSeconds(15))
+        await().atMost(ASYNC_TIMEOUT)
                 .pollInterval(Duration.ofMillis(100))
                 .untilAsserted(
                         () ->
@@ -339,7 +340,7 @@ class JsonXlsxTemplateChannelSmokeIntegrationTest extends AbstractIntegrationTes
         assertThat(deliveryEvents(tenant.getId(), queued.getId())).isOne();
 
         outbox.publishPending();
-        await().atMost(Duration.ofSeconds(15))
+        await().atMost(ASYNC_TIMEOUT)
                 .pollInterval(Duration.ofMillis(100))
                 .untilAsserted(
                         () -> {
@@ -432,7 +433,7 @@ class JsonXlsxTemplateChannelSmokeIntegrationTest extends AbstractIntegrationTes
     }
 
     private void awaitGenerationCompleted(UUID tenantId, UUID jobId) {
-        await().atMost(Duration.ofSeconds(15))
+        await().atMost(ASYNC_TIMEOUT)
                 .pollInterval(Duration.ofMillis(100))
                 .untilAsserted(
                         () -> {

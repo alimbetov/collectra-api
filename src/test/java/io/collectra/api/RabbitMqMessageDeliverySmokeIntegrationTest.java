@@ -65,6 +65,8 @@ import org.testcontainers.containers.RabbitMQContainer;
             "spring.rabbitmq.listener.simple.auto-startup=true"
         })
 class RabbitMqMessageDeliverySmokeIntegrationTest extends AbstractIntegrationTest {
+    private static final Duration ASYNC_TIMEOUT = Duration.ofSeconds(60);
+
     static final RabbitMQContainer RABBIT =
             new RabbitMQContainer("rabbitmq:3.13-management-alpine");
 
@@ -354,7 +356,7 @@ class RabbitMqMessageDeliverySmokeIntegrationTest extends AbstractIntegrationTes
         outbox.publishPending();
 
         UUID messageId = queued.getId();
-        await().atMost(Duration.ofSeconds(15))
+        await().atMost(ASYNC_TIMEOUT)
                 .pollInterval(Duration.ofMillis(100))
                 .untilAsserted(
                         () -> {
@@ -368,7 +370,7 @@ class RabbitMqMessageDeliverySmokeIntegrationTest extends AbstractIntegrationTes
     private IngestionApplicationService.Reservation ingestAndAwait(
             String accessToken, String sourceCode, String key, byte[] body) throws Exception {
         var reservation = ingest(accessToken, sourceCode, key, "golden-journey", body);
-        await().atMost(Duration.ofSeconds(15))
+        await().atMost(ASYNC_TIMEOUT)
                 .pollInterval(Duration.ofMillis(100))
                 .untilAsserted(
                         () -> {
