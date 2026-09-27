@@ -346,6 +346,7 @@ class JsonXlsxTemplateChannelSmokeIntegrationTest extends AbstractIntegrationTes
                 .pollInterval(Duration.ofMillis(100))
                 .untilAsserted(
                         () -> {
+                            outbox.publishPending();
                             Message sent = messages.findById(queued.getId()).orElseThrow();
                             assertThat(sent.getStatus()).isEqualTo(MessageStatus.SENT);
                             assertThat(sent.getProviderMessageId())
