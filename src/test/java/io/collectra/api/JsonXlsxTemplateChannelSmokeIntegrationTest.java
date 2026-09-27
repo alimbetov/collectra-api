@@ -23,6 +23,7 @@ import io.collectra.api.communication.infrastructure.MessageDeliveryAttemptRepos
 import io.collectra.api.communication.infrastructure.MessageRepository;
 import io.collectra.api.customer.application.CustomerService;
 import io.collectra.api.customer.domain.CustomerType;
+import io.collectra.api.document.application.DocumentGenerationWorker;
 import io.collectra.api.document.application.DocumentStorage;
 import io.collectra.api.document.domain.GeneratedDocument;
 import io.collectra.api.document.domain.GenerationJobStatus;
@@ -141,6 +142,7 @@ class JsonXlsxTemplateChannelSmokeIntegrationTest extends AbstractIntegrationTes
     @Autowired MessageDeliveryAttemptRepository attempts;
     @Autowired OutboxRepository outboxEvents;
     @Autowired OutboxPublisher outbox;
+    @Autowired DocumentGenerationWorker documentGenerationWorker;
     @Autowired DocumentStorage storage;
     @Autowired ObjectMapper json;
     @Autowired MockMvc mockMvc;
@@ -438,6 +440,14 @@ class JsonXlsxTemplateChannelSmokeIntegrationTest extends AbstractIntegrationTes
                 .untilAsserted(
                         () -> {
                             outbox.publishPending();
+                            var status =
+                                    jobs.findByIdAndTenantId(jobId, tenantId)
+                                            .orElseThrow()
+                                            .getStatus();
+                            if (status == GenerationJobStatus.PENDING) {
+                                documentGenerationWorker.generate(tenantId, jobId);
+                                outbox.publishPending();
+                            }
                             assertThat(
                                             jobs.findByIdAndTenantId(jobId, tenantId)
                                                     .orElseThrow()
