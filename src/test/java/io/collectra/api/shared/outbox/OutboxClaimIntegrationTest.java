@@ -3,14 +3,6 @@ package io.collectra.api.shared.outbox;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.collectra.api.AbstractIntegrationTest;
-
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.support.TransactionTemplate;
-
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
@@ -19,7 +11,19 @@ import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
+@SpringBootTest(
+        properties = {
+            "collectra.messaging.outbox-enabled=false",
+            "spring.task.scheduling.enabled=false"
+        })
 class OutboxClaimIntegrationTest extends AbstractIntegrationTest {
     @Autowired private OutboxRepository events;
     @Autowired private PlatformTransactionManager transactionManager;
