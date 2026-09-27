@@ -52,20 +52,24 @@ Create one tenant-scoped fixture containing:
 - one published EMAIL template version;
 - output formats `HTML,PDF`.
 
-Recommended canonical fields:
+Canonical fields for the committed smoke fixture are existing Collectra catalog keys:
 
 ```text
-customer.fullName
-customer.email
-document.number
-document.issueDate
-document.dueDate
-document.amount
-document.currency
-document.paymentReference
+customer.externalId
+customer.displayName
+customer.locale
+customer.timezone
+invoice.externalId
+invoice.invoiceNumber
+invoice.invoiceDate
+invoice.dueDate
+invoice.amount
+invoice.currency
+payment.reference
 ```
 
-If the current field catalog uses different canonical keys, use the real existing keys. Do not invent a second vocabulary solely for the test.
+The fixture pack lives under `src/test/resources/smoke/json-xlsx-template-channel/`.
+Do not invent a second vocabulary solely for the test. The XLSX binary must be generated at runtime with Apache POI from the committed reviewable tabular fixture.
 
 ### Phase S2 — JSON through real HTTP API
 
@@ -144,17 +148,7 @@ Use one published EMAIL template version for both imports.
 
 The template must consume mapped canonical fields in both subject/body where supported by the current model. At minimum the HTML body must contain multiple independent mapped values so that accidental hard-coded output cannot satisfy the smoke.
 
-Representative body:
-
-```html
-<h1>Payment notice {{document.number}}</h1>
-<p>Customer: {{customer.fullName}}</p>
-<p>Amount: {{document.amount}} {{document.currency}}</p>
-<p>Due: {{document.dueDate}}</p>
-<p>Reference: {{document.paymentReference}}</p>
-```
-
-Adapt placeholders to the actual field catalog and template grammar.
+The committed representative body is `src/test/resources/smoke/json-xlsx-template-channel/template.html` and uses the real catalog placeholders, including `customer.displayName`, `invoice.invoiceNumber`, `invoice.amount`, `invoice.currency`, `invoice.dueDate` and `payment.reference`.
 
 ## 6. Generation execution
 
