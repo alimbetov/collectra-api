@@ -1,0 +1,2 @@
+Customer External ID,Customer Name,Locale,Timezone,Invoice External ID,Invoice Number,Invoice Date,Due Date,Amount,Currency,Payment Reference
+CUST-SMOKE-001,"ТОО «Алматы Тест»",ru-KZ,Asia/Almaty,INV-SMOKE-001,INV-2026-SMOKE-001,2026-09-27,2026-10-10,125000.50,KZT,PAY-SMOKE-001
