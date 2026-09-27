@@ -368,11 +368,11 @@ class RabbitMqMessageDeliverySmokeIntegrationTest extends AbstractIntegrationTes
     private IngestionApplicationService.Reservation ingestAndAwait(
             String accessToken, String sourceCode, String key, byte[] body) throws Exception {
         var reservation = ingest(accessToken, sourceCode, key, "golden-journey", body);
-        outbox.publishPending();
         await().atMost(Duration.ofSeconds(15))
                 .pollInterval(Duration.ofMillis(100))
                 .untilAsserted(
                         () -> {
+                            outbox.publishPending();
                             var result =
                                     mockMvc.perform(
                                                     org.springframework.test.web.servlet.request

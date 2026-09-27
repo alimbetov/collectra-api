@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.collectra.api.document.application.DocumentGenerationWorker;
@@ -64,6 +65,21 @@ class DocumentGenerationListenerUnitTest {
         listener.consume(message(payload.toString()));
 
         verify(states).fail(tenantId, jobId, "GENERATION_FAILED", "invalid template");
+        verify(rabbit)
+                .convertAndSend(
+                        eq(DocumentMessagingConfig.EXCHANGE),
+                        eq("generation.dead"),
+                        eq(payload),
+                        any(MessagePostProcessor.class));
+    }
+
+    @Test
+    void deadLettersMalformedMessagesWithoutInvokingWorker() {
+        var payload = json.createObjectNode().put("jobId", UUID.randomUUID().toString());
+
+        listener.consume(message(payload.toString()));
+
+        verifyNoInteractions(worker, states);
         verify(rabbit)
                 .convertAndSend(
                         eq(DocumentMessagingConfig.EXCHANGE),

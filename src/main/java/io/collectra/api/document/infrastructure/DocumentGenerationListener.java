@@ -33,8 +33,15 @@ public class DocumentGenerationListener {
     @RabbitListener(queues = DocumentMessagingConfig.QUEUE)
     public void consume(Message message) {
         JsonNode payload = readPayload(message);
-        UUID tenantId = requiredUuid(payload, "tenantId");
-        UUID jobId = requiredUuid(payload, "jobId");
+        UUID tenantId;
+        UUID jobId;
+        try {
+            tenantId = requiredUuid(payload, "tenantId");
+            jobId = requiredUuid(payload, "jobId");
+        } catch (IllegalArgumentException ex) {
+            deadLetter(payload, 0, rootMessage(ex));
+            return;
+        }
         int retry =
                 message.getMessageProperties().getHeader("x-retry-count") == null
                         ? 0
@@ -45,14 +52,7 @@ public class DocumentGenerationListener {
         } catch (Exception ex) {
             if (permanent(ex) || retry >= 3) {
                 states.fail(tenantId, jobId, "GENERATION_FAILED", rootMessage(ex));
-                rabbit.convertAndSend(
-                        DocumentMessagingConfig.EXCHANGE,
-                        "generation.dead",
-                        payload,
-                        outgoing -> {
-                            outgoing.getMessageProperties().setHeader("x-retry-count", retry);
-                            return outgoing;
-                        });
+                deadLetter(payload, retry, rootMessage(ex));
                 return;
             }
             states.retry(tenantId, jobId, "GENERATION_RETRY", rootMessage(ex));
@@ -66,6 +66,18 @@ public class DocumentGenerationListener {
                         return outgoing;
                     });
         }
+    }
+
+    private void deadLetter(JsonNode payload, int retry, String reason) {
+        rabbit.convertAndSend(
+                DocumentMessagingConfig.EXCHANGE,
+                "generation.dead",
+                payload,
+                outgoing -> {
+                    outgoing.getMessageProperties().setHeader("x-retry-count", retry);
+                    outgoing.getMessageProperties().setHeader("x-error", reason);
+                    return outgoing;
+                });
     }
 
     private JsonNode readPayload(Message message) {

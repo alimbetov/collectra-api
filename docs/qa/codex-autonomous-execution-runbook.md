@@ -1,14 +1,17 @@
 # Codex Autonomous Execution Runbook
 
-Status: NORMATIVE HANDOFF
+Status: NORMATIVE HANDOFF — POST-MERGE VERIFICATION MODE
 Branch: spec/functional-hardening-user-journeys
 
+## Baseline semantics
+The pre-VC9 remediation implementation has already been merged to main and synchronized into this branch. Historical WP/FH/ledger states are evidence to reconcile, not an instruction to replay implementation. A defect is actionable only after it is reproduced against the current branch. VC-9 Analytics remains out of scope.
+
 ## Start
-Confirm branch/start SHA. Read AGENTS.md, accepted D01-D15, completion contract, full-stack consistency contract, T30, security matrix and P1-P15 frontend specs. Regenerate repository inventory before editing. Expand the ledger to individual D01-D15, P1-P15, J01-J10, T30-01..30 and primary surfaces.
+Confirm branch/start SHA and verify this branch contains the current main hardening baseline. Read AGENTS.md, CODEX-START-HERE.md, accepted D01-D15, completion contract, full-stack consistency contract, T30, security matrix and P1-P15 frontend specs. Regenerate repository inventory before editing. Reconcile the ledger to individual D01-D15, P1-P15, J01-J10, T30-01..30 and primary surfaces using current executable evidence.
 
 ## Loop
 For completion phases A through G:
-discover -> reproduce -> classify -> root cause -> coherent fix -> regression test -> focused run -> affected journey -> ledger/defect update -> commit.
+discover current state -> reproduce -> classify -> if PASS reconcile evidence; if FAIL root cause -> coherent fix -> regression test -> focused run -> affected journey -> ledger/defect update -> commit.
 Do not mix unrelated refactors into defect commits.
 
 ## Decisions
