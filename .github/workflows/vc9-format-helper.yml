@@ -1,15 +1,14 @@
 name: VC9 formatter helper
 on:
-  pull_request:
-    branches: [ main ]
+  push:
+    branches: [ feat/vc9-tenant-analytics ]
 jobs:
   format:
-    if: github.head_ref == 'feat/vc9-tenant-analytics'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.sha }}
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
