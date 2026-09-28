@@ -34,6 +34,12 @@ collectra:
       reconciliation-days: 7
       tenant-batch-size: 100
       building-timeout: 30m
+    financial-projections:
+      enabled: false
+      cron: "0 35 1 * * *"
+      reconciliation-days: 7
+      tenant-batch-size: 100
+      building-timeout: 30m
   partition-maintenance:
     enabled: false
     dry-run: true
