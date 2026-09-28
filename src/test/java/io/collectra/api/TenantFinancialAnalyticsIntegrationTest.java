@@ -102,7 +102,7 @@ class TenantFinancialAnalyticsIntegrationTest extends AbstractIntegrationTest {
     private void seedTenant(UUID id, String slug, Instant at) {
         jdbc.update(
                 """
-                insert into tenants(id,slug,company_name,status,created_at,updated_at,version)
+                insert into tenants(id,slug,name,status,created_at,updated_at,version)
                 values (?,?,'VC9','ACTIVE',?,?,0)
                 """, id, slug, at, at);
     }
@@ -122,7 +122,7 @@ class TenantFinancialAnalyticsIntegrationTest extends AbstractIntegrationTest {
                 """
                 insert into invoices(id,tenant_id,customer_id,external_id,invoice_number,invoice_date,due_date,
                     original_amount,paid_amount,outstanding_amount,currency,payment_status,created_at,updated_at,version)
-                values (?,?,?,?,?,?,?,?,0,?,?,'UNPAID',?,?,0)
+                values (?,?,?,?,?,?,?,?,0,?,?,'OPEN',?,?,0)
                 """, invoice, tenantId, customer, "I-" + suffix, "N-" + suffix,
                 LocalDate.ofInstant(at, ZoneOffset.UTC), LocalDate.ofInstant(at, ZoneOffset.UTC).minusDays(1),
                 new java.math.BigDecimal(invoiceAmount), new java.math.BigDecimal(invoiceAmount), currency, at, at);
