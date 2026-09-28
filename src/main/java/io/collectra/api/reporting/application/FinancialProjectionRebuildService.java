@@ -37,33 +37,39 @@ public class FinancialProjectionRebuildService {
         Instant at = clock.instant();
         Instant from = day.atStartOfDay(ZoneOffset.UTC).toInstant();
         Instant to = day.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant();
-        var p = new MapSqlParameterSource()
-                .addValue("tenantId", tenantId).addValue("day", day)
-                .addValue("from", Timestamp.from(from)).addValue("to", Timestamp.from(to))
-                .addValue("at", Timestamp.from(at));
+        var p =
+                new MapSqlParameterSource()
+                        .addValue("tenantId", tenantId)
+                        .addValue("day", day)
+                        .addValue("from", Timestamp.from(from))
+                        .addValue("to", Timestamp.from(to))
+                        .addValue("at", Timestamp.from(at));
 
         if (!state.tryMarkBuilding(tenantId, day, at, at.minus(properties.getBuildingTimeout()))) {
             return new RebuildResult(tenantId, day, 0, null, at, true);
         }
         try {
-            return transactions.execute(tx -> {
-                jdbc.update(
-                        "delete from tenant_daily_financial_metrics where tenant_id=:tenantId and business_date=:day",
-                        p);
-                int rows = rebuildMetrics(p);
-                Instant watermark = sourceWatermark(p);
-                p.addValue("watermark", watermark == null ? null : Timestamp.from(watermark))
-                        .addValue("rows", rows);
-                jdbc.update(
-                        """
+            return transactions.execute(
+                    tx -> {
+                        jdbc.update(
+                                "delete from tenant_daily_financial_metrics where tenant_id=:tenantId and business_date=:day",
+                                p);
+                        int rows = rebuildMetrics(p);
+                        Instant watermark = sourceWatermark(p);
+                        p.addValue(
+                                        "watermark",
+                                        watermark == null ? null : Timestamp.from(watermark))
+                                .addValue("rows", rows);
+                        jdbc.update(
+                                """
                         update tenant_financial_projection_state
                            set status='READY', revision=revision+1, source_watermark=:watermark,
                                metric_rows=:rows, calculated_at=:at, error_message=null
                          where tenant_id=:tenantId and business_date=:day
                         """,
-                        p);
-                return new RebuildResult(tenantId, day, rows, watermark, at, false);
-            });
+                                p);
+                        return new RebuildResult(tenantId, day, rows, watermark, at, false);
+                    });
         } catch (RuntimeException ex) {
             state.markFailed(tenantId, day, at, ex.getMessage());
             throw ex;
@@ -140,8 +146,9 @@ public class FinancialProjectionRebuildService {
     }
 
     private Instant sourceWatermark(MapSqlParameterSource p) {
-        Timestamp value = jdbc.queryForObject(
-                """
+        Timestamp value =
+                jdbc.queryForObject(
+                        """
                 select max(ts) from (
                     select max(updated_at) ts from invoices where tenant_id=:tenantId and created_at>=:from and created_at<:to
                     union all
@@ -153,11 +160,17 @@ public class FinancialProjectionRebuildService {
                     select max(updated_at) from collection_cases where tenant_id=:tenantId
                       and ((opened_at>=:from and opened_at<:to) or (closed_at>=:from and closed_at<:to))
                 ) s
-                """, p, Timestamp.class);
+                """,
+                        p,
+                        Timestamp.class);
         return value == null ? null : value.toInstant();
     }
 
     public record RebuildResult(
-            UUID tenantId, LocalDate businessDate, int metricRows, Instant sourceWatermark,
-            Instant calculatedAt, boolean lockSkipped) {}
+            UUID tenantId,
+            LocalDate businessDate,
+            int metricRows,
+            Instant sourceWatermark,
+            Instant calculatedAt,
+            boolean lockSkipped) {}
 }
