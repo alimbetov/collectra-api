@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.collectra.api.reporting.application.FinancialProjectionRebuildService;
 import io.collectra.api.reporting.application.TenantFinancialAnalyticsQueryService;
+import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
@@ -136,8 +137,8 @@ class TenantFinancialAnalyticsIntegrationTest extends AbstractIntegrationTest {
                 """,
                 id,
                 slug,
-                at,
-                at);
+                Timestamp.from(at),
+                Timestamp.from(at));
     }
 
     private void seedInvoiceAndPayment(
@@ -158,8 +159,8 @@ class TenantFinancialAnalyticsIntegrationTest extends AbstractIntegrationTest {
                 customer,
                 tenantId,
                 "C-" + suffix,
-                at,
-                at);
+                Timestamp.from(at),
+                Timestamp.from(at));
         jdbc.update(
                 """
                 insert into invoices(id,tenant_id,customer_id,external_id,invoice_number,invoice_date,due_date,
@@ -176,8 +177,8 @@ class TenantFinancialAnalyticsIntegrationTest extends AbstractIntegrationTest {
                 new java.math.BigDecimal(invoiceAmount),
                 new java.math.BigDecimal(invoiceAmount),
                 currency,
-                at,
-                at);
+                Timestamp.from(at),
+                Timestamp.from(at));
         jdbc.update(
                 """
                 insert into payments(id,tenant_id,customer_id,external_id,payment_date,amount,currency,created_at,updated_at,version)
@@ -190,8 +191,8 @@ class TenantFinancialAnalyticsIntegrationTest extends AbstractIntegrationTest {
                 LocalDate.ofInstant(at, ZoneOffset.UTC),
                 new java.math.BigDecimal(paymentAmount),
                 currency,
-                at,
-                at);
+                Timestamp.from(at),
+                Timestamp.from(at));
         jdbc.update(
                 """
                 insert into payment_allocations(id,tenant_id,payment_id,invoice_id,amount,created_at,updated_at,version,command_id,status)
@@ -202,8 +203,8 @@ class TenantFinancialAnalyticsIntegrationTest extends AbstractIntegrationTest {
                 payment,
                 invoice,
                 new java.math.BigDecimal(paymentAmount),
-                at,
-                at,
+                Timestamp.from(at),
+                Timestamp.from(at),
                 UUID.randomUUID());
     }
 }
