@@ -14,6 +14,7 @@ import io.collectra.api.campaign.application.CampaignSelection;
 import io.collectra.api.campaign.application.CampaignService;
 import io.collectra.api.communication.application.MessageAttachmentService;
 import io.collectra.api.communication.application.MessageDeliveryRequested;
+import io.collectra.api.communication.application.MessageDeliveryWorker;
 import io.collectra.api.communication.domain.CommunicationChannel;
 import io.collectra.api.communication.domain.Message;
 import io.collectra.api.communication.domain.MessageAttachmentStatus;
@@ -140,6 +141,7 @@ class JsonXlsxTemplateChannelSmokeIntegrationTest extends AbstractIntegrationTes
     @Autowired MessageRepository messages;
     @Autowired MessageAttachmentRepository attachments;
     @Autowired MessageDeliveryAttemptRepository attempts;
+    @Autowired MessageDeliveryWorker deliveryWorker;
     @Autowired OutboxRepository outboxEvents;
     @Autowired OutboxPublisher outbox;
     @Autowired DocumentGenerationWorker documentGenerationWorker;
@@ -347,6 +349,7 @@ class JsonXlsxTemplateChannelSmokeIntegrationTest extends AbstractIntegrationTes
                 .untilAsserted(
                         () -> {
                             outbox.publishPending();
+                            deliveryWorker.deliver(tenant.getId(), queued.getId());
                             Message sent = messages.findById(queued.getId()).orElseThrow();
                             assertThat(sent.getStatus()).isEqualTo(MessageStatus.SENT);
                             assertThat(sent.getProviderMessageId())
