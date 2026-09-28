@@ -86,10 +86,10 @@ public class FinancialProjectionRebuildService {
                     calculated_at)
                 with currencies as (
                     select currency from invoices
-                     where tenant_id=:tenantId and created_at>=:from and created_at<:to
+                     where tenant_id=:tenantId and invoice_date=:day
                     union
                     select currency from payments
-                     where tenant_id=:tenantId and created_at>=:from and created_at<:to
+                     where tenant_id=:tenantId and payment_date=:day
                     union
                     select p.currency from payment_allocations a join payments p on p.id=a.payment_id
                      where a.tenant_id=:tenantId
@@ -103,11 +103,11 @@ public class FinancialProjectionRebuildService {
                 ),
                 inv as (
                     select currency,sum(original_amount) amount,count(*) cnt from invoices
-                     where tenant_id=:tenantId and created_at>=:from and created_at<:to group by currency
+                     where tenant_id=:tenantId and invoice_date=:day group by currency
                 ),
                 pay as (
                     select currency,sum(amount) amount,count(*) cnt from payments
-                     where tenant_id=:tenantId and created_at>=:from and created_at<:to group by currency
+                     where tenant_id=:tenantId and payment_date=:day group by currency
                 ),
                 alloc as (
                     select p.currency,
@@ -150,9 +150,9 @@ public class FinancialProjectionRebuildService {
                 jdbc.queryForObject(
                         """
                 select max(ts) from (
-                    select max(updated_at) ts from invoices where tenant_id=:tenantId and created_at>=:from and created_at<:to
+                    select max(updated_at) ts from invoices where tenant_id=:tenantId and invoice_date=:day
                     union all
-                    select max(updated_at) from payments where tenant_id=:tenantId and created_at>=:from and created_at<:to
+                    select max(updated_at) from payments where tenant_id=:tenantId and payment_date=:day
                     union all
                     select max(updated_at) from payment_allocations where tenant_id=:tenantId
                       and ((created_at>=:from and created_at<:to) or (reversed_at>=:from and reversed_at<:to))
