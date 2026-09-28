@@ -1,0 +1,28 @@
+{
+  "scenario": "json-xlsx-template-channel-smoke",
+  "locale": "ru-KZ",
+  "outputFormats": ["HTML", "PDF"],
+  "canonicalFields": [
+    "customer.externalId",
+    "customer.displayName",
+    "customer.locale",
+    "customer.timezone",
+    "invoice.externalId",
+    "invoice.invoiceNumber",
+    "invoice.invoiceDate",
+    "invoice.dueDate",
+    "invoice.amount",
+    "invoice.currency",
+    "payment.reference"
+  ],
+  "semanticAssertions": {
+    "customer.displayName": "ТОО «Алматы Тест»",
+    "invoice.invoiceNumber": "INV-2026-SMOKE-001",
+    "invoice.amount": "125000.50",
+    "invoice.currency": "KZT",
+    "invoice.dueDate": "2026-10-10",
+    "payment.reference": "PAY-SMOKE-001"
+  },
+  "forbiddenUnresolvedToken": "{{",
+  "xlsxPolicy": "Generate a real .xlsx workbook at test runtime from input-xlsx.csv using Apache POI; do not treat CSV parsing as XLSX smoke evidence."
+}

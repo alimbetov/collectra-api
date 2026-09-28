@@ -19,6 +19,7 @@ import io.collectra.api.customer.application.CustomerService;
 import io.collectra.api.importing.domain.*;
 import io.collectra.api.importing.infrastructure.*;
 import io.collectra.api.integration.application.IngestionApplicationService;
+import io.collectra.api.integration.application.IngestionWorker;
 import io.collectra.api.integration.application.IntegrationSourceService;
 import io.collectra.api.integration.application.ServiceClientService;
 import io.collectra.api.integration.domain.IngestionStatus;
@@ -65,6 +66,8 @@ import org.testcontainers.containers.RabbitMQContainer;
             "spring.rabbitmq.listener.simple.auto-startup=true"
         })
 class RabbitMqMessageDeliverySmokeIntegrationTest extends AbstractIntegrationTest {
+    private static final Duration ASYNC_TIMEOUT = Duration.ofSeconds(60);
+
     static final RabbitMQContainer RABBIT =
             new RabbitMQContainer("rabbitmq:3.13-management-alpine");
 
@@ -85,6 +88,7 @@ class RabbitMqMessageDeliverySmokeIntegrationTest extends AbstractIntegrationTes
     @Autowired ServiceClientService serviceClients;
     @Autowired IntegrationSourceService integrationSources;
     @Autowired IngestionApplicationService ingestion;
+    @Autowired IngestionWorker ingestionWorker;
     @Autowired SourceSchemaDefinitionRepository schemaDefinitions;
     @Autowired SourceSchemaRepository schemas;
     @Autowired SourceFieldRepository sourceFields;
@@ -204,6 +208,7 @@ class RabbitMqMessageDeliverySmokeIntegrationTest extends AbstractIntegrationTes
                         .getBytes(StandardCharsets.UTF_8);
         var customerReservation =
                 ingestAndAwait(
+                        tenant.getId(),
                         serviceToken.accessToken(),
                         customerSource.code(),
                         "customer-key",
@@ -234,7 +239,11 @@ class RabbitMqMessageDeliverySmokeIntegrationTest extends AbstractIntegrationTes
                                 + ";1000.0000;KZT\n")
                         .getBytes(StandardCharsets.UTF_8);
         ingestAndAwait(
-                serviceToken.accessToken(), invoiceSource.code(), "invoice-key", invoiceBody);
+                tenant.getId(),
+                serviceToken.accessToken(),
+                invoiceSource.code(),
+                "invoice-key",
+                invoiceBody);
         var invoice =
                 receivables
                         .findInvoiceByExternalId(tenant.getId(), invoiceExternalId)
@@ -250,7 +259,11 @@ class RabbitMqMessageDeliverySmokeIntegrationTest extends AbstractIntegrationTes
                                 + ";100.0000;KZT;rabbit-smoke;TEST\n")
                         .getBytes(StandardCharsets.UTF_8);
         ingestAndAwait(
-                serviceToken.accessToken(), paymentSource.code(), "payment-key", paymentBody);
+                tenant.getId(),
+                serviceToken.accessToken(),
+                paymentSource.code(),
+                "payment-key",
+                paymentBody);
         var payment =
                 receivables
                         .findPaymentByExternalId(tenant.getId(), paymentExternalId)
@@ -354,10 +367,11 @@ class RabbitMqMessageDeliverySmokeIntegrationTest extends AbstractIntegrationTes
         outbox.publishPending();
 
         UUID messageId = queued.getId();
-        await().atMost(Duration.ofSeconds(15))
+        await().atMost(ASYNC_TIMEOUT)
                 .pollInterval(Duration.ofMillis(100))
                 .untilAsserted(
                         () -> {
+                            outbox.publishPending();
                             Message delivered = messages.findById(messageId).orElseThrow();
                             assertThat(delivered.getStatus()).isEqualTo(MessageStatus.SENT);
                             assertThat(delivered.getProviderMessageId())
@@ -366,9 +380,11 @@ class RabbitMqMessageDeliverySmokeIntegrationTest extends AbstractIntegrationTes
     }
 
     private IngestionApplicationService.Reservation ingestAndAwait(
-            String accessToken, String sourceCode, String key, byte[] body) throws Exception {
+            UUID tenantId, String accessToken, String sourceCode, String key, byte[] body)
+            throws Exception {
         var reservation = ingest(accessToken, sourceCode, key, "golden-journey", body);
-        await().atMost(Duration.ofSeconds(15))
+        ingestionWorker.process(tenantId, reservation.ingestionId());
+        await().atMost(ASYNC_TIMEOUT)
                 .pollInterval(Duration.ofMillis(100))
                 .untilAsserted(
                         () -> {

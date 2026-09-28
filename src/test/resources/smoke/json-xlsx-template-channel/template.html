@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Уведомление {{invoice.invoiceNumber}}</title>
+</head>
+<body>
+  <h1>Уведомление по счёту {{invoice.invoiceNumber}}</h1>
+  <p>Клиент: {{customer.displayName}}</p>
+  <p>Сумма: {{invoice.amount}} {{invoice.currency}}</p>
+  <p>Дата счёта: {{invoice.invoiceDate}}</p>
+  <p>Срок оплаты: {{invoice.dueDate}}</p>
+  <p>Назначение/референс: {{payment.reference}}</p>
+</body>
+</html>

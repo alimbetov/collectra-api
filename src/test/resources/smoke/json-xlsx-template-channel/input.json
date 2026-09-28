@@ -1,0 +1,19 @@
+{
+  "customer": {
+    "externalId": "CUST-SMOKE-001",
+    "displayName": "ТОО «Алматы Тест»",
+    "locale": "ru-KZ",
+    "timezone": "Asia/Almaty"
+  },
+  "invoice": {
+    "externalId": "INV-SMOKE-001",
+    "invoiceNumber": "INV-2026-SMOKE-001",
+    "invoiceDate": "2026-09-27",
+    "dueDate": "2026-10-10",
+    "amount": "125000.50",
+    "currency": "KZT"
+  },
+  "payment": {
+    "reference": "PAY-SMOKE-001"
+  }
+}
