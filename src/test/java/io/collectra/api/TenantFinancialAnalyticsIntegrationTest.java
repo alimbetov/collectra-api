@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.collectra.api.reporting.application.FinancialProjectionRebuildService;
+import io.collectra.api.reporting.application.FinancialProjectionStateService;
 import io.collectra.api.reporting.application.TenantFinancialAnalyticsQueryService;
 import java.sql.Timestamp;
 import java.time.Instant;
@@ -25,6 +26,7 @@ import org.springframework.test.web.servlet.MockMvc;
 class TenantFinancialAnalyticsIntegrationTest extends AbstractIntegrationTest {
     @Autowired JdbcTemplate jdbc;
     @Autowired FinancialProjectionRebuildService rebuilds;
+    @Autowired FinancialProjectionStateService projectionState;
     @Autowired TenantFinancialAnalyticsQueryService analytics;
     @Autowired MockMvc mockMvc;
     @Autowired ObjectMapper json;
@@ -69,6 +71,59 @@ class TenantFinancialAnalyticsIntegrationTest extends AbstractIntegrationTest {
                         Integer.class,
                         beta);
         assertThat(betaRows).isZero();
+    }
+
+    @Test
+    void staleBuildCannotOverwriteNewProjectionOwner() {
+        LocalDate day = LocalDate.now(ZoneOffset.UTC).minusDays(2);
+        Instant now = Instant.now();
+        UUID tenantId = UUID.randomUUID();
+        seedTenant(tenantId, "fence-" + UUID.randomUUID(), now);
+
+        UUID first = projectionState.tryMarkBuilding(
+                tenantId, day, now, now.minusSeconds(1800));
+        assertThat(first).isNotNull();
+
+        UUID liveAttempt = projectionState.tryMarkBuilding(
+                tenantId, day, now.plusSeconds(1), now.minusSeconds(1800));
+        assertThat(liveAttempt).isNull();
+
+        jdbc.update(
+                "update tenant_financial_projection_state set calculated_at=? where tenant_id=? and business_date=?",
+                Timestamp.from(now.minusSeconds(3600)),
+                tenantId,
+                day);
+
+        UUID second = projectionState.tryMarkBuilding(
+                tenantId, day, now.plusSeconds(2), now.minusSeconds(1800));
+        assertThat(second).isNotNull().isNotEqualTo(first);
+
+        assertThat(projectionState.markFailed(
+                        tenantId, day, first, now.plusSeconds(3), "stale worker"))
+                .isFalse();
+
+        String status = jdbc.queryForObject(
+                "select status from tenant_financial_projection_state where tenant_id=? and business_date=?",
+                String.class,
+                tenantId,
+                day);
+        UUID owner = jdbc.queryForObject(
+                "select build_id from tenant_financial_projection_state where tenant_id=? and business_date=?",
+                UUID.class,
+                tenantId,
+                day);
+        assertThat(status).isEqualTo("BUILDING");
+        assertThat(owner).isEqualTo(second);
+
+        assertThat(projectionState.markFailed(
+                        tenantId, day, second, now.plusSeconds(4), "owner failed"))
+                .isTrue();
+        assertThat(jdbc.queryForObject(
+                        "select status from tenant_financial_projection_state where tenant_id=? and business_date=?",
+                        String.class,
+                        tenantId,
+                        day))
+                .isEqualTo("FAILED");
     }
 
     @Test
