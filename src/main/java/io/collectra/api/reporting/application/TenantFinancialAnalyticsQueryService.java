@@ -128,17 +128,17 @@ public class TenantFinancialAnalyticsQueryService {
         return jdbc.query(
                 """
                 with currencies as (
-                    select currency from invoices where tenant_id=? and created_at>=? and created_at<?
-                    union select currency from payments where tenant_id=? and created_at>=? and created_at<?
+                    select currency from invoices where tenant_id=? and invoice_date=?
+                    union select currency from payments where tenant_id=? and payment_date=?
                     union select p.currency from payment_allocations a join payments p on p.id=a.payment_id
                      where a.tenant_id=? and ((a.created_at>=? and a.created_at<?) or (a.reversed_at>=? and a.reversed_at<?))
                     union select i.currency from collection_cases c join invoices i on i.id=c.invoice_id
                      where c.tenant_id=? and ((c.opened_at>=? and c.opened_at<?) or (c.closed_at>=? and c.closed_at<?))
                 )
                 select c.currency,
-                    coalesce((select sum(i.original_amount) from invoices i where i.tenant_id=? and i.currency=c.currency and i.created_at>=? and i.created_at<?),0) invoiced,
+                    coalesce((select sum(i.original_amount) from invoices i where i.tenant_id=? and i.currency=c.currency and i.invoice_date=?),0) invoiced,
                     (select count(*) from invoices i where i.tenant_id=? and i.currency=c.currency and i.created_at>=? and i.created_at<?) invoice_count,
-                    coalesce((select sum(p.amount) from payments p where p.tenant_id=? and p.currency=c.currency and p.created_at>=? and p.created_at<?),0) payments,
+                    coalesce((select sum(p.amount) from payments p where p.tenant_id=? and p.currency=c.currency and p.payment_date=?),0) payments,
                     (select count(*) from payments p where p.tenant_id=? and p.currency=c.currency and p.created_at>=? and p.created_at<?) payment_count,
                     coalesce((select sum(a.amount) from payment_allocations a join payments p on p.id=a.payment_id where a.tenant_id=? and p.currency=c.currency and a.created_at>=? and a.created_at<?),0) allocated,
                     coalesce((select sum(a.amount) from payment_allocations a join payments p on p.id=a.payment_id where a.tenant_id=? and p.currency=c.currency and a.status='REVERSED' and a.reversed_at>=? and a.reversed_at<?),0) reversed,
@@ -160,11 +160,9 @@ public class TenantFinancialAnalyticsQueryService {
                                 rs.getLong("closed"),
                                 rs.getLong("resolved")),
                 tenantId,
-                from,
-                to,
+                day,
                 tenantId,
-                from,
-                to,
+                day,
                 tenantId,
                 from,
                 to,
@@ -176,17 +174,13 @@ public class TenantFinancialAnalyticsQueryService {
                 from,
                 to,
                 tenantId,
-                from,
-                to,
+                day,
                 tenantId,
-                from,
-                to,
+                day,
                 tenantId,
-                from,
-                to,
+                day,
                 tenantId,
-                from,
-                to,
+                day,
                 tenantId,
                 from,
                 to,
@@ -218,7 +212,7 @@ public class TenantFinancialAnalyticsQueryService {
                  where tenant_id=? and outstanding_amount>0 and payment_status not in ('PAID','CANCELLED')
                  group by currency
                 """,
-                rs ->
+                (org.springframework.jdbc.core.RowCallbackHandler) rs ->
                         result.put(
                                 rs.getString("currency"),
                                 new Snapshot(
