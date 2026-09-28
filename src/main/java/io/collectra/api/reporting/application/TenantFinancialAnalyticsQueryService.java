@@ -137,9 +137,9 @@ public class TenantFinancialAnalyticsQueryService {
                 )
                 select c.currency,
                     coalesce((select sum(i.original_amount) from invoices i where i.tenant_id=? and i.currency=c.currency and i.invoice_date=?),0) invoiced,
-                    (select count(*) from invoices i where i.tenant_id=? and i.currency=c.currency and i.created_at>=? and i.created_at<?) invoice_count,
+                    (select count(*) from invoices i where i.tenant_id=? and i.currency=c.currency and i.invoice_date=?) invoice_count,
                     coalesce((select sum(p.amount) from payments p where p.tenant_id=? and p.currency=c.currency and p.payment_date=?),0) payments,
-                    (select count(*) from payments p where p.tenant_id=? and p.currency=c.currency and p.created_at>=? and p.created_at<?) payment_count,
+                    (select count(*) from payments p where p.tenant_id=? and p.currency=c.currency and p.payment_date=?) payment_count,
                     coalesce((select sum(a.amount) from payment_allocations a join payments p on p.id=a.payment_id where a.tenant_id=? and p.currency=c.currency and a.created_at>=? and a.created_at<?),0) allocated,
                     coalesce((select sum(a.amount) from payment_allocations a join payments p on p.id=a.payment_id where a.tenant_id=? and p.currency=c.currency and a.status='REVERSED' and a.reversed_at>=? and a.reversed_at<?),0) reversed,
                     (select count(*) from collection_cases k join invoices i on i.id=k.invoice_id where k.tenant_id=? and i.currency=c.currency and k.opened_at>=? and k.opened_at<?) opened,
