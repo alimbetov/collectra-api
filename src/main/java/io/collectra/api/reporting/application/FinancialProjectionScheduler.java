@@ -15,8 +15,7 @@ import org.springframework.stereotype.Component;
         name = "collectra.reporting.financial-projections.enabled",
         havingValue = "true")
 public class FinancialProjectionScheduler {
-    private static final Logger log =
-            LoggerFactory.getLogger(FinancialProjectionScheduler.class);
+    private static final Logger log = LoggerFactory.getLogger(FinancialProjectionScheduler.class);
 
     private final TenantRepository tenants;
     private final FinancialProjectionRebuildService rebuilds;
@@ -53,8 +52,7 @@ public class FinancialProjectionScheduler {
                                         offset++) {
                                     LocalDate day = today.minusDays(offset);
                                     try {
-                                        var result =
-                                                rebuilds.rebuildTenantDay(tenant.getId(), day);
+                                        var result = rebuilds.rebuildTenantDay(tenant.getId(), day);
                                         if (!result.lockSkipped()) {
                                             log.info(
                                                     "Financial projection rebuilt. tenantId={}, businessDate={}, metricRows={}, sourceWatermark={}",
