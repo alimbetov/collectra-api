@@ -17,14 +17,14 @@ public class FinancialProjectionRebuildService {
     private final NamedParameterJdbcTemplate jdbc;
     private final Clock clock;
     private final FinancialProjectionStateService state;
-    private final CommunicationProjectionProperties properties;
+    private final FinancialProjectionProperties properties;
     private final TransactionTemplate transactions;
 
     public FinancialProjectionRebuildService(
             NamedParameterJdbcTemplate jdbc,
             Clock clock,
             FinancialProjectionStateService state,
-            CommunicationProjectionProperties properties,
+            FinancialProjectionProperties properties,
             PlatformTransactionManager transactionManager) {
         this.jdbc = jdbc;
         this.clock = clock;
@@ -164,6 +164,10 @@ public class FinancialProjectionRebuildService {
                         p,
                         Timestamp.class);
         return value == null ? null : value.toInstant();
+    }
+
+    public LocalDate currentBusinessDate() {
+        return LocalDate.now(clock.withZone(ZoneOffset.UTC));
     }
 
     public record RebuildResult(
