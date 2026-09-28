@@ -1,0 +1,26 @@
+name: VC9 formatter helper
+on:
+  pull_request:
+    branches: [ main ]
+jobs:
+  format:
+    if: github.head_ref == 'feat/vc9-tenant-analytics'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+      - run: mvn --batch-mode --no-transfer-progress spotless:apply
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vc9-spotless-output
+          path: |
+            src/main/java/io/collectra/api/reporting/application/FinancialProjectionRebuildService.java
+            src/main/java/io/collectra/api/reporting/application/TenantFinancialAnalyticsQueryService.java
+            src/main/java/io/collectra/api/reporting/api/TenantFinancialAnalyticsController.java
+            src/test/java/io/collectra/api/TenantFinancialAnalyticsIntegrationTest.java
