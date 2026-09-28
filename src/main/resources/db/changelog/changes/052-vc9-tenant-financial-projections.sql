@@ -34,6 +34,7 @@ CREATE TABLE tenant_financial_projection_state (
     tenant_id UUID NOT NULL,
     business_date DATE NOT NULL,
     status VARCHAR(20) NOT NULL,
+    build_id UUID,
     revision BIGINT NOT NULL DEFAULT 0,
     source_watermark TIMESTAMPTZ,
     metric_rows INTEGER NOT NULL DEFAULT 0,
@@ -44,6 +45,10 @@ CREATE TABLE tenant_financial_projection_state (
         FOREIGN KEY (tenant_id) REFERENCES tenants(id),
     CONSTRAINT chk_tenant_financial_projection_status
         CHECK (status IN ('BUILDING','READY','FAILED')),
+    CONSTRAINT chk_tenant_financial_projection_build_owner CHECK (
+        (status = 'BUILDING' AND build_id IS NOT NULL)
+        OR (status <> 'BUILDING' AND build_id IS NULL)
+    ),
     CONSTRAINT chk_tenant_financial_projection_revision CHECK (revision >= 0),
     CONSTRAINT chk_tenant_financial_projection_rows CHECK (metric_rows >= 0)
 );
