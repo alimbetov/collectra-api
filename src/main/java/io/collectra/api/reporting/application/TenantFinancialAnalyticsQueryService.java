@@ -6,7 +6,6 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.time.temporal.WeekFields;
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -36,13 +35,17 @@ public class TenantFinancialAnalyticsQueryService {
             }
         }
         Map<String, Snapshot> snapshots = currentSnapshot(tenantId);
-        snapshots.forEach((currency, snapshot) ->
-                totals.computeIfAbsent(currency, Mutable::new).snapshot = snapshot);
+        snapshots.forEach(
+                (currency, snapshot) ->
+                        totals.computeIfAbsent(currency, Mutable::new).snapshot = snapshot);
         return new Report(
                 clock.instant(),
                 range.from(),
                 range.to(),
-                totals.values().stream().map(Mutable::freeze).sorted(Comparator.comparing(Metric::currency)).toList());
+                totals.values().stream()
+                        .map(Mutable::freeze)
+                        .sorted(Comparator.comparing(Metric::currency))
+                        .toList());
     }
 
     @Transactional(readOnly = true)
@@ -51,18 +54,26 @@ public class TenantFinancialAnalyticsQueryService {
         Map<BucketKey, Map<String, Mutable>> grouped = new LinkedHashMap<>();
         for (LocalDate day = range.from(); !day.isAfter(range.to()); day = day.plusDays(1)) {
             BucketKey key = bucketKey(day, bucket);
-            Map<String, Mutable> values = grouped.computeIfAbsent(key, ignored -> new LinkedHashMap<>());
+            Map<String, Mutable> values =
+                    grouped.computeIfAbsent(key, ignored -> new LinkedHashMap<>());
             for (Metric metric : dayMetrics(tenantId, day)) {
                 values.computeIfAbsent(metric.currency(), Mutable::new).add(metric);
             }
         }
-        List<SeriesPoint> items = grouped.entrySet().stream()
-                .map(e -> new SeriesPoint(
-                        e.getKey().from,
-                        e.getKey().to,
-                        e.getValue().values().stream().map(Mutable::freeze)
-                                .sorted(Comparator.comparing(Metric::currency)).toList()))
-                .toList();
+        List<SeriesPoint> items =
+                grouped.entrySet().stream()
+                        .map(
+                                e ->
+                                        new SeriesPoint(
+                                                e.getKey().from,
+                                                e.getKey().to,
+                                                e.getValue().values().stream()
+                                                        .map(Mutable::freeze)
+                                                        .sorted(
+                                                                Comparator.comparing(
+                                                                        Metric::currency))
+                                                        .toList()))
+                        .toList();
         return new TimeSeries(clock.instant(), range.from(), range.to(), bucket, items);
     }
 
@@ -74,14 +85,15 @@ public class TenantFinancialAnalyticsQueryService {
     }
 
     private boolean projectionReady(UUID tenantId, LocalDate day) {
-        Integer count = jdbc.queryForObject(
-                """
+        Integer count =
+                jdbc.queryForObject(
+                        """
                 select count(*) from tenant_financial_projection_state
                  where tenant_id=? and business_date=? and status='READY'
                 """,
-                Integer.class,
-                tenantId,
-                day);
+                        Integer.class,
+                        tenantId,
+                        day);
         return count != null && count == 1;
     }
 
@@ -94,12 +106,18 @@ public class TenantFinancialAnalyticsQueryService {
                   from tenant_daily_financial_metrics
                  where tenant_id=? and business_date=? order by currency
                 """,
-                (rs, n) -> metric(rs.getString("currency"), rs.getBigDecimal("invoiced_amount"),
-                        rs.getLong("invoice_count"), rs.getBigDecimal("payment_amount"),
-                        rs.getLong("payment_count"), rs.getBigDecimal("allocated_amount"),
-                        rs.getBigDecimal("reversed_allocation_amount"),
-                        rs.getLong("collection_opened_count"), rs.getLong("collection_closed_count"),
-                        rs.getLong("collection_resolved_count")),
+                (rs, n) ->
+                        metric(
+                                rs.getString("currency"),
+                                rs.getBigDecimal("invoiced_amount"),
+                                rs.getLong("invoice_count"),
+                                rs.getBigDecimal("payment_amount"),
+                                rs.getLong("payment_count"),
+                                rs.getBigDecimal("allocated_amount"),
+                                rs.getBigDecimal("reversed_allocation_amount"),
+                                rs.getLong("collection_opened_count"),
+                                rs.getLong("collection_closed_count"),
+                                rs.getLong("collection_resolved_count")),
                 tenantId,
                 day);
     }
@@ -129,16 +147,61 @@ public class TenantFinancialAnalyticsQueryService {
                     (select count(*) from collection_cases k join invoices i on i.id=k.invoice_id where k.tenant_id=? and i.currency=c.currency and k.close_reason in ('PAID','SETTLED') and k.closed_at>=? and k.closed_at<?) resolved
                 from currencies c order by c.currency
                 """,
-                (rs, n) -> metric(rs.getString("currency"), rs.getBigDecimal("invoiced"),
-                        rs.getLong("invoice_count"), rs.getBigDecimal("payments"),
-                        rs.getLong("payment_count"), rs.getBigDecimal("allocated"),
-                        rs.getBigDecimal("reversed"), rs.getLong("opened"), rs.getLong("closed"),
-                        rs.getLong("resolved")),
-                tenantId, from, to, tenantId, from, to,
-                tenantId, from, to, from, to, tenantId, from, to, from, to,
-                tenantId, from, to, tenantId, from, to, tenantId, from, to,
-                tenantId, from, to, tenantId, from, to, tenantId, from, to,
-                tenantId, from, to, tenantId, from, to, tenantId, from, to);
+                (rs, n) ->
+                        metric(
+                                rs.getString("currency"),
+                                rs.getBigDecimal("invoiced"),
+                                rs.getLong("invoice_count"),
+                                rs.getBigDecimal("payments"),
+                                rs.getLong("payment_count"),
+                                rs.getBigDecimal("allocated"),
+                                rs.getBigDecimal("reversed"),
+                                rs.getLong("opened"),
+                                rs.getLong("closed"),
+                                rs.getLong("resolved")),
+                tenantId,
+                from,
+                to,
+                tenantId,
+                from,
+                to,
+                tenantId,
+                from,
+                to,
+                from,
+                to,
+                tenantId,
+                from,
+                to,
+                from,
+                to,
+                tenantId,
+                from,
+                to,
+                tenantId,
+                from,
+                to,
+                tenantId,
+                from,
+                to,
+                tenantId,
+                from,
+                to,
+                tenantId,
+                from,
+                to,
+                tenantId,
+                from,
+                to,
+                tenantId,
+                from,
+                to,
+                tenantId,
+                from,
+                to,
+                tenantId,
+                from,
+                to);
     }
 
     private Map<String, Snapshot> currentSnapshot(UUID tenantId) {
@@ -155,27 +218,51 @@ public class TenantFinancialAnalyticsQueryService {
                  where tenant_id=? and outstanding_amount>0 and payment_status not in ('PAID','CANCELLED')
                  group by currency
                 """,
-                rs -> result.put(rs.getString("currency"),
-                        new Snapshot(rs.getBigDecimal("outstanding"), rs.getBigDecimal("overdue"),
-                                rs.getLong("open_invoices"), rs.getLong("overdue_invoices"))),
+                rs ->
+                        result.put(
+                                rs.getString("currency"),
+                                new Snapshot(
+                                        rs.getBigDecimal("outstanding"),
+                                        rs.getBigDecimal("overdue"),
+                                        rs.getLong("open_invoices"),
+                                        rs.getLong("overdue_invoices"))),
                 today,
                 today,
                 tenantId);
         return result;
     }
 
-    private Metric metric(String currency, BigDecimal invoiced, long invoices, BigDecimal payments,
-            long paymentCount, BigDecimal allocated, BigDecimal reversed, long opened, long closed,
+    private Metric metric(
+            String currency,
+            BigDecimal invoiced,
+            long invoices,
+            BigDecimal payments,
+            long paymentCount,
+            BigDecimal allocated,
+            BigDecimal reversed,
+            long opened,
+            long closed,
             long resolved) {
-        return new Metric(currency, invoiced, invoices, payments, paymentCount, allocated, reversed,
-                opened, closed, resolved, null);
+        return new Metric(
+                currency,
+                invoiced,
+                invoices,
+                payments,
+                paymentCount,
+                allocated,
+                reversed,
+                opened,
+                closed,
+                resolved,
+                null);
     }
 
     private Range range(LocalDate from, LocalDate to) {
         LocalDate end = to == null ? today() : to;
         LocalDate start = from == null ? end.minusDays(29) : from;
         if (start.isAfter(end)) throw new IllegalArgumentException("from must not be after to");
-        if (start.isBefore(end.minusYears(2))) throw new IllegalArgumentException("range must not exceed two years");
+        if (start.isBefore(end.minusYears(2)))
+            throw new IllegalArgumentException("range must not exceed two years");
         return new Range(start, end);
     }
 
@@ -190,19 +277,52 @@ public class TenantFinancialAnalyticsQueryService {
                 LocalDate start = day.with(WeekFields.ISO.dayOfWeek(), 1);
                 yield new BucketKey(start, start.plusDays(6));
             }
-            case MONTH -> new BucketKey(day.withDayOfMonth(1), day.withDayOfMonth(1).plusMonths(1).minusDays(1));
+            case MONTH ->
+                    new BucketKey(
+                            day.withDayOfMonth(1),
+                            day.withDayOfMonth(1).plusMonths(1).minusDays(1));
         };
     }
 
-    public enum Bucket { DAY, WEEK, MONTH }
-    public record Report(Instant generatedAt, LocalDate from, LocalDate to, List<Metric> currencies) {}
-    public record TimeSeries(Instant generatedAt, LocalDate from, LocalDate to, Bucket bucket, List<SeriesPoint> items) {}
+    public enum Bucket {
+        DAY,
+        WEEK,
+        MONTH
+    }
+
+    public record Report(
+            Instant generatedAt, LocalDate from, LocalDate to, List<Metric> currencies) {}
+
+    public record TimeSeries(
+            Instant generatedAt,
+            LocalDate from,
+            LocalDate to,
+            Bucket bucket,
+            List<SeriesPoint> items) {}
+
     public record SeriesPoint(LocalDate from, LocalDate to, List<Metric> currencies) {}
-    public record Snapshot(BigDecimal outstanding, BigDecimal overdueOutstanding, long openInvoices, long overdueInvoices) {}
-    public record Metric(String currency, BigDecimal invoiced, long invoiceCount, BigDecimal payments,
-            long paymentCount, BigDecimal allocated, BigDecimal reversedAllocations,
-            long collectionOpened, long collectionClosed, long collectionResolved, Snapshot currentSnapshot) {}
+
+    public record Snapshot(
+            BigDecimal outstanding,
+            BigDecimal overdueOutstanding,
+            long openInvoices,
+            long overdueInvoices) {}
+
+    public record Metric(
+            String currency,
+            BigDecimal invoiced,
+            long invoiceCount,
+            BigDecimal payments,
+            long paymentCount,
+            BigDecimal allocated,
+            BigDecimal reversedAllocations,
+            long collectionOpened,
+            long collectionClosed,
+            long collectionResolved,
+            Snapshot currentSnapshot) {}
+
     private record Range(LocalDate from, LocalDate to) {}
+
     private record BucketKey(LocalDate from, LocalDate to) {}
 
     private static final class Mutable {
@@ -218,16 +338,35 @@ public class TenantFinancialAnalyticsQueryService {
         private long resolved;
         private Snapshot snapshot;
 
-        private Mutable(String currency) { this.currency = currency; }
-        private void add(Metric m) {
-            invoiced = invoiced.add(m.invoiced()); invoices += m.invoiceCount();
-            payments = payments.add(m.payments()); paymentCount += m.paymentCount();
-            allocated = allocated.add(m.allocated()); reversed = reversed.add(m.reversedAllocations());
-            opened += m.collectionOpened(); closed += m.collectionClosed(); resolved += m.collectionResolved();
+        private Mutable(String currency) {
+            this.currency = currency;
         }
+
+        private void add(Metric m) {
+            invoiced = invoiced.add(m.invoiced());
+            invoices += m.invoiceCount();
+            payments = payments.add(m.payments());
+            paymentCount += m.paymentCount();
+            allocated = allocated.add(m.allocated());
+            reversed = reversed.add(m.reversedAllocations());
+            opened += m.collectionOpened();
+            closed += m.collectionClosed();
+            resolved += m.collectionResolved();
+        }
+
         private Metric freeze() {
-            return new Metric(currency, invoiced, invoices, payments, paymentCount, allocated, reversed,
-                    opened, closed, resolved, snapshot);
+            return new Metric(
+                    currency,
+                    invoiced,
+                    invoices,
+                    payments,
+                    paymentCount,
+                    allocated,
+                    reversed,
+                    opened,
+                    closed,
+                    resolved,
+                    snapshot);
         }
     }
 }
