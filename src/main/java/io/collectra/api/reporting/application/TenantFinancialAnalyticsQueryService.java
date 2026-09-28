@@ -1,6 +1,7 @@
 package io.collectra.api.reporting.application;
 
 import java.math.BigDecimal;
+import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -125,6 +126,8 @@ public class TenantFinancialAnalyticsQueryService {
     private List<Metric> rawDay(UUID tenantId, LocalDate day) {
         Instant from = day.atStartOfDay(ZoneOffset.UTC).toInstant();
         Instant to = day.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant();
+        Timestamp fromTs = Timestamp.from(from);
+        Timestamp toTs = Timestamp.from(to);
         return jdbc.query(
                 """
                 with currencies as (
@@ -164,17 +167,15 @@ public class TenantFinancialAnalyticsQueryService {
                 tenantId,
                 day,
                 tenantId,
-                from,
-                to,
-                from,
-                to,
+                fromTs,
+                toTs,
+                fromTs,
+                toTs,
                 tenantId,
-                from,
-                to,
-                from,
-                to,
-                tenantId,
-                day,
+                fromTs,
+                toTs,
+                fromTs,
+                toTs,
                 tenantId,
                 day,
                 tenantId,
@@ -182,20 +183,22 @@ public class TenantFinancialAnalyticsQueryService {
                 tenantId,
                 day,
                 tenantId,
-                from,
-                to,
+                day,
                 tenantId,
-                from,
-                to,
+                fromTs,
+                toTs,
                 tenantId,
-                from,
-                to,
+                fromTs,
+                toTs,
                 tenantId,
-                from,
-                to,
+                fromTs,
+                toTs,
                 tenantId,
-                from,
-                to);
+                fromTs,
+                toTs,
+                tenantId,
+                fromTs,
+                toTs);
     }
 
     private Map<String, Snapshot> currentSnapshot(UUID tenantId) {
