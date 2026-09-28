@@ -212,14 +212,15 @@ public class TenantFinancialAnalyticsQueryService {
                  where tenant_id=? and outstanding_amount>0 and payment_status not in ('PAID','CANCELLED')
                  group by currency
                 """,
-                (org.springframework.jdbc.core.RowCallbackHandler) rs ->
-                        result.put(
-                                rs.getString("currency"),
-                                new Snapshot(
-                                        rs.getBigDecimal("outstanding"),
-                                        rs.getBigDecimal("overdue"),
-                                        rs.getLong("open_invoices"),
-                                        rs.getLong("overdue_invoices"))),
+                (org.springframework.jdbc.core.RowCallbackHandler)
+                        rs ->
+                                result.put(
+                                        rs.getString("currency"),
+                                        new Snapshot(
+                                                rs.getBigDecimal("outstanding"),
+                                                rs.getBigDecimal("overdue"),
+                                                rs.getLong("open_invoices"),
+                                                rs.getLong("overdue_invoices"))),
                 today,
                 today,
                 tenantId);
