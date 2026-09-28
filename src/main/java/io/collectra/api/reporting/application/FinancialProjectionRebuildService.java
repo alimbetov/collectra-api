@@ -45,9 +45,13 @@ public class FinancialProjectionRebuildService {
                         .addValue("to", Timestamp.from(to))
                         .addValue("at", Timestamp.from(at));
 
-        if (!state.tryMarkBuilding(tenantId, day, at, at.minus(properties.getBuildingTimeout()))) {
+        UUID buildId =
+                state.tryMarkBuilding(
+                        tenantId, day, at, at.minus(properties.getBuildingTimeout()));
+        if (buildId == null) {
             return new RebuildResult(tenantId, day, 0, null, at, true);
         }
+        p.addValue("buildId", buildId);
         try {
             return transactions.execute(
                     tx -> {
@@ -60,18 +64,27 @@ public class FinancialProjectionRebuildService {
                                         "watermark",
                                         watermark == null ? null : Timestamp.from(watermark))
                                 .addValue("rows", rows);
-                        jdbc.update(
+                        int updated =
+                                jdbc.update(
                                 """
                         update tenant_financial_projection_state
-                           set status='READY', revision=revision+1, source_watermark=:watermark,
+                           set status='READY', build_id=null, revision=revision+1, source_watermark=:watermark,
                                metric_rows=:rows, calculated_at=:at, error_message=null
                          where tenant_id=:tenantId and business_date=:day
+                           and status='BUILDING' and build_id=:buildId
                         """,
                                 p);
+                        if (updated != 1) {
+                            throw new IllegalStateException(
+                                    "Financial projection build ownership lost for tenant="
+                                            + tenantId
+                                            + ", day="
+                                            + day);
+                        }
                         return new RebuildResult(tenantId, day, rows, watermark, at, false);
                     });
         } catch (RuntimeException ex) {
-            state.markFailed(tenantId, day, at, ex.getMessage());
+            state.markFailed(tenantId, day, buildId, at, ex.getMessage());
             throw ex;
         }
     }
