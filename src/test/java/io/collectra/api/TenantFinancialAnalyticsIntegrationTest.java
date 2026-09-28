@@ -87,7 +87,7 @@ class TenantFinancialAnalyticsIntegrationTest extends AbstractIntegrationTest {
         for (String bucket : new String[] {"DAY", "WEEK", "MONTH"}) {
             mockMvc.perform(
                             get("/api/v1/analytics/tenant/timeseries")
-                                    .header("Authorization", bearer(token))
+                                    .header("Authorization", "Bearer " + token)
                                     .param("from", day.toString())
                                     .param("to", day.toString())
                                     .param("bucket", bucket))
@@ -97,7 +97,7 @@ class TenantFinancialAnalyticsIntegrationTest extends AbstractIntegrationTest {
         String body =
                 mockMvc.perform(
                                 get("/api/v1/analytics/tenant/summary")
-                                        .header("Authorization", bearer(token))
+                                        .header("Authorization", "Bearer " + token)
                                         .param("from", day.toString())
                                         .param("to", day.toString())
                                         .param("tenantId", UUID.randomUUID().toString()))
