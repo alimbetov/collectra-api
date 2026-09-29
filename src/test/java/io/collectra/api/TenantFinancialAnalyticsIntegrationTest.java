@@ -80,12 +80,12 @@ class TenantFinancialAnalyticsIntegrationTest extends AbstractIntegrationTest {
         UUID tenantId = UUID.randomUUID();
         seedTenant(tenantId, "fence-" + UUID.randomUUID(), now);
 
-        UUID first = projectionState.tryMarkBuilding(
-                tenantId, day, now, now.minusSeconds(1800));
+        UUID first = projectionState.tryMarkBuilding(tenantId, day, now, now.minusSeconds(1800));
         assertThat(first).isNotNull();
 
-        UUID liveAttempt = projectionState.tryMarkBuilding(
-                tenantId, day, now.plusSeconds(1), now.minusSeconds(1800));
+        UUID liveAttempt =
+                projectionState.tryMarkBuilding(
+                        tenantId, day, now.plusSeconds(1), now.minusSeconds(1800));
         assertThat(liveAttempt).isNull();
 
         jdbc.update(
@@ -94,35 +94,41 @@ class TenantFinancialAnalyticsIntegrationTest extends AbstractIntegrationTest {
                 tenantId,
                 day);
 
-        UUID second = projectionState.tryMarkBuilding(
-                tenantId, day, now.plusSeconds(2), now.minusSeconds(1800));
+        UUID second =
+                projectionState.tryMarkBuilding(
+                        tenantId, day, now.plusSeconds(2), now.minusSeconds(1800));
         assertThat(second).isNotNull().isNotEqualTo(first);
 
-        assertThat(projectionState.markFailed(
-                        tenantId, day, first, now.plusSeconds(3), "stale worker"))
+        assertThat(
+                        projectionState.markFailed(
+                                tenantId, day, first, now.plusSeconds(3), "stale worker"))
                 .isFalse();
 
-        String status = jdbc.queryForObject(
-                "select status from tenant_financial_projection_state where tenant_id=? and business_date=?",
-                String.class,
-                tenantId,
-                day);
-        UUID owner = jdbc.queryForObject(
-                "select build_id from tenant_financial_projection_state where tenant_id=? and business_date=?",
-                UUID.class,
-                tenantId,
-                day);
-        assertThat(status).isEqualTo("BUILDING");
-        assertThat(owner).isEqualTo(second);
-
-        assertThat(projectionState.markFailed(
-                        tenantId, day, second, now.plusSeconds(4), "owner failed"))
-                .isTrue();
-        assertThat(jdbc.queryForObject(
+        String status =
+                jdbc.queryForObject(
                         "select status from tenant_financial_projection_state where tenant_id=? and business_date=?",
                         String.class,
                         tenantId,
-                        day))
+                        day);
+        UUID owner =
+                jdbc.queryForObject(
+                        "select build_id from tenant_financial_projection_state where tenant_id=? and business_date=?",
+                        UUID.class,
+                        tenantId,
+                        day);
+        assertThat(status).isEqualTo("BUILDING");
+        assertThat(owner).isEqualTo(second);
+
+        assertThat(
+                        projectionState.markFailed(
+                                tenantId, day, second, now.plusSeconds(4), "owner failed"))
+                .isTrue();
+        assertThat(
+                        jdbc.queryForObject(
+                                "select status from tenant_financial_projection_state where tenant_id=? and business_date=?",
+                                String.class,
+                                tenantId,
+                                day))
                 .isEqualTo("FAILED");
     }
 
