@@ -66,14 +66,14 @@ public class FinancialProjectionRebuildService {
                                 .addValue("rows", rows);
                         int updated =
                                 jdbc.update(
-                                """
-                        update tenant_financial_projection_state
-                           set status='READY', build_id=null, revision=revision+1, source_watermark=:watermark,
-                               metric_rows=:rows, calculated_at=:at, error_message=null
-                         where tenant_id=:tenantId and business_date=:day
-                           and status='BUILDING' and build_id=:buildId
-                        """,
-                                p);
+                                        """
+                                        update tenant_financial_projection_state
+                                           set status='READY', build_id=null, revision=revision+1, source_watermark=:watermark,
+                                               metric_rows=:rows, calculated_at=:at, error_message=null
+                                         where tenant_id=:tenantId and business_date=:day
+                                           and status='BUILDING' and build_id=:buildId
+                                        """,
+                                        p);
                         if (updated != 1) {
                             throw new IllegalStateException(
                                     "Financial projection build ownership lost for tenant="
