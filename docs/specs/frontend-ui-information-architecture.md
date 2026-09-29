@@ -618,3 +618,29 @@ This UI baseline is accepted when:
 - provider-specific channel implementation does not leak into ordinary operator UX;
 - screen hierarchy supports the end-to-end business process defined in `frontend-user-processes.md`;
 - the screen/API contract is tracked by `frontend-screen-api-matrix.md`.
+
+
+## 20. Embedded support layer
+
+The application shell and every business workspace follow
+[`frontend-ux-support-guidance-contract.md`](frontend-ux-support-guidance-contract.md).
+
+Support is implemented through progressive disclosure:
+
+```text
+business status
+    ↓
+short meaning
+    ↓
+valid next action
+    ↓
+consequence / wait state
+    ↓
+recovery guidance
+    ↓
+Support ID when escalation is necessary
+```
+
+Ordinary tenant screens hide transport/concurrency implementation details such as UUID,
+revision, Idempotency-Key and polling strategy. Technical identifiers remain available only
+where they help diagnostics, using a secondary/expandable support surface.

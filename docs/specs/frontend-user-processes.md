@@ -714,3 +714,18 @@ must now follow the reviewed FW3–FW12 contracts indexed by
 `frontendweb-fw03-fw12-plan.md`. Where the current API lacks a bounded projection, direct
 detail endpoint, idempotency or stale-write precondition, the backend gate is implemented
 first; React must not compensate by scanning lists, joining rows or retrying blindly.
+
+
+## 25. Embedded guidance and support contract
+
+All business screens additionally follow
+[`frontend-ux-support-guidance-contract.md`](frontend-ux-support-guidance-contract.md).
+
+The support model is part of the user process, not decorative copy. Every complex operation
+must explain the current business state, available next action, consequence and recovery
+path without exposing backend implementation mechanics. Stable `ProblemDetail.code` drives
+known recovery guidance; correlation/trace identifiers are exposed only as safe Support IDs.
+
+Implementation priority follows support risk: Collections/Receivables, Imports,
+Campaign/Message monitoring, Templates/Integrations, Administration and Dashboard/VC-9
+analytics.

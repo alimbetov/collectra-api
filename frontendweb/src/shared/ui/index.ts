@@ -9,3 +9,7 @@ export { Pagination } from './Pagination';
 export { Spinner } from './Spinner';
 export { StatusBadge } from './StatusBadge';
 export { ToastProvider, useToast, type ToastInput, type ToastTone } from './Toast';
+
+export { PageGuidance } from './PageGuidance';
+export { ContextHint } from './ContextHint';
+export { ActionGuard } from './ActionGuard';
