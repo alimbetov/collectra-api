@@ -105,7 +105,7 @@ describe('CollectionCasePage', () => {
   it('loads the authoritative case children and canonical deep links', async () => {
     renderPage();
 
-    expect(await screen.findByRole('heading', { name: 'Collection case' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Дело по взысканию' })).toBeInTheDocument();
     expect(screen.getByText('Priority: HIGH')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Customer' })).toHaveAttribute(
       'href',
@@ -129,11 +129,11 @@ describe('CollectionCasePage', () => {
     renderPage();
 
     expect(await screen.findByText('Priority: HIGH')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Start' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Close' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Add promise' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Open dispute' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Add action' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Начать работу' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Закрыть дело' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Добавить обещание' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Открыть спор' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Добавить действие' })).toBeInTheDocument();
   });
 
   it('routes child mutation authorization failures to forbidden', async () => {
@@ -160,7 +160,7 @@ describe('CollectionCasePage', () => {
     const user = userEvent.setup();
     renderPage();
 
-    await user.click(await screen.findByRole('button', { name: 'Fulfill' }));
+    await user.click(await screen.findByRole('button', { name: 'Исполнено' }));
     expect(await screen.findByText('Forbidden')).toBeInTheDocument();
   });
 
@@ -168,10 +168,10 @@ describe('CollectionCasePage', () => {
     renderPage();
 
     expect(await screen.findByText('Priority: HIGH')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Start' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Close' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Add promise' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Open dispute' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Add action' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Начать работу' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Закрыть дело' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Добавить обещание' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Открыть спор' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Добавить действие' })).not.toBeInTheDocument();
   });
 });
