@@ -98,11 +98,14 @@ class TenantFinancialAnalyticsIntegrationTest extends AbstractIntegrationTest {
         rebuilds.rebuildTenantDay(tenantId, third);
 
         var summary = analytics.summary(tenantId, first, third);
-        assertThat(summary.currencies()).singleElement().satisfies(metric -> {
-            assertThat(metric.invoiced()).isEqualByComparingTo("600.0000");
-            assertThat(metric.payments()).isEqualByComparingTo("60.0000");
-            assertThat(metric.allocated()).isEqualByComparingTo("60.0000");
-        });
+        assertThat(summary.currencies())
+                .singleElement()
+                .satisfies(
+                        metric -> {
+                            assertThat(metric.invoiced()).isEqualByComparingTo("600.0000");
+                            assertThat(metric.payments()).isEqualByComparingTo("60.0000");
+                            assertThat(metric.allocated()).isEqualByComparingTo("60.0000");
+                        });
 
         for (var bucket : TenantFinancialAnalyticsQueryService.Bucket.values()) {
             var series = analytics.timeseries(tenantId, first, third, bucket);
@@ -113,14 +116,24 @@ class TenantFinancialAnalyticsIntegrationTest extends AbstractIntegrationTest {
                             .toList();
             assertThat(metrics)
                     .extracting(TenantFinancialAnalyticsQueryService.Metric::invoiced)
-                    .satisfies(values ->
-                            assertThat(values.stream().reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add))
-                                    .isEqualByComparingTo("600.0000"));
+                    .satisfies(
+                            values ->
+                                    assertThat(
+                                                    values.stream()
+                                                            .reduce(
+                                                                    java.math.BigDecimal.ZERO,
+                                                                    java.math.BigDecimal::add))
+                                            .isEqualByComparingTo("600.0000"));
             assertThat(metrics)
                     .extracting(TenantFinancialAnalyticsQueryService.Metric::allocated)
-                    .satisfies(values ->
-                            assertThat(values.stream().reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add))
-                                    .isEqualByComparingTo("60.0000"));
+                    .satisfies(
+                            values ->
+                                    assertThat(
+                                                    values.stream()
+                                                            .reduce(
+                                                                    java.math.BigDecimal.ZERO,
+                                                                    java.math.BigDecimal::add))
+                                            .isEqualByComparingTo("60.0000"));
         }
     }
 
