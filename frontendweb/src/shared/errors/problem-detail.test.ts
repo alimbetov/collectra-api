@@ -17,8 +17,21 @@ describe('safe ProblemDetail mapping', () => {
     expect(toProblemViewModel(error)).toMatchObject({ status: 409, code: 'VERSION_CONFLICT', detail: 'Запись уже изменена' });
   });
 
+  it('maps known business conflicts to deterministic recovery guidance', () => {
+    const error = new ApiError(409, { status: 409, code: 'CURRENCY_MISMATCH', detail: 'Currency mismatch' });
+    expect(toProblemViewModel(error)).toMatchObject({
+      recoveryAction: 'CHOOSE_COMPATIBLE_RESOURCE',
+      recoveryHint: expect.stringContaining('одинаковую валюту'),
+    });
+  });
+
   it('suppresses opaque server details', () => {
     const error = new ApiError(500, { status: 500, detail: 'password=secret', traceId: 'safe-trace' });
-    expect(toProblemViewModel(error)).toMatchObject({ status: 500, detail: null, supportId: 'safe-trace' });
+    expect(toProblemViewModel(error)).toMatchObject({
+      status: 500,
+      detail: null,
+      supportId: 'safe-trace',
+      recoveryAction: 'CONTACT_SUPPORT',
+    });
   });
 });
