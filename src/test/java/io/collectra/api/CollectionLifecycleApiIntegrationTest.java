@@ -103,6 +103,17 @@ class CollectionLifecycleApiIntegrationTest extends AbstractIntegrationTest {
                         action.get("version").asLong());
         assertThat(completed.get("status").asText()).isEqualTo("COMPLETED");
 
+        mockMvc.perform(
+                        post("/api/v1/collection-cases/{id}/close", caseId)
+                                .header("Authorization", bearer(token))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                                        {"version":%d,"reason":"PAID"}
+                                        """
+                                                .formatted(started.get("version").asLong())))
+                .andExpect(status().isConflict());
+
         JsonNode closed =
                 read(
                         post("/api/v1/collection-cases/{id}/close", caseId)
