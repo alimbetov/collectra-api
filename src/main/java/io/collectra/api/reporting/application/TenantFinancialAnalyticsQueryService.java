@@ -1,6 +1,7 @@
 package io.collectra.api.reporting.application;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
@@ -243,16 +244,20 @@ public class TenantFinancialAnalyticsQueryService {
             long resolved) {
         return new Metric(
                 currency,
-                invoiced,
+                money(invoiced),
                 invoices,
-                payments,
+                money(payments),
                 paymentCount,
-                allocated,
-                reversed,
+                money(allocated),
+                money(reversed),
                 opened,
                 closed,
                 resolved,
                 null);
+    }
+
+    private static BigDecimal money(BigDecimal value) {
+        return (value == null ? BigDecimal.ZERO : value).setScale(4, RoundingMode.UNNECESSARY);
     }
 
     private Range range(LocalDate from, LocalDate to) {
