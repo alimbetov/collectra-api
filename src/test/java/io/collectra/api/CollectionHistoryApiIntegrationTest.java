@@ -40,8 +40,11 @@ class CollectionHistoryApiIntegrationTest extends AbstractIntegrationTest {
                         default -> "CANCELLED";
                     };
             read(
-                    post("/api/v1/collection-cases/{caseId}/promises/{promiseId}/" + command,
-                                    caseId, promiseId)
+                    post(
+                                    "/api/v1/collection-cases/{caseId}/promises/{promiseId}/"
+                                            + command,
+                                    caseId,
+                                    promiseId)
                             .header("Authorization", bearer(token))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("{\"version\":" + version + "}"),
@@ -52,15 +55,15 @@ class CollectionHistoryApiIntegrationTest extends AbstractIntegrationTest {
                                     .header("Authorization", bearer(token)))
                     .andExpect(status().isOk())
                     .andExpect(
-                            jsonPath(
-                                            "$.items[?(@.id == '"
-                                                    + promiseId
-                                                    + "')].status")
+                            jsonPath("$.items[?(@.id == '" + promiseId + "')].status")
                                     .value(expectedStatus));
 
             mockMvc.perform(
-                            post("/api/v1/collection-cases/{caseId}/promises/{promiseId}/" + command,
-                                            caseId, promiseId)
+                            post(
+                                            "/api/v1/collection-cases/{caseId}/promises/{promiseId}/"
+                                                    + command,
+                                            caseId,
+                                            promiseId)
                                     .header("Authorization", bearer(token))
                                     .contentType(MediaType.APPLICATION_JSON)
                                     .content("{\"version\":" + (version + 1) + "}"))
