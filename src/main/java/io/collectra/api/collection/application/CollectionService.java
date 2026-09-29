@@ -204,7 +204,7 @@ public class CollectionService {
                 version,
                 actor,
                 "PROMISE_FULFILLED",
-                PromiseToPay::fulfill);
+                (promise, at) -> promise.fulfill(at));
     }
 
     @Transactional
@@ -217,7 +217,7 @@ public class CollectionService {
                 version,
                 actor,
                 "PROMISE_BROKEN",
-                PromiseToPay::breakPromise);
+                (promise, at) -> promise.breakPromise(at));
     }
 
     @Transactional
@@ -230,7 +230,7 @@ public class CollectionService {
                 version,
                 actor,
                 "PROMISE_CANCELLED",
-                PromiseToPay::cancel);
+                (promise, at) -> promise.cancel(at));
     }
 
     @Transactional
@@ -392,17 +392,6 @@ public class CollectionService {
         }
         event(value, eventType, "COLLECTION_CASE", value.getId(), actor, null, Instant.now(clock));
         return value;
-    }
-
-    private PromiseToPay transitionPromise(
-            UUID tenantId,
-            UUID caseId,
-            UUID promiseId,
-            long version,
-            String actor,
-            String eventType,
-            java.util.function.Consumer<Instant> ignored) {
-        throw new UnsupportedOperationException();
     }
 
     private PromiseToPay transitionPromise(
