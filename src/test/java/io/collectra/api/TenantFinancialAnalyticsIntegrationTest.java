@@ -80,6 +80,51 @@ class TenantFinancialAnalyticsIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void mixedReadyAndRawDaysProduceSameTotalsAcrossSummaryAndBuckets() {
+        LocalDate today = LocalDate.now(ZoneOffset.UTC);
+        LocalDate first = today.minusDays(3);
+        LocalDate second = today.minusDays(2);
+        LocalDate third = today.minusDays(1);
+        UUID tenantId = UUID.randomUUID();
+        seedTenant(tenantId, "range-" + UUID.randomUUID(), Instant.now());
+        seedInvoiceAndPayment(
+                tenantId, "KZT", "100.0000", "10.0000", first.atTime(12, 0).toInstant(ZoneOffset.UTC));
+        seedInvoiceAndPayment(
+                tenantId, "KZT", "200.0000", "20.0000", second.atTime(12, 0).toInstant(ZoneOffset.UTC));
+        seedInvoiceAndPayment(
+                tenantId, "KZT", "300.0000", "30.0000", third.atTime(12, 0).toInstant(ZoneOffset.UTC));
+
+        rebuilds.rebuildTenantDay(tenantId, first);
+        rebuilds.rebuildTenantDay(tenantId, third);
+
+        var summary = analytics.summary(tenantId, first, third);
+        assertThat(summary.currencies()).singleElement().satisfies(metric -> {
+            assertThat(metric.invoiced()).isEqualByComparingTo("600.0000");
+            assertThat(metric.payments()).isEqualByComparingTo("60.0000");
+            assertThat(metric.allocated()).isEqualByComparingTo("60.0000");
+        });
+
+        for (var bucket : TenantFinancialAnalyticsQueryService.Bucket.values()) {
+            var series = analytics.timeseries(tenantId, first, third, bucket);
+            var metrics =
+                    series.items().stream()
+                            .flatMap(point -> point.currencies().stream())
+                            .filter(metric -> metric.currency().equals("KZT"))
+                            .toList();
+            assertThat(metrics)
+                    .extracting(TenantFinancialAnalyticsQueryService.Metric::invoiced)
+                    .satisfies(values ->
+                            assertThat(values.stream().reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add))
+                                    .isEqualByComparingTo("600.0000"));
+            assertThat(metrics)
+                    .extracting(TenantFinancialAnalyticsQueryService.Metric::allocated)
+                    .satisfies(values ->
+                            assertThat(values.stream().reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add))
+                                    .isEqualByComparingTo("60.0000"));
+        }
+    }
+
+    @Test
     void staleBuildCannotOverwriteNewProjectionOwner() {
         LocalDate day = LocalDate.now(ZoneOffset.UTC).minusDays(2);
         Instant now = Instant.now();
