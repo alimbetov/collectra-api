@@ -27,6 +27,7 @@ export function ProblemDetailPanel({ error, onRetry }: ProblemDetailPanelProps) 
   return (
     <Alert variant="danger" title={t('error.title')}>
       <p>{description}</p>
+      {problem.recoveryHint ? <p className="problem-recovery-hint"><strong>Что делать:</strong> {problem.recoveryHint}</p> : null}
       {problem.supportId ? (
         <div className="problem-support-id">
           <span>{t('error.supportId')}: <code>{problem.supportId}</code></span>
