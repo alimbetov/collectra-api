@@ -128,139 +128,139 @@ public class TenantFinancialAnalyticsQueryService {
         Timestamp fromTs = Timestamp.from(from);
         Timestamp toTs = Timestamp.from(to);
         return jdbc.query(
-                    """
-                    with days as (
-                        select d::date business_date
-                          from generate_series(?::date, ?::date, interval '1 day') d
-                          left join tenant_financial_projection_state s
-                            on s.tenant_id=? and s.business_date=d::date and s.status='READY'
-                         where s.business_date is null
-                    ),
-                    currencies as (
-                        select i.invoice_date business_date,i.currency from invoices i join days d on d.business_date=i.invoice_date
-                         where i.tenant_id=?
-                        union
-                        select p.payment_date,p.currency from payments p join days d on d.business_date=p.payment_date
-                         where p.tenant_id=?
-                        union
-                        select (a.created_at at time zone 'UTC')::date,p.currency
+                """
+                with days as (
+                    select d::date business_date
+                      from generate_series(?::date, ?::date, interval '1 day') d
+                      left join tenant_financial_projection_state s
+                        on s.tenant_id=? and s.business_date=d::date and s.status='READY'
+                     where s.business_date is null
+                ),
+                currencies as (
+                    select i.invoice_date business_date,i.currency from invoices i join days d on d.business_date=i.invoice_date
+                     where i.tenant_id=?
+                    union
+                    select p.payment_date,p.currency from payments p join days d on d.business_date=p.payment_date
+                     where p.tenant_id=?
+                    union
+                    select (a.created_at at time zone 'UTC')::date,p.currency
+                      from payment_allocations a join payments p on p.id=a.payment_id
+                      join days d on d.business_date=(a.created_at at time zone 'UTC')::date
+                     where a.tenant_id=? and a.created_at>=? and a.created_at<?
+                    union
+                    select (a.reversed_at at time zone 'UTC')::date,p.currency
+                      from payment_allocations a join payments p on p.id=a.payment_id
+                      join days d on d.business_date=(a.reversed_at at time zone 'UTC')::date
+                     where a.tenant_id=? and a.reversed_at>=? and a.reversed_at<?
+                    union
+                    select (c.opened_at at time zone 'UTC')::date,i.currency
+                      from collection_cases c join invoices i on i.id=c.invoice_id
+                      join days d on d.business_date=(c.opened_at at time zone 'UTC')::date
+                     where c.tenant_id=? and c.opened_at>=? and c.opened_at<?
+                    union
+                    select (c.closed_at at time zone 'UTC')::date,i.currency
+                      from collection_cases c join invoices i on i.id=c.invoice_id
+                      join days d on d.business_date=(c.closed_at at time zone 'UTC')::date
+                     where c.tenant_id=? and c.closed_at>=? and c.closed_at<?
+                ),
+                inv as (
+                    select i.invoice_date business_date,i.currency,sum(i.original_amount) amount,count(*) cnt
+                      from invoices i join days d on d.business_date=i.invoice_date
+                     where i.tenant_id=? group by i.invoice_date,i.currency
+                ),
+                pay as (
+                    select p.payment_date business_date,p.currency,sum(p.amount) amount,count(*) cnt
+                      from payments p join days d on d.business_date=p.payment_date
+                     where p.tenant_id=? group by p.payment_date,p.currency
+                ),
+                alloc as (
+                    select x.business_date,x.currency,
+                           sum(x.allocated) allocated,sum(x.reversed) reversed
+                      from (
+                        select (a.created_at at time zone 'UTC')::date business_date,p.currency,a.amount allocated,0::numeric reversed
                           from payment_allocations a join payments p on p.id=a.payment_id
                           join days d on d.business_date=(a.created_at at time zone 'UTC')::date
                          where a.tenant_id=? and a.created_at>=? and a.created_at<?
-                        union
-                        select (a.reversed_at at time zone 'UTC')::date,p.currency
+                        union all
+                        select (a.reversed_at at time zone 'UTC')::date,p.currency,0::numeric,a.amount
                           from payment_allocations a join payments p on p.id=a.payment_id
                           join days d on d.business_date=(a.reversed_at at time zone 'UTC')::date
-                         where a.tenant_id=? and a.reversed_at>=? and a.reversed_at<?
-                        union
-                        select (c.opened_at at time zone 'UTC')::date,i.currency
+                         where a.tenant_id=? and a.status='REVERSED' and a.reversed_at>=? and a.reversed_at<?
+                      ) x group by x.business_date,x.currency
+                ),
+                cases as (
+                    select x.business_date,x.currency,
+                           sum(x.opened) opened,sum(x.closed) closed,sum(x.resolved) resolved
+                      from (
+                        select (c.opened_at at time zone 'UTC')::date business_date,i.currency,1 opened,0 closed,0 resolved
                           from collection_cases c join invoices i on i.id=c.invoice_id
                           join days d on d.business_date=(c.opened_at at time zone 'UTC')::date
                          where c.tenant_id=? and c.opened_at>=? and c.opened_at<?
-                        union
-                        select (c.closed_at at time zone 'UTC')::date,i.currency
+                        union all
+                        select (c.closed_at at time zone 'UTC')::date business_date,i.currency,0,1,
+                               case when c.close_reason in ('PAID','SETTLED') then 1 else 0 end
                           from collection_cases c join invoices i on i.id=c.invoice_id
                           join days d on d.business_date=(c.closed_at at time zone 'UTC')::date
                          where c.tenant_id=? and c.closed_at>=? and c.closed_at<?
-                    ),
-                    inv as (
-                        select i.invoice_date business_date,i.currency,sum(i.original_amount) amount,count(*) cnt
-                          from invoices i join days d on d.business_date=i.invoice_date
-                         where i.tenant_id=? group by i.invoice_date,i.currency
-                    ),
-                    pay as (
-                        select p.payment_date business_date,p.currency,sum(p.amount) amount,count(*) cnt
-                          from payments p join days d on d.business_date=p.payment_date
-                         where p.tenant_id=? group by p.payment_date,p.currency
-                    ),
-                    alloc as (
-                        select x.business_date,x.currency,
-                               sum(x.allocated) allocated,sum(x.reversed) reversed
-                          from (
-                            select (a.created_at at time zone 'UTC')::date business_date,p.currency,a.amount allocated,0::numeric reversed
-                              from payment_allocations a join payments p on p.id=a.payment_id
-                              join days d on d.business_date=(a.created_at at time zone 'UTC')::date
-                             where a.tenant_id=? and a.created_at>=? and a.created_at<?
-                            union all
-                            select (a.reversed_at at time zone 'UTC')::date,p.currency,0::numeric,a.amount
-                              from payment_allocations a join payments p on p.id=a.payment_id
-                              join days d on d.business_date=(a.reversed_at at time zone 'UTC')::date
-                             where a.tenant_id=? and a.status='REVERSED' and a.reversed_at>=? and a.reversed_at<?
-                          ) x group by x.business_date,x.currency
-                    ),
-                    cases as (
-                        select x.business_date,x.currency,
-                               sum(x.opened) opened,sum(x.closed) closed,sum(x.resolved) resolved
-                          from (
-                            select (c.opened_at at time zone 'UTC')::date business_date,i.currency,1 opened,0 closed,0 resolved
-                              from collection_cases c join invoices i on i.id=c.invoice_id
-                              join days d on d.business_date=(c.opened_at at time zone 'UTC')::date
-                             where c.tenant_id=? and c.opened_at>=? and c.opened_at<?
-                            union all
-                            select (c.closed_at at time zone 'UTC')::date business_date,i.currency,0,1,
-                                   case when c.close_reason in ('PAID','SETTLED') then 1 else 0 end
-                              from collection_cases c join invoices i on i.id=c.invoice_id
-                              join days d on d.business_date=(c.closed_at at time zone 'UTC')::date
-                             where c.tenant_id=? and c.closed_at>=? and c.closed_at<?
-                          ) x group by x.business_date,x.currency
-                    )
-                    select c.business_date,c.currency,
-                           coalesce(i.amount,0) invoiced,coalesce(i.cnt,0) invoice_count,
-                           coalesce(p.amount,0) payments,coalesce(p.cnt,0) payment_count,
-                           coalesce(a.allocated,0) allocated,coalesce(a.reversed,0) reversed,
-                           coalesce(k.opened,0) opened,coalesce(k.closed,0) closed,coalesce(k.resolved,0) resolved
-                      from currencies c
-                      left join inv i using(business_date,currency)
-                      left join pay p using(business_date,currency)
-                      left join alloc a using(business_date,currency)
-                      left join cases k using(business_date,currency)
-                     order by c.business_date,c.currency
-                    """,
-                    (rs, n) ->
-                            new DatedMetric(
-                                    rs.getObject("business_date", LocalDate.class),
-                                    metric(
-                                            rs.getString("currency"),
-                                            rs.getBigDecimal("invoiced"),
-                                            rs.getLong("invoice_count"),
-                                            rs.getBigDecimal("payments"),
-                                            rs.getLong("payment_count"),
-                                            rs.getBigDecimal("allocated"),
-                                            rs.getBigDecimal("reversed"),
-                                            rs.getLong("opened"),
-                                            rs.getLong("closed"),
-                                            rs.getLong("resolved"))),
-                    range.from(),
-                    range.to(),
-                    tenantId,
-                    tenantId,
-                    tenantId,
-                    tenantId,
-                    fromTs,
-                    toTs,
-                    tenantId,
-                    fromTs,
-                    toTs,
-                    tenantId,
-                    fromTs,
-                    toTs,
-                    tenantId,
-                    fromTs,
-                    toTs,
-                    tenantId,
-                    tenantId,
-                    tenantId,
-                    fromTs,
-                    toTs,
-                    tenantId,
-                    fromTs,
-                    toTs,
-                    tenantId,
-                    fromTs,
-                    toTs,
-                    tenantId,
-                    fromTs,
-                    toTs);
+                      ) x group by x.business_date,x.currency
+                )
+                select c.business_date,c.currency,
+                       coalesce(i.amount,0) invoiced,coalesce(i.cnt,0) invoice_count,
+                       coalesce(p.amount,0) payments,coalesce(p.cnt,0) payment_count,
+                       coalesce(a.allocated,0) allocated,coalesce(a.reversed,0) reversed,
+                       coalesce(k.opened,0) opened,coalesce(k.closed,0) closed,coalesce(k.resolved,0) resolved
+                  from currencies c
+                  left join inv i using(business_date,currency)
+                  left join pay p using(business_date,currency)
+                  left join alloc a using(business_date,currency)
+                  left join cases k using(business_date,currency)
+                 order by c.business_date,c.currency
+                """,
+                (rs, n) ->
+                        new DatedMetric(
+                                rs.getObject("business_date", LocalDate.class),
+                                metric(
+                                        rs.getString("currency"),
+                                        rs.getBigDecimal("invoiced"),
+                                        rs.getLong("invoice_count"),
+                                        rs.getBigDecimal("payments"),
+                                        rs.getLong("payment_count"),
+                                        rs.getBigDecimal("allocated"),
+                                        rs.getBigDecimal("reversed"),
+                                        rs.getLong("opened"),
+                                        rs.getLong("closed"),
+                                        rs.getLong("resolved"))),
+                range.from(),
+                range.to(),
+                tenantId,
+                tenantId,
+                tenantId,
+                tenantId,
+                fromTs,
+                toTs,
+                tenantId,
+                fromTs,
+                toTs,
+                tenantId,
+                fromTs,
+                toTs,
+                tenantId,
+                fromTs,
+                toTs,
+                tenantId,
+                tenantId,
+                tenantId,
+                fromTs,
+                toTs,
+                tenantId,
+                fromTs,
+                toTs,
+                tenantId,
+                fromTs,
+                toTs,
+                tenantId,
+                fromTs,
+                toTs);
     }
 
     private Map<String, Snapshot> currentSnapshot(UUID tenantId) {
