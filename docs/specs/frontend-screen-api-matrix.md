@@ -300,3 +300,27 @@ that every business screen is implementation-ready:
 
 Implementation contracts and query/invalidation detail are indexed by
 [`frontendweb-fw03-fw12-plan.md`](frontendweb-fw03-fw12-plan.md).
+
+
+## UX/support presentation contract
+
+The API readiness matrix is supplemented by
+[`frontend-ux-support-guidance-contract.md`](frontend-ux-support-guidance-contract.md).
+An endpoint being `READY` does not by itself make a screen support-ready.
+
+For every mutation/read model used by a business screen, frontend implementation must also
+define:
+
+| Contract | Requirement |
+|---|---|
+| business status | user-facing label and meaning |
+| primary action | valid next operation for the current state |
+| prerequisite | visible explanation when significant action is unavailable |
+| consequence | confirmation text for destructive/lifecycle/external effects |
+| success | resulting state and next navigation/refetch |
+| known failure | `ProblemDetail.code` -> deterministic recovery action |
+| unknown failure | safe message + Support ID; no raw 5xx detail |
+| async state | user-facing wait/terminal meaning; implementation polling hidden |
+| diagnostics | safe identifiers only; no secret/provider/raw transport data |
+
+This presentation contract is a frontend Definition-of-Done gate alongside the API contract.
