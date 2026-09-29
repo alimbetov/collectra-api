@@ -118,13 +118,21 @@ public class CollectionService {
         } catch (IllegalStateException ex) {
             throw invalidTransition(ex);
         }
-        event(value, "CASE_UPDATED", "COLLECTION_CASE", value.getId(), actor, null, Instant.now(clock));
+        event(
+                value,
+                "CASE_UPDATED",
+                "COLLECTION_CASE",
+                value.getId(),
+                actor,
+                null,
+                Instant.now(clock));
         return value;
     }
 
     @Transactional
     public CollectionCase start(UUID tenantId, UUID caseId, long version, String actor) {
-        return transitionCase(tenantId, caseId, version, actor, "CASE_STARTED", CollectionCase::start);
+        return transitionCase(
+                tenantId, caseId, version, actor, "CASE_STARTED", CollectionCase::start);
     }
 
     @Transactional
@@ -134,11 +142,7 @@ public class CollectionService {
 
     @Transactional
     public CollectionCase close(
-            UUID tenantId,
-            UUID caseId,
-            long version,
-            CollectionCloseReason reason,
-            String actor) {
+            UUID tenantId, UUID caseId, long version, CollectionCloseReason reason, String actor) {
         CollectionCase value = getCase(tenantId, caseId);
         requireVersion(value.getVersion(), version, "Collection case");
         if (reason == CollectionCloseReason.PAID) {
@@ -175,7 +179,8 @@ public class CollectionService {
                     "CURRENCY_MISMATCH", "Promise currency must match invoice currency");
         }
         if (amount == null || amount.signum() <= 0) {
-            throw new BusinessConflictException("INVALID_REQUEST", "Promise amount must be positive");
+            throw new BusinessConflictException(
+                    "INVALID_REQUEST", "Promise amount must be positive");
         }
         if (amount.compareTo(invoice.getOutstandingAmount()) > 0) {
             throw new BusinessConflictException(
