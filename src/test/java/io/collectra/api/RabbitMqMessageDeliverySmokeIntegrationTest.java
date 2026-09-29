@@ -360,7 +360,7 @@ class RabbitMqMessageDeliverySmokeIntegrationTest extends AbstractIntegrationTes
                         version.getId(),
                         CommunicationChannel.EMAIL.name(),
                         null,
-                        CampaignSelection.customer(Set.of(customer.getId()), Set.of()),
+                        new CampaignSelection(Set.of(customer.getId()), Set.of(), 1, 60, null, null),
                         null);
         campaigns.activate(tenant.getId(), campaign.getId());
         var prepared = campaigns.prepare(tenant.getId(), campaign.getId());
@@ -375,7 +375,7 @@ class RabbitMqMessageDeliverySmokeIntegrationTest extends AbstractIntegrationTes
                         tenant.getId(), prepared.runId());
         assertThat(recipients).hasSize(1);
         assertThat(recipients.get(0).getCustomerId()).isEqualTo(customer.getId());
-        assertThat(recipients.get(0).getInvoiceId()).isNull();
+        assertThat(recipients.get(0).getInvoiceId()).isEqualTo(invoice.getId());
         assertThat(recipients.get(0).getDestination()).isEqualTo("rabbit-smoke@example.test");
 
         Message queued =
