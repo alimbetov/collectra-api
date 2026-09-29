@@ -53,6 +53,12 @@ class TenantFinancialAnalyticsIntegrationTest extends AbstractIntegrationTest {
         var projected = analytics.summary(alpha, day, day);
 
         assertThat(projected.currencies()).isEqualTo(raw.currencies());
+        assertThat(raw.currencies())
+                .allSatisfy(
+                        metric ->
+                                assertThat(metric.reversedAllocations().scale())
+                                        .as("raw/projection monetary scale contract")
+                                        .isEqualTo(4));
         assertThat(projected.currencies())
                 .noneMatch(m -> m.invoiced().toPlainString().equals("9999.0000"));
 
