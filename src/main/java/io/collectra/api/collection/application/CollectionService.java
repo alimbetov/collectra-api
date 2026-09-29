@@ -141,6 +141,15 @@ public class CollectionService {
             String actor) {
         CollectionCase value = getCase(tenantId, caseId);
         requireVersion(value.getVersion(), version, "Collection case");
+        if (reason == CollectionCloseReason.PAID) {
+            Invoice invoice = receivables.invoice(tenantId, value.getInvoiceId());
+            if (invoice.getPaymentStatus() != PaymentStatus.PAID
+                    || invoice.getOutstandingAmount().signum() != 0) {
+                throw new BusinessConflictException(
+                        "INVALID_STATE_TRANSITION",
+                        "Collection case cannot be closed as PAID while invoice has outstanding debt");
+            }
+        }
         Instant now = Instant.now(clock);
         try {
             value.close(reason, now);
