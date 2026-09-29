@@ -12,8 +12,6 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.HashSet;
 import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -82,31 +80,10 @@ public class TenantFinancialAnalyticsQueryService {
     private List<DatedMetric> rangeMetrics(UUID tenantId, Range range) {
         LocalDate today = today();
         LocalDate closedTo = range.to().isBefore(today) ? range.to() : today.minusDays(1);
-        Set<LocalDate> readyDays = readyProjectionDays(tenantId, range.from(), closedTo);
-
         List<DatedMetric> result = new java.util.ArrayList<>();
-        if (!readyDays.isEmpty()) {
-            result.addAll(projectedRange(tenantId, range.from(), closedTo));
-        }
-        result.addAll(rawRange(tenantId, range, readyDays));
+        result.addAll(projectedRange(tenantId, range.from(), closedTo));
+        result.addAll(rawRange(tenantId, range));
         return result;
-    }
-
-    private Set<LocalDate> readyProjectionDays(UUID tenantId, LocalDate from, LocalDate to) {
-        if (to.isBefore(from)) {
-            return Set.of();
-        }
-        return new HashSet<>(
-                jdbc.query(
-                        """
-                        select business_date
-                          from tenant_financial_projection_state
-                         where tenant_id=? and business_date between ? and ? and status='READY'
-                        """,
-                        (rs, n) -> rs.getObject("business_date", LocalDate.class),
-                        tenantId,
-                        from,
-                        to));
     }
 
     private List<DatedMetric> projectedRange(UUID tenantId, LocalDate from, LocalDate to) {
@@ -145,32 +122,19 @@ public class TenantFinancialAnalyticsQueryService {
                 to);
     }
 
-    private List<DatedMetric> rawRange(UUID tenantId, Range range, Set<LocalDate> excludedDays) {
+    private List<DatedMetric> rawRange(UUID tenantId, Range range) {
         Instant from = range.from().atStartOfDay(ZoneOffset.UTC).toInstant();
         Instant to = range.to().plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant();
         Timestamp fromTs = Timestamp.from(from);
         Timestamp toTs = Timestamp.from(to);
-        java.sql.Array excluded = null;
-        try {
-            excluded =
-                    jdbc.getDataSource()
-                            .getConnection()
-                            .createArrayOf(
-                                    "date",
-                                    excludedDays.stream()
-                                            .sorted()
-                                            .map(java.sql.Date::valueOf)
-                                            .toArray(java.sql.Date[]::new));
-        } catch (java.sql.SQLException ex) {
-            throw new IllegalStateException("Cannot bind financial projection days", ex);
-        }
-        try {
-            return jdbc.query(
+        return jdbc.query(
                     """
                     with days as (
                         select d::date business_date
                           from generate_series(?::date, ?::date, interval '1 day') d
-                         where not (d::date = any (?::date[]))
+                          left join tenant_financial_projection_state s
+                            on s.tenant_id=? and s.business_date=d::date and s.status='READY'
+                         where s.business_date is null
                     ),
                     currencies as (
                         select i.invoice_date business_date,i.currency from invoices i join days d on d.business_date=i.invoice_date
@@ -268,7 +232,7 @@ public class TenantFinancialAnalyticsQueryService {
                                             rs.getLong("resolved"))),
                     range.from(),
                     range.to(),
-                    excluded,
+                    tenantId,
                     tenantId,
                     tenantId,
                     tenantId,
@@ -297,15 +261,6 @@ public class TenantFinancialAnalyticsQueryService {
                     tenantId,
                     fromTs,
                     toTs);
-        } finally {
-            if (excluded != null) {
-                try {
-                    excluded.free();
-                } catch (java.sql.SQLException ignored) {
-                    // PostgreSQL driver resource cleanup only.
-                }
-            }
-        }
     }
 
     private Map<String, Snapshot> currentSnapshot(UUID tenantId) {
