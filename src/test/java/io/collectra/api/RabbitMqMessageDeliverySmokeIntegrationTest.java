@@ -360,7 +360,8 @@ class RabbitMqMessageDeliverySmokeIntegrationTest extends AbstractIntegrationTes
                         version.getId(),
                         CommunicationChannel.EMAIL.name(),
                         null,
-                        new CampaignSelection(Set.of(customer.getId()), Set.of(), 1, 60, null, null),
+                        new CampaignSelection(
+                                Set.of(customer.getId()), Set.of(), 1, 60, null, null),
                         null);
         campaigns.activate(tenant.getId(), campaign.getId());
         var prepared = campaigns.prepare(tenant.getId(), campaign.getId());
