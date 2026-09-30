@@ -1,8 +1,8 @@
 # A02 — Golden Journey and Failure Journey Assurance
 
 Historical audit baseline: `main@165eb9639fa013f77a24e0a8e2b225df3a94c186`
-Current reconciliation branch: `fix/audit-defects-and-release-gate-alignment`
-Candidate evidence SHA: pending exact-SHA CI
+Current reconciliation baseline: `main@9b3369d52af5bfaf0436019b4b8eb97e51f0b956`
+Current main CI: run #2801 / `36713091538` is the active exact-SHA qualification run at the time of this documentation revision.
 
 Status: **IN PROGRESS**
 
