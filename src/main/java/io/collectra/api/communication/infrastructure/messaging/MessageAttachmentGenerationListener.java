@@ -1,29 +1,24 @@
 package io.collectra.api.communication.infrastructure.messaging;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import io.collectra.api.communication.application.MessageAttachmentService;
-import io.collectra.api.communication.application.MessageDocumentLinkService;
+import io.collectra.api.communication.application.MessageGenerationCompletionService;
 import java.util.UUID;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
 
 @Component
 public class MessageAttachmentGenerationListener {
-    private final MessageAttachmentService attachments;
-    private final MessageDocumentLinkService documentLinks;
+    private final MessageGenerationCompletionService completion;
 
-    public MessageAttachmentGenerationListener(
-            MessageAttachmentService attachments, MessageDocumentLinkService documentLinks) {
-        this.attachments = attachments;
-        this.documentLinks = documentLinks;
+    public MessageAttachmentGenerationListener(MessageGenerationCompletionService completion) {
+        this.completion = completion;
     }
 
     @RabbitListener(queues = CommunicationMessagingConfig.DOCUMENT_COMPLETED_QUEUE)
     public void completed(JsonNode payload) {
         UUID tenantId = requiredUuid(payload, "tenantId");
         UUID jobId = requiredUuid(payload, "jobId");
-        attachments.generationCompleted(tenantId, jobId);
-        documentLinks.generationCompleted(tenantId, jobId);
+        completion.completed(tenantId, jobId);
     }
 
     @RabbitListener(queues = CommunicationMessagingConfig.DOCUMENT_FAILED_QUEUE)
@@ -32,8 +27,7 @@ public class MessageAttachmentGenerationListener {
         UUID jobId = requiredUuid(payload, "jobId");
         String errorCode = optionalText(payload, "errorCode");
         String errorMessage = optionalText(payload, "errorMessage");
-        attachments.generationFailed(tenantId, jobId, errorCode, errorMessage);
-        documentLinks.generationFailed(tenantId, jobId, errorCode, errorMessage);
+        completion.failed(tenantId, jobId, errorCode, errorMessage);
     }
 
     private UUID requiredUuid(JsonNode payload, String field) {
