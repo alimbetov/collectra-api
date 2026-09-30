@@ -44,3 +44,5 @@ Severity remains TBD until impact is demonstrated. Findings may be CLOSED_AS_DES
 - MISSING — required capability has no implementation.
 - BROKEN — implementation exists but verification demonstrates failure.
 - OUT_OF_SCOPE — explicitly excluded by accepted scope.
+
+| A01-005 | A01 | P1 | General Files upload UI exposes `TEMPLATE_ASSET` and `ATTACHMENT`, but backend FileCategory accepts only `IMPORT_SOURCE/REPORT/EXPORT/ASSET/TEMP`; those selections fail request binding. | OPEN | align FileUploadPage with canonical enum + contract test |
