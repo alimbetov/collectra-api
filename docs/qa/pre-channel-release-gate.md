@@ -1,8 +1,9 @@
 # Pre-Channel Release Gate
 
 Status: ACTIVE — FAIL-CLOSED
-Branch: `fix/pre-channel-release-gate`
-Baseline: `main@ec6d1ac2b9ac9035ded57de3c3825c011e946d2c`
+Current reconciliation branch: `fix/audit-defects-and-release-gate-alignment`
+Historical baseline: `main@ec6d1ac2b9ac9035ded57de3c3825c011e946d2c`
+Candidate evidence SHA: pending exact-SHA CI
 
 ## 1. Purpose
 
@@ -56,8 +57,8 @@ The release gate stops before a live provider. Deterministic simulated adapters 
 | PC-15 | Tenant/RBAC boundaries hold through API, nested references and async resources | `FunctionalHardeningSecuritySmokeIntegrationTest`, tenant isolation tests | TESTED |
 | PC-16 | Operator-facing routes/actions expose business state without requiring infrastructure knowledge | frontend route/page tests + functional UX audit | TESTED |
 | PC-17 | Empty PostgreSQL bootstrap and supported upgrade produce a usable schema/application | `CleanBootstrapIntegrationTest`; upgrade evidence required | TESTED |
-| PC-18 | One true Golden Journey proves ingestion-created business objects flow through collection/campaign to RabbitMQ boundary | strengthen `RabbitMqMessageDeliverySmokeIntegrationTest` | IMPLEMENTED |
-| PC-19 | Negative Golden Journey proves paid/inactive/no-contact/attachment failure/foreign tenant cannot leak into delivery | composite negative smoke required | NOT_STARTED |
+| PC-18 | One true Golden Journey proves ingestion-created business objects flow through collection/campaign to RabbitMQ boundary and both analytics projections | `RabbitMqMessageDeliverySmokeIntegrationTest` | IMPLEMENTED |
+| PC-19 | Negative/failure evidence proves ineligible, failed, duplicate and foreign-tenant paths cannot create forbidden delivery side effects | A02 F01-F14 mapped integration/scenario tests | IMPLEMENTED |
 | PC-20 | All applicable PC evidence is green on one exact SHA with PostgreSQL + RabbitMQ boundaries | CI release-candidate run | NOT_STARTED |
 
 No row may move to `VERIFIED` without exact-SHA evidence.
@@ -84,9 +85,9 @@ service client
 
 Required assertions include tenant IDs, external IDs from source payloads, invoice outstanding amount, campaign/message references and one logical delivery request.
 
-## 5. PC-19 Negative Golden Journey acceptance
+## 5. PC-19 Negative / Failure Journey acceptance
 
-At minimum:
+PC-19 consumes the A02 failure matrix rather than requiring one artificial monolithic negative test. A composite test may be added when it proves a cross-boundary seam that isolated tests cannot prove. At minimum:
 
 ```text
 fully paid invoice      -> no eligible delivery
@@ -110,8 +111,29 @@ Each denial must assert both state and absence of forbidden durable side effects
 6. Formatting, compile, unit, integration, frontend and smoke gates must all pass on the same candidate SHA.
 7. A real channel adapter is out of scope until PC-01..PC-20 are VERIFIED or an explicit documented exception is accepted.
 
-## 7. Current audit finding
 
-The repository already contains a near-complete Golden Journey in `RabbitMqMessageDeliverySmokeIntegrationTest`: CUSTOMER/INVOICE/PAYMENT are ingested and persisted, payment is allocated, a collection case/action is created, a campaign is materialized, an outbox event traverses RabbitMQ and the deterministic adapter reaches SENT.
+## 7. A02 traceability
 
-Therefore PC-18 will strengthen that existing smoke rather than create a duplicate test. The highest-value new executable coverage is PC-19 plus explicit exactly-one/provenance assertions in PC-18.
+A02 is the cross-boundary assurance scenario catalogue; this document is the release qualification ledger that consumes that evidence. They are not independent sources of truth.
+
+| Release gate | A02 evidence consumed | Qualification meaning |
+|---|---|---|
+| PC-18 | G01-G18, with the canonical positive chain centered on `RabbitMqMessageDeliverySmokeIntegrationTest` | positive business chain reaches provider-neutral terminal delivery and analytics without reconstructing post-ingestion business objects |
+| PC-19 | F01-F14 plus explicit paid/inactive/no-contact/required-attachment/foreign-tenant/duplicate-side-effect assertions | failures and denials are durable, tenant-safe and create no forbidden side effects |
+| PC-20 | all applicable G/F evidence plus repository CI gates | final same-exact-SHA qualification; no separate business behavior is introduced here |
+
+A02 rows may reference focused tests where that is the strongest deterministic proof. PC-18/PC-19 must not duplicate those tests solely to create a second ledger-shaped suite.
+
+## 8. Candidate evidence procedure
+
+1. Record candidate commit SHA.
+2. Run the repository CI gates from `.github/workflows/ci.yml`: formatting, focused Slice 7 unit gate, Maven `clean verify -Pslice10a-coverage`, frontend typecheck/tests/build.
+3. Confirm that RabbitMQ-backed PC-18 evidence executed in the candidate verification path; if excluded by test discovery/profile, execute and record it explicitly.
+4. On any failure: retain raw failure evidence, fix root cause, create a new SHA, and restart qualification.
+5. Only when the required evidence is green on the candidate SHA may applicable rows move to `VERIFIED`.
+
+## 9. Current audit finding
+
+The current `RabbitMqMessageDeliverySmokeIntegrationTest` is the canonical PC-18 executable: CUSTOMER/INVOICE/PAYMENT are ingested and persisted, allocation/reversal invariants are exercised, collection case/action is created, campaign/message provenance is asserted, exactly one delivery request is asserted, the outbox traverses real RabbitMQ, the deterministic provider-neutral adapter reaches SENT, and financial plus communication analytics are asserted.
+
+PC-19 consumes the A02 F01-F14 executable failure evidence. PC-20 remains open until all applicable evidence is green together on one exact candidate SHA.
