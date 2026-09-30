@@ -24,6 +24,8 @@ jobs:
           echo "branch=${GITHUB_REF_NAME}"
           echo "sha=$(git rev-parse HEAD)"
           git log -1 --oneline
+      - name: Check Markdown links
+        run: python3 scripts/check-markdown-links.py
       - name: Check formatting
         run: mvn --batch-mode --no-transfer-progress spotless:check
       - name: Slice 7 focused unit tests
