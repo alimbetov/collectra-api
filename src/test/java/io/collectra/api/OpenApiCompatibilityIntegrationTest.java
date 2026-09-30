@@ -156,6 +156,23 @@ class OpenApiCompatibilityIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void fileUploadCategoryContractMatchesCanonicalRegistryCategories() throws Exception {
+        JsonNode document = objectMapper.readTree(currentPublicApi());
+        JsonNode parameters =
+                document.path("paths").path("/api/v1/files").path("post").path("parameters");
+        JsonNode category = findParameter(parameters, "category");
+
+        assertThat(category.path("required").asBoolean()).isTrue();
+        assertThat(category.path("schema").path("type").asText()).isEqualTo("string");
+
+        List<String> values = new ArrayList<>();
+        category.path("schema").path("enum").forEach(value -> values.add(value.asText()));
+        assertThat(values)
+                .containsExactly("IMPORT_SOURCE", "REPORT", "EXPORT", "ASSET", "TEMP")
+                .doesNotContain("TEMPLATE_ASSET", "ATTACHMENT");
+    }
+
+    @Test
     void customerDetailExposesResolvedManagerAndSegments() throws Exception {
         JsonNode schemas =
                 objectMapper.readTree(currentPublicApi()).path("components").path("schemas");
