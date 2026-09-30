@@ -7,6 +7,7 @@ import type { CollectionCloseReason } from '../../entities/collection/model/coll
 import { useAuth } from '../../features/auth/model/auth-context';
 import { ApiError } from '../../shared/api/http-client';
 import { ProblemDetailPanel } from '../../shared/errors/ProblemDetailPanel';
+import { classifyResourceError } from '../../shared/errors/resource-error-policy';
 import { Button,ContextHint,PageGuidance,Spinner,StatusBadge } from '../../shared/ui';
 
 export function CollectionCasePage(){
@@ -20,13 +21,14 @@ export function CollectionCasePage(){
  const [dispute,setDispute]=useState({reason:'',description:''});
  const [action,setAction]=useState({actionType:'CALL',description:'',dueAt:'',priority:'NORMAL'});
  const refresh=async()=>{await Promise.all([client.invalidateQueries({queryKey:collectionKeys.detail(caseId)}),client.invalidateQueries({queryKey:collectionKeys.lists()}),client.invalidateQueries({queryKey:collectionKeys.promises(caseId)}),client.invalidateQueries({queryKey:collectionKeys.disputes(caseId)}),client.invalidateQueries({queryKey:collectionKeys.actions(caseId)}),client.invalidateQueries({queryKey:collectionKeys.timeline(caseId)})])};
- const command=useMutation({mutationFn:async(v:{kind:'start'|'hold'|'close';reason?:CollectionCloseReason})=>v.kind==='close'?closeCollectionCase(caseId,detail.data?.version??-1,v.reason??'OTHER'):transitionCollectionCase(caseId,v.kind,detail.data?.version??-1),onSuccess:refresh});
- const promiseCreate=useMutation({mutationFn:()=>createPromise(caseId,promise),onSuccess:async()=>{setPromise({amount:'',currency:'KZT',promisedDate:''});await refresh()}});
- const promiseCommand=useMutation({mutationFn:(v:{id:string;cmd:'fulfill'|'break'|'cancel';version:number})=>transitionPromise(caseId,v.id,v.cmd,v.version),onSuccess:refresh});
- const disputeCreate=useMutation({mutationFn:()=>createDispute(caseId,dispute),onSuccess:async()=>{setDispute({reason:'',description:''});await refresh()}});
- const disputeCommand=useMutation({mutationFn:(v:{id:string;cmd:'resolve'|'cancel';version:number})=>v.cmd==='cancel'?cancelDispute(caseId,v.id,v.version):resolveDispute(caseId,v.id,{version:v.version,resolutionCode:'RESOLVED'}),onSuccess:refresh});
- const actionCreate=useMutation({mutationFn:()=>createAction(caseId,{...action,dueAt:new Date(action.dueAt).toISOString()}),onSuccess:async()=>{setAction({actionType:'CALL',description:'',dueAt:'',priority:'NORMAL'});await refresh()}});
- const actionCommand=useMutation({mutationFn:(v:{id:string;cmd:'complete'|'cancel';version:number})=>transitionAction(caseId,v.id,v.cmd,v.version),onSuccess:refresh});
+ const onMutationError=async(error:unknown)=>{if(classifyResourceError(error)==='version-conflict')await refresh()};
+ const command=useMutation({mutationFn:async(v:{kind:'start'|'hold'|'close';reason?:CollectionCloseReason})=>v.kind==='close'?closeCollectionCase(caseId,detail.data?.version??-1,v.reason??'OTHER'):transitionCollectionCase(caseId,v.kind,detail.data?.version??-1),onSuccess:refresh,onError:onMutationError});
+ const promiseCreate=useMutation({mutationFn:()=>createPromise(caseId,promise),onSuccess:async()=>{setPromise({amount:'',currency:'KZT',promisedDate:''});await refresh()},onError:onMutationError});
+ const promiseCommand=useMutation({mutationFn:(v:{id:string;cmd:'fulfill'|'break'|'cancel';version:number})=>transitionPromise(caseId,v.id,v.cmd,v.version),onSuccess:refresh,onError:onMutationError});
+ const disputeCreate=useMutation({mutationFn:()=>createDispute(caseId,dispute),onSuccess:async()=>{setDispute({reason:'',description:''});await refresh()},onError:onMutationError});
+ const disputeCommand=useMutation({mutationFn:(v:{id:string;cmd:'resolve'|'cancel';version:number})=>v.cmd==='cancel'?cancelDispute(caseId,v.id,v.version):resolveDispute(caseId,v.id,{version:v.version,resolutionCode:'RESOLVED'}),onSuccess:refresh,onError:onMutationError});
+ const actionCreate=useMutation({mutationFn:()=>createAction(caseId,{...action,dueAt:new Date(action.dueAt).toISOString()}),onSuccess:async()=>{setAction({actionType:'CALL',description:'',dueAt:'',priority:'NORMAL'});await refresh()},onError:onMutationError});
+ const actionCommand=useMutation({mutationFn:(v:{id:string;cmd:'complete'|'cancel';version:number})=>transitionAction(caseId,v.id,v.cmd,v.version),onSuccess:refresh,onError:onMutationError});
  const mutationError=command.error??promiseCreate.error??promiseCommand.error??disputeCreate.error??disputeCommand.error??actionCreate.error??actionCommand.error;
  const allErrors=[detail.error,promises.error,disputes.error,actions.error,timeline.error,mutationError];
  if(allErrors.some(e=>e instanceof ApiError&&e.status===403))return <Navigate to="/forbidden" replace/>;
