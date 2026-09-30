@@ -2,7 +2,8 @@
 
 Status: ACTIVE — repository-wide audit  
 Started: 2026-09-30  
-Audit branch: `fix/pre-channel-release-gate`
+Historical audit origin: `fix/pre-channel-release-gate`  
+Current evidence reconciliation: `fix/audit-defects-and-release-gate-alignment`
 
 ## 1. Audit objective
 
@@ -61,7 +62,7 @@ Allowed audit states:
 | Deployment/IaC | no canonical production deployment package found in repo | RELEASE_BLOCKED | Kubernetes/Helm or documented external infra ownership |
 | Backup/restore/DR | no canonical complete evidence identified yet | RELEASE_BLOCKED | PostgreSQL/object store/RabbitMQ RPO/RTO and restore drills |
 | Performance/capacity | focused optimizations/tests | RELEASE_BLOCKED | load, soak, sizing and capacity evidence |
-| Release qualification | PC-01..PC-20 gate | RELEASE_BLOCKED | PC-19 and one exact-SHA PC-20 evidence |
+| Release qualification | PC-01..PC-20 gate | RELEASE_BLOCKED | reconcile A02/PC evidence and obtain one exact-SHA PC-20 qualification |
 
 ## 3. Confirmed findings in current audit
 
