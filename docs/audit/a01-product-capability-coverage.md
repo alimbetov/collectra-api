@@ -164,3 +164,40 @@ Backend `FileCategory` accepts exactly `IMPORT_SOURCE | REPORT | EXPORT | ASSET 
 **Classification:** P1 frontend/API contract defect.
 
 **Required remediation:** make the general upload category options derive from the canonical public API contract. At minimum replace `TEMPLATE_ASSET` with `ASSET` and remove `ATTACHMENT` unless/until a backend category and lifecycle contract exists. Add a frontend contract test that asserts every selectable category is accepted by the backend/OpenAPI enum.
+
+
+## CAP-11..CAP-15 deep pass — evidence update
+
+### CAP-11 Tenant administration / RBAC — PARTIAL / DEFECT A01-006
+
+Backend exposes tenant-scoped membership listing, role listing/create/update/delete, role assignment, membership block/unblock and administrative session revocation with explicit permissions. The tenant frontend router has no user/membership or role administration route/page, and no tenant RBAC management surface was found in the current frontend tree.
+
+**Impact:** tenant administrators cannot perform the documented P14 administration workflow through the product UI despite the backend capability being available.
+
+**Classification:** P1 product capability gap.
+
+**Required remediation:** add tenant Administration routes/pages for users/memberships and roles; expose bounded user list, role CRUD, membership-role assignment, membership status and session revocation; gate each action with the matching backend permission; add route/page/API contract tests and tenant-isolation tests.
+
+### CAP-12 Profile/security/session management — PARTIAL / DEFECT A01-007
+
+Backend `/api/v1/identity/me` supports profile read/update, password change, own-session listing and own-session revocation. No tenant profile/security/session route or page is registered in the frontend router, and no matching frontend workflow was found.
+
+**Impact:** an authenticated user cannot self-service the documented P15 profile/security/session lifecycle from the product UI.
+
+**Classification:** P1 product capability gap.
+
+**Required remediation:** add Profile/Security UI for display name/locale/timezone, password change, active sessions and session revocation; preserve current-session safety semantics; add API and page tests.
+
+### CAP-13 Source schema + mapping configuration — implementation coverage VERIFIED, executable verification pending
+
+Integration Setup Center links to Source Schema Studio and Mapping Studio. The UI supports schema version creation, fields, validation and publish/reopen lifecycle; mapping supports version creation against a published schema, source-to-target rules, validation and publish/reopen lifecycle. Routes are permission-gated. Exact-SHA executable evidence remains required.
+
+### CAP-14 JSON/XML/CSV/XLSX ingestion/import and diagnostics — implementation coverage VERIFIED, executable verification pending
+
+The human import path and diagnostics were verified in CAP-09. The machine ingestion boundary additionally requires `ROLE_SERVICE`, scoped create/read authorities, tenant context, source code and `Idempotency-Key`, and returns an asynchronous reservation/status contract. Current source tree includes worker, listener and recovery scheduler components. No A01 capability omission is asserted in this pass; A06/A08 will audit crash/retry/outbox correctness.
+
+### CAP-15 Service clients / machine-to-machine integration — implementation coverage VERIFIED, executable verification pending
+
+Tenant UI exposes service-client list/create/detail, allowed scopes, one-time secret presentation, staged secret rotation/activation and block/unblock. Backend enforces separate create/read/rotate/block permissions. Integration Source UI exposes readiness checks and prevents UI activation until readiness is true; lifecycle commands carry source version. Integration Setup Center provides navigable entry points for clients, sources, schemas and mappings.
+
+No manual SQL/curl dependency was found for the configuration lifecycle itself. Exact-SHA tests and A07 tenant/security review remain required.
