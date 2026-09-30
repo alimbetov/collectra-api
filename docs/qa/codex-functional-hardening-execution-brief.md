@@ -1,7 +1,10 @@
 # Codex Execution Brief — Architecture/Business Decision Workshop + Functional Hardening
 
+Documentation lifecycle: HISTORICAL — superseded PRE-VC9 execution brief.
+Current documentation precedence: [`docs/README.md`](../README.md).
+
 Status: ACTIVE
-Branch: `spec/functional-hardening-user-journeys`
+Historical branch: `spec/functional-hardening-user-journeys`
 Gate: before VC-9 Analytics
 
 ## 1. Objective
