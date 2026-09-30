@@ -25,7 +25,8 @@ A defect is CLOSED only after:
 | PCD-004 | TBD | receivable reversal -> collection | verify reversal after PAID close cannot leave contradictory financial/workflow state | determine invariant from current domain then fix/test if confirmed | AUDIT REQUIRED |
 | PCD-005 | P1 | projection rebuild -> READY/FAILED state | communication projection lacked build ownership fencing; stale worker could finalize after another instance reclaimed BUILDING | add build_id migration and fence READY/FAILED by current build owner; continue late-arrival audit separately | IMPLEMENTED / CI PENDING |
 | PCD-006 | TBD | outbox DEAD -> aggregate workflow | verify DEAD events cannot leave invisible permanently non-terminal business aggregates | operational/state reconciliation audit | AUDIT REQUIRED |
-| PCD-007 | TBD | schedulers -> multi-instance runtime | verify concurrent schedulers use claims/locks and do not double-process | scheduler-by-scheduler audit | AUDIT REQUIRED |
+| PCD-007 | P1 | ingestion recovery -> broker wake-up | recovery committed batch state then published directly to RabbitMQ, leaving a DB/broker crash window | central durable IngestionRequestPublisher; recovery appends outbox request in same DB transaction | IMPLEMENTED / CI PENDING |
+| PCD-008 | P1 | schedulers -> multi-instance runtime | continue scheduler-by-scheduler ownership/claim audit after projection and ingestion findings | campaign/file/projection scheduler verification | AUDIT REQUIRED |
 
 ## PCD-002 target lifecycle
 
@@ -121,3 +122,18 @@ That made claim acquisition mutually exclusive only at the instant of claim. Aft
 Remediation adds `communication_reporting_projection_state.build_id`, assigns a fresh UUID on every claim, and fences READY/FAILED finalization by that UUID. Legacy BUILDING rows are invalidated during migration so no pre-fencing worker state is treated as owned.
 
 This finding establishes a project-wide rule: timeout-based takeover is safe only when completion/failure is fenced by the current lease/build owner.
+
+
+## Root-cause analysis: PCD-007 ingestion recovery handoff
+
+Initial ingestion reservation already used the transactional outbox, but the recovery scheduler evolved separately and used direct `RabbitTemplate.convertAndSend` after committing recovery state.
+
+For stale PROCESSING batches this created:
+
+```text
+PROCESSING -> recover() -> DB commit -> [process crash] -> Rabbit publish
+```
+
+A crash in the marked window can lose the wake-up. The recovered state is durable, but liveness then depends on whether a later scheduler query happens to select that exact state again.
+
+Recovery now uses the same `IngestionRequestPublisher` as initial reservation. State recovery and the new `INTEGRATION_INGESTION_REQUESTED` outbox row are committed atomically. Retryable wake-ups also go through the outbox. This removes the recovery-specific DB/Rabbit dual-write.
