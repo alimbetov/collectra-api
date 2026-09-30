@@ -1,4 +1,12 @@
-# Final Handoff Audit — Functional Hardening
+# Final Handoff Audit — Historical Functional Hardening Snapshot
+
+Status: HISTORICAL — SUPERSEDED
+
+> This document records the handoff state of the earlier functional-hardening program. Its branch, counts, blockers and precedence rules are not the current project status. Current documentation precedence is defined in [`../README.md`](../README.md).
+
+---
+
+## Historical content
 
 Audit baseline: branch `spec/functional-hardening-user-journeys`
 Purpose: prevent contradictory instructions or silent coverage omissions before Codex execution.
