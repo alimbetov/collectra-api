@@ -1,5 +1,8 @@
 # Collectra Reliability Vertical Slice — Detailed Implementation Design
 
+Documentation lifecycle: SUPPORTING REFERENCE — reliability design rationale; current implementation is defined by code/tests and canonical architecture.
+Current documentation precedence: [`docs/README.md`](../README.md).
+
 This document refines `reliability-vertical-slice-spec.md` into an implementation-level plan aligned with the current `collectra-api` codebase.
 
 The goal is **higher implementation precision without increasing architecture complexity**. The design deliberately keeps Collectra as one Spring Boot application, PostgreSQL as the source of truth, RabbitMQ as the asynchronous transport, and provider integrations behind a small `ChannelGateway` port.
