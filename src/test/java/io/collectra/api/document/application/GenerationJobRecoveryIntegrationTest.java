@@ -42,11 +42,13 @@ class GenerationJobRecoveryIntegrationTest extends AbstractIntegrationTest {
         GenerationJob recovered = jobs.findById(job.getId()).orElseThrow();
         assertThat(recovered.getStatus()).isEqualTo(GenerationJobStatus.PENDING);
         assertThat(recovered.getErrorCode()).isEqualTo("WORKER_RECOVERED");
-        assertThat(outbox.findAll()).anySatisfy(event -> {
-            assertThat(event.getAggregateId()).isEqualTo(job.getId());
-            assertThat(event.getEventType())
-                    .isEqualTo(DocumentGenerationRequestPublisher.EVENT_TYPE);
-        });
+        assertThat(outbox.findAll())
+                .anySatisfy(
+                        event -> {
+                            assertThat(event.getAggregateId()).isEqualTo(job.getId());
+                            assertThat(event.getEventType())
+                                    .isEqualTo(DocumentGenerationRequestPublisher.EVENT_TYPE);
+                        });
     }
 
     @Test
@@ -65,23 +67,42 @@ class GenerationJobRecoveryIntegrationTest extends AbstractIntegrationTest {
         assertThat(result).isEqualTo(GenerationJobStateService.RecoveryOutcome.FAILED);
         assertThat(jobs.findById(job.getId()).orElseThrow().getStatus())
                 .isEqualTo(GenerationJobStatus.FAILED);
-        assertThat(outbox.findAll()).anySatisfy(event -> {
-            assertThat(event.getAggregateId()).isEqualTo(job.getId());
-            assertThat(event.getEventType())
-                    .isEqualTo(DocumentGenerationEventPublisher.FAILED_EVENT_TYPE);
-        });
+        assertThat(outbox.findAll())
+                .anySatisfy(
+                        event -> {
+                            assertThat(event.getAggregateId()).isEqualTo(job.getId());
+                            assertThat(event.getEventType())
+                                    .isEqualTo(DocumentGenerationEventPublisher.FAILED_EVENT_TYPE);
+                        });
     }
 
     private GenerationJob processingJob() {
-        Tenant tenant = tenants.saveAndFlush(
-                new Tenant("generation-recovery-" + UUID.randomUUID(), "Generation Recovery"));
-        DocumentTemplate template = templates.saveAndFlush(
-                new DocumentTemplate(tenant.getId(), "REC_" + UUID.randomUUID(), "Recovery", "INVOICE"));
-        TemplateVersion version = versions.saveAndFlush(
-                new TemplateVersion(template.getId(), 1, "en", "<p>recovery</p>", null));
-        GenerationJob job = jobs.saveAndFlush(new GenerationJob(
-                tenant.getId(), "INVOICE", null, version.getId(), null,
-                json.createObjectNode(), Set.of(OutputFormat.HTML)));
+        Tenant tenant =
+                tenants.saveAndFlush(
+                        new Tenant(
+                                "generation-recovery-" + UUID.randomUUID(),
+                                "Generation Recovery"));
+        DocumentTemplate template =
+                templates.saveAndFlush(
+                        new DocumentTemplate(
+                                tenant.getId(),
+                                "REC_" + UUID.randomUUID(),
+                                "Recovery",
+                                "INVOICE"));
+        TemplateVersion version =
+                versions.saveAndFlush(
+                        new TemplateVersion(
+                                template.getId(), 1, "en", "<p>recovery</p>", null));
+        GenerationJob job =
+                jobs.saveAndFlush(
+                        new GenerationJob(
+                                tenant.getId(),
+                                "INVOICE",
+                                null,
+                                version.getId(),
+                                null,
+                                json.createObjectNode(),
+                                Set.of(OutputFormat.HTML)));
         states.begin(tenant.getId(), job.getId());
         return jobs.findById(job.getId()).orElseThrow();
     }
