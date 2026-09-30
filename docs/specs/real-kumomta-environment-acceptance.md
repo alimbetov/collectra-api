@@ -1,6 +1,9 @@
 # Real KumoMTA Environment and Acceptance
 
-Status: READY AFTER SLICE 10B
+Documentation lifecycle: ACTIVE CONTRACT — external-provider acceptance gate, intentionally outside pre-provider CI qualification.
+Current documentation precedence: [`docs/README.md`](../README.md).
+
+Status: ACTIVE CONTRACT — external environment acceptance pending separate certification
 
 ## 1. Goal
 
