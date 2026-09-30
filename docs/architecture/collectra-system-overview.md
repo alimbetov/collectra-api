@@ -2,7 +2,8 @@
 
 Status: CANONICAL — living architecture document  
 Last reviewed: 2026-09-30  
-Evidence baseline: `fix/pre-channel-release-gate`
+Historical evidence origin: `fix/pre-channel-release-gate`  
+Current evidence reconciliation: `fix/audit-defects-and-release-gate-alignment`
 
 ## 1. Purpose
 
