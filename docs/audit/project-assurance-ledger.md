@@ -32,6 +32,7 @@ Historical specs and READY labels are evidence inputs, not closure evidence.
 | A01-001 | A01 | P1 TBD | Post-freeze frontend gates must be re-verified against current implementation; historical READY labels are insufficient proof of complete user capability. | VERIFYING | capability trace + tests |
 | A01-002 | A01 | P2 TBD | Platform administration is explicitly outside tenant frontend MVP; verify whether current product scope requires platform operational UI before release. | VERIFYING | scope decision + implementation evidence |
 | A01-003 | A01 | P2 TBD | Real provider capability must not be inferred from mock/simulation or pre-provider gates; verify externally usable channel capability separately. | VERIFYING | provider certification/evidence |
+| A01-004 | A01 | P1 | Backend payment/allocation/reversal capability has no complete tenant React workflow: no payment routes/pages and no frontend payment command surface. | OPEN | payment UI + API boundary + tests + A02 P7 journey |
 
 Severity remains TBD until impact is demonstrated. Findings may be CLOSED_AS_DESIGNED if current accepted product scope explicitly excludes them.
 
