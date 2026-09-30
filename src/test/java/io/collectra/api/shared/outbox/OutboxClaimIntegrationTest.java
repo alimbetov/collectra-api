@@ -8,7 +8,7 @@ import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
@@ -55,14 +55,25 @@ class OutboxClaimIntegrationTest extends AbstractIntegrationTest {
                             now));
         }
 
-        CyclicBarrier selected = new CyclicBarrier(2);
+        CountDownLatch firstSelected = new CountDownLatch(1);
+        CountDownLatch releaseFirst = new CountDownLatch(1);
         var pool = Executors.newFixedThreadPool(2);
         try {
-            var first = pool.submit(() -> selectAndHold("worker-a", now, selected));
-            var second = pool.submit(() -> selectAndHold("worker-b", now, selected));
+            var first =
+                    pool.submit(
+                            () ->
+                                    selectAndHold(
+                                            "worker-a",
+                                            now,
+                                            firstSelected,
+                                            releaseFirst));
+            assertThat(firstSelected.await(5, TimeUnit.SECONDS)).isTrue();
 
-            List<UUID> a = first.get(10, TimeUnit.SECONDS);
+            var second = pool.submit(() -> claims.claimBatch("worker-b", now, 2));
             List<UUID> b = second.get(10, TimeUnit.SECONDS);
+
+            releaseFirst.countDown();
+            List<UUID> a = first.get(10, TimeUnit.SECONDS);
 
             assertThat(a).hasSize(2);
             assertThat(b).hasSize(2);
@@ -116,14 +127,21 @@ class OutboxClaimIntegrationTest extends AbstractIntegrationTest {
         assertThat(states.loadForPublish(event.getId(), "worker-replacement")).isPresent();
     }
 
-    private List<UUID> selectAndHold(String worker, Instant now, CyclicBarrier selected) {
+    private List<UUID> selectAndHold(
+            String worker,
+            Instant now,
+            CountDownLatch selected,
+            CountDownLatch release) {
         TransactionTemplate transaction = new TransactionTemplate(transactionManager);
         return transaction.execute(
                 status -> {
                     List<OutboxEvent> batch = events.findReadyForUpdate(now, 2);
+                    assertThat(batch).hasSize(2);
+                    selected.countDown();
                     try {
-                        selected.await(5, TimeUnit.SECONDS);
-                    } catch (Exception ex) {
+                        assertThat(release.await(5, TimeUnit.SECONDS)).isTrue();
+                    } catch (InterruptedException ex) {
+                        Thread.currentThread().interrupt();
                         throw new IllegalStateException(ex);
                     }
                     batch.forEach(event -> event.claim(worker, now));
