@@ -1,5 +1,8 @@
 # R1.1 — Tenant Daily Reporting Projection Layer
 
+Documentation lifecycle: SUPPORTING REFERENCE — reporting projection design and invariants.
+Current documentation precedence: [`docs/README.md`](../README.md).
+
 ## 1. Purpose
 
 The communication reporting API remains the stable contract. Storage strategy is an internal implementation detail.
