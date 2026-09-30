@@ -1,5 +1,7 @@
 # Collectra backend specifications
 
+> **Status note — 2026-09-30:** this directory contains both current implementation contracts and historical slice/FW plans. Historical readiness labels below describe the state at the time those plans were written and are not the authoritative current project status. Use [Collectra System Overview](../architecture/collectra-system-overview.md) for current architecture and [Technical Architecture Audit Ledger](../architecture/technical-audit-ledger.md) for current implementation/production-readiness audit. Detailed historical specs remain valuable for invariants and design rationale unless superseded by a newer canonical contract.
+
 Этот каталог содержит implementation-ready технические задания для backend MVP.
 
 Главный roadmap: [`../roadmap/backend-mvp-roadmap.md`](../roadmap/backend-mvp-roadmap.md).
@@ -43,7 +45,7 @@ Approved public money wire contract:
 Последнее cross-review документации, актуального `main` и полного build log:
 [`review-2026-09-11.md`](review-2026-09-11.md).
 
-## Порядок реализации
+## Historical slice implementation order
 
 | Slice | Спецификация | Статус | Основной результат |
 |---|---|---|---|
@@ -56,7 +58,7 @@ Approved public money wire contract:
 | 8 | [Delivery API and observability](slice-08-delivery-api-observability.md) | READY AFTER 2–7 | support API, metrics, logging and production visibility |
 | 9 | [Frontend API Completion](slice-09-frontend-api-completion.md) | READY FOR IMPLEMENTATION | normalize existing frontend APIs, add Contract/Collection bounded domains and freeze `/api/v1` contract |
 
-## Post-Slice 10A hardening plan
+## Historical Post-Slice 10A hardening plan
 
 Master plan: [Post-Slice 10A Hardening Roadmap](post-slice10a-hardening-roadmap.md).
 
@@ -71,7 +73,7 @@ Master plan: [Post-Slice 10A Hardening Roadmap](post-slice10a-hardening-roadmap.
 
 Frontend work and delivery hardening are intentionally parallel tracks. Frontend implementation MUST NOT wait for RabbitMQ production hardening or real providers unless a concrete screen depends on those providers.
 
-## Dependency chain
+## Historical dependency chain
 
 ```text
 Slice 1 Message persistence                 DONE
