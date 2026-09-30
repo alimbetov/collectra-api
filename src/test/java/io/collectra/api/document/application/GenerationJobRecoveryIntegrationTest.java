@@ -62,8 +62,9 @@ class GenerationJobRecoveryIntegrationTest extends AbstractIntegrationTest {
             job = jobs.findById(job.getId()).orElseThrow();
         }
         ageProcessing(job, 31);
+        UUID jobId = job.getId();
 
-        var result = states.recoverStale(job.getId(), properties);
+        var result = states.recoverStale(jobId, properties);
 
         assertThat(result).isEqualTo(GenerationJobStateService.RecoveryOutcome.FAILED);
         assertThat(jobs.findById(jobId).orElseThrow().getStatus())
@@ -71,7 +72,7 @@ class GenerationJobRecoveryIntegrationTest extends AbstractIntegrationTest {
         assertThat(outbox.findAll())
                 .anySatisfy(
                         event -> {
-                            assertThat(event.getAggregateId()).isEqualTo(job.getId());
+                            assertThat(event.getAggregateId()).isEqualTo(jobId);
                             assertThat(event.getEventType())
                                     .isEqualTo(DocumentGenerationEventPublisher.FAILED_EVENT_TYPE);
                         });
