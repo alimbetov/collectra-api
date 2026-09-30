@@ -60,13 +60,7 @@ class OutboxClaimIntegrationTest extends AbstractIntegrationTest {
         var pool = Executors.newFixedThreadPool(2);
         try {
             var first =
-                    pool.submit(
-                            () ->
-                                    selectAndHold(
-                                            "worker-a",
-                                            now,
-                                            firstSelected,
-                                            releaseFirst));
+                    pool.submit(() -> selectAndHold("worker-a", now, firstSelected, releaseFirst));
             assertThat(firstSelected.await(5, TimeUnit.SECONDS)).isTrue();
 
             var second = pool.submit(() -> claims.claimBatch("worker-b", now, 2));
@@ -128,10 +122,7 @@ class OutboxClaimIntegrationTest extends AbstractIntegrationTest {
     }
 
     private List<UUID> selectAndHold(
-            String worker,
-            Instant now,
-            CountDownLatch selected,
-            CountDownLatch release) {
+            String worker, Instant now, CountDownLatch selected, CountDownLatch release) {
         TransactionTemplate transaction = new TransactionTemplate(transactionManager);
         return transaction.execute(
                 status -> {
