@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useParams } from 'react-router-dom';
+import { Navigate, useParams } from 'react-router-dom';
 import {
   assignMembershipRoles,
   changeMembershipStatus,
@@ -12,6 +12,8 @@ import {
   revokeMembershipSession,
 } from '../../entities/identity/api/tenant-admin.api';
 import { PermissionGuard } from '../../features/auth/ui/PermissionGuard';
+import { ProblemDetailPanel } from '../../shared/errors/ProblemDetailPanel';
+import { classifyResourceError } from '../../shared/errors/resource-error-policy';
 
 export function TenantMembershipPage() {
   const { membershipId = '' } = useParams();
@@ -52,9 +54,17 @@ export function TenantMembershipPage() {
     onSuccess: invalidate,
   });
 
+  const mutationError = assign.error ?? status.error ?? revoke.error ?? revokeAll.error;
+  const readError = memberships.error ?? roles.error ?? assigned.error ?? sessions.error;
+  if (classifyResourceError(readError) === 'forbidden' || classifyResourceError(mutationError) === 'forbidden') {
+    return <Navigate to="/forbidden" replace />;
+  }
+
   const membership = memberships.data?.find((item) => item.id === membershipId);
   if (memberships.isLoading) return <p>Loading membership…</p>;
-  if (!membership) return <p role="alert">Membership not found.</p>;
+  if (classifyResourceError(readError) === 'not-found' || (!memberships.isLoading && memberships.data && !membership)) return <p role="alert">Membership not found.</p>;
+  if (readError) return <ProblemDetailPanel error={readError} onRetry={() => void invalidate()} />;
+  if (!membership) return null;
 
   function submitRoles(event: FormEvent) {
     event.preventDefault();
@@ -65,6 +75,7 @@ export function TenantMembershipPage() {
     <main>
       <h1>{membership.displayName ?? membership.email ?? membership.userId}</h1>
       <p>{membership.email} · {membership.status}</p>
+      {mutationError ? <ProblemDetailPanel error={mutationError} onRetry={() => void invalidate()} /> : null}
 
       <PermissionGuard permission="USER_BLOCK">
         <section>

@@ -3,6 +3,7 @@ import { App } from './App';
 import { RequireAuth } from '../features/auth/ui/RequireAuth';
 import { RequirePlatformAuth } from '../features/auth/ui/RequirePlatformAuth';
 import { RequirePermission } from '../features/auth/ui/RequirePermission';
+import { RequireAnyPermission } from '../features/auth/ui/RequireAnyPermission';
 import { LoginPage } from '../pages/auth/LoginPage';
 import { PlatformLayout } from '../pages/platform/PlatformLayout';
 import { PlatformOverviewPage } from '../pages/platform/PlatformOverviewPage';
@@ -200,7 +201,7 @@ export const router = createBrowserRouter([
       },
       {
         path: 'integrations',
-        element: <IntegrationsPage />,
+        element: <RequireAnyPermission permissions={['INTEGRATION_SOURCE_READ', 'SERVICE_CLIENT_READ', 'SOURCE_SCHEMA_READ', 'MAPPING_PROFILE_READ']}><IntegrationsPage /></RequireAnyPermission>,
       },
       {
         path: 'integrations/source-schemas',
@@ -275,8 +276,8 @@ export const router = createBrowserRouter([
       { path: 'administration/roles/new', element: <RequirePermission permission="ROLE_CREATE"><TenantRolePage /></RequirePermission> },
       { path: 'administration/roles/:roleId', element: <RequirePermission permission="ROLE_UPDATE"><TenantRolePage /></RequirePermission> },
       { path: 'profile', element: <ProfileSecurityPage /> },
-      { path: 'analytics', element: <TenantAnalyticsPage /> },
-      { path: 'operations', element: <OperationsDiagnosticsPage /> },
+      { path: 'analytics', element: <RequireAnyPermission permissions={['RECEIVABLE_READ', 'COLLECTION_READ', 'CAMPAIGN_READ']}><TenantAnalyticsPage /></RequireAnyPermission> },
+      { path: 'operations', element: <RequireAnyPermission permissions={['INTEGRATION_SOURCE_READ', 'CAMPAIGN_READ', 'DOCUMENT_READ']}><OperationsDiagnosticsPage /></RequireAnyPermission> },
       { path: 'forbidden', element: <ForbiddenPage /> },
       { path: '*', element: <NotFoundPage /> },
     ],
