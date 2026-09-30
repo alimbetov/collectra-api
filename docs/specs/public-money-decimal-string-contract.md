@@ -1,6 +1,9 @@
 # Public money Decimal String contract
 
-Status: APPROVED FOR IMPLEMENTATION
+Documentation lifecycle: ACTIVE CONTRACT — implemented public money wire invariant; historical FW prerequisite wording is non-authoritative.
+Current documentation precedence: [`docs/README.md`](../README.md).
+
+Status: ACTIVE CONTRACT — implemented public wire invariant
 
 - Decision scope: public `/api/v1` HTTP contract only
 - Database baseline: PostgreSQL `NUMERIC(19,4)`
