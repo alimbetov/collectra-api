@@ -3,6 +3,7 @@ package io.collectra.api.shared.outbox;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.collectra.api.AbstractIntegrationTest;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
@@ -26,6 +27,8 @@ import org.springframework.transaction.support.TransactionTemplate;
         })
 class OutboxClaimIntegrationTest extends AbstractIntegrationTest {
     @Autowired private OutboxRepository events;
+    @Autowired private OutboxClaimService claims;
+    @Autowired private OutboxStateService states;
     @Autowired private PlatformTransactionManager transactionManager;
 
     @BeforeEach
@@ -74,6 +77,43 @@ class OutboxClaimIntegrationTest extends AbstractIntegrationTest {
         } finally {
             pool.shutdownNow();
         }
+    }
+
+    @Test
+    void staleProcessingIsDurablyRecoveredAndCanBeReclaimedByAnotherWorker() {
+        Instant claimedAt = Instant.parse("2026-09-10T10:00:00Z");
+        OutboxEvent event =
+                events.saveAndFlush(
+                        new OutboxEvent(
+                                null,
+                                "TEST",
+                                UUID.randomUUID(),
+                                "DOCUMENT_GENERATION_REQUESTED",
+                                "{}",
+                                claimedAt));
+
+        assertThat(claims.claimBatch("worker-crashed", claimedAt, 10))
+                .containsExactly(event.getId());
+        assertThat(states.loadForPublish(event.getId(), "worker-crashed")).isPresent();
+
+        Instant recoveryAt = claimedAt.plus(Duration.ofMinutes(3));
+        assertThat(claims.recoverStale(recoveryAt, Duration.ofMinutes(2))).isOne();
+
+        OutboxEvent recovered = events.findById(event.getId()).orElseThrow();
+        assertThat(recovered.getStatus()).isEqualTo(OutboxEventStatus.RETRY_WAIT);
+        assertThat(recovered.getAttemptCount()).isOne();
+        assertThat(recovered.getLockedAt()).isNull();
+        assertThat(recovered.getLockedBy()).isNull();
+        assertThat(recovered.getLastErrorCode()).isEqualTo("PROCESSING_TIMEOUT_RECOVERED");
+        assertThat(states.loadForPublish(event.getId(), "worker-crashed")).isEmpty();
+
+        assertThat(claims.claimBatch("worker-replacement", recoveryAt, 10))
+                .containsExactly(event.getId());
+        OutboxEvent reclaimed = events.findById(event.getId()).orElseThrow();
+        assertThat(reclaimed.getStatus()).isEqualTo(OutboxEventStatus.PROCESSING);
+        assertThat(reclaimed.getAttemptCount()).isEqualTo(2);
+        assertThat(reclaimed.getLockedBy()).isEqualTo("worker-replacement");
+        assertThat(states.loadForPublish(event.getId(), "worker-replacement")).isPresent();
     }
 
     private List<UUID> selectAndHold(String worker, Instant now, CyclicBarrier selected) {
