@@ -28,6 +28,71 @@ A defect is CLOSED only after:
 | PCD-007 | P1 | ingestion recovery -> broker wake-up | recovery committed batch state then published directly to RabbitMQ, leaving a DB/broker crash window | central durable IngestionRequestPublisher; recovery appends outbox request in same DB transaction | IMPLEMENTED / CI PENDING |
 | PCD-008 | P1 | schedulers -> multi-instance runtime | continue scheduler-by-scheduler ownership/claim audit after projection and ingestion findings | campaign/file/projection scheduler verification | AUDIT REQUIRED |
 
+
+## Normative remediation contract
+
+The following rules are normative for every processor, worker, listener, scheduler and projection builder in this branch. Terms such as "retry", "stale", "exactly once" or "recovery" MUST NOT be used without the corresponding owner and durable-state semantics below.
+
+### State ownership
+
+Every durable non-terminal state MUST identify exactly one authoritative aggregate/table and one component allowed to perform each transition. A scheduler discovers candidates; it does not become the state owner merely by selecting them.
+
+### Claim and lease
+
+Any state that means work is exclusively owned (`PROCESSING`, `BUILDING`, equivalent) MUST use one of:
+
+1. a transaction-scoped database lock where the complete work is inside that transaction; or
+2. a durable lease/claim token (`workerId`, `buildId`, attempt id) plus an expiry/stale timestamp.
+
+If ownership can be taken over after timeout, every completion/failure update MUST be fenced by the current claim token. A timestamp-only takeover without fenced finalization is invalid.
+
+### Stale semantics
+
+`stale` means `claim_started_at <= now - configured_timeout` using the injected `Clock`. The timeout is a lease expiry, not an automatic business failure. Recovery MUST lock/revalidate the candidate before changing it because discovery results can be stale.
+
+### Retry semantics
+
+A retry MUST define:
+- which component owns the retry decision;
+- which counter is incremented and at which transition;
+- maximum attempts;
+- next-attempt timestamp/backoff where applicable;
+- whether absolute age also limits retries;
+- the durable wake-up mechanism.
+
+Changing state to retryable without a durable future wake-up is invalid.
+
+### Durable asynchronous handoff
+
+A database transition that requires later broker work MUST append its outbox event in the same database transaction. Direct DB-commit-then-Rabbit publication is not permitted for correctness-critical handoffs, including recovery paths.
+
+At-least-once broker delivery is assumed. Consumers MUST therefore converge under duplicate delivery.
+
+### Exactly-once terminology
+
+"Exactly once" in this project means **exactly one logical durable business effect**, enforced by a database uniqueness/idempotency/state guard. It does not mean RabbitMQ delivers a message physically once.
+
+### External side effects
+
+Before a non-transactional external side effect, the system MUST persist enough attempt identity/state to reconcile an ambiguous outcome. A timeout after an external call MUST NOT cause blind resend when duplicate external execution is unsafe.
+
+### Terminal failure
+
+Retry exhaustion MUST lead to a defined terminal state and, when downstream aggregates are waiting, a durable downstream failure signal. A DEAD outbox event by itself does not satisfy business terminality unless the aggregate contract explicitly declares it terminal.
+
+### Fan-out
+
+When one event updates multiple aggregates in independent transactions, each branch MUST be idempotent and replayable. Partial commit followed by redelivery MUST converge, and any exactly-one downstream intent MUST have a durable guard.
+
+### Multi-instance schedulers
+
+Schedulers MUST be safe when N application instances run the same schedule concurrently. Candidate selection alone is not a claim. Work requires locked/fenced claim or an idempotent state transition whose affected-row count proves ownership.
+
+### Verification
+
+A remediation item is `VERIFIED` only when its focused failure-window/concurrency test and the required repository CI gates pass on the same exact SHA. Source inspection or an older green run is not verification.
+
+
 ## PCD-002 target lifecycle
 
 ```text
