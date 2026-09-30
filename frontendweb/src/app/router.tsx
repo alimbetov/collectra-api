@@ -47,6 +47,9 @@ import { ImportErrorsPage } from '../pages/imports/ImportErrorsPage';
 import { ReceivablesPage } from '../pages/receivables/ReceivablesPage';
 import { InvoiceDetailPage } from '../pages/receivables/InvoiceDetailPage';
 import { InvoiceCreatePage } from '../pages/receivables/InvoiceCreatePage';
+import { PaymentsPage } from '../pages/receivables/PaymentsPage';
+import { PaymentCreatePage } from '../pages/receivables/PaymentCreatePage';
+import { PaymentDetailPage } from '../pages/receivables/PaymentDetailPage';
 import { FilesPage } from '../pages/files/FilesPage';
 import { FileDetailPage } from '../pages/files/FileDetailPage';
 import { FileUploadPage } from '../pages/files/FileUploadPage';
@@ -54,6 +57,12 @@ import { MessagesPage } from '../pages/messages/MessagesPage';
 import { MessageDetailPage } from '../pages/messages/MessageDetailPage';
 import { CollectionsPage } from '../pages/collections/CollectionsPage';
 import { CollectionCasePage } from '../pages/collections/CollectionCasePage';
+import { TenantAdministrationPage } from '../pages/administration/TenantAdministrationPage';
+import { TenantMembershipPage } from '../pages/administration/TenantMembershipPage';
+import { TenantRolePage } from '../pages/administration/TenantRolePage';
+import { ProfileSecurityPage } from '../pages/profile/ProfileSecurityPage';
+import { TenantAnalyticsPage } from '../pages/analytics/TenantAnalyticsPage';
+import { OperationsDiagnosticsPage } from '../pages/operations/OperationsDiagnosticsPage';
 
 export const router = createBrowserRouter([
   {
@@ -102,6 +111,9 @@ export const router = createBrowserRouter([
       { path: 'receivables', element: <RequirePermission permission="RECEIVABLE_READ"><ReceivablesPage /></RequirePermission> },
       { path: 'receivables/invoices/new', element: <RequirePermission permission="RECEIVABLE_MANAGE"><InvoiceCreatePage /></RequirePermission> },
       { path: 'receivables/invoices/:invoiceId', element: <RequirePermission permission="RECEIVABLE_READ"><InvoiceDetailPage /></RequirePermission> },
+      { path: 'receivables/payments', element: <RequirePermission permission="RECEIVABLE_READ"><PaymentsPage /></RequirePermission> },
+      { path: 'receivables/payments/new', element: <RequirePermission permission="RECEIVABLE_MANAGE"><PaymentCreatePage /></RequirePermission> },
+      { path: 'receivables/payments/:paymentId', element: <RequirePermission permission="RECEIVABLE_READ"><PaymentDetailPage /></RequirePermission> },
       { path: 'contracts', element: <RequirePermission permission="CONTRACT_READ"><ContractsPage /></RequirePermission> },
       { path: 'contracts/:contractId', element: <RequirePermission permission="CONTRACT_READ"><ContractDetailPage /></RequirePermission> },
       { path: 'collections', element: <RequirePermission permission="COLLECTION_READ"><CollectionsPage /></RequirePermission> },
@@ -258,6 +270,13 @@ export const router = createBrowserRouter([
         path: 'files/:fileId',
         element: <RequirePermission permission="FILE_READ"><FileDetailPage /></RequirePermission>,
       },
+      { path: 'administration', element: <RequirePermission permission="USER_READ"><TenantAdministrationPage /></RequirePermission> },
+      { path: 'administration/users/:membershipId', element: <RequirePermission permission="USER_READ"><TenantMembershipPage /></RequirePermission> },
+      { path: 'administration/roles/new', element: <RequirePermission permission="ROLE_CREATE"><TenantRolePage /></RequirePermission> },
+      { path: 'administration/roles/:roleId', element: <RequirePermission permission="ROLE_UPDATE"><TenantRolePage /></RequirePermission> },
+      { path: 'profile', element: <ProfileSecurityPage /> },
+      { path: 'analytics', element: <TenantAnalyticsPage /> },
+      { path: 'operations', element: <OperationsDiagnosticsPage /> },
       { path: 'forbidden', element: <ForbiddenPage /> },
       { path: '*', element: <NotFoundPage /> },
     ],

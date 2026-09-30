@@ -18,6 +18,7 @@ import io.collectra.api.communication.domain.MessageDeliveryAttempt;
 import io.collectra.api.communication.domain.MessageStatus;
 import io.collectra.api.communication.infrastructure.MessageAttachmentRepository;
 import io.collectra.api.communication.infrastructure.MessageDeliveryAttemptRepository;
+import io.collectra.api.communication.infrastructure.MessageDocumentLinkRepository;
 import io.collectra.api.communication.infrastructure.MessageRepository;
 import io.collectra.api.communication.observability.DeliveryOutcomeEvent;
 import java.time.Clock;
@@ -43,6 +44,7 @@ class MessageStateServiceTest {
     @Mock MessageRepository messages;
     @Mock MessageAttachmentRepository attachments;
     @Mock MessageDeliveryAttemptRepository deliveryAttempts;
+    @Mock MessageDocumentLinkRepository documentLinks;
     @Mock CampaignRunRepository runs;
     @Mock ApplicationEventPublisher events;
 
@@ -55,6 +57,7 @@ class MessageStateServiceTest {
                         messages,
                         attachments,
                         deliveryAttempts,
+                        documentLinks,
                         runs,
                         new MessageRetryPolicy(),
                         Clock.fixed(NOW, ZoneOffset.UTC),

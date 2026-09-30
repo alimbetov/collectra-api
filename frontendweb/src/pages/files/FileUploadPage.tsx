@@ -3,12 +3,12 @@ import { FormEvent, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { uploadFile } from '../../entities/file/api/file.api';
 import { fileKeys } from '../../entities/file/api/file.queries';
-import type { FileCategory } from '../../entities/file/model/file.types';
+import { FILE_CATEGORIES, type FileCategory } from '../../entities/file/model/file.types';
 import { useAuth } from '../../features/auth/model/auth-context';
 import { ProblemDetailPanel } from '../../shared/errors/ProblemDetailPanel';
 import { Button } from '../../shared/ui';
 
-const categories: FileCategory[] = ['IMPORT_SOURCE', 'TEMPLATE_ASSET', 'ATTACHMENT', 'TEMP'];
+const categories: readonly FileCategory[] = FILE_CATEGORIES;
 
 export function FileUploadPage() {
   const { hasPermission } = useAuth();

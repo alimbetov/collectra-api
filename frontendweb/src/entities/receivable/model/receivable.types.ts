@@ -98,3 +98,72 @@ export interface AllocationDto {
   version: number;
 }
 export type AllocationPageDto = PageDto<AllocationDto>;
+
+
+export interface PaymentItemDto {
+  id: UUID;
+  customerId: UUID;
+  customerDisplayName: string;
+  externalId: string;
+  paymentDate: LocalDate;
+  amount: DecimalString;
+  currency: string;
+  paymentReference?: string | null;
+  source?: string | null;
+}
+
+export interface PaymentPageDto extends PageDto<PaymentItemDto> {}
+
+export interface PaymentListQuery {
+  customerId?: UUID;
+  invoiceId?: UUID;
+  currency?: string;
+  paymentReference?: string;
+  externalId?: string;
+  paymentFrom?: LocalDate;
+  paymentTo?: LocalDate;
+  amountMin?: DecimalString;
+  amountMax?: DecimalString;
+  unallocatedOnly?: boolean;
+  search?: string;
+  page: number;
+  size: number;
+  sort: string;
+}
+
+export interface PaymentDetailDto {
+  id: UUID;
+  customerId: UUID;
+  externalId: string;
+  paymentDate: LocalDate;
+  amount: DecimalString;
+  currency: string;
+  paymentReference?: string | null;
+  source?: string | null;
+  customFields?: unknown | null;
+  createdAt: Instant;
+  updatedAt: Instant;
+  version: number;
+}
+
+export interface PaymentCreateCommand {
+  customerId: UUID;
+  externalId: string;
+  paymentDate: LocalDate;
+  amount: DecimalString;
+  currency: string;
+  paymentReference?: string | null;
+  source?: string | null;
+  customFields?: unknown | null;
+}
+
+export interface AllocationCreateCommand {
+  commandId: UUID;
+  invoiceId: UUID;
+  amount: DecimalString;
+}
+
+export interface AllocationReverseCommand {
+  version: number;
+  reason: string;
+}

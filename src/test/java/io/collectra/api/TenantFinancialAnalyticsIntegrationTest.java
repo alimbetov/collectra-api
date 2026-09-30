@@ -88,11 +88,23 @@ class TenantFinancialAnalyticsIntegrationTest extends AbstractIntegrationTest {
         UUID tenantId = UUID.randomUUID();
         seedTenant(tenantId, "range-" + UUID.randomUUID(), Instant.now());
         seedInvoiceAndPayment(
-                tenantId, "KZT", "100.0000", "10.0000", first.atTime(12, 0).toInstant(ZoneOffset.UTC));
+                tenantId,
+                "KZT",
+                "100.0000",
+                "10.0000",
+                first.atTime(12, 0).toInstant(ZoneOffset.UTC));
         seedInvoiceAndPayment(
-                tenantId, "KZT", "200.0000", "20.0000", second.atTime(12, 0).toInstant(ZoneOffset.UTC));
+                tenantId,
+                "KZT",
+                "200.0000",
+                "20.0000",
+                second.atTime(12, 0).toInstant(ZoneOffset.UTC));
         seedInvoiceAndPayment(
-                tenantId, "KZT", "300.0000", "30.0000", third.atTime(12, 0).toInstant(ZoneOffset.UTC));
+                tenantId,
+                "KZT",
+                "300.0000",
+                "30.0000",
+                third.atTime(12, 0).toInstant(ZoneOffset.UTC));
 
         rebuilds.rebuildTenantDay(tenantId, first);
         rebuilds.rebuildTenantDay(tenantId, third);
@@ -120,6 +132,7 @@ class TenantFinancialAnalyticsIntegrationTest extends AbstractIntegrationTest {
                             values ->
                                     assertThat(
                                                     values.stream()
+                                                            .map(java.math.BigDecimal.class::cast)
                                                             .reduce(
                                                                     java.math.BigDecimal.ZERO,
                                                                     java.math.BigDecimal::add))
@@ -130,6 +143,7 @@ class TenantFinancialAnalyticsIntegrationTest extends AbstractIntegrationTest {
                             values ->
                                     assertThat(
                                                     values.stream()
+                                                            .map(java.math.BigDecimal.class::cast)
                                                             .reduce(
                                                                     java.math.BigDecimal.ZERO,
                                                                     java.math.BigDecimal::add))

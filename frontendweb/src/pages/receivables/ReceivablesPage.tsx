@@ -32,7 +32,7 @@ export function ReceivablesPage() {
   }, [query.data?.totalPages, state.page]);
 
   return <div className="customers-page receivables-page">
-    <header className="customers-page__header"><div><p className="eyebrow">Receivables</p><h1>Задолженности</h1><p>{query.data ? `${query.data.totalElements} счетов · business date ${formatLocalDate(query.data.businessDate, locale)}` : 'Загрузка реестра счетов'}</p></div><PermissionGuard permission="RECEIVABLE_MANAGE"><Link className="ui-button" to="/receivables/invoices/new">Новый счёт</Link></PermissionGuard></header>
+    <header className="customers-page__header"><div><p className="eyebrow">Receivables</p><h1>Задолженности</h1><p>{query.data ? `${query.data.totalElements} счетов · business date ${formatLocalDate(query.data.businessDate, locale)}` : 'Загрузка реестра счетов'}</p></div><div><Link className="ui-button ui-button--secondary" to="/receivables/payments">Платежи</Link> <PermissionGuard permission="RECEIVABLE_MANAGE"><Link className="ui-button" to="/receivables/invoices/new">Новый счёт</Link></PermissionGuard></div></header>
     <section className="customer-filters">
       <div className="customer-filters__quick">
         <FormField label="Поиск"><input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Номер или external ID" /></FormField>

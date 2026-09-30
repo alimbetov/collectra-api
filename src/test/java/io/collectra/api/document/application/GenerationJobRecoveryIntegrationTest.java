@@ -35,8 +35,9 @@ class GenerationJobRecoveryIntegrationTest extends AbstractIntegrationTest {
     void staleProcessingIsRequeuedWithDurableGenerationRequest() {
         GenerationJob job = processingJob();
         ageProcessing(job, 31);
+        UUID jobId = job.getId();
 
-        var result = states.recoverStale(job.getId(), properties);
+        var result = states.recoverStale(jobId, properties);
 
         assertThat(result).isEqualTo(GenerationJobStateService.RecoveryOutcome.REQUEUED);
         GenerationJob recovered = jobs.findById(job.getId()).orElseThrow();
@@ -45,7 +46,7 @@ class GenerationJobRecoveryIntegrationTest extends AbstractIntegrationTest {
         assertThat(outbox.findAll())
                 .anySatisfy(
                         event -> {
-                            assertThat(event.getAggregateId()).isEqualTo(job.getId());
+                            assertThat(event.getAggregateId()).isEqualTo(jobId);
                             assertThat(event.getEventType())
                                     .isEqualTo(DocumentGenerationRequestPublisher.EVENT_TYPE);
                         });
@@ -61,16 +62,17 @@ class GenerationJobRecoveryIntegrationTest extends AbstractIntegrationTest {
             job = jobs.findById(job.getId()).orElseThrow();
         }
         ageProcessing(job, 31);
+        UUID jobId = job.getId();
 
-        var result = states.recoverStale(job.getId(), properties);
+        var result = states.recoverStale(jobId, properties);
 
         assertThat(result).isEqualTo(GenerationJobStateService.RecoveryOutcome.FAILED);
-        assertThat(jobs.findById(job.getId()).orElseThrow().getStatus())
+        assertThat(jobs.findById(jobId).orElseThrow().getStatus())
                 .isEqualTo(GenerationJobStatus.FAILED);
         assertThat(outbox.findAll())
                 .anySatisfy(
                         event -> {
-                            assertThat(event.getAggregateId()).isEqualTo(job.getId());
+                            assertThat(event.getAggregateId()).isEqualTo(jobId);
                             assertThat(event.getEventType())
                                     .isEqualTo(DocumentGenerationEventPublisher.FAILED_EVENT_TYPE);
                         });
@@ -80,19 +82,14 @@ class GenerationJobRecoveryIntegrationTest extends AbstractIntegrationTest {
         Tenant tenant =
                 tenants.saveAndFlush(
                         new Tenant(
-                                "generation-recovery-" + UUID.randomUUID(),
-                                "Generation Recovery"));
+                                "generation-recovery-" + UUID.randomUUID(), "Generation Recovery"));
         DocumentTemplate template =
                 templates.saveAndFlush(
                         new DocumentTemplate(
-                                tenant.getId(),
-                                "REC_" + UUID.randomUUID(),
-                                "Recovery",
-                                "INVOICE"));
+                                tenant.getId(), "REC_" + UUID.randomUUID(), "Recovery", "INVOICE"));
         TemplateVersion version =
                 versions.saveAndFlush(
-                        new TemplateVersion(
-                                template.getId(), 1, "en", "<p>recovery</p>", null));
+                        new TemplateVersion(template.getId(), 1, "en", "<p>recovery</p>", null));
         GenerationJob job =
                 jobs.saveAndFlush(
                         new GenerationJob(

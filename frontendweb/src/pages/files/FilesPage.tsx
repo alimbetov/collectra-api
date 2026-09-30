@@ -1,12 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link, Navigate, useSearchParams } from 'react-router-dom';
 import { fileQueries } from '../../entities/file/api/file.queries';
-import type { FileCategory, FileStatus } from '../../entities/file/model/file.types';
+import { FILE_CATEGORIES, type FileCategory, type FileStatus } from '../../entities/file/model/file.types';
 import { ApiError } from '../../shared/api/http-client';
 import { ProblemDetailPanel } from '../../shared/errors/ProblemDetailPanel';
 import { DataTable, Pagination, Spinner, StatusBadge } from '../../shared/ui';
 
-const categories: FileCategory[] = ['IMPORT_SOURCE', 'GENERATED_DOCUMENT', 'TEMPLATE_ASSET', 'ATTACHMENT', 'TEMP'];
+const categories: readonly FileCategory[] = FILE_CATEGORIES;
 const statuses: FileStatus[] = ['UPLOADING', 'READY', 'FAILED', 'DELETE_PENDING', 'DELETED'];
 
 export function FilesPage() {
