@@ -22,7 +22,7 @@ A defect is CLOSED only after:
 | PCD-001 | P1 | delivery request -> worker claim | worker claim rechecked required attachments but not required document links | symmetric required attachment + document-link readiness gate in `MessageStateService.begin()`; regression test | IMPLEMENTED / CI PENDING |
 | PCD-002 | P0 | generation worker -> downstream message readiness | JVM crash can leave `GenerationJob.PROCESSING` indefinitely; redelivery cannot reclaim it | stale PROCESSING recovery, 30m processing timeout, bounded attempts, 8h absolute job age, durable retry/failure event, crash-window tests | IMPLEMENTED / CI PENDING |
 | PCD-003 | P1 | generation completion -> attachment + document link | sequential independent downstream transactions rely on redelivery to finish partial fan-out | shared completion orchestrator + prove partial-commit redelivery and exactly-one delivery intent | TEST IN PROGRESS |
-| PCD-004 | TBD | receivable reversal -> collection | verify reversal after PAID close cannot leave contradictory financial/workflow state | determine invariant from current domain then fix/test if confirmed | AUDIT REQUIRED |
+| PCD-004 | P0 | receivable reversal -> collection | confirmed: allocation reversal can restore invoice debt while an existing CollectionCase remains CLOSED/PAID | business lifecycle decision required: reopen old case vs create a new collection cycle; until resolved CLOSED/PAID must not be interpreted as current no-debt truth | BLOCKED ON DOMAIN DECISION |
 | PCD-005 | P1 | projection rebuild -> READY/FAILED state | communication projection lacked build ownership fencing; stale worker could finalize after another instance reclaimed BUILDING | add build_id migration and fence READY/FAILED by current build owner; continue late-arrival audit separately | IMPLEMENTED / CI PENDING |
 | PCD-006 | TBD | outbox DEAD -> aggregate workflow | verify DEAD events cannot leave invisible permanently non-terminal business aggregates | operational/state reconciliation audit | AUDIT REQUIRED |
 | PCD-007 | P1 | ingestion recovery -> broker wake-up | recovery committed batch state then published directly to RabbitMQ, leaving a DB/broker crash window | central durable IngestionRequestPublisher; recovery appends outbox request in same DB transaction | IMPLEMENTED / CI PENDING |
@@ -211,3 +211,27 @@ All newly confirmed cross-processor consistency defects are fixed only in `fix/p
 `fix/pre-channel-release-gate` is retained as the audit/gate baseline. At the time of this decision, `fix/project-consistency-defects` is 27 commits ahead and 0 commits behind that branch, with merge-base `bfc93f7ac9b585847bc6b5a11b17bac8011367c1`.
 
 This avoids parallel remediation histories and manual duplication. After the remediation ledger reaches verified status on one exact SHA, the resulting branch is integrated forward as a single coherent change set.
+
+
+## Confirmed domain ambiguity: PCD-004 allocation reversal after PAID closure
+
+Current code permits this sequence:
+
+```text
+Invoice outstanding > 0
+ -> allocate payment
+ -> Invoice PAID / outstanding = 0
+ -> CollectionCase.close(PAID)
+ -> reverseAllocation()
+ -> Invoice outstanding > 0
+ -> CollectionCase remains CLOSED / PAID
+```
+
+The financial source of truth is the Invoice, so the historical close reason cannot be used as current debt truth after reversal.
+
+The technical specification MUST choose one lifecycle rule before automatic remediation:
+
+1. **reopen same case** — reversal transitions the PAID case back to an active state and records a REOPENED_AFTER_REVERSAL event; or
+2. **new collection cycle** — the historical PAID case remains immutable and a new CollectionCase is opened/eligible to open for the restored debt.
+
+Until that decision is made, no processor may suppress eligibility solely because a historical case is CLOSED/PAID. Automatic reopening is intentionally not implemented from inference alone.
