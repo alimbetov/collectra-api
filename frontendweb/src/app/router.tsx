@@ -57,6 +57,9 @@ import { MessagesPage } from '../pages/messages/MessagesPage';
 import { MessageDetailPage } from '../pages/messages/MessageDetailPage';
 import { CollectionsPage } from '../pages/collections/CollectionsPage';
 import { CollectionCasePage } from '../pages/collections/CollectionCasePage';
+import { TenantAdministrationPage } from '../pages/administration/TenantAdministrationPage';
+import { TenantMembershipPage } from '../pages/administration/TenantMembershipPage';
+import { TenantRolePage } from '../pages/administration/TenantRolePage';
 
 export const router = createBrowserRouter([
   {
@@ -264,6 +267,10 @@ export const router = createBrowserRouter([
         path: 'files/:fileId',
         element: <RequirePermission permission="FILE_READ"><FileDetailPage /></RequirePermission>,
       },
+      { path: 'administration', element: <RequirePermission permission="USER_READ"><TenantAdministrationPage /></RequirePermission> },
+      { path: 'administration/users/:membershipId', element: <RequirePermission permission="USER_READ"><TenantMembershipPage /></RequirePermission> },
+      { path: 'administration/roles/new', element: <RequirePermission permission="ROLE_CREATE"><TenantRolePage /></RequirePermission> },
+      { path: 'administration/roles/:roleId', element: <RequirePermission permission="ROLE_UPDATE"><TenantRolePage /></RequirePermission> },
       { path: 'forbidden', element: <ForbiddenPage /> },
       { path: '*', element: <NotFoundPage /> },
     ],
