@@ -133,3 +133,34 @@ However, the tenant React product does not expose the documented P7 workflow. Th
 6. permission-gate read/manage actions;
 7. add API contract, route and page tests;
 8. include P7 in the A02 Golden Journey.
+
+
+## CAP-06..CAP-10 deep pass — evidence update
+
+### CAP-06 Collections — implementation coverage VERIFIED, executable verification pending
+
+Backend and tenant UI both expose the material collection workspace: case list/detail and lifecycle, promises, disputes, actions and authoritative timeline. Mutating lifecycle operations use version-bearing commands where the domain object is versioned, and read/manage permissions are separated. No A01 capability omission was found in this pass. Exact-SHA tests remain required before final VERIFIED closure.
+
+### CAP-07 Campaigns — implementation coverage VERIFIED, executable verification pending
+
+Campaign list/detail/edit, validation, preview, activation, run preparation and run navigation exist in the tenant UI and backend. Run preparation sends an explicit client-generated `X-Command-Id`. Generated PDF attachment configuration is exposed for DRAFT campaigns. No A01 capability omission was found in this pass; delivery/provider truth remains tracked separately by A01-003.
+
+### CAP-08 Templates — implementation coverage VERIFIED, executable verification pending
+
+Template lifecycle, version creation, builder editing, field/asset catalogs, validation, preview, PDF preview and publish/reopen/archive transitions are represented in frontend and backend. The editor handles optimistic revision conflicts explicitly. No A01 capability omission was found in this pass.
+
+### CAP-09 Imports — implementation coverage VERIFIED, executable verification pending
+
+Tenant UI exposes import create/list/detail and masked diagnostics with bounded terminal-aware polling. The create boundary sends an idempotency key. No A01 capability omission was found in this pass.
+
+### CAP-10 Files — PARTIAL / DEFECT A01-005
+
+Backend `FileCategory` accepts exactly `IMPORT_SOURCE | REPORT | EXPORT | ASSET | TEMP`. The general tenant `FileUploadPage` currently offers `IMPORT_SOURCE | TEMPLATE_ASSET | ATTACHMENT | TEMP`.
+
+`TEMPLATE_ASSET` and `ATTACHMENT` therefore cannot bind to the backend enum and fail at the HTTP/controller boundary. This is not a speculative mismatch: the dedicated template asset upload path already uses the canonical backend value `ASSET`.
+
+**Impact:** the general Files UI exposes user-selectable upload operations that are guaranteed to fail. This breaks the product contract and can mislead users into believing attachment/template-asset categories are supported by the registry API under those names.
+
+**Classification:** P1 frontend/API contract defect.
+
+**Required remediation:** make the general upload category options derive from the canonical public API contract. At minimum replace `TEMPLATE_ASSET` with `ASSET` and remove `ATTACHMENT` unless/until a backend category and lifecycle contract exists. Add a frontend contract test that asserts every selectable category is accepted by the backend/OpenAPI enum.
