@@ -4,8 +4,8 @@ Documentation lifecycle: HISTORICAL — retained for traceability; not a current
 Current project status and precedence: [`docs/README.md`](../README.md).
 
 Status: REVIEWED — ALIGNED WITH CURRENT PROJECT ASSURANCE PROCESS
-Branch: `fix/audit-defects-and-release-gate-alignment`
-Baseline: current branch created from `main@5d5bd4bf01b5bb938bff6a79987956abc252b41c`
+Historical branch: `fix/audit-defects-and-release-gate-alignment`
+Historical baseline: branch created from `main@5d5bd4bf01b5bb938bff6a79987956abc252b41c`
 Date: 2026-09-30
 
 ## 1. Objective
