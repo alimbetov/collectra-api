@@ -1,16 +1,20 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useParams } from 'react-router-dom';
+import { Link, Navigate, useParams } from 'react-router-dom';
 import { activateIntegrationSource, archiveIntegrationSource, suspendIntegrationSource } from '../../entities/integration/api/integration.api';
 import { integrationKeys, integrationQueries } from '../../entities/integration/api/integration.queries';
 import { useAuth } from '../../features/auth/model/auth-context';
 import { ProblemDetailPanel } from '../../shared/errors/ProblemDetailPanel';
+import { classifyResourceError } from '../../shared/errors/resource-error-policy';
 import { Spinner, StatusBadge } from '../../shared/ui';
 
 export function IntegrationSourceDetailPage() {
   const id=useParams().sourceId??'', qc=useQueryClient(), {hasPermission}=useAuth();
   const source=useQuery(integrationQueries.source(id)), ready=useQuery(integrationQueries.readiness(id));
   const refresh=async()=>{await qc.invalidateQueries({queryKey:integrationKeys.source(id)});await qc.invalidateQueries({queryKey:integrationKeys.readiness(id)});await qc.invalidateQueries({queryKey:integrationKeys.sources()})};
-  const action=useMutation({mutationFn:(kind:'activate'|'suspend'|'archive')=>{const v=source.data!.version; return kind==='activate'?activateIntegrationSource(id,v):kind==='suspend'?suspendIntegrationSource(id,v):archiveIntegrationSource(id,v)},onSuccess:refresh});
+  const action=useMutation({mutationFn:(kind:'activate'|'suspend'|'archive')=>{const v=source.data!.version; return kind==='activate'?activateIntegrationSource(id,v):kind==='suspend'?suspendIntegrationSource(id,v):archiveIntegrationSource(id,v)},onSuccess:refresh,onError:async(error)=>{if(classifyResourceError(error)==='version-conflict')await source.refetch()}});
+  const sourceDisposition=classifyResourceError(source.error), actionDisposition=classifyResourceError(action.error);
+  if(sourceDisposition==='forbidden'||actionDisposition==='forbidden')return <Navigate to="/forbidden" replace/>;
+  if(sourceDisposition==='not-found')return <div className="integration-page"><h1>Integration Source not found</h1><Link to="/integrations/sources">Назад</Link></div>;
   if(source.isLoading)return <Spinner label="Загружаем Integration Source…" />;
   if(source.error)return <ProblemDetailPanel error={source.error} onRetry={()=>void source.refetch()} />;
   if(!source.data)return null; const s=source.data;
