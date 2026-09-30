@@ -1,7 +1,8 @@
 # Collectra Project Assurance Ledger
 
-Baseline: `main@76e121082d3f339c8440fa2d9f34a092b3048345`
-Audit branch: `audit/a01-a12-project-assurance`
+Historical audit baseline: `main@76e121082d3f339c8440fa2d9f34a092b3048345`
+Current reconciliation baseline: `main@9b3369d52af5bfaf0436019b4b8eb97e51f0b956`
+Audit branches have merged; this ledger is maintained from current `main`.
 
 ## Rule
 
