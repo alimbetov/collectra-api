@@ -1,5 +1,8 @@
 # Collectra MVP Vertical-Slice Closure — Master Execution Spec v3
 
+Documentation lifecycle: HISTORICAL — retained for traceability; not a current execution plan.
+Current project status and precedence: [`docs/README.md`](../README.md).
+
 Status: REVIEWED / EXECUTION MASTER
 Branch: `feat/mvp-vertical-slice-closure`
 Baseline: `2548f0c1ecfc72e8a4f3216785be29b14f32856f`
