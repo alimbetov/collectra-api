@@ -1,6 +1,7 @@
 # A01 — Product Capability Coverage Audit
 
-Baseline SHA: `76e121082d3f339c8440fa2d9f34a092b3048345`
+Historical audit baseline: `76e121082d3f339c8440fa2d9f34a092b3048345`
+Current reconciliation baseline: `main@9b3369d52af5bfaf0436019b4b8eb97e51f0b956`
 Status: IN_PROGRESS
 
 ## Objective
