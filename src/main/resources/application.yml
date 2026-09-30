@@ -48,6 +48,13 @@ collectra:
     lock-timeout: 5s
     statement-timeout: 30s
     tables: []
+  document:
+    generation-recovery:
+      processing-timeout: 30m
+      max-job-age: 8h
+      max-attempts: 3
+      batch-size: 100
+      scan-delay: 1m
   communication:
     document-links:
       public-base-url: ${collectra.api-base-url}

@@ -3,7 +3,7 @@ package io.collectra.api.shared.outbox;
 import io.collectra.api.communication.application.MessageDeliveryRequested;
 import io.collectra.api.communication.infrastructure.messaging.CommunicationMessagingConfig;
 import io.collectra.api.document.application.DocumentGenerationEventPublisher;
-import io.collectra.api.document.application.GenerationJobService;
+import io.collectra.api.document.application.DocumentGenerationRequestPublisher;
 import io.collectra.api.document.infrastructure.DocumentMessagingConfig;
 import org.springframework.stereotype.Component;
 import io.collectra.api.integration.application.IngestionApplicationService;
@@ -11,7 +11,7 @@ import io.collectra.api.integration.application.IngestionApplicationService;
 @Component
 public class OutboxEventRouter {
     public OutboxRoute route(String eventType) {
-        if (GenerationJobService.REQUESTED_EVENT_TYPE.equals(eventType)) {
+        if (DocumentGenerationRequestPublisher.EVENT_TYPE.equals(eventType)) {
             return new OutboxRoute(
                     DocumentMessagingConfig.EXCHANGE, DocumentMessagingConfig.ROUTING_KEY);
         }

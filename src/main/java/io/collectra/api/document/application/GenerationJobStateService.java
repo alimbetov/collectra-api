@@ -16,12 +16,17 @@ import org.springframework.transaction.annotation.Transactional;
 public class GenerationJobStateService {
     private final GenerationJobRepository jobs;
     private final DocumentGenerationEventPublisher events;
+    private final DocumentGenerationRequestPublisher requests;
     private final Clock clock;
 
     public GenerationJobStateService(
-            GenerationJobRepository jobs, DocumentGenerationEventPublisher events, Clock clock) {
+            GenerationJobRepository jobs,
+            DocumentGenerationEventPublisher events,
+            DocumentGenerationRequestPublisher requests,
+            Clock clock) {
         this.jobs = jobs;
         this.events = events;
+        this.requests = requests;
         this.clock = clock;
     }
 
@@ -64,6 +69,34 @@ public class GenerationJobStateService {
     }
 
     @Transactional
+    public RecoveryOutcome recoverStale(UUID jobId, GenerationJobRecoveryProperties properties) {
+        GenerationJob job = jobs.findById(jobId).orElse(null);
+        if (job == null) {
+            return RecoveryOutcome.NOOP;
+        }
+        job = locked(job.getTenantId(), jobId);
+        var now = clock.instant();
+        if (!job.isStaleProcessing(now.minus(properties.getProcessingTimeout()))) {
+            return RecoveryOutcome.NOOP;
+        }
+        if (job.getAttemptCount() >= properties.getMaxAttempts()
+                || job.isOlderThan(now.minus(properties.getMaxJobAge()))) {
+            if (job.fail(
+                    "GENERATION_RECOVERY_EXHAUSTED",
+                    "Generation job exceeded recovery bounds",
+                    now)) {
+                events.failed(job.getTenantId(), job.getId(), "GENERATION_RECOVERY_EXHAUSTED");
+                return RecoveryOutcome.FAILED;
+            }
+            return RecoveryOutcome.NOOP;
+        }
+
+        job.retry("WORKER_RECOVERED", "Recovered stale generation processing");
+        requests.requested(job.getTenantId(), job.getId());
+        return RecoveryOutcome.REQUEUED;
+    }
+
+    @Transactional
     public boolean fail(UUID tenantId, UUID jobId, String code, String message) {
         GenerationJob job = locked(tenantId, jobId);
         if (!job.fail(code, limit(message), clock.instant())) {
@@ -92,6 +125,12 @@ public class GenerationJobStateService {
             return null;
         }
         return message.substring(0, Math.min(message.length(), 1000));
+    }
+
+    public enum RecoveryOutcome {
+        NOOP,
+        REQUEUED,
+        FAILED
     }
 
     public record Snapshot(

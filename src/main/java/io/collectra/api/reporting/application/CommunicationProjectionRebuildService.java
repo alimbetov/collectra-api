@@ -46,13 +46,13 @@ public class CommunicationProjectionRebuildService {
                         .addValue("to", Timestamp.from(to))
                         .addValue("calculatedAt", Timestamp.from(calculatedAt));
 
-        boolean claimed =
+        UUID buildId =
                 stateService.tryMarkBuilding(
                         tenantId,
                         businessDate,
                         calculatedAt,
                         calculatedAt.minus(properties.getBuildingTimeout()));
-        if (!claimed) {
+        if (buildId == null) {
             return RebuildResult.skipped(tenantId, businessDate, calculatedAt);
         }
 
@@ -81,6 +81,7 @@ public class CommunicationProjectionRebuildService {
 
                         MapSqlParameterSource ready =
                                 copy(params)
+                                        .addValue("buildId", buildId)
                                         .addValue(
                                                 "sourceWatermark",
                                                 watermark == null
@@ -89,8 +90,9 @@ public class CommunicationProjectionRebuildService {
                                         .addValue("campaignRows", campaignRows)
                                         .addValue("failureRows", failureRows);
 
-                        jdbc.update(
-                                """
+                        int updated =
+                                jdbc.update(
+                                        """
                                 update communication_reporting_projection_state
                                    set status = 'READY',
                                        revision = revision + 1,
@@ -98,11 +100,21 @@ public class CommunicationProjectionRebuildService {
                                        campaign_rows = :campaignRows,
                                        failure_rows = :failureRows,
                                        calculated_at = :calculatedAt,
-                                       error_message = null
+                                       error_message = null,
+                                       build_id = null
                                  where tenant_id = :tenantId
                                    and business_date = :businessDate
+                                   and status = 'BUILDING'
+                                   and build_id = :buildId
                                 """,
                                 ready);
+                        if (updated != 1) {
+                            throw new IllegalStateException(
+                                    "Communication projection build ownership lost for tenant="
+                                            + tenantId
+                                            + ", day="
+                                            + businessDate);
+                        }
 
                         return new RebuildResult(
                                 tenantId,
@@ -113,7 +125,7 @@ public class CommunicationProjectionRebuildService {
                                 calculatedAt);
                     });
         } catch (RuntimeException ex) {
-            stateService.markFailed(tenantId, businessDate, calculatedAt, ex.getMessage());
+            stateService.markFailed(tenantId, businessDate, buildId, calculatedAt, ex.getMessage());
             throw ex;
         }
     }

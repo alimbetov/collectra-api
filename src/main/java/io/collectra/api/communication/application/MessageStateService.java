@@ -6,9 +6,11 @@ import io.collectra.api.communication.domain.DeliveryAttemptStatus;
 import io.collectra.api.communication.domain.Message;
 import io.collectra.api.communication.domain.MessageAttachmentStatus;
 import io.collectra.api.communication.domain.MessageDeliveryAttempt;
+import io.collectra.api.communication.domain.MessageDocumentLinkStatus;
 import io.collectra.api.communication.domain.MessageStatus;
 import io.collectra.api.communication.infrastructure.MessageAttachmentRepository;
 import io.collectra.api.communication.infrastructure.MessageDeliveryAttemptRepository;
+import io.collectra.api.communication.infrastructure.MessageDocumentLinkRepository;
 import io.collectra.api.communication.infrastructure.MessageRepository;
 import io.collectra.api.communication.observability.DeliveryOutcomeEvent;
 import java.time.Clock;
@@ -29,6 +31,7 @@ public class MessageStateService {
     private final MessageRepository messages;
     private final MessageAttachmentRepository attachments;
     private final MessageDeliveryAttemptRepository deliveryAttempts;
+    private final MessageDocumentLinkRepository documentLinks;
     private final CampaignRunRepository runs;
     private final MessageRetryPolicy retryPolicy;
     private final Clock clock;
@@ -38,6 +41,7 @@ public class MessageStateService {
             MessageRepository messages,
             MessageAttachmentRepository attachments,
             MessageDeliveryAttemptRepository deliveryAttempts,
+            MessageDocumentLinkRepository documentLinks,
             CampaignRunRepository runs,
             MessageRetryPolicy retryPolicy,
             Clock clock,
@@ -45,6 +49,7 @@ public class MessageStateService {
         this.messages = messages;
         this.attachments = attachments;
         this.deliveryAttempts = deliveryAttempts;
+        this.documentLinks = documentLinks;
         this.runs = runs;
         this.retryPolicy = retryPolicy;
         this.clock = clock;
@@ -59,6 +64,10 @@ public class MessageStateService {
         }
         if (attachments.existsRequiredNotReady(
                 tenantId, messageId, MessageAttachmentStatus.READY)) {
+            return Optional.empty();
+        }
+        if (documentLinks.existsRequiredNotReady(
+                tenantId, messageId, MessageDocumentLinkStatus.READY)) {
             return Optional.empty();
         }
         message.beginAttempt(clock.instant());

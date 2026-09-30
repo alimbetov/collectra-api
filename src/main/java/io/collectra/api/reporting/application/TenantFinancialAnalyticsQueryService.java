@@ -1,6 +1,7 @@
 package io.collectra.api.reporting.application;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
@@ -30,10 +31,9 @@ public class TenantFinancialAnalyticsQueryService {
     public Report summary(UUID tenantId, LocalDate from, LocalDate to) {
         Range range = range(from, to);
         Map<String, Mutable> totals = new LinkedHashMap<>();
-        for (LocalDate day = range.from(); !day.isAfter(range.to()); day = day.plusDays(1)) {
-            for (Metric metric : dayMetrics(tenantId, day)) {
-                totals.computeIfAbsent(metric.currency(), Mutable::new).add(metric);
-            }
+        for (DatedMetric dated : rangeMetrics(tenantId, range)) {
+            Metric metric = dated.metric();
+            totals.computeIfAbsent(metric.currency(), Mutable::new).add(metric);
         }
         Map<String, Snapshot> snapshots = currentSnapshot(tenantId);
         snapshots.forEach(
@@ -53,13 +53,12 @@ public class TenantFinancialAnalyticsQueryService {
     public TimeSeries timeseries(UUID tenantId, LocalDate from, LocalDate to, Bucket bucket) {
         Range range = range(from, to);
         Map<BucketKey, Map<String, Mutable>> grouped = new LinkedHashMap<>();
-        for (LocalDate day = range.from(); !day.isAfter(range.to()); day = day.plusDays(1)) {
-            BucketKey key = bucketKey(day, bucket);
+        for (DatedMetric dated : rangeMetrics(tenantId, range)) {
+            BucketKey key = bucketKey(dated.day(), bucket);
             Map<String, Mutable> values =
                     grouped.computeIfAbsent(key, ignored -> new LinkedHashMap<>());
-            for (Metric metric : dayMetrics(tenantId, day)) {
-                values.computeIfAbsent(metric.currency(), Mutable::new).add(metric);
-            }
+            Metric metric = dated.metric();
+            values.computeIfAbsent(metric.currency(), Mutable::new).add(metric);
         }
         List<SeriesPoint> items =
                 grouped.entrySet().stream()
@@ -78,115 +77,178 @@ public class TenantFinancialAnalyticsQueryService {
         return new TimeSeries(clock.instant(), range.from(), range.to(), bucket, items);
     }
 
-    private List<Metric> dayMetrics(UUID tenantId, LocalDate day) {
-        if (day.isBefore(today()) && projectionReady(tenantId, day)) {
-            return projectedDay(tenantId, day);
+    private List<DatedMetric> rangeMetrics(UUID tenantId, Range range) {
+        LocalDate today = today();
+        LocalDate closedTo = range.to().isBefore(today) ? range.to() : today.minusDays(1);
+        List<DatedMetric> result = new java.util.ArrayList<>();
+        result.addAll(projectedRange(tenantId, range.from(), closedTo));
+        result.addAll(rawRange(tenantId, range));
+        return result;
+    }
+
+    private List<DatedMetric> projectedRange(UUID tenantId, LocalDate from, LocalDate to) {
+        if (to.isBefore(from)) {
+            return List.of();
         }
-        return rawDay(tenantId, day);
-    }
-
-    private boolean projectionReady(UUID tenantId, LocalDate day) {
-        Integer count =
-                jdbc.queryForObject(
-                        """
-                select count(*) from tenant_financial_projection_state
-                 where tenant_id=? and business_date=? and status='READY'
-                """,
-                        Integer.class,
-                        tenantId,
-                        day);
-        return count != null && count == 1;
-    }
-
-    private List<Metric> projectedDay(UUID tenantId, LocalDate day) {
         return jdbc.query(
                 """
-                select currency,invoiced_amount,invoice_count,payment_amount,payment_count,
-                       allocated_amount,reversed_allocation_amount,collection_opened_count,
-                       collection_closed_count,collection_resolved_count
-                  from tenant_daily_financial_metrics
-                 where tenant_id=? and business_date=? order by currency
+                select m.business_date,m.currency,m.invoiced_amount,m.invoice_count,
+                       m.payment_amount,m.payment_count,m.allocated_amount,
+                       m.reversed_allocation_amount,m.collection_opened_count,
+                       m.collection_closed_count,m.collection_resolved_count
+                  from tenant_daily_financial_metrics m
+                  join tenant_financial_projection_state s
+                    on s.tenant_id=m.tenant_id and s.business_date=m.business_date
+                   and s.status='READY'
+                 where m.tenant_id=? and m.business_date between ? and ?
+                 order by m.business_date,m.currency
                 """,
                 (rs, n) ->
-                        metric(
-                                rs.getString("currency"),
-                                rs.getBigDecimal("invoiced_amount"),
-                                rs.getLong("invoice_count"),
-                                rs.getBigDecimal("payment_amount"),
-                                rs.getLong("payment_count"),
-                                rs.getBigDecimal("allocated_amount"),
-                                rs.getBigDecimal("reversed_allocation_amount"),
-                                rs.getLong("collection_opened_count"),
-                                rs.getLong("collection_closed_count"),
-                                rs.getLong("collection_resolved_count")),
+                        new DatedMetric(
+                                rs.getObject("business_date", LocalDate.class),
+                                metric(
+                                        rs.getString("currency"),
+                                        rs.getBigDecimal("invoiced_amount"),
+                                        rs.getLong("invoice_count"),
+                                        rs.getBigDecimal("payment_amount"),
+                                        rs.getLong("payment_count"),
+                                        rs.getBigDecimal("allocated_amount"),
+                                        rs.getBigDecimal("reversed_allocation_amount"),
+                                        rs.getLong("collection_opened_count"),
+                                        rs.getLong("collection_closed_count"),
+                                        rs.getLong("collection_resolved_count"))),
                 tenantId,
-                day);
+                from,
+                to);
     }
 
-    private List<Metric> rawDay(UUID tenantId, LocalDate day) {
-        Instant from = day.atStartOfDay(ZoneOffset.UTC).toInstant();
-        Instant to = day.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant();
+    private List<DatedMetric> rawRange(UUID tenantId, Range range) {
+        Instant from = range.from().atStartOfDay(ZoneOffset.UTC).toInstant();
+        Instant to = range.to().plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant();
         Timestamp fromTs = Timestamp.from(from);
         Timestamp toTs = Timestamp.from(to);
         return jdbc.query(
                 """
-                with currencies as (
-                    select currency from invoices where tenant_id=? and invoice_date=?
-                    union select currency from payments where tenant_id=? and payment_date=?
-                    union select p.currency from payment_allocations a join payments p on p.id=a.payment_id
-                     where a.tenant_id=? and ((a.created_at>=? and a.created_at<?) or (a.reversed_at>=? and a.reversed_at<?))
-                    union select i.currency from collection_cases c join invoices i on i.id=c.invoice_id
-                     where c.tenant_id=? and ((c.opened_at>=? and c.opened_at<?) or (c.closed_at>=? and c.closed_at<?))
+                with days as (
+                    select d::date business_date
+                      from generate_series(?::date, ?::date, interval '1 day') d
+                      left join tenant_financial_projection_state s
+                        on s.tenant_id=? and s.business_date=d::date and s.status='READY'
+                     where s.business_date is null
+                ),
+                currencies as (
+                    select i.invoice_date business_date,i.currency from invoices i join days d on d.business_date=i.invoice_date
+                     where i.tenant_id=?
+                    union
+                    select p.payment_date,p.currency from payments p join days d on d.business_date=p.payment_date
+                     where p.tenant_id=?
+                    union
+                    select (a.created_at at time zone 'UTC')::date,p.currency
+                      from payment_allocations a join payments p on p.id=a.payment_id
+                      join days d on d.business_date=(a.created_at at time zone 'UTC')::date
+                     where a.tenant_id=? and a.created_at>=? and a.created_at<?
+                    union
+                    select (a.reversed_at at time zone 'UTC')::date,p.currency
+                      from payment_allocations a join payments p on p.id=a.payment_id
+                      join days d on d.business_date=(a.reversed_at at time zone 'UTC')::date
+                     where a.tenant_id=? and a.reversed_at>=? and a.reversed_at<?
+                    union
+                    select (c.opened_at at time zone 'UTC')::date,i.currency
+                      from collection_cases c join invoices i on i.id=c.invoice_id
+                      join days d on d.business_date=(c.opened_at at time zone 'UTC')::date
+                     where c.tenant_id=? and c.opened_at>=? and c.opened_at<?
+                    union
+                    select (c.closed_at at time zone 'UTC')::date,i.currency
+                      from collection_cases c join invoices i on i.id=c.invoice_id
+                      join days d on d.business_date=(c.closed_at at time zone 'UTC')::date
+                     where c.tenant_id=? and c.closed_at>=? and c.closed_at<?
+                ),
+                inv as (
+                    select i.invoice_date business_date,i.currency,sum(i.original_amount) amount,count(*) cnt
+                      from invoices i join days d on d.business_date=i.invoice_date
+                     where i.tenant_id=? group by i.invoice_date,i.currency
+                ),
+                pay as (
+                    select p.payment_date business_date,p.currency,sum(p.amount) amount,count(*) cnt
+                      from payments p join days d on d.business_date=p.payment_date
+                     where p.tenant_id=? group by p.payment_date,p.currency
+                ),
+                alloc as (
+                    select x.business_date,x.currency,
+                           sum(x.allocated) allocated,sum(x.reversed) reversed
+                      from (
+                        select (a.created_at at time zone 'UTC')::date business_date,p.currency,a.amount allocated,0::numeric reversed
+                          from payment_allocations a join payments p on p.id=a.payment_id
+                          join days d on d.business_date=(a.created_at at time zone 'UTC')::date
+                         where a.tenant_id=? and a.created_at>=? and a.created_at<?
+                        union all
+                        select (a.reversed_at at time zone 'UTC')::date,p.currency,0::numeric,a.amount
+                          from payment_allocations a join payments p on p.id=a.payment_id
+                          join days d on d.business_date=(a.reversed_at at time zone 'UTC')::date
+                         where a.tenant_id=? and a.status='REVERSED' and a.reversed_at>=? and a.reversed_at<?
+                      ) x group by x.business_date,x.currency
+                ),
+                cases as (
+                    select x.business_date,x.currency,
+                           sum(x.opened) opened,sum(x.closed) closed,sum(x.resolved) resolved
+                      from (
+                        select (c.opened_at at time zone 'UTC')::date business_date,i.currency,1 opened,0 closed,0 resolved
+                          from collection_cases c join invoices i on i.id=c.invoice_id
+                          join days d on d.business_date=(c.opened_at at time zone 'UTC')::date
+                         where c.tenant_id=? and c.opened_at>=? and c.opened_at<?
+                        union all
+                        select (c.closed_at at time zone 'UTC')::date business_date,i.currency,0,1,
+                               case when c.close_reason in ('PAID','SETTLED') then 1 else 0 end
+                          from collection_cases c join invoices i on i.id=c.invoice_id
+                          join days d on d.business_date=(c.closed_at at time zone 'UTC')::date
+                         where c.tenant_id=? and c.closed_at>=? and c.closed_at<?
+                      ) x group by x.business_date,x.currency
                 )
-                select c.currency,
-                    coalesce((select sum(i.original_amount) from invoices i where i.tenant_id=? and i.currency=c.currency and i.invoice_date=?),0) invoiced,
-                    (select count(*) from invoices i where i.tenant_id=? and i.currency=c.currency and i.invoice_date=?) invoice_count,
-                    coalesce((select sum(p.amount) from payments p where p.tenant_id=? and p.currency=c.currency and p.payment_date=?),0) payments,
-                    (select count(*) from payments p where p.tenant_id=? and p.currency=c.currency and p.payment_date=?) payment_count,
-                    coalesce((select sum(a.amount) from payment_allocations a join payments p on p.id=a.payment_id where a.tenant_id=? and p.currency=c.currency and a.created_at>=? and a.created_at<?),0) allocated,
-                    coalesce((select sum(a.amount) from payment_allocations a join payments p on p.id=a.payment_id where a.tenant_id=? and p.currency=c.currency and a.status='REVERSED' and a.reversed_at>=? and a.reversed_at<?),0) reversed,
-                    (select count(*) from collection_cases k join invoices i on i.id=k.invoice_id where k.tenant_id=? and i.currency=c.currency and k.opened_at>=? and k.opened_at<?) opened,
-                    (select count(*) from collection_cases k join invoices i on i.id=k.invoice_id where k.tenant_id=? and i.currency=c.currency and k.closed_at>=? and k.closed_at<?) closed,
-                    (select count(*) from collection_cases k join invoices i on i.id=k.invoice_id where k.tenant_id=? and i.currency=c.currency and k.close_reason in ('PAID','SETTLED') and k.closed_at>=? and k.closed_at<?) resolved
-                from currencies c order by c.currency
+                select c.business_date,c.currency,
+                       coalesce(i.amount,0) invoiced,coalesce(i.cnt,0) invoice_count,
+                       coalesce(p.amount,0) payments,coalesce(p.cnt,0) payment_count,
+                       coalesce(a.allocated,0) allocated,coalesce(a.reversed,0) reversed,
+                       coalesce(k.opened,0) opened,coalesce(k.closed,0) closed,coalesce(k.resolved,0) resolved
+                  from currencies c
+                  left join inv i using(business_date,currency)
+                  left join pay p using(business_date,currency)
+                  left join alloc a using(business_date,currency)
+                  left join cases k using(business_date,currency)
+                 order by c.business_date,c.currency
                 """,
                 (rs, n) ->
-                        metric(
-                                rs.getString("currency"),
-                                rs.getBigDecimal("invoiced"),
-                                rs.getLong("invoice_count"),
-                                rs.getBigDecimal("payments"),
-                                rs.getLong("payment_count"),
-                                rs.getBigDecimal("allocated"),
-                                rs.getBigDecimal("reversed"),
-                                rs.getLong("opened"),
-                                rs.getLong("closed"),
-                                rs.getLong("resolved")),
+                        new DatedMetric(
+                                rs.getObject("business_date", LocalDate.class),
+                                metric(
+                                        rs.getString("currency"),
+                                        rs.getBigDecimal("invoiced"),
+                                        rs.getLong("invoice_count"),
+                                        rs.getBigDecimal("payments"),
+                                        rs.getLong("payment_count"),
+                                        rs.getBigDecimal("allocated"),
+                                        rs.getBigDecimal("reversed"),
+                                        rs.getLong("opened"),
+                                        rs.getLong("closed"),
+                                        rs.getLong("resolved"))),
+                range.from(),
+                range.to(),
                 tenantId,
-                day,
                 tenantId,
-                day,
                 tenantId,
-                fromTs,
-                toTs,
-                fromTs,
-                toTs,
                 tenantId,
                 fromTs,
                 toTs,
-                fromTs,
-                toTs,
-                tenantId,
-                day,
-                tenantId,
-                day,
-                tenantId,
-                day,
-                tenantId,
-                day,
                 tenantId,
                 fromTs,
                 toTs,
+                tenantId,
+                fromTs,
+                toTs,
+                tenantId,
+                fromTs,
+                toTs,
+                tenantId,
+                tenantId,
                 tenantId,
                 fromTs,
                 toTs,
@@ -243,16 +305,20 @@ public class TenantFinancialAnalyticsQueryService {
             long resolved) {
         return new Metric(
                 currency,
-                invoiced,
+                money(invoiced),
                 invoices,
-                payments,
+                money(payments),
                 paymentCount,
-                allocated,
-                reversed,
+                money(allocated),
+                money(reversed),
                 opened,
                 closed,
                 resolved,
                 null);
+    }
+
+    private static BigDecimal money(BigDecimal value) {
+        return (value == null ? BigDecimal.ZERO : value).setScale(4, RoundingMode.UNNECESSARY);
     }
 
     private Range range(LocalDate from, LocalDate to) {
@@ -320,6 +386,8 @@ public class TenantFinancialAnalyticsQueryService {
             Snapshot currentSnapshot) {}
 
     private record Range(LocalDate from, LocalDate to) {}
+
+    private record DatedMetric(LocalDate day, Metric metric) {}
 
     private record BucketKey(LocalDate from, LocalDate to) {}
 

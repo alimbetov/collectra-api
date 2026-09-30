@@ -1,5 +1,21 @@
 # collectra-api
 
+Collectra is a configurable multi-tenant receivables, collections and communication automation platform implemented as a Java 17 / Spring Boot modular monolith with a React/TypeScript browser client.
+
+Core flow:
+
+```text
+Integration Source -> Schema/Mapping -> Customer/Invoice/Payment
+ -> Collection -> Campaign/Eligibility -> Template/Document
+ -> Message -> Outbox -> RabbitMQ -> Delivery Worker -> external provider
+```
+
+Configuration studios let a tenant define source schemas/mappings and versioned communication templates without hard-coding each onboarding flow.
+
+Current architecture: [Collectra System Overview](docs/architecture/collectra-system-overview.md).  
+Current technical/production audit: [Technical Architecture Audit Ledger](docs/architecture/technical-audit-ledger.md).  
+Current pre-provider release evidence: [Pre-Channel Release Gate](docs/qa/pre-channel-release-gate.md).
+
 Модульный монолит Collectra на Java 17 и Spring Boot.
 
 ## Локальный запуск

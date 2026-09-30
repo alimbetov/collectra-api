@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.collectra.api.campaign.application.CampaignMessageMaterializer;
 import io.collectra.api.campaign.application.CampaignSelection;
 import io.collectra.api.campaign.application.CampaignService;
+import io.collectra.api.campaign.infrastructure.CampaignRecipientRepository;
 import io.collectra.api.collection.application.CollectionService;
 import io.collectra.api.collection.domain.CollectionPriority;
 import io.collectra.api.communication.domain.CommunicationChannel;
@@ -49,6 +50,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
@@ -103,10 +105,12 @@ class RabbitMqMessageDeliverySmokeIntegrationTest extends AbstractIntegrationTes
     @Autowired TemplateVersionRepository versions;
     @Autowired CampaignService campaigns;
     @Autowired CampaignMessageMaterializer materializer;
+    @Autowired CampaignRecipientRepository campaignRecipients;
     @Autowired MessageRepository messages;
     @Autowired OutboxPublisher outbox;
     @Autowired ObjectMapper json;
     @Autowired MockMvc mockMvc;
+    @Autowired JdbcTemplate jdbc;
 
     @Test
     void outboxTraversesRealRabbitTopologyIntoDeliveryWorker() throws Exception {
@@ -224,6 +228,8 @@ class RabbitMqMessageDeliverySmokeIntegrationTest extends AbstractIntegrationTes
         assertThat(customerReplay.replayed()).isTrue();
 
         var customer = customers.findByExternalId(tenant.getId(), customerExternalId).orElseThrow();
+        assertThat(customer.getTenantId()).isEqualTo(tenant.getId());
+        assertThat(customer.getExternalId()).isEqualTo(customerExternalId);
         customers.addEmail(
                 tenant.getId(), customer.getId(), "rabbit-smoke@example.test", "WORK", true);
 
@@ -248,6 +254,10 @@ class RabbitMqMessageDeliverySmokeIntegrationTest extends AbstractIntegrationTes
                 receivables
                         .findInvoiceByExternalId(tenant.getId(), invoiceExternalId)
                         .orElseThrow();
+        assertThat(invoice.getTenantId()).isEqualTo(tenant.getId());
+        assertThat(invoice.getCustomerId()).isEqualTo(customer.getId());
+        assertThat(invoice.getExternalId()).isEqualTo(invoiceExternalId);
+        assertThat(invoice.getOutstandingAmount()).isEqualByComparingTo("1000.0000");
 
         byte[] paymentBody =
                 ("Payment;Customer;PaymentDate;Amount;Currency;Reference;Source\n"
@@ -268,6 +278,10 @@ class RabbitMqMessageDeliverySmokeIntegrationTest extends AbstractIntegrationTes
                 receivables
                         .findPaymentByExternalId(tenant.getId(), paymentExternalId)
                         .orElseThrow();
+        assertThat(payment.getTenantId()).isEqualTo(tenant.getId());
+        assertThat(payment.getCustomerId()).isEqualTo(customer.getId());
+        assertThat(payment.getExternalId()).isEqualTo(paymentExternalId);
+        assertThat(payment.getAmount()).isEqualByComparingTo("100.0000");
         UUID allocationCommand = UUID.randomUUID();
         var allocation =
                 receivables.allocate(
@@ -346,7 +360,8 @@ class RabbitMqMessageDeliverySmokeIntegrationTest extends AbstractIntegrationTes
                         version.getId(),
                         CommunicationChannel.EMAIL.name(),
                         null,
-                        CampaignSelection.customer(Set.of(customer.getId()), Set.of()),
+                        new CampaignSelection(
+                                Set.of(customer.getId()), Set.of(), 1, 60, null, null),
                         null);
         campaigns.activate(tenant.getId(), campaign.getId());
         var prepared = campaigns.prepare(tenant.getId(), campaign.getId());
@@ -356,13 +371,24 @@ class RabbitMqMessageDeliverySmokeIntegrationTest extends AbstractIntegrationTes
                                 .queued())
                 .isEqualTo(1);
 
+        var recipients =
+                campaignRecipients.findAllByTenantIdAndRunIdOrderByCreatedAtAsc(
+                        tenant.getId(), prepared.runId());
+        assertThat(recipients).hasSize(1);
+        assertThat(recipients.get(0).getCustomerId()).isEqualTo(customer.getId());
+        assertThat(recipients.get(0).getInvoiceId()).isEqualTo(invoice.getId());
+        assertThat(recipients.get(0).getDestination()).isEqualTo("rabbit-smoke@example.test");
+
         Message queued =
                 messages.findAllByTenantIdAndCampaignRunId(
                                 tenant.getId(), prepared.runId(), PageRequest.of(0, 10))
                         .getContent()
                         .get(0);
         assertThat(queued.getStatus()).isEqualTo(MessageStatus.QUEUED);
+        assertThat(queued.getTenantId()).isEqualTo(tenant.getId());
+        assertThat(queued.getCustomerId()).isEqualTo(customer.getId());
         assertThat(queued.getDeliveryRequestedAt()).isNotNull();
+        assertThat(deliveryRequestCount(tenant.getId(), queued.getId())).isOne();
 
         outbox.publishPending();
 
@@ -376,7 +402,25 @@ class RabbitMqMessageDeliverySmokeIntegrationTest extends AbstractIntegrationTes
                             assertThat(delivered.getStatus()).isEqualTo(MessageStatus.SENT);
                             assertThat(delivered.getProviderMessageId())
                                     .isEqualTo("simulated:email:" + messageId);
+                            assertThat(deliveryRequestCount(tenant.getId(), messageId)).isOne();
                         });
+    }
+
+    private long deliveryRequestCount(UUID tenantId, UUID messageId) {
+        Long count =
+                jdbc.queryForObject(
+                        """
+                        select count(*)
+                        from outbox_events
+                        where tenant_id = ?
+                          and aggregate_type = 'MESSAGE'
+                          and aggregate_id = ?
+                          and event_type = 'MESSAGE_DELIVERY_REQUESTED'
+                        """,
+                        Long.class,
+                        tenantId,
+                        messageId);
+        return count == null ? 0 : count;
     }
 
     private IngestionApplicationService.Reservation ingestAndAwait(

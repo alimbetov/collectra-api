@@ -2,7 +2,6 @@ package io.collectra.api.integration.application;
 
 import io.collectra.api.integration.domain.IngestionBatch;
 import io.collectra.api.integration.infrastructure.IngestionBatchRepository;
-import io.collectra.api.shared.outbox.OutboxService;
 import java.time.Clock;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -11,11 +10,11 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class IngestionReservationWriter {
     private final IngestionBatchRepository batches;
-    private final OutboxService outbox;
+    private final IngestionRequestPublisher requests;
     private final Clock clock;
 
-    public IngestionReservationWriter(IngestionBatchRepository batches, OutboxService outbox, Clock clock) {
-        this.batches = batches; this.outbox = outbox; this.clock = clock;
+    public IngestionReservationWriter(IngestionBatchRepository batches, IngestionRequestPublisher requests, Clock clock) {
+        this.batches = batches; this.requests = requests; this.clock = clock;
     }
 
     @Transactional
@@ -26,8 +25,7 @@ public class IngestionReservationWriter {
                 hash, requestId, fileId, schemaVersionId, mappingVersionId, contentType,
                 clock.instant(), contextJson);
         batches.saveAndFlush(batch);
-        outbox.append(tenantId, "INGESTION", id, IngestionApplicationService.EVENT_TYPE,
-                "{\"tenantId\":\"" + tenantId + "\",\"ingestionId\":\"" + id + "\"}");
+        requests.requested(tenantId, id);
         return batch;
     }
 }

@@ -98,3 +98,5 @@ databaseChangeLog:
       file: db/changelog/changes/051-business-core-permissions.sql
   - include:
       file: db/changelog/changes/052-vc9-tenant-financial-projections.sql
+  - include:
+      file: db/changelog/changes/053-communication-projection-build-fencing.sql

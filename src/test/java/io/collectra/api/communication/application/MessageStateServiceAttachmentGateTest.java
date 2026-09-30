@@ -10,9 +10,11 @@ import io.collectra.api.campaign.infrastructure.CampaignRunRepository;
 import io.collectra.api.communication.domain.CommunicationChannel;
 import io.collectra.api.communication.domain.Message;
 import io.collectra.api.communication.domain.MessageAttachmentStatus;
+import io.collectra.api.communication.domain.MessageDocumentLinkStatus;
 import io.collectra.api.communication.domain.MessageStatus;
 import io.collectra.api.communication.infrastructure.MessageAttachmentRepository;
 import io.collectra.api.communication.infrastructure.MessageDeliveryAttemptRepository;
+import io.collectra.api.communication.infrastructure.MessageDocumentLinkRepository;
 import io.collectra.api.communication.infrastructure.MessageRepository;
 import java.time.Clock;
 import java.time.Instant;
@@ -29,6 +31,8 @@ class MessageStateServiceAttachmentGateTest {
     private final MessageAttachmentRepository attachments = mock(MessageAttachmentRepository.class);
     private final MessageDeliveryAttemptRepository deliveryAttempts =
             mock(MessageDeliveryAttemptRepository.class);
+    private final MessageDocumentLinkRepository documentLinks =
+            mock(MessageDocumentLinkRepository.class);
     private final CampaignRunRepository runs = mock(CampaignRunRepository.class);
     private final MessageRetryPolicy retryPolicy = new MessageRetryPolicy();
     private final ApplicationEventPublisher events = mock(ApplicationEventPublisher.class);
@@ -37,6 +41,7 @@ class MessageStateServiceAttachmentGateTest {
                     messages,
                     attachments,
                     deliveryAttempts,
+                    documentLinks,
                     runs,
                     retryPolicy,
                     Clock.fixed(NOW, ZoneOffset.UTC),
@@ -55,6 +60,24 @@ class MessageStateServiceAttachmentGateTest {
 
         assertThat(message.getStatus()).isEqualTo(MessageStatus.QUEUED);
         assertThat(message.getAttemptCount()).isZero();
+        assertThat(message.getProcessingAttemptCount()).isZero();
+    }
+
+    @Test
+    void requiredPendingDocumentLinkBlocksQueuedToProcessing() {
+        Message message = queued();
+        when(messages.findLockedByIdAndTenantId(message.getTenantId(), message.getId()))
+                .thenReturn(Optional.of(message));
+        when(attachments.existsRequiredNotReady(
+                        message.getTenantId(), message.getId(), MessageAttachmentStatus.READY))
+                .thenReturn(false);
+        when(documentLinks.existsRequiredNotReady(
+                        message.getTenantId(), message.getId(), MessageDocumentLinkStatus.READY))
+                .thenReturn(true);
+
+        assertThat(service.begin(message.getTenantId(), message.getId())).isEmpty();
+
+        assertThat(message.getStatus()).isEqualTo(MessageStatus.QUEUED);
         assertThat(message.getProcessingAttemptCount()).isZero();
     }
 

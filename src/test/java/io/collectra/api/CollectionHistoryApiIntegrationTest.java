@@ -20,6 +20,58 @@ class CollectionHistoryApiIntegrationTest extends AbstractIntegrationTest {
     @Autowired ObjectMapper json;
 
     @Test
+    void promiseLifecycleCommandsReachTerminalStatesAndRejectReplay() throws Exception {
+        String token = register("collection-promise-lifecycle");
+        JsonNode customer = createCustomer(token);
+        JsonNode invoice = createInvoice(token, customer.get("id").asText());
+        JsonNode collectionCase =
+                createCase(token, customer.get("id").asText(), invoice.get("id").asText());
+        String caseId = collectionCase.get("id").asText();
+
+        for (String command : new String[] {"fulfill", "break", "cancel"}) {
+            JsonNode promise = createPromiseResponse(token, caseId, "100.0000");
+            String promiseId = promise.get("id").asText();
+            long version = promise.get("version").asLong();
+
+            String expectedStatus =
+                    switch (command) {
+                        case "fulfill" -> "FULFILLED";
+                        case "break" -> "BROKEN";
+                        default -> "CANCELLED";
+                    };
+            read(
+                    post(
+                                    "/api/v1/collection-cases/{caseId}/promises/{promiseId}/"
+                                            + command,
+                                    caseId,
+                                    promiseId)
+                            .header("Authorization", bearer(token))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"version\":" + version + "}"),
+                    200);
+
+            mockMvc.perform(
+                            get("/api/v1/collection-cases/{id}/promises", caseId)
+                                    .header("Authorization", bearer(token)))
+                    .andExpect(status().isOk())
+                    .andExpect(
+                            jsonPath("$.items[?(@.id == '" + promiseId + "')].status")
+                                    .value(expectedStatus));
+
+            mockMvc.perform(
+                            post(
+                                            "/api/v1/collection-cases/{caseId}/promises/{promiseId}/"
+                                                    + command,
+                                            caseId,
+                                            promiseId)
+                                    .header("Authorization", bearer(token))
+                                    .contentType(MediaType.APPLICATION_JSON)
+                                    .content("{\"version\":" + (version + 1) + "}"))
+                    .andExpect(status().isConflict());
+        }
+    }
+
+    @Test
     void childHistoriesArePagedBoundedAndTenantScoped() throws Exception {
         String token = register("collection-history");
         String foreignToken = register("collection-history-foreign");
@@ -87,7 +139,12 @@ class CollectionHistoryApiIntegrationTest extends AbstractIntegrationTest {
     }
 
     private void createPromise(String token, String caseId, String amount) throws Exception {
-        read(
+        createPromiseResponse(token, caseId, amount);
+    }
+
+    private JsonNode createPromiseResponse(String token, String caseId, String amount)
+            throws Exception {
+        return read(
                 post("/api/v1/collection-cases/{id}/promises", caseId)
                         .header("Authorization", bearer(token))
                         .contentType(MediaType.APPLICATION_JSON)

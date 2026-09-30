@@ -21,7 +21,6 @@ import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.EnumSet;
-import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
@@ -119,13 +118,21 @@ public class CollectionService {
         } catch (IllegalStateException ex) {
             throw invalidTransition(ex);
         }
-        event(value, "CASE_UPDATED", "COLLECTION_CASE", value.getId(), actor, null, Instant.now(clock));
+        event(
+                value,
+                "CASE_UPDATED",
+                "COLLECTION_CASE",
+                value.getId(),
+                actor,
+                null,
+                Instant.now(clock));
         return value;
     }
 
     @Transactional
     public CollectionCase start(UUID tenantId, UUID caseId, long version, String actor) {
-        return transitionCase(tenantId, caseId, version, actor, "CASE_STARTED", CollectionCase::start);
+        return transitionCase(
+                tenantId, caseId, version, actor, "CASE_STARTED", CollectionCase::start);
     }
 
     @Transactional
@@ -135,13 +142,18 @@ public class CollectionService {
 
     @Transactional
     public CollectionCase close(
-            UUID tenantId,
-            UUID caseId,
-            long version,
-            CollectionCloseReason reason,
-            String actor) {
+            UUID tenantId, UUID caseId, long version, CollectionCloseReason reason, String actor) {
         CollectionCase value = getCase(tenantId, caseId);
         requireVersion(value.getVersion(), version, "Collection case");
+        if (reason == CollectionCloseReason.PAID) {
+            Invoice invoice = receivables.invoice(tenantId, value.getInvoiceId());
+            if (invoice.getPaymentStatus() != PaymentStatus.PAID
+                    || invoice.getOutstandingAmount().signum() != 0) {
+                throw new BusinessConflictException(
+                        "INVALID_STATE_TRANSITION",
+                        "Collection case cannot be closed as PAID while invoice has outstanding debt");
+            }
+        }
         Instant now = Instant.now(clock);
         try {
             value.close(reason, now);
@@ -167,7 +179,8 @@ public class CollectionService {
                     "CURRENCY_MISMATCH", "Promise currency must match invoice currency");
         }
         if (amount == null || amount.signum() <= 0) {
-            throw new BusinessConflictException("INVALID_REQUEST", "Promise amount must be positive");
+            throw new BusinessConflictException(
+                    "INVALID_REQUEST", "Promise amount must be positive");
         }
         if (amount.compareTo(invoice.getOutstandingAmount()) > 0) {
             throw new BusinessConflictException(
@@ -204,7 +217,7 @@ public class CollectionService {
                 version,
                 actor,
                 "PROMISE_FULFILLED",
-                PromiseToPay::fulfill);
+                (promise, at) -> promise.fulfill(at));
     }
 
     @Transactional
@@ -217,7 +230,7 @@ public class CollectionService {
                 version,
                 actor,
                 "PROMISE_BROKEN",
-                PromiseToPay::breakPromise);
+                (promise, at) -> promise.breakPromise(at));
     }
 
     @Transactional
@@ -230,7 +243,7 @@ public class CollectionService {
                 version,
                 actor,
                 "PROMISE_CANCELLED",
-                PromiseToPay::cancel);
+                (promise, at) -> promise.cancel(at));
     }
 
     @Transactional
@@ -392,17 +405,6 @@ public class CollectionService {
         }
         event(value, eventType, "COLLECTION_CASE", value.getId(), actor, null, Instant.now(clock));
         return value;
-    }
-
-    private PromiseToPay transitionPromise(
-            UUID tenantId,
-            UUID caseId,
-            UUID promiseId,
-            long version,
-            String actor,
-            String eventType,
-            java.util.function.Consumer<Instant> ignored) {
-        throw new UnsupportedOperationException();
     }
 
     private PromiseToPay transitionPromise(
