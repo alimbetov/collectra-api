@@ -1,7 +1,10 @@
 # Full-Stack Consistency Contract
 
-Status: NORMATIVE
-Scope: pre-VC9 functional hardening
+Documentation lifecycle: SUPPORTING REFERENCE — business/process invariants retained; PRE-VC9 execution sequencing is historical.
+Current documentation precedence: [`docs/README.md`](../README.md).
+
+Status: SUPPORTING REFERENCE
+Historical scope: pre-VC9 functional hardening
 
 ## Single execution model
 codex-pre-vc9-completion-contract.md Phase A through G is the only execution sequence. Other documents provide requirements/evidence, not alternative schedules.
