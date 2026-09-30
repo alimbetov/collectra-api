@@ -201,3 +201,64 @@ The human import path and diagnostics were verified in CAP-09. The machine inges
 Tenant UI exposes service-client list/create/detail, allowed scopes, one-time secret presentation, staged secret rotation/activation and block/unblock. Backend enforces separate create/read/rotate/block permissions. Integration Source UI exposes readiness checks and prevents UI activation until readiness is true; lifecycle commands carry source version. Integration Setup Center provides navigable entry points for clients, sources, schemas and mappings.
 
 No manual SQL/curl dependency was found for the configuration lifecycle itself. Exact-SHA tests and A07 tenant/security review remain required.
+
+
+## CAP-16..CAP-20 deep pass — evidence update
+
+### CAP-16 Dashboard operational projections — implementation coverage VERIFIED, executable verification pending
+
+Tenant dashboard has a real UI and backend endpoints for summary, receivables, delivery and collections. Financial values cross the public boundary through `DecimalString`. The page independently handles the four query surfaces, refresh and forbidden behavior. No A01 capability omission was found.
+
+### CAP-17 Tenant analytics/reporting — PARTIAL / DEFECT A01-008
+
+Backend reporting is substantially implemented: tenant financial summary/timeseries and communication summary/timeseries/channels/users/campaigns/failures/lifecycle/audience/attempts/attachments/operations/documents exist, backed by financial and communication projection/rebuild/state/scheduler services.
+
+The tenant frontend has no analytics/reporting page directory or router entry. The only analytics route in the current router is the platform placeholder.
+
+**Impact:** tenant users cannot consume the implemented tenant-scoped analytics/reporting product through the UI. This breaks the intended VC-9 tenant-reporting outcome even though the backend projection layer exists.
+
+**Classification:** P1 product capability gap.
+
+**Required remediation:** implement tenant Analytics routes/pages for financial and communication reporting, date/bucket/filter controls, projection/as-of visibility where applicable, deep links to campaign/run/user context, permission gates and API/page tests.
+
+### CAP-18 Platform administration — PARTIAL but product surface exists; scope decision required
+
+Contrary to the older tenant-MVP exclusion note, the current product now contains a distinct protected `/platform` route tree and pages for overview, tenants, tenant detail, users, user detail and platform administrators. Backend platform overview/tenant/user services also exist.
+
+The platform `/platform/analytics` route is explicitly a placeholder. This does not invalidate tenant MVP capability, but it means platform administration is not fully complete if platform analytics is part of the release scope. A01-002 remains a scope-verification finding rather than being promoted to a P1 defect in this pass.
+
+### CAP-19 External provider delivery — PARTIAL / certification evidence required
+
+A real KumoMTA EMAIL adapter exists and is selected explicitly with `collectra.communication.delivery.provider=kumomta`; simulation is a separate provider selected with `provider=simulated`. The KumoMTA gateway validates email commands/attachments, submits an inject request and distinguishes accepted, permanent/retryable rejection and ambiguous timeout outcomes.
+
+Repository implementation therefore proves that real-provider code exists; it does **not** prove live provider certification, network/TLS/credential correctness or production delivery. A01-003 remains VERIFYING until a controlled live-provider acceptance gate supplies evidence. No claim of production-certified delivery is made.
+
+### CAP-20 Operational recovery/diagnostics — PARTIAL / DEFECT A01-009
+
+Recovery and observability mechanisms exist in backend code: stale message PROCESSING recovery, due-retry dispatch, delivery stuck/retry/queue-age gauges, dead-letter depth/arrival metrics, ingestion recovery, generation-job recovery and projection rebuild/state machinery. Human ingestion diagnostics and message-level delivery errors are visible in existing tenant UI surfaces.
+
+However, no consolidated authorized operational/recovery surface exists in the tenant frontend for ingestion batches, stuck/recovered delivery, DLQ health, generation recovery or projection health. `IngestionOperationsController` provides a human-readable operational API, but no matching frontend page/route was found.
+
+**Impact:** operators must rely on metrics/API/manual tooling for several asynchronous recovery states. For a self-service product this leaves recovery visibility fragmented and prevents CAP-20 from being considered complete.
+
+**Classification:** P2 operational product gap (not P1 because automatic recovery mechanisms exist and core tenant workflows are not necessarily blocked).
+
+**Required remediation:** add an authorized Operations/Diagnostics surface that aggregates ingestion batch diagnostics and safe async health/recovery state; provide deep links to existing message/import/document entities; never expose raw secrets/payloads; define which metrics remain infrastructure-only.
+
+## A01 discovery summary
+
+The first full capability discovery pass over CAP-01..CAP-20 is complete. Final closure still requires remediation and executable exact-SHA verification.
+
+Confirmed remediation defects:
+- A01-004 P1 — missing tenant Payments/Allocation/Reversal UI;
+- A01-005 P1 — invalid general Files upload categories;
+- A01-006 P1 — missing tenant RBAC administration UI;
+- A01-007 P1 — missing Profile/Security/Sessions UI;
+- A01-008 P1 — missing tenant Analytics/Reporting UI;
+- A01-009 P2 — fragmented operational/recovery visibility.
+
+Scope/certification findings still requiring an explicit decision/evidence:
+- A01-002 — platform administration release scope, especially platform analytics placeholder;
+- A01-003 — real KumoMTA live-provider certification.
+
+A01 must remain IN_PROGRESS until P1 defects are remediated and exact-SHA verification gates are green.
