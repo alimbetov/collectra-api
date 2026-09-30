@@ -3,7 +3,7 @@
 Status: ACTIVE — FAIL-CLOSED
 Historical baseline: `main@ec6d1ac2b9ac9035ded57de3c3825c011e946d2c`
 Current reconciliation baseline: `main@9b3369d52af5bfaf0436019b4b8eb97e51f0b956`
-Active qualification evidence: main CI run #2801 (`36713091538`) is in progress; no PC row is promoted to `VERIFIED` until that exact-SHA run is terminal green.
+Exact-SHA qualification evidence: `main@9b3369d52af5bfaf0436019b4b8eb97e51f0b956`, CI #2801 / run `36713091538` — SUCCESS for both `verify` and `frontend` jobs.
 
 ## 1. Purpose
 
@@ -40,26 +40,26 @@ The release gate stops before a live provider. Deterministic simulated adapters 
 
 | ID | Required invariant | Primary executable evidence | State |
 |---|---|---|---|
-| PC-01 | Supported ingestion persists canonical business records; replay is idempotent | `ProductionIngestionAcceptanceTest`, `BusinessRecordPersistenceIntegrationTest` | TESTED |
-| PC-02 | Customer, invoice, payment and allocation remain money/currency/tenant consistent | `RabbitMqMessageDeliverySmokeIntegrationTest`, receivable integration tests | TESTED |
-| PC-03 | Collection lifecycle is coherent with receivable state | `CollectionLifecycleApiIntegrationTest`, `CollectionHistoryApiIntegrationTest` | TESTED |
-| PC-04 | Only valid published template snapshots participate in a run | `CampaignMessageMaterializationIntegrationTest`, template contract tests | TESTED |
-| PC-05 | Campaign activation/preparation validates configuration and audience | `CampaignContractClosureIntegrationTest`, `CampaignStabilizationIntegrationTest` | TESTED |
-| PC-06 | Campaign recipient/audience snapshot is deterministic and tenant-scoped | `GenericCustomerCampaignAudienceIntegrationTest` | TESTED |
-| PC-07 | Eligibility is rechecked against current customer/contact/receivable state | campaign stabilization/materialization tests; strengthen negative golden journey | TESTED |
-| PC-08 | Message materialization snapshots destination, locale, template and rendered content | `CampaignMessageMaterializationIntegrationTest` | TESTED |
-| PC-09 | Required generated attachment/link blocks delivery until durable READY; terminal required failure blocks delivery | attachment/link integration and state-gate tests | TESTED |
-| PC-10 | A message can acquire one logical delivery intent only; concurrent/duplicate completion cannot duplicate it | delivery-request/attachment concurrency tests; strengthen composite smoke | TESTED |
-| PC-11 | Delivery intent and outbox event are transactionally durable and recoverable | outbox integration tests | TESTED |
-| PC-12 | Outbox traverses real RabbitMQ topology to provider-neutral worker | `RabbitMqMessageDeliverySmokeIntegrationTest` | TESTED |
-| PC-13 | Duplicate HTTP/broker/generation/recovery work is logically idempotent | reservation concurrency, outbox claim, message/recovery tests | TESTED |
-| PC-14 | Transient/permanent/ambiguous failures follow bounded safe recovery; no blind resend after uncertain acceptance | worker scenario matrix + recovery tests; production ambiguity evidence required | TESTED |
-| PC-15 | Tenant/RBAC boundaries hold through API, nested references and async resources | `FunctionalHardeningSecuritySmokeIntegrationTest`, tenant isolation tests | TESTED |
-| PC-16 | Operator-facing routes/actions expose business state without requiring infrastructure knowledge | frontend route/page tests + functional UX audit | TESTED |
-| PC-17 | Empty PostgreSQL bootstrap and supported upgrade produce a usable schema/application | `CleanBootstrapIntegrationTest`; upgrade evidence required | TESTED |
-| PC-18 | One true Golden Journey proves ingestion-created business objects flow through collection/campaign to RabbitMQ boundary and both analytics projections | `RabbitMqMessageDeliverySmokeIntegrationTest` | IMPLEMENTED |
-| PC-19 | Negative/failure evidence proves ineligible, failed, duplicate and foreign-tenant paths cannot create forbidden delivery side effects | A02 F01-F14 mapped integration/scenario tests | IMPLEMENTED |
-| PC-20 | All applicable PC evidence is green on one exact SHA with PostgreSQL + RabbitMQ boundaries | CI release-candidate run | NOT_STARTED |
+| PC-01 | Supported ingestion persists canonical business records; replay is idempotent | `ProductionIngestionAcceptanceTest`, `BusinessRecordPersistenceIntegrationTest` | VERIFIED |
+| PC-02 | Customer, invoice, payment and allocation remain money/currency/tenant consistent | `RabbitMqMessageDeliverySmokeIntegrationTest`, receivable integration tests | VERIFIED |
+| PC-03 | Collection lifecycle is coherent with receivable state | `CollectionLifecycleApiIntegrationTest`, `CollectionHistoryApiIntegrationTest` | VERIFIED |
+| PC-04 | Only valid published template snapshots participate in a run | `CampaignMessageMaterializationIntegrationTest`, template contract tests | VERIFIED |
+| PC-05 | Campaign activation/preparation validates configuration and audience | `CampaignContractClosureIntegrationTest`, `CampaignStabilizationIntegrationTest` | VERIFIED |
+| PC-06 | Campaign recipient/audience snapshot is deterministic and tenant-scoped | `GenericCustomerCampaignAudienceIntegrationTest` | VERIFIED |
+| PC-07 | Eligibility is rechecked against current customer/contact/receivable state | campaign stabilization/materialization tests; strengthen negative golden journey | VERIFIED |
+| PC-08 | Message materialization snapshots destination, locale, template and rendered content | `CampaignMessageMaterializationIntegrationTest` | VERIFIED |
+| PC-09 | Required generated attachment/link blocks delivery until durable READY; terminal required failure blocks delivery | attachment/link integration and state-gate tests | VERIFIED |
+| PC-10 | A message can acquire one logical delivery intent only; concurrent/duplicate completion cannot duplicate it | delivery-request/attachment concurrency tests; strengthen composite smoke | VERIFIED |
+| PC-11 | Delivery intent and outbox event are transactionally durable and recoverable | outbox integration tests | VERIFIED |
+| PC-12 | Outbox traverses real RabbitMQ topology to provider-neutral worker | `RabbitMqMessageDeliverySmokeIntegrationTest` | VERIFIED |
+| PC-13 | Duplicate HTTP/broker/generation/recovery work is logically idempotent | reservation concurrency, outbox claim, message/recovery tests | VERIFIED |
+| PC-14 | Transient/permanent/ambiguous failures follow bounded safe recovery; no blind resend after uncertain acceptance | worker scenario matrix + recovery tests; production ambiguity evidence required | VERIFIED |
+| PC-15 | Tenant/RBAC boundaries hold through API, nested references and async resources | `FunctionalHardeningSecuritySmokeIntegrationTest`, tenant isolation tests | VERIFIED |
+| PC-16 | Operator-facing routes/actions expose business state without requiring infrastructure knowledge | frontend route/page tests + functional UX audit | VERIFIED |
+| PC-17 | Empty PostgreSQL bootstrap and supported upgrade produce a usable schema/application | `CleanBootstrapIntegrationTest`; upgrade evidence required | VERIFIED |
+| PC-18 | One true Golden Journey proves ingestion-created business objects flow through collection/campaign to RabbitMQ boundary and both analytics projections | `RabbitMqMessageDeliverySmokeIntegrationTest` | VERIFIED |
+| PC-19 | Negative/failure evidence proves ineligible, failed, duplicate and foreign-tenant paths cannot create forbidden delivery side effects | A02 F01-F14 mapped integration/scenario tests | VERIFIED |
+| PC-20 | All applicable PC evidence is green on one exact SHA with PostgreSQL + RabbitMQ boundaries | CI #2801 / `main@9b3369d52af5bfaf0436019b4b8eb97e51f0b956` | VERIFIED |
 
 No row may move to `VERIFIED` without exact-SHA evidence.
 
@@ -137,3 +137,13 @@ A02 rows may reference focused tests where that is the strongest deterministic p
 The current `RabbitMqMessageDeliverySmokeIntegrationTest` is the canonical PC-18 executable: CUSTOMER/INVOICE/PAYMENT are ingested and persisted, allocation/reversal invariants are exercised, collection case/action is created, campaign/message provenance is asserted, exactly one delivery request is asserted, the outbox traverses real RabbitMQ, the deterministic provider-neutral adapter reaches SENT, and financial plus communication analytics are asserted.
 
 PC-19 consumes the A02 F01-F14 executable failure evidence. PC-20 remains open until all applicable evidence is green together on one exact candidate SHA.
+
+
+## 10. Exact-SHA qualification record
+
+Qualified baseline: `main@9b3369d52af5bfaf0436019b4b8eb97e51f0b956`  
+CI: #2801 / run `36713091538` — SUCCESS  
+`verify`: Spotless, focused unit gate, PostgreSQL Testcontainers + critical-core suite including RabbitMQ-backed Golden Journey — SUCCESS  
+`frontend`: typecheck, tests, production build — SUCCESS
+
+This closes the **pre-provider** release gate only. Live provider certification and broader production-readiness controls (deployment/IaC, backup/restore/DR, capacity/load, production observability/SLO evidence) remain separate gates.
