@@ -137,3 +137,12 @@ PROCESSING -> recover() -> DB commit -> [process crash] -> Rabbit publish
 A crash in the marked window can lose the wake-up. The recovered state is durable, but liveness then depends on whether a later scheduler query happens to select that exact state again.
 
 Recovery now uses the same `IngestionRequestPublisher` as initial reservation. State recovery and the new `INTEGRATION_INGESTION_REQUESTED` outbox row are committed atomically. Retryable wake-ups also go through the outbox. This removes the recovery-specific DB/Rabbit dual-write.
+
+
+## Branch ownership decision
+
+All newly confirmed cross-processor consistency defects are fixed only in `fix/project-consistency-defects`.
+
+`fix/pre-channel-release-gate` is retained as the audit/gate baseline. At the time of this decision, `fix/project-consistency-defects` is 27 commits ahead and 0 commits behind that branch, with merge-base `bfc93f7ac9b585847bc6b5a11b17bac8011367c1`.
+
+This avoids parallel remediation histories and manual duplication. After the remediation ledger reaches verified status on one exact SHA, the resulting branch is integrated forward as a single coherent change set.
