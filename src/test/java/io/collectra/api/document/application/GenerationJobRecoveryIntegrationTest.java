@@ -80,7 +80,8 @@ class GenerationJobRecoveryIntegrationTest extends AbstractIntegrationTest {
     private GenerationJob processingJob() {
         Tenant tenant =
                 tenants.saveAndFlush(
-                        new Tenant("generation-recovery-" + UUID.randomUUID(), "Generation Recovery"));
+                        new Tenant(
+                                "generation-recovery-" + UUID.randomUUID(), "Generation Recovery"));
         DocumentTemplate template =
                 templates.saveAndFlush(
                         new DocumentTemplate(
