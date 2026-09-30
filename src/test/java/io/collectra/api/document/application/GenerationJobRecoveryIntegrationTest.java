@@ -35,8 +35,9 @@ class GenerationJobRecoveryIntegrationTest extends AbstractIntegrationTest {
     void staleProcessingIsRequeuedWithDurableGenerationRequest() {
         GenerationJob job = processingJob();
         ageProcessing(job, 31);
+        UUID jobId = job.getId();
 
-        var result = states.recoverStale(job.getId(), properties);
+        var result = states.recoverStale(jobId, properties);
 
         assertThat(result).isEqualTo(GenerationJobStateService.RecoveryOutcome.REQUEUED);
         GenerationJob recovered = jobs.findById(job.getId()).orElseThrow();
@@ -45,7 +46,7 @@ class GenerationJobRecoveryIntegrationTest extends AbstractIntegrationTest {
         assertThat(outbox.findAll())
                 .anySatisfy(
                         event -> {
-                            assertThat(event.getAggregateId()).isEqualTo(job.getId());
+                            assertThat(event.getAggregateId()).isEqualTo(jobId);
                             assertThat(event.getEventType())
                                     .isEqualTo(DocumentGenerationRequestPublisher.EVENT_TYPE);
                         });
@@ -65,7 +66,7 @@ class GenerationJobRecoveryIntegrationTest extends AbstractIntegrationTest {
         var result = states.recoverStale(job.getId(), properties);
 
         assertThat(result).isEqualTo(GenerationJobStateService.RecoveryOutcome.FAILED);
-        assertThat(jobs.findById(job.getId()).orElseThrow().getStatus())
+        assertThat(jobs.findById(jobId).orElseThrow().getStatus())
                 .isEqualTo(GenerationJobStatus.FAILED);
         assertThat(outbox.findAll())
                 .anySatisfy(
