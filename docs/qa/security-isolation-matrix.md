@@ -1,5 +1,8 @@
 # Security / Tenant Isolation Matrix
 
+Documentation lifecycle: ACTIVE CONTRACT — security/tenant-isolation verification contract; not a release-status ledger.
+Current documentation precedence: [`docs/README.md`](../README.md).
+
 Status: REQUIRED PRE-VC9 GATE
 
 ## Security invariants
