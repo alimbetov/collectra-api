@@ -119,20 +119,14 @@ class TenantFinancialAnalyticsIntegrationTest extends AbstractIntegrationTest {
                     .satisfies(
                             values ->
                                     assertThat(
-                                                    values.stream()
-                                                            .reduce(
-                                                                    java.math.BigDecimal.ZERO,
-                                                                    java.math.BigDecimal::add))
+                                                    values.stream().map(java.math.BigDecimal.class::cast).reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add))
                                             .isEqualByComparingTo("600.0000"));
             assertThat(metrics)
                     .extracting(TenantFinancialAnalyticsQueryService.Metric::allocated)
                     .satisfies(
                             values ->
                                     assertThat(
-                                                    values.stream()
-                                                            .reduce(
-                                                                    java.math.BigDecimal.ZERO,
-                                                                    java.math.BigDecimal::add))
+                                                    values.stream().map(java.math.BigDecimal.class::cast).reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add))
                                             .isEqualByComparingTo("60.0000"));
         }
     }
