@@ -1,4 +1,4 @@
-import { apiRequest } from '../../../shared/api/http';
+import { apiRequest } from '../../../shared/api/http-client';
 
 export interface TenantMembershipDto {
   id: string;
