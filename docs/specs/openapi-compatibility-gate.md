@@ -1,5 +1,8 @@
 # OpenAPI Compatibility Gate
 
+Documentation lifecycle: ACTIVE CONTRACT — public API compatibility gate.
+Current documentation precedence: [`docs/README.md`](../README.md).
+
 `src/test/resources/openapi/collectra-api-v1-baseline.json` is the reviewed public
 contract baseline. The integration test generates the current Springdoc document,
 keeps only `/api/v1` paths, removes environment-dependent servers and rejects breaking
