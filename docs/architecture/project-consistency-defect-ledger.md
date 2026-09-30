@@ -21,7 +21,7 @@ A defect is CLOSED only after:
 |---|---|---|---|---|---|
 | PCD-001 | P1 | delivery request -> worker claim | worker claim rechecked required attachments but not required document links | symmetric required attachment + document-link readiness gate in `MessageStateService.begin()`; regression test | IMPLEMENTED / CI PENDING |
 | PCD-002 | P0 | generation worker -> downstream message readiness | JVM crash can leave `GenerationJob.PROCESSING` indefinitely; redelivery cannot reclaim it | stale PROCESSING recovery, 30m processing timeout, bounded attempts, 8h absolute job age, durable retry/failure event, crash-window tests | IMPLEMENTED / CI PENDING |
-| PCD-003 | P1 | generation completion -> attachment + document link | sequential independent downstream transactions rely on redelivery to finish partial fan-out | prove partial-commit redelivery and exactly-one delivery intent | AUDIT/TEST REQUIRED |
+| PCD-003 | P1 | generation completion -> attachment + document link | sequential independent downstream transactions rely on redelivery to finish partial fan-out | shared completion orchestrator + prove partial-commit redelivery and exactly-one delivery intent | TEST IN PROGRESS |
 | PCD-004 | TBD | receivable reversal -> collection | verify reversal after PAID close cannot leave contradictory financial/workflow state | determine invariant from current domain then fix/test if confirmed | AUDIT REQUIRED |
 | PCD-005 | TBD | financial source -> READY projection | verify late-arriving/reversed data cannot leave stale READY projection authoritative | inspect invalidation/watermark/reconciliation contract | AUDIT REQUIRED |
 | PCD-006 | TBD | outbox DEAD -> aggregate workflow | verify DEAD events cannot leave invisible permanently non-terminal business aggregates | operational/state reconciliation audit | AUDIT REQUIRED |
@@ -96,3 +96,17 @@ The normal creation path and recovery path share `DocumentGenerationRequestPubli
 ### Remaining proof
 
 Focused compile/format and PostgreSQL integration tests must pass on the exact branch SHA before PCD-002 can move to VERIFIED. The partial fan-out crash window remains PCD-003.
+
+
+## Analysis: PCD-003
+
+Attachment and document-link completion intentionally use independent short transactions. Making the Rabbit listener one large transaction would increase lock scope and would still not make object storage/broker effects atomic.
+
+The convergence contract is instead:
+- each correlation transitions only from PENDING;
+- a replayed already-terminal correlation is a no-op;
+- delivery eligibility is evaluated after each successful transition;
+- Message.deliveryRequestedAt is the durable exactly-once logical delivery-intent guard;
+- the delivery event is appended to the outbox in the same transaction that first marks delivery requested.
+
+A shared `MessageGenerationCompletionService` now makes this fan-out an explicit orchestration seam and enables fault-injection/redelivery testing. PCD-003 closes only after the partial-commit replay test proves the above contract.
