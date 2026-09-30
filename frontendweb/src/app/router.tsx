@@ -61,6 +61,7 @@ import { TenantAdministrationPage } from '../pages/administration/TenantAdminist
 import { TenantMembershipPage } from '../pages/administration/TenantMembershipPage';
 import { TenantRolePage } from '../pages/administration/TenantRolePage';
 import { ProfileSecurityPage } from '../pages/profile/ProfileSecurityPage';
+import { TenantAnalyticsPage } from '../pages/analytics/TenantAnalyticsPage';
 
 export const router = createBrowserRouter([
   {
@@ -273,6 +274,7 @@ export const router = createBrowserRouter([
       { path: 'administration/roles/new', element: <RequirePermission permission="ROLE_CREATE"><TenantRolePage /></RequirePermission> },
       { path: 'administration/roles/:roleId', element: <RequirePermission permission="ROLE_UPDATE"><TenantRolePage /></RequirePermission> },
       { path: 'profile', element: <ProfileSecurityPage /> },
+      { path: 'analytics', element: <TenantAnalyticsPage /> },
       { path: 'forbidden', element: <ForbiddenPage /> },
       { path: '*', element: <NotFoundPage /> },
     ],
