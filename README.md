@@ -12,6 +12,7 @@ Integration Source -> Schema/Mapping -> Customer/Invoice/Payment
 
 Configuration studios let a tenant define source schemas/mappings and versioned communication templates without hard-coding each onboarding flow.
 
+Documentation entry point: [Collectra Documentation Index](docs/README.md).  
 Current architecture: [Collectra System Overview](docs/architecture/collectra-system-overview.md).  
 Current technical/production audit: [Technical Architecture Audit Ledger](docs/architecture/technical-audit-ledger.md).  
 Current pre-provider release evidence: [Pre-Channel Release Gate](docs/qa/pre-channel-release-gate.md).
