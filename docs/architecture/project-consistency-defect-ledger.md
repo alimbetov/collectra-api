@@ -23,7 +23,7 @@ A defect is CLOSED only after:
 | PCD-002 | P0 | generation worker -> downstream message readiness | JVM crash can leave `GenerationJob.PROCESSING` indefinitely; redelivery cannot reclaim it | stale PROCESSING recovery, 30m processing timeout, bounded attempts, 8h absolute job age, durable retry/failure event, crash-window tests | IMPLEMENTED / CI PENDING |
 | PCD-003 | P1 | generation completion -> attachment + document link | sequential independent downstream transactions rely on redelivery to finish partial fan-out | shared completion orchestrator + prove partial-commit redelivery and exactly-one delivery intent | TEST IN PROGRESS |
 | PCD-004 | TBD | receivable reversal -> collection | verify reversal after PAID close cannot leave contradictory financial/workflow state | determine invariant from current domain then fix/test if confirmed | AUDIT REQUIRED |
-| PCD-005 | TBD | financial source -> READY projection | verify late-arriving/reversed data cannot leave stale READY projection authoritative | inspect invalidation/watermark/reconciliation contract | AUDIT REQUIRED |
+| PCD-005 | P1 | projection rebuild -> READY/FAILED state | communication projection lacked build ownership fencing; stale worker could finalize after another instance reclaimed BUILDING | add build_id migration and fence READY/FAILED by current build owner; continue late-arrival audit separately | IMPLEMENTED / CI PENDING |
 | PCD-006 | TBD | outbox DEAD -> aggregate workflow | verify DEAD events cannot leave invisible permanently non-terminal business aggregates | operational/state reconciliation audit | AUDIT REQUIRED |
 | PCD-007 | TBD | schedulers -> multi-instance runtime | verify concurrent schedulers use claims/locks and do not double-process | scheduler-by-scheduler audit | AUDIT REQUIRED |
 
@@ -110,3 +110,14 @@ The convergence contract is instead:
 - the delivery event is appended to the outbox in the same transaction that first marks delivery requested.
 
 A shared `MessageGenerationCompletionService` now makes this fan-out an explicit orchestration seam and enables fault-injection/redelivery testing. PCD-003 closes only after the partial-commit replay test proves the above contract.
+
+
+## Root-cause analysis: PCD-005 communication projection ownership
+
+Financial projections already used a per-build UUID and required `status=BUILDING AND build_id=:buildId` before READY/FAILED finalization. Communication projections only used a stale timestamp to allow BUILDING takeover.
+
+That made claim acquisition mutually exclusive only at the instant of claim. After the building timeout, worker B could reclaim the same tenant/day while worker A was still executing. Worker A retained an unfenced unconditional READY update and an upsert-style FAILED path, so it could overwrite worker B's state.
+
+Remediation adds `communication_reporting_projection_state.build_id`, assigns a fresh UUID on every claim, and fences READY/FAILED finalization by that UUID. Legacy BUILDING rows are invalidated during migration so no pre-fencing worker state is treated as owned.
+
+This finding establishes a project-wide rule: timeout-based takeover is safe only when completion/failure is fenced by the current lease/build owner.
