@@ -32,7 +32,19 @@ A historical document may still contain valid design rationale or invariants, bu
 | OpenAPI compatibility gate | [specs/openapi-compatibility-gate.md](specs/openapi-compatibility-gate.md) |
 | Production provider acceptance boundary | [specs/real-kumomta-environment-acceptance.md](specs/real-kumomta-environment-acceptance.md) |
 
-## 3. Historical documentation
+
+## 3. Documentation lifecycle classes
+
+| Class | Meaning |
+|---|---|
+| `CANONICAL` | Current source of project-wide truth for architecture, assurance status or documentation precedence. |
+| `ACTIVE CONTRACT` | Current invariant/gate that implementation must satisfy; it does not independently claim release readiness. |
+| `SUPPORTING REFERENCE` | Useful design, audit or coverage rationale. Current code/tests and canonical ledgers win on status conflicts. |
+| `HISTORICAL` | Superseded execution plan, branch handoff or implementation snapshot retained only for traceability. |
+
+Do not infer lifecycle from words such as `READY`, `MASTER`, `NORMATIVE`, `BLOCKED` or a branch name inside historical body text. The explicit documentation lifecycle header and the precedence rules above control interpretation.
+
+## 4. Historical documentation
 
 The following families are retained for traceability and implementation rationale, not as current execution plans:
 
@@ -45,7 +57,7 @@ The following families are retained for traceability and implementation rational
 
 Do not delete these artifacts: they explain why current contracts and invariants exist.
 
-## 4. Documentation maintenance rule
+## 5. Documentation maintenance rule
 
 A current document must identify its status and, when evidence-sensitive, its audited SHA/run. Branch-specific instructions must not be presented as current after the branch has merged or been deleted.
 
