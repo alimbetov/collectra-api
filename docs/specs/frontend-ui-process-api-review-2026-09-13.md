@@ -1,8 +1,11 @@
 # FrontendWeb — UI / User Process / API Review
 
+Documentation lifecycle: HISTORICAL — frontend/API review snapshot; current product coverage is governed by A01.
+Current documentation precedence: [`docs/README.md`](../README.md).
+
 Status: REVIEWED — CHANGES REQUIRED BEFORE DTO FREEZE  
 Date: 2026-09-13  
-Branch: `spec/post-slice10a-hardening-roadmap`
+Historical branch: `spec/post-slice10a-hardening-roadmap`
 
 Reviewed documents:
 
