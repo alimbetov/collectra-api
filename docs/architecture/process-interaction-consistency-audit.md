@@ -143,7 +143,26 @@ The worker claim guard makes duplicate wake-ups converge: only QUEUED/RETRY_WAIT
 
 Classification: acceptable at-least-once design, but requires a concurrency regression proving one effective processing attempt per state claim.
 
-### PI-004 — ingestion initial handoff is transactionally durable
+### PI-004 — generation job can be orphaned in PROCESSING
+
+`GenerationJobStateService.begin()` durably changes a job from PENDING to PROCESSING before rendering/storage. `DocumentGenerationListener` handles Java exceptions by calling retry/fail, but there is no generation-job recovery scheduler/repository query for stale PROCESSING jobs.
+
+A JVM/process crash after `begin()` but before the listener's exception handling or `complete()` can therefore leave:
+
+```text
+GenerationJob = PROCESSING
+MessageAttachment/DocumentLink = PENDING
+Message = QUEUED
+CampaignRun = RUNNING
+```
+
+indefinitely. A broker redelivery does not repair this because `GenerationJobStateService.begin()` returns null for PROCESSING and the worker exits without completing or retrying the job.
+
+Classification: confirmed orphan-state defect / release blocker for generated attachment/link campaigns.
+
+Required remediation: bounded stale PROCESSING recovery with attempt-aware retry/fail semantics and durable re-publication, plus crash-window integration coverage.
+
+### PI-005 — ingestion initial handoff is transactionally durable
 
 `IngestionReservationWriter` persists the IngestionBatch and appends `INTEGRATION_INGESTION_REQUESTED` to the transactional outbox in one transaction. Initial broker publication is therefore not a DB/broker dual-write.
 
