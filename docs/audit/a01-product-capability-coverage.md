@@ -82,3 +82,54 @@ A01 can close only when:
 - P0/P1 capability gaps are remediated and tested;
 - the Golden Journey prerequisites required by A02 are enumerated;
 - evidence points to the exact audited SHA.
+
+
+## CAP-01..CAP-05 deep pass — evidence update
+
+### CAP-01 Auth/session — PARTIAL verification
+
+Frontend contains the slug-login client/context and authenticated route guards. Full registration/session-security coverage remains to be traced in the next auth-specific evidence pass; no defect is asserted from file presence alone.
+
+### CAP-02 Customer master data — VERIFIED implementation gates, test evidence pending exact-SHA run
+
+Current code proves the previously documented implementation gates:
+- customer update/status commands carry optimistic `version`;
+- email/phone patch carries optimistic `version`;
+- manager assignment is validated against an active tenant membership;
+- list projection resolves manager/contacts/segments server-side rather than requiring row fan-out.
+
+No A01 defect is opened for those historical gates.
+
+### CAP-03 Contract lifecycle — implementation present, executable verification pending
+
+Backend controller/service/domain and frontend list/detail/form/lifecycle modules are present. Final VERIFIED state requires exact-SHA tests and route-level capability evidence.
+
+### CAP-04 Invoice/receivable — implementation gates VERIFIED, executable verification pending
+
+Backend exposes tenant-scoped invoice list/detail/create/allocation history. Money is represented at the public API boundary with `DecimalString`; frontend models also use `DecimalString`. Customer/contract labels exist in list projection. No lossless-money defect is opened.
+
+### CAP-05 Payments/allocation — PARTIAL / DEFECT A01-004
+
+Backend capability is materially implemented:
+- payment create/list/detail;
+- allocation history;
+- client-supplied `commandId` idempotency;
+- payment then invoice locking;
+- customer/currency/balance invariants;
+- versioned reversal.
+
+However, the tenant React product does not expose the documented P7 workflow. The current router contains invoice routes only under `/receivables`, and the receivable frontend entity exposes invoice operations plus invoice allocation history, but no payment list/detail/create/allocation/reversal client surface. There are no Payment pages in `frontendweb/src/pages/receivables`.
+
+**Impact:** an ordinary tenant user cannot complete payment registration/allocation/reversal through the product UI even though the backend supports it. This breaks the documented receivable lifecycle and prevents a complete UI Golden Journey.
+
+**Classification:** P1 product capability gap.
+
+**Required remediation:**
+1. add payment DTO/API/query/mutation frontend boundary;
+2. add payment list, create and detail routes/pages;
+3. implement allocation command with one stable UUID `commandId` per user intent;
+4. implement versioned reversal with conflict reload;
+5. link payment allocation rows to invoice detail and invoice allocation rows back to payment detail;
+6. permission-gate read/manage actions;
+7. add API contract, route and page tests;
+8. include P7 in the A02 Golden Journey.
