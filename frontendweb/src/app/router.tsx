@@ -60,6 +60,7 @@ import { CollectionCasePage } from '../pages/collections/CollectionCasePage';
 import { TenantAdministrationPage } from '../pages/administration/TenantAdministrationPage';
 import { TenantMembershipPage } from '../pages/administration/TenantMembershipPage';
 import { TenantRolePage } from '../pages/administration/TenantRolePage';
+import { ProfileSecurityPage } from '../pages/profile/ProfileSecurityPage';
 
 export const router = createBrowserRouter([
   {
@@ -271,6 +272,7 @@ export const router = createBrowserRouter([
       { path: 'administration/users/:membershipId', element: <RequirePermission permission="USER_READ"><TenantMembershipPage /></RequirePermission> },
       { path: 'administration/roles/new', element: <RequirePermission permission="ROLE_CREATE"><TenantRolePage /></RequirePermission> },
       { path: 'administration/roles/:roleId', element: <RequirePermission permission="ROLE_UPDATE"><TenantRolePage /></RequirePermission> },
+      { path: 'profile', element: <ProfileSecurityPage /> },
       { path: 'forbidden', element: <ForbiddenPage /> },
       { path: '*', element: <NotFoundPage /> },
     ],
