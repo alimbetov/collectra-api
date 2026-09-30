@@ -1,7 +1,10 @@
 # Slice 10A — Traceable Coverage Audit
 
+Documentation lifecycle: SUPPORTING REFERENCE — Slice 10A coverage rationale; current release qualification is governed by CI and canonical assurance ledgers.
+Current documentation precedence: [`docs/README.md`](../README.md).
+
 Status: LIVING QUALITY GATE
-Branch: `feat/slice-10a-test-lab-consolidated`
+Historical branch: `feat/slice-10a-test-lab-consolidated`
 Normative sources:
 - `docs/specs/slice-10a-multichannel-mock-smoke-lab.md`
 - `docs/specs/slice-10a-user-security-scenario-matrix.md`

@@ -1,8 +1,11 @@
 # Collectra Process Interaction Consistency Audit
 
-Status: ACTIVE  
+Documentation lifecycle: SUPPORTING REFERENCE — audit findings retained; current closure/status is governed by project assurance and technical audit ledgers.
+Current documentation precedence: [`docs/README.md`](../README.md).
+
+Status: SUPPORTING REFERENCE  
 Started: 2026-09-30  
-Baseline: `fix/pre-channel-release-gate`
+Historical baseline: `fix/pre-channel-release-gate`
 
 ## 1. Purpose
 

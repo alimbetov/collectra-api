@@ -1,5 +1,8 @@
 # Collectra Reliability Vertical Slice — Technical Specification
 
+Documentation lifecycle: SUPPORTING REFERENCE — reliability invariants remain useful; staged implementation wording is historical.
+Current documentation precedence: [`docs/README.md`](../README.md).
+
 ## 1. Purpose
 
 This specification defines the next production-hardening stage for Collectra after the current import, template, localization and document-generation foundation.

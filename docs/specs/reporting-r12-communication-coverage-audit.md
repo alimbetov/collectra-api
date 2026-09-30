@@ -1,5 +1,8 @@
 # R1.2 — Communication Reporting Coverage Audit
 
+Documentation lifecycle: SUPPORTING REFERENCE — reporting coverage rationale; current endpoint behavior is defined by code/OpenAPI/tests.
+Current documentation precedence: [`docs/README.md`](../README.md).
+
 ## Purpose
 
 This audit verifies that Collectra reporting covers the complete outbound communication flow currently represented by the domain model.

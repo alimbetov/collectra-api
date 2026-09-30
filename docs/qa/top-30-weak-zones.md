@@ -1,7 +1,10 @@
 # Top 30 Weak Zones — Risk-Based Functional Hardening
 
+Documentation lifecycle: SUPPORTING REFERENCE — historical risk catalogue; current closure state is governed by A01/A02 and technical audit ledgers.
+Current documentation precedence: [`docs/README.md`](../README.md).
+
 Status: NORMATIVE SMOKE BACKLOG
-Branch: spec/functional-hardening-user-journeys
+Historical branch: `spec/functional-hardening-user-journeys`
 Scope: VC-0..VC-8; VC-9 excluded
 
 ## Selection method

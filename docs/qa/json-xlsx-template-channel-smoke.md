@@ -1,7 +1,10 @@
 # JSON/XLSX → Template → HTML/PDF → Channel Smoke Specification
 
+Documentation lifecycle: SUPPORTING REFERENCE — historical smoke specification; current executable evidence is governed by A02/Pre-Channel and CI.
+Current documentation precedence: [`docs/README.md`](../README.md).
+
 Status: PROPOSED
-Branch: `spec/json-xlsx-template-channel-smoke`
+Historical branch: `spec/json-xlsx-template-channel-smoke`
 Baseline: `main@898cd34637a21c0531c5b9e97dd065c68abf12c7`
 
 ## 1. Purpose

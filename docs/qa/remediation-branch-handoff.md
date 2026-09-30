@@ -1,5 +1,8 @@
 # Remediation Branch Handoff
 
+Documentation lifecycle: HISTORICAL — retained for traceability; not a current execution plan.
+Current project status and precedence: [`docs/README.md`](../README.md).
+
 Branch: `fix/pre-vc9-functional-hardening-remediation`
 Base specification SHA: `fae4e1ef2a30a716325fc4bbd1822694243ef498`
 

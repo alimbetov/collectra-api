@@ -1,5 +1,8 @@
 # Post-Slice 10A Hardening Roadmap
 
+Documentation lifecycle: HISTORICAL — retained for traceability; not a current execution plan.
+Current project status and precedence: [`docs/README.md`](../README.md).
+
 Status: MASTER PLAN
 
 ## Goal

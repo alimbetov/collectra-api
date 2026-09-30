@@ -1,10 +1,13 @@
 # FW4E — Contracts registry, detail and lifecycle
 
+Documentation lifecycle: HISTORICAL — completed FW4E implementation contract; current behavior is defined by code/OpenAPI/tests.
+Current documentation precedence: [`docs/README.md`](../README.md).
+
 Status: IMPLEMENTED
 
 Depends on: FW4A–FW4D (IMPLEMENTED), Slice 9A2 contract domain (IMPLEMENTED)
 
-Branch: `feat/frontendweb-fw4e-contracts`
+Historical branch: `feat/frontendweb-fw4e-contracts`
 
 ## 1. Goal
 

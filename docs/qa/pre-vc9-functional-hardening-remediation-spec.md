@@ -1,8 +1,11 @@
 # Technical Specification — Pre-VC9 Functional Hardening Remediation
 
+Documentation lifecycle: HISTORICAL — completed PRE-VC9 remediation contract.
+Current documentation precedence: [`docs/README.md`](../README.md).
+
 Status: IMPLEMENTATION CONTRACT
-Branch: `fix/pre-vc9-functional-hardening-remediation`
-Baseline: `spec/functional-hardening-user-journeys@fae4e1ef2a30a716325fc4bbd1822694243ef498`
+Historical branch: `fix/pre-vc9-functional-hardening-remediation`
+Historical baseline: `spec/functional-hardening-user-journeys@fae4e1ef2a30a716325fc4bbd1822694243ef498`
 VC-9 Analytics: OUT OF SCOPE / BLOCKED
 
 ## 1. Goal

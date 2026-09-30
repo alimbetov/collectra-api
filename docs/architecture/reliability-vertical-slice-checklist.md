@@ -1,5 +1,8 @@
 # Reliability Vertical Slice — Implementation Checklist
 
+Documentation lifecycle: HISTORICAL — implementation checklist retained for reliability rationale; checkboxes are not current project status.
+Current documentation precedence: [`docs/README.md`](../README.md).
+
 This checklist operationalizes:
 
 - `reliability-vertical-slice-spec.md` — scope and architectural requirements;

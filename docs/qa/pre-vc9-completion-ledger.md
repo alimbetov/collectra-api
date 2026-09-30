@@ -1,5 +1,8 @@
 # Pre-VC9 Completion Ledger
 
+Documentation lifecycle: HISTORICAL — retained for traceability; not a current execution plan.
+Current project status and precedence: [`docs/README.md`](../README.md).
+
 Status: ACTIVE — FAIL-CLOSED EXECUTION LEDGER
 
 This ledger is required by `codex-pre-vc9-completion-contract.md`. The rows below are deliberately pre-expanded so execution cannot redefine the minimum coverage set.

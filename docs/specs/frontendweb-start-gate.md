@@ -1,5 +1,8 @@
 # FrontendWeb Start Gate
 
+Documentation lifecycle: HISTORICAL — retained for traceability; not a current execution plan.
+Current project status and precedence: [`docs/README.md`](../README.md).
+
 Status: PLANNED / BLOCKED UNTIL CORE GATE IS GREEN
 
 ## Decision

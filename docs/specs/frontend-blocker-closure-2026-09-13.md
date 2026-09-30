@@ -1,8 +1,11 @@
 # FrontendWeb — Blocker Closure Record
 
+Documentation lifecycle: HISTORICAL — frontend blocker closure snapshot retained for traceability.
+Current documentation precedence: [`docs/README.md`](../README.md).
+
 Status: IMPLEMENTED IN BRANCH / VERIFICATION PENDING  
 Date: 2026-09-13  
-Branch: `spec/post-slice10a-hardening-roadmap`
+Historical branch: `spec/post-slice10a-hardening-roadmap`
 
 This record supersedes the open-blocker conclusions in `frontend-ui-process-api-review-2026-09-13.md`. The earlier review remains useful as the finding history; this document records how each finding was resolved.
 

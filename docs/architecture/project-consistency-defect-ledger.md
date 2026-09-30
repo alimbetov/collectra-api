@@ -1,7 +1,10 @@
 # Project Consistency Defect Remediation Ledger
 
-Status: ACTIVE  
-Branch: `fix/project-consistency-defects`  
+Documentation lifecycle: SUPPORTING REFERENCE — historical remediation ledger; current defect/release state is governed by current main and canonical assurance ledgers.
+Current documentation precedence: [`docs/README.md`](../README.md).
+
+Status: SUPPORTING REFERENCE  
+Historical remediation branch: `fix/project-consistency-defects`  
 Created: 2026-09-30  
 Parent audit baseline: `bfc93f7ac9b585847bc6b5a11b17bac8011367c1`
 

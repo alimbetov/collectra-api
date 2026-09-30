@@ -1,8 +1,11 @@
 # Unified Integration Production + Setup Center Specification
 
-> Status: implementation-ready master specification
-> Baseline: current main
-> Purpose: one source of truth for remaining integration backend and frontend work.
+Documentation lifecycle: SUPPORTING REFERENCE — integration design/requirements; implementation status must be read from current code and assurance ledgers.
+Current documentation precedence: [`docs/README.md`](../README.md).
+
+> Status: supporting reference
+> Historical purpose: integration backend/frontend master specification.
+> Current implementation status is governed by code, OpenAPI/tests and the canonical assurance ledgers.
 
 ## 1. Business outcome
 

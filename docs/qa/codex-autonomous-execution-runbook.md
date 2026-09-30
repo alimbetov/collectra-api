@@ -1,7 +1,10 @@
 # Codex Autonomous Execution Runbook
 
-Status: NORMATIVE HANDOFF — POST-MERGE VERIFICATION MODE
-Branch: spec/functional-hardening-user-journeys
+Documentation lifecycle: HISTORICAL — branch-specific PRE-VC9 handoff; not a current execution runbook.
+Current documentation precedence: [`docs/README.md`](../README.md).
+
+Status: HISTORICAL — SUPERSEDED HANDOFF
+Historical branch: `spec/functional-hardening-user-journeys`
 
 ## Baseline semantics
 The pre-VC9 remediation implementation has already been merged to main and synchronized into this branch. Historical WP/FH/ledger states are evidence to reconcile, not an instruction to replay implementation. A defect is actionable only after it is reproduced against the current branch. VC-9 Analytics remains out of scope.

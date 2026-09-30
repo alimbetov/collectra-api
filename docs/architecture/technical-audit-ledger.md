@@ -3,7 +3,7 @@
 Status: ACTIVE — repository-wide audit  
 Started: 2026-09-30  
 Historical audit origin: `fix/pre-channel-release-gate`  
-Current evidence reconciliation: `fix/audit-defects-and-release-gate-alignment`
+Current baseline: `main@9b3369d52af5bfaf0436019b4b8eb97e51f0b956`
 
 ## 1. Audit objective
 
@@ -68,9 +68,9 @@ Allowed audit states:
 
 ### TA-001 — documentation drift
 
-`frontendweb/README.md` still describes FW0 as the current frontend slice even though the repository contains many later business pages/entities. `docs/specs/README.md` also contains historical readiness labels that no longer represent the current implementation.
+Historical README/spec entry points mixed current and superseded FW/Slice execution guidance.
 
-Disposition: update canonical entry points and explicitly mark historical plans as historical rather than silently deleting useful design history.
+State: remediation in progress in `docs/project-documentation-reconciliation`; canonical `docs/README.md` now defines documentation precedence and superseded branch-specific documents are being marked historical.
 
 ### TA-002 — Promise-to-Pay lifecycle dispatch defect
 

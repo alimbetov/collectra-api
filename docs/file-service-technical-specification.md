@@ -1,7 +1,10 @@
 # Collectra FileService — Technical Specification
 
+Documentation lifecycle: ACTIVE CONTRACT — FileService architectural boundary and invariants; original feature branch is historical.
+Current documentation precedence: [`docs/README.md`](../README.md).
+
 Status: **Implementation baseline**  
-Branch: `feature/file-service`  
+Historical implementation branch: `feature/file-service`  
 Target: Collectra modular monolith, extraction-ready boundary
 
 ## 1. Purpose and architectural decision

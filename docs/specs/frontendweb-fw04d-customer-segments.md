@@ -1,10 +1,13 @@
 # FW4D — Customer segments and membership management
 
+Documentation lifecycle: HISTORICAL — completed FW4D implementation contract; current behavior is defined by code/OpenAPI/tests.
+Current documentation precedence: [`docs/README.md`](../README.md).
+
 Status: IMPLEMENTED
 
 Depends on: FW4A–FW4C (IMPLEMENTED)
 
-Branch: `feat/frontendweb-fw4d-customer-segments`
+Historical branch: `feat/frontendweb-fw4d-customer-segments`
 
 ## 1. Goal
 

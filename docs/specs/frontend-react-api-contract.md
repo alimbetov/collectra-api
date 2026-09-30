@@ -1,6 +1,9 @@
 # FrontendWeb — React API Contract
 
-Status: BASELINE AUDITED / FW3–FW12 CORRECTIONS REQUIRED
+Documentation lifecycle: SUPPORTING REFERENCE — frontend transport/architecture rules retained; FW readiness wording is historical.
+Current documentation precedence: [`docs/README.md`](../README.md).
+
+Status: SUPPORTING REFERENCE — transport and frontend architecture contract
 
 Purpose: зафиксировать TypeScript DTO, API client rules, TanStack Query keys, mutation invalidation и auth/session behavior на базе фактического backend API текущей ветки.
 

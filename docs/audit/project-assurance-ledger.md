@@ -1,7 +1,8 @@
 # Collectra Project Assurance Ledger
 
-Baseline: `main@76e121082d3f339c8440fa2d9f34a092b3048345`
-Audit branch: `audit/a01-a12-project-assurance`
+Historical audit baseline: `main@76e121082d3f339c8440fa2d9f34a092b3048345`
+Current reconciliation baseline: `main@9b3369d52af5bfaf0436019b4b8eb97e51f0b956`
+Audit branches have merged; this ledger is maintained from current `main`.
 
 ## Rule
 
@@ -13,7 +14,7 @@ Historical specs and READY labels are evidence inputs, not closure evidence.
 | Area | Scope | Status |
 |---|---|---|
 | A01 | Product capability coverage | IN_PROGRESS |
-| A02 | E2E business processes | IN_PROGRESS |
+| A02 | E2E business processes | VERIFIED |
 | A03 | Architecture | NOT_STARTED |
 | A04 | Domain/state machines | NOT_STARTED |
 | A05 | Data integrity & database | NOT_STARTED |
@@ -45,7 +46,7 @@ Severity remains TBD until impact is demonstrated. Findings may be CLOSED_AS_DES
 - BROKEN — implementation exists but verification demonstrates failure.
 - OUT_OF_SCOPE — explicitly excluded by accepted scope.
 
-| A01-005 | A01 | P1 | Historical Files upload category drift: current frontend/backend values are aligned; regression guards and exact-SHA verification are required before closure. | VERIFYING | frontend model/page guards + generated OpenAPI category assertion + exact-SHA CI |
+| A01-005 | A01 | P1 | Historical Files upload category drift remediated; frontend model/page guards and generated OpenAPI contract are green on exact SHA. | CLOSED | `main@9b3369d52af5bfaf0436019b4b8eb97e51f0b956`, CI #2801 |
 
 | A01-006 | A01 | P1 | Tenant RBAC backend exists, but tenant frontend has no user/membership/role administration workflow for documented P14. | OPEN | implement tenant Administration users/roles/session-management UI + permission/tenant tests |
 | A01-007 | A01 | P1 | Current-user profile/password/session APIs exist, but tenant frontend has no Profile/Security workflow for documented P15. | OPEN | implement profile/security/session UI + API/page tests |

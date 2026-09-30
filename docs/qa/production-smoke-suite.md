@@ -1,5 +1,8 @@
 # Production Smoke Suite Roadmap
 
+Documentation lifecycle: ACTIVE CONTRACT — ongoing smoke catalogue; individual roadmap states require executable evidence before promotion.
+Current documentation precedence: [`docs/README.md`](../README.md).
+
 Status: PLANNED
 Baseline: PRE-VC9 gate merged to `main` by PR #141
 Current first extension: `json-xlsx-template-channel-smoke`

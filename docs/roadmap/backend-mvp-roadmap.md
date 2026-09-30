@@ -1,4 +1,12 @@
-# Collectra Backend MVP — Technical Implementation Roadmap
+# Collectra Backend MVP — Historical Technical Implementation Roadmap
+
+Status: HISTORICAL — SUPERSEDED BY CURRENT IMPLEMENTATION AND ASSURANCE LEDGERS
+
+> This roadmap is a 2026-09-11 implementation snapshot. Its "immediate blocker", suggested branches, slice order and readiness claims must not be used as current project status. Use [`../README.md`](../README.md), [`../architecture/collectra-system-overview.md`](../architecture/collectra-system-overview.md), and the current audit/release ledgers instead. The material below is retained for design rationale and historical traceability.
+
+---
+
+## Historical content
 
 Updated: 2026-09-11
 

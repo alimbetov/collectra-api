@@ -1,10 +1,19 @@
-# CODEX START HERE — Functional Hardening User-Journey Verification
+# CODEX START HERE — Historical Functional Hardening Entry Point
 
-Status: MANDATORY ENTRY POINT
+Documentation lifecycle: HISTORICAL — retained for traceability; not current execution metadata.
+Current documentation precedence: [`docs/README.md`](../README.md).
+
+Status: HISTORICAL — SUPERSEDED BY CURRENT PROJECT ASSURANCE PROCESS
+
+> This file is retained as a traceability artifact for the PRE-VC9/functional-hardening pass. Its branch target, baseline SHA, execution order and "do not start VC-9" instruction are no longer current project instructions. For current work start from [`../README.md`](../README.md), [`../architecture/collectra-system-overview.md`](../architecture/collectra-system-overview.md), [`../audit/project-assurance-ledger.md`](../audit/project-assurance-ledger.md), [`../audit/a02-golden-journey.md`](../audit/a02-golden-journey.md) and [`pre-channel-release-gate.md`](pre-channel-release-gate.md).
+
+---
+
+## Historical content
 
 ## Target
 
-Work on:
+Historical work branch:
 `spec/functional-hardening-user-journeys`
 
 Current implementation baseline:
