@@ -1,6 +1,6 @@
 # Audit Defects and Release-Gate Alignment — Implementation Specification
 
-Status: IMPLEMENTATION_READY
+Status: REVIEWED — ALIGNED WITH CURRENT PROJECT ASSURANCE PROCESS
 Branch: `fix/audit-defects-and-release-gate-alignment`
 Baseline: current branch created from `main@5d5bd4bf01b5bb938bff6a79987956abc252b41c`
 Date: 2026-09-30
@@ -101,8 +101,8 @@ Required representation:
 - record the original mismatch as a historical finding;
 - state that current code is aligned;
 - identify executable regression evidence;
-- use `REMEDIATED_PENDING_EXACT_SHA` until the applicable tests are green on the candidate SHA;
-- use `VERIFIED` only after exact-SHA evidence exists.
+- keep A01 terminology from `project-assurance-ledger.md`: before complete executable proof, the capability remains `PARTIAL` (or `BROKEN` only if verification demonstrates failure);
+- close/update the defect-ledger row only with repository evidence and verification on an exact SHA; do not introduce a new A01 status vocabulary.
 
 Do not rewrite unrelated A01 findings in this work package.
 
@@ -164,19 +164,18 @@ Only update statements contradicted by current code/evidence. Historical specs r
 | T10 | documentation state/evidence review | no unsupported VERIFIED state |
 | T11 | exact-SHA full CI | SUCCESS before final release-gate verification |
 
-## 5. Evidence/state rules
+## 5. Governance and evidence-state rules
 
-Use these meanings consistently:
+This work MUST NOT introduce a fourth repository-wide status vocabulary. Each canonical ledger keeps its existing semantics:
 
-- `OPEN`: defect still exists in code/contract.
-- `REMEDIATED_PENDING_EXACT_SHA`: implementation is corrected, final candidate evidence absent.
-- `IMPLEMENTED`: executable release scenario exists.
-- `TESTED`: required scenario has executable passing evidence, but the complete same-SHA qualification is not yet established.
-- `VERIFIED`: required evidence is green on the exact release-candidate SHA under the release-gate rules.
-- `BLOCKED`: required evidence cannot currently execute or an unresolved prerequisite prevents qualification.
+- **A01 capability evidence** (`project-assurance-ledger.md`): `VERIFIED | PARTIAL | SPEC_ONLY | MISSING | BROKEN | OUT_OF_SCOPE`.
+- **Technical audit** (`technical-audit-ledger.md`): `IMPLEMENTED | PARTIAL | AUDIT_REQUIRED | RELEASE_BLOCKED | VERIFIED`.
+- **Pre-Channel Release Gate** (`pre-channel-release-gate.md`): `NOT_STARTED | IMPLEMENTED | TESTED | VERIFIED | BLOCKED`.
+- **Defect ledger rows** retain their existing defect state conventions rather than borrowing release-gate states.
 
-A later commit to the candidate invalidates final `VERIFIED` release evidence until rerun.
+Cross-ledger rule: `VERIFIED` always requires the executable evidence demanded by that ledger on the exact candidate SHA. Test existence, source inspection, documentation changes, or an older green run are insufficient.
 
+A later code commit invalidates final release-candidate `VERIFIED` evidence until the applicable gates are rerun.
 ## 6. Non-goals
 
 This branch does not implement:
@@ -194,18 +193,16 @@ If audit of this branch discovers a P0/P1 defect directly caused by WP-01..WP-05
 
 ## 7. Execution order
 
-1. Establish baseline and inspect current CI/evidence.
-2. Implement WP-01 regression protection.
+1. Establish branch baseline from current `main`; inspect CI/evidence and preserve superseded baseline history.
+2. Implement WP-01 regression protection without rewriting the already-correct enum contract.
 3. Run focused frontend/backend contract tests.
-4. Reconcile A01-005.
+4. Reconcile A01-005 using the existing A01/defect-ledger vocabulary.
 5. Map A02 evidence to PC-18/PC-19/PC-20.
 6. Reconcile canonical release-gate documentation.
-7. Run Spotless + frontend gate + focused tests.
-8. Run full PostgreSQL Testcontainers verification.
-9. Run/confirm RabbitMQ Golden Journey evidence.
-10. Push final candidate SHA and require one exact-SHA CI SUCCESS.
-11. Only after step 10 promote eligible release rows to VERIFIED and record SHA/run.
-
+7. Run the same executable gates used by `.github/workflows/ci.yml`: `spotless:check`, `scripts/test-slice-07.sh unit`, `mvn clean verify -Pslice10a-coverage`, frontend `typecheck`, `test:ci`, and production `build`.
+8. Confirm whether RabbitMQ Golden Journey evidence is actually executed by the Maven verification path; if separate execution is required, name and execute that gate explicitly.
+9. Push candidate SHA and require both CI jobs (`verify` and `frontend`) to succeed on that exact SHA.
+10. Reconcile A01/A02/PC evidence against that run. Only then promote eligible rows to `VERIFIED` and record SHA/run.
 ## 8. Definition of Done
 
 This specification is complete only when:
@@ -216,5 +213,29 @@ This specification is complete only when:
 - PC-18/PC-19/PC-20 states describe current executable reality;
 - no documentation claims VERIFIED without same-SHA evidence;
 - all code changes have regression tests;
-- final full CI is green on one recorded exact SHA.
+- both repository CI jobs are green on one recorded exact SHA;
+- RabbitMQ evidence is explicitly tied either to the standard Maven verification path or to a named separate executable gate.
 
+
+
+## 9. Project-process alignment constraints
+
+1. Reuse the existing shared outbox, tests, A01/A02 ledgers and PC gate; do not create a parallel assurance subsystem.
+2. Historical READY labels, test presence and source inspection are evidence inputs only.
+3. Fix confirmed findings with regression evidence; do not change already-correct runtime code merely to satisfy stale documentation.
+4. Preserve PostgreSQL-owned concurrency/idempotency invariants and RabbitMQ at-least-once semantics.
+5. Preserve the explicit provider boundary: pre-channel qualification is not live-provider certification.
+6. Preserve tenant-scoped lookup and non-disclosing denial semantics in any new integration evidence.
+7. Current code plus the newest canonical contract wins; historical specifications remain traceability artifacts.
+8. Keep branch scope bounded; unrelated A01/A03-A12 findings belong in their appropriate ledger/backlog.
+9. Exact-SHA loop is authoritative: failure -> raw evidence -> root cause -> fix -> new SHA -> rerun.
+
+## 10. Review result
+
+The specification is aligned with the current project assurance process and is implementation-ready subject to exact-SHA verification.
+
+The review corrected one specification defect: the proposed global `REMEDIATED_PENDING_EXACT_SHA` state was removed because it conflicted with established per-ledger state vocabularies.
+
+The Files mismatch is a historical/remediated finding on the inspected baseline; implementation scope is regression protection plus A01 evidence reconciliation, not another enum rewrite.
+
+The Pre-Channel scope is evidence/governance reconciliation plus any genuinely missing PC-18/PC-19 executable scenarios. PC-20 remains the final same-SHA qualification gate and cannot be satisfied by documentation changes alone.
