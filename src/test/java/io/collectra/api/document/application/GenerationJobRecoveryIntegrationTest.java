@@ -8,8 +8,7 @@ import io.collectra.api.document.domain.GenerationJob;
 import io.collectra.api.document.domain.GenerationJobStatus;
 import io.collectra.api.document.domain.OutputFormat;
 import io.collectra.api.document.infrastructure.GenerationJobRepository;
-import io.collectra.api.shared.outbox.OutboxEvent;
-import io.collectra.api.shared.outbox.OutboxEventRepository;
+import io.collectra.api.shared.outbox.OutboxRepository;
 import io.collectra.api.template.domain.DocumentTemplate;
 import io.collectra.api.template.domain.TemplateVersion;
 import io.collectra.api.template.infrastructure.DocumentTemplateRepository;
@@ -26,7 +25,7 @@ class GenerationJobRecoveryIntegrationTest extends AbstractIntegrationTest {
     @Autowired GenerationJobRepository jobs;
     @Autowired GenerationJobStateService states;
     @Autowired GenerationJobRecoveryProperties properties;
-    @Autowired OutboxEventRepository outbox;
+    @Autowired OutboxRepository outbox;
     @Autowired TenantRepository tenants;
     @Autowired DocumentTemplateRepository templates;
     @Autowired TemplateVersionRepository versions;
