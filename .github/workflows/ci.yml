@@ -26,6 +26,8 @@ jobs:
           git log -1 --oneline
       - name: Check Markdown links
         run: python3 scripts/check-markdown-links.py
+      - name: Check documentation metadata
+        run: python3 scripts/check-documentation-metadata.py
       - name: Check formatting
         run: mvn --batch-mode --no-transfer-progress spotless:check
       - name: Slice 7 focused unit tests
