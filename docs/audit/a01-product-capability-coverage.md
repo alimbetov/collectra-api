@@ -153,18 +153,20 @@ Template lifecycle, version creation, builder editing, field/asset catalogs, val
 
 Tenant UI exposes import create/list/detail and masked diagnostics with bounded terminal-aware polling. The create boundary sends an idempotency key. No A01 capability omission was found in this pass.
 
-### CAP-10 Files — PARTIAL / DEFECT A01-005
+### CAP-10 Files — PARTIAL / A01-005 REMEDIATED, exact-SHA verification pending
 
-Backend `FileCategory` accepts exactly `IMPORT_SOURCE | REPORT | EXPORT | ASSET | TEMP`. The general tenant `FileUploadPage` currently offers `IMPORT_SOURCE | TEMPLATE_ASSET | ATTACHMENT | TEMP`.
+Historical audit evidence found that the general tenant `FileUploadPage` exposed `TEMPLATE_ASSET` and `ATTACHMENT` while backend `FileCategory` accepted only `IMPORT_SOURCE | REPORT | EXPORT | ASSET | TEMP`.
 
-`TEMPLATE_ASSET` and `ATTACHMENT` therefore cannot bind to the backend enum and fail at the HTTP/controller boundary. This is not a speculative mismatch: the dedicated template asset upload path already uses the canonical backend value `ASSET`.
+The current implementation no longer contains that runtime mismatch. Backend `FileCategory`, frontend `FILE_CATEGORIES`, and the options rendered by `FileUploadPage` use the same five canonical values.
 
-**Impact:** the general Files UI exposes user-selectable upload operations that are guaranteed to fail. This breaks the product contract and can mislead users into believing attachment/template-asset categories are supported by the registry API under those names.
+**Current risk:** without executable contract guards, a future frontend/backend enum change could reintroduce the drift.
 
-**Classification:** P1 frontend/API contract defect.
+**Remediation evidence added in `fix/audit-defects-and-release-gate-alignment`:**
+1. frontend model regression asserts the canonical `FILE_CATEGORIES`;
+2. `FileUploadPage.test.tsx` asserts the rendered selectable options come only from that canonical set and exclude the historical invalid values;
+3. `OpenApiCompatibilityIntegrationTest.fileUploadCategoryContractMatchesCanonicalRegistryCategories` asserts the actual generated public OpenAPI upload parameter exposes exactly the same five values.
 
-**Required remediation:** make the general upload category options derive from the canonical public API contract. At minimum replace `TEMPLATE_ASSET` with `ASSET` and remove `ATTACHMENT` unless/until a backend category and lifecycle contract exists. Add a frontend contract test that asserts every selectable category is accepted by the backend/OpenAPI enum.
-
+**A01 state:** remains `PARTIAL` until these executable guards pass on the candidate exact SHA. The historical P1 defect must not be reported as currently reproducible after that verification.
 
 ## CAP-11..CAP-15 deep pass — evidence update
 

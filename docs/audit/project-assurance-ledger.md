@@ -13,7 +13,7 @@ Historical specs and READY labels are evidence inputs, not closure evidence.
 | Area | Scope | Status |
 |---|---|---|
 | A01 | Product capability coverage | IN_PROGRESS |
-| A02 | E2E business processes | NOT_STARTED |
+| A02 | E2E business processes | IN_PROGRESS |
 | A03 | Architecture | NOT_STARTED |
 | A04 | Domain/state machines | NOT_STARTED |
 | A05 | Data integrity & database | NOT_STARTED |
@@ -45,7 +45,7 @@ Severity remains TBD until impact is demonstrated. Findings may be CLOSED_AS_DES
 - BROKEN — implementation exists but verification demonstrates failure.
 - OUT_OF_SCOPE — explicitly excluded by accepted scope.
 
-| A01-005 | A01 | P1 | General Files upload UI exposes `TEMPLATE_ASSET` and `ATTACHMENT`, but backend FileCategory accepts only `IMPORT_SOURCE/REPORT/EXPORT/ASSET/TEMP`; those selections fail request binding. | OPEN | align FileUploadPage with canonical enum + contract test |
+| A01-005 | A01 | P1 | Historical Files upload category drift: current frontend/backend values are aligned; regression guards and exact-SHA verification are required before closure. | VERIFYING | frontend model/page guards + generated OpenAPI category assertion + exact-SHA CI |
 
 | A01-006 | A01 | P1 | Tenant RBAC backend exists, but tenant frontend has no user/membership/role administration workflow for documented P14. | OPEN | implement tenant Administration users/roles/session-management UI + permission/tenant tests |
 | A01-007 | A01 | P1 | Current-user profile/password/session APIs exist, but tenant frontend has no Profile/Security workflow for documented P15. | OPEN | implement profile/security/session UI + API/page tests |
