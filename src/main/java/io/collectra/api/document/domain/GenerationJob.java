@@ -245,6 +245,17 @@ public class GenerationJob extends AuditableEntity {
         errorMessage = message;
     }
 
+    public boolean isStaleProcessing(Instant staleBefore) {
+        return status == GenerationJobStatus.PROCESSING
+                && startedAt != null
+                && !startedAt.isAfter(Objects.requireNonNull(staleBefore, "staleBefore is required"));
+    }
+
+    public boolean isOlderThan(Instant createdBefore) {
+        return createdAt != null
+                && !createdAt.isAfter(Objects.requireNonNull(createdBefore, "createdBefore is required"));
+    }
+
     public void complete(Instant now) {
         if (status != GenerationJobStatus.PROCESSING) {
             throw new IllegalStateException("Job is not processing");
