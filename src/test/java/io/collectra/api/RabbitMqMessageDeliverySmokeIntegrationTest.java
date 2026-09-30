@@ -27,6 +27,8 @@ import io.collectra.api.integration.domain.IngestionStatus;
 import io.collectra.api.localization.domain.TenantLocale;
 import io.collectra.api.localization.infrastructure.TenantLocaleRepository;
 import io.collectra.api.receivable.application.ReceivableService;
+import io.collectra.api.reporting.application.CommunicationAnalyticsQueryService;
+import io.collectra.api.reporting.application.TenantFinancialAnalyticsQueryService;
 import io.collectra.api.shared.outbox.OutboxPublisher;
 import io.collectra.api.template.domain.DocumentTemplate;
 import io.collectra.api.template.domain.FieldDefinition;
@@ -108,6 +110,8 @@ class RabbitMqMessageDeliverySmokeIntegrationTest extends AbstractIntegrationTes
     @Autowired CampaignRecipientRepository campaignRecipients;
     @Autowired MessageRepository messages;
     @Autowired OutboxPublisher outbox;
+    @Autowired TenantFinancialAnalyticsQueryService financialAnalytics;
+    @Autowired CommunicationAnalyticsQueryService communicationAnalytics;
     @Autowired ObjectMapper json;
     @Autowired MockMvc mockMvc;
     @Autowired JdbcTemplate jdbc;
@@ -303,6 +307,29 @@ class RabbitMqMessageDeliverySmokeIntegrationTest extends AbstractIntegrationTes
         assertThat(receivables.invoice(tenant.getId(), invoice.getId()).getOutstandingAmount())
                 .isEqualByComparingTo("900.0000");
 
+        var reversed =
+                receivables.reverseAllocation(
+                        tenant.getId(),
+                        payment.getId(),
+                        allocation.getId(),
+                        allocation.getVersion(),
+                        "golden-journey-reversal",
+                        "golden-journey");
+        assertThat(reversed.getStatus().name()).isEqualTo("REVERSED");
+        assertThat(receivables.invoice(tenant.getId(), invoice.getId()).getOutstandingAmount())
+                .isEqualByComparingTo("1000.0000");
+
+        var replacementAllocation =
+                receivables.allocate(
+                        tenant.getId(),
+                        payment.getId(),
+                        UUID.randomUUID(),
+                        invoice.getId(),
+                        new BigDecimal("100.0000"));
+        assertThat(replacementAllocation.getAmount()).isEqualByComparingTo("100.0000");
+        assertThat(receivables.invoice(tenant.getId(), invoice.getId()).getOutstandingAmount())
+                .isEqualByComparingTo("900.0000");
+
         var collectionCase =
                 collections.createCase(
                         tenant.getId(),
@@ -404,6 +431,38 @@ class RabbitMqMessageDeliverySmokeIntegrationTest extends AbstractIntegrationTes
                                     .isEqualTo("simulated:email:" + messageId);
                             assertThat(deliveryRequestCount(tenant.getId(), messageId)).isOne();
                         });
+
+        var financial = financialAnalytics.summary(tenant.getId(), businessDate, businessDate);
+        assertThat(financial.currencies())
+                .singleElement()
+                .satisfies(
+                        metric -> {
+                            assertThat(metric.currency()).isEqualTo("KZT");
+                            assertThat(metric.payments()).isEqualByComparingTo("100.0000");
+                            assertThat(metric.allocated()).isEqualByComparingTo("200.0000");
+                            assertThat(metric.reversedAllocations())
+                                    .isEqualByComparingTo("100.0000");
+                            assertThat(metric.currentSnapshot().outstanding())
+                                    .isEqualByComparingTo("900.0000");
+                        });
+
+        Instant analyticsFrom = Instant.now().minus(Duration.ofMinutes(10));
+        Instant analyticsTo = Instant.now().plus(Duration.ofMinutes(1));
+        var communication =
+                communicationAnalytics.summary(
+                        CommunicationAnalyticsQueryService.Scope.tenant(tenant.getId()),
+                        new CommunicationAnalyticsQueryService.Filter(
+                                analyticsFrom,
+                                analyticsTo,
+                                campaign.getId(),
+                                prepared.runId(),
+                                CommunicationChannel.EMAIL.name(),
+                                null));
+        assertThat(communication.business().recipients()).isOne();
+        assertThat(communication.business().sent()).isOne();
+        assertThat(communication.business().failed()).isZero();
+        assertThat(communication.messages().sent()).isOne();
+        assertThat(communication.messages().failed()).isZero();
     }
 
     private long deliveryRequestCount(UUID tenantId, UUID messageId) {
