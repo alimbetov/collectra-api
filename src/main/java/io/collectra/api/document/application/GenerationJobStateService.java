@@ -16,12 +16,17 @@ import org.springframework.transaction.annotation.Transactional;
 public class GenerationJobStateService {
     private final GenerationJobRepository jobs;
     private final DocumentGenerationEventPublisher events;
+    private final DocumentGenerationRequestPublisher requests;
     private final Clock clock;
 
     public GenerationJobStateService(
-            GenerationJobRepository jobs, DocumentGenerationEventPublisher events, Clock clock) {
+            GenerationJobRepository jobs,
+            DocumentGenerationEventPublisher events,
+            DocumentGenerationRequestPublisher requests,
+            Clock clock) {
         this.jobs = jobs;
         this.events = events;
+        this.requests = requests;
         this.clock = clock;
     }
 
@@ -87,7 +92,7 @@ public class GenerationJobStateService {
         }
 
         job.retry("WORKER_RECOVERED", "Recovered stale generation processing");
-        events.requested(job.getTenantId(), job.getId());
+        requests.requested(job.getTenantId(), job.getId());
         return RecoveryOutcome.REQUEUED;
     }
 
