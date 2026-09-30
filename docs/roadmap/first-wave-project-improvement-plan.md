@@ -1,5 +1,8 @@
 # Collectra — первая волна доработки проекта
 
+Documentation lifecycle: HISTORICAL — retained for traceability; not a current execution plan.
+Current project status and precedence: [`docs/README.md`](../README.md).
+
 **Статус:** Architecture Baseline v2 / implementation-oriented review  
 **Назначение:** рабочее ТЗ первой волны, детализированное до уровня пакетов, сущностей, сервисов, API, миграций и тестов с учетом уже существующего кода Collectra.
 
