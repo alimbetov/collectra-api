@@ -46,3 +46,6 @@ Severity remains TBD until impact is demonstrated. Findings may be CLOSED_AS_DES
 - OUT_OF_SCOPE — explicitly excluded by accepted scope.
 
 | A01-005 | A01 | P1 | General Files upload UI exposes `TEMPLATE_ASSET` and `ATTACHMENT`, but backend FileCategory accepts only `IMPORT_SOURCE/REPORT/EXPORT/ASSET/TEMP`; those selections fail request binding. | OPEN | align FileUploadPage with canonical enum + contract test |
+
+| A01-006 | A01 | P1 | Tenant RBAC backend exists, but tenant frontend has no user/membership/role administration workflow for documented P14. | OPEN | implement tenant Administration users/roles/session-management UI + permission/tenant tests |
+| A01-007 | A01 | P1 | Current-user profile/password/session APIs exist, but tenant frontend has no Profile/Security workflow for documented P15. | OPEN | implement profile/security/session UI + API/page tests |
