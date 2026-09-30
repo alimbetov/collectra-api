@@ -49,3 +49,6 @@ Severity remains TBD until impact is demonstrated. Findings may be CLOSED_AS_DES
 
 | A01-006 | A01 | P1 | Tenant RBAC backend exists, but tenant frontend has no user/membership/role administration workflow for documented P14. | OPEN | implement tenant Administration users/roles/session-management UI + permission/tenant tests |
 | A01-007 | A01 | P1 | Current-user profile/password/session APIs exist, but tenant frontend has no Profile/Security workflow for documented P15. | OPEN | implement profile/security/session UI + API/page tests |
+
+| A01-008 | A01 | P1 | Tenant financial/communication analytics backend and projections exist, but tenant frontend has no analytics/reporting route or page. | OPEN | implement tenant Analytics UI + permission/API/page tests |
+| A01-009 | A01 | P2 | Automatic recovery/metrics exist, but tenant/operator recovery visibility is fragmented; ingestion operations and async health lack a consolidated authorized UI surface. | OPEN | define and implement Operations/Diagnostics surface + safe deep links/tests |
