@@ -1,5 +1,8 @@
 # VC-9 — Tenant Analytics and Projections
 
+Documentation lifecycle: HISTORICAL — retained for traceability; not a current execution plan.
+Current project status and precedence: [`docs/README.md`](../README.md).
+
 Status: IMPLEMENTATION
 Branch: `feat/vc9-tenant-analytics`
 
