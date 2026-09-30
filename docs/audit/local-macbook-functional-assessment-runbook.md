@@ -21,6 +21,9 @@ Baseline main SHA: `3a5d2bdcf0933fd4d0f33e8e91fc6338e5d29033`
 5. Do not weaken tests, security checks or assertions merely to obtain green.
 6. Keep production code unchanged during the initial assessment. Put findings in an audit report first.
 7. Validate tenant isolation and authorization negatively as well as positively.
+8. Treat existing audit documents as hypotheses/evidence indexes, not current truth. Reconcile every historical PARTIAL/DEFECT/VERIFIED claim against current code and executable evidence. Explicitly identify stale documentation.
+9. Distinguish test-harness success from locally running-product success. A capability is not UI/runtime-verified merely because an integration or component test passes.
+10. Record all prerequisites that had to be installed or configured on macOS, including architecture (Apple Silicon/Intel) and container runtime constraints.
 
 ## Phase 1 — Repository and build
 
@@ -30,6 +33,13 @@ Execute the repository's documented build gates. At minimum verify formatting, b
 
 Then run the full PostgreSQL/Testcontainers integration/security verification used by CI. Run RabbitMQ-dependent tests with a real broker/container where the project expects one.
 
+Also verify:
+- generated OpenAPI/current API contract and frontend model compatibility where the repository has guards;
+- Liquibase migration chain from an empty database, not only an already-migrated database;
+- documentation/link/metadata gates used by CI;
+- no uncommitted/generated-file drift after a clean build;
+- test discovery: confirm critical security/integration suites actually executed rather than being silently skipped.
+
 ## Phase 2 — Local runtime
 
 Bring up the dependencies required by the application. Prefer the repository's existing Docker/Compose/Testcontainers configuration rather than inventing an alternative topology.
@@ -38,13 +48,17 @@ Start the backend with an appropriate local profile and start the frontend. Reco
 
 Do not use production credentials.
 
+Perform at least one clean restart cycle after creating representative state: stop/restart the application and broker/database dependencies where safe, then prove durable state, outbox/recovery and UI/API usability survive restart. Record any local-only bootstrap/manual-seeding dependency.
+
 ## Phase 3 — Functional journeys
 
 Exercise the system as business workflows, not merely isolated endpoints.
 
 Verify:
 
-- authentication and tenant context;
+- authentication, logout and tenant context;
+- dashboard and its operational projections;
+- platform administration (platform login, tenants, users and administrators), while explicitly recording that platform analytics is currently a placeholder if that remains true in current code;
 - tenant administration, users, memberships and RBAC;
 - service clients and integration-source administration;
 - source schema, mapping, validation/readiness;
@@ -56,6 +70,7 @@ Verify:
 - collection case/action/promise/dispute flows;
 - templates and publishing;
 - campaigns, audience/run lifecycle and message materialization;
+- file upload/list/detail lifecycle and category contract;
 - generated documents/required attachments where locally executable;
 - message monitoring;
 - transactional outbox and RabbitMQ hand-off;
@@ -84,7 +99,15 @@ At minimum verify:
 - duplicate broker delivery does not duplicate terminal business effects;
 - worker/recovery paths do not leave durable nonterminal state permanently stranded;
 - required attachment readiness prevents premature delivery;
-- disabled/revoked identities lose access as specified.
+- disabled/revoked identities lose access as specified;
+- service-client scope/IP/status/secret-rotation enforcement where locally executable;
+- scheduler/recovery ownership remains duplicate-safe when two application instances execute concurrently;
+- stale PROCESSING recovery for generation/ingestion/delivery paths;
+- outbox claim concurrency/SKIP LOCKED behavior and DEAD/terminal agreement;
+- campaign cancellation and recipient terminal accounting;
+- late payment and allocation reversal effects on collection and analytics state;
+- analytics projection duplicate/late-event behavior and rebuild/raw-fallback correctness;
+- restart/crash windows do not lose committed work.
 
 Use the existing A02 G01-G18 and F01-F14 evidence as a checklist, but independently verify executable evidence.
 
@@ -104,11 +127,50 @@ Check navigation discoverability, permission-aware controls, loading/error/empty
 
 Treat cosmetic improvements separately from functional blockers.
 
-## Phase 6 — Data volume sanity check
+Do not limit the UI pass to route existence. Use a real browser when practical and verify:
+- page refresh/deep-link behavior;
+- browser back/forward navigation;
+- forms, validation and disabled/submitting states;
+- pagination/filter/sort state;
+- destructive-action confirmation;
+- keyboard/focus/basic accessibility sanity;
+- narrow viewport/responsive sanity;
+- no secrets/tokens/raw sensitive payloads exposed in UI or browser logs;
+- user-visible success/failure feedback;
+- links between customer, contract, invoice, payment, collection, campaign, message and operational detail;
+- known placeholder surfaces are clearly classified rather than silently counted as complete.
+
+## Phase 6 — Operational and persistence sanity
+
+Inspect configuration and runtime behavior for:
+- connection-pool sizing and transaction boundaries;
+- health/readiness/Actuator exposure;
+- structured logging/correlation and absence of secrets/PII leakage;
+- metrics for outbox, queues, recovery, delivery, generation and analytics lag where implemented;
+- graceful shutdown while work is in flight;
+- object/file storage persistence and cleanup/retention behavior;
+- timezone/Clock-sensitive scheduling;
+- DB constraints/indexes that enforce tenant/idempotency/concurrency invariants.
+
+Where feasible, terminate the application during an asynchronous workflow and verify bounded recovery after restart.
+
+## Phase 7 — Data volume sanity check
 
 This is not a formal capacity benchmark. Populate enough representative data to expose obvious N+1, unbounded-list, pagination, filtering or query-plan problems. Inspect suspicious PostgreSQL queries with `EXPLAIN (ANALYZE, BUFFERS)` where practical.
 
 Do not invent a supported RPS/TPS number without a controlled load test.
+
+## Phase 8 — Cross-check against release contracts
+
+Reconcile the final evidence against:
+- CAP-01..CAP-20 in A01;
+- G01..G18 and F01..F14 in A02;
+- PC-01..PC-20 pre-channel release gate;
+- process-interaction consistency findings and their current remediation state;
+- frontend route/command persona matrices;
+- current CI workflow gates.
+
+Any disagreement between documentation and executable current behavior must be reported explicitly as either stale documentation or a current defect.
 
 ## Required report
 
@@ -119,13 +181,18 @@ The report must contain:
 - exact SHA and environment;
 - commands actually executed;
 - PASS/FAIL/SKIPPED evidence;
-- functional capability matrix;
+- CAP-01..CAP-20 functional capability matrix;
+- PC-01..PC-20 release-gate matrix;
 - persona/RBAC matrix;
 - G01-G18 status;
 - F01-F14 status;
 - UI findings;
 - security/tenant-isolation findings;
 - runtime/operations findings;
+- local bootstrap/reproducibility findings;
+- persistence/restart/recovery findings;
+- stale-documentation findings;
+- explicit list of tests/checks discovered but not executed and why;
 - defects with severity BLOCKER/HIGH/MEDIUM/LOW;
 - reproduction steps for every BLOCKER/HIGH defect;
 - gaps that require external providers or unavailable infrastructure;
