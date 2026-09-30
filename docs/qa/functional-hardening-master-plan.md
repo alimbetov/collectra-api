@@ -1,9 +1,12 @@
 # Collectra — Functional Hardening User Journeys and Smoke Plan
 
-Status: IMPLEMENTATION-READY BASELINE
-Branch: spec/functional-hardening-user-journeys
-Base: main@8704e425ca6ea92d277da136cdfe84d07ebf5057
-Gate: before VC-9 Analytics
+Documentation lifecycle: HISTORICAL — completed hardening plan; current status is in A01/A02 and release ledgers.
+Current documentation precedence: [`docs/README.md`](../README.md).
+
+Status: HISTORICAL — SUPERSEDED
+Historical branch: `spec/functional-hardening-user-journeys`
+Historical base: `main@8704e425ca6ea92d277da136cdfe84d07ebf5057`
+Historical gate: before VC-9 Analytics
 
 ## 1. Objective
 
