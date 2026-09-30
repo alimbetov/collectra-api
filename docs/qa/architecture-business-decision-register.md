@@ -1,6 +1,9 @@
 # Architecture / Business Decision Register
 
-Status: ACCEPTED BASELINE FOR PRE-VC9 HARDENING
+Documentation lifecycle: SUPPORTING REFERENCE — accepted PRE-VC9 decisions retained as rationale; obsolete sequencing constraints do not govern current work.
+Current documentation precedence: [`docs/README.md`](../README.md).
+
+Status: SUPPORTING REFERENCE — PRE-VC9 DECISION BASELINE
 Authority: product/architecture decisions delegated by the product owner for this hardening scope.
 Rule: Codex implements these decisions. Re-open only if repository evidence proves a material conflict with an already shipped external contract; record BLOCKED instead of silently changing semantics.
 
