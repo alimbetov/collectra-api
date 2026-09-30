@@ -9,6 +9,18 @@ Run an independent local assessment of Collectra on macOS using Codex. Do not as
 Baseline branch: `audit/local-macbook-functional-assessment`
 Baseline main SHA: `3a5d2bdcf0933fd4d0f33e8e91fc6338e5d29033`
 
+Repository-aligned local baseline:
+- Java 17 (CI uses Temurin 17);
+- Node 22.22.2 for parity with CI;
+- PostgreSQL 15 from `compose.yaml`;
+- RabbitMQ 3.12 management image from `compose.yaml`;
+- RustFS S3-compatible storage from `compose.yaml`;
+- Spring profile `local`;
+- backend `http://localhost:8080`;
+- frontend Vite development server as configured by the frontend project.
+
+Important: GitHub Actions push triggers currently do not include `audit/**`. Local execution is therefore the primary evidence for this branch unless a pull request to `main` is opened or CI is otherwise explicitly triggered. Do not report “CI green on this branch” without an actual run.
+
 ## Operating rules
 
 1. Work locally on this branch. Do not merge to `main`.
@@ -44,9 +56,11 @@ Also verify:
 
 Bring up the dependencies required by the application. Prefer the repository's existing Docker/Compose/Testcontainers configuration rather than inventing an alternative topology.
 
-Start the backend with an appropriate local profile and start the frontend. Record ports, active profile and dependency endpoints. Verify application health/readiness and that Liquibase reaches the expected schema version.
+Start the backend using the repository's documented `local` profile and start the frontend. Record ports, active profile and dependency endpoints. Verify application health/readiness and that Liquibase reaches the expected schema version.
 
-Do not use production credentials.
+Do not use production credentials. Use the repository's local-only credentials/configuration unless a test explicitly provisions its own Testcontainers dependencies.
+
+Record effective feature flags before each scheduler/async scenario. In current configuration, delivery is disabled in the base profile while `local` selects the simulated provider; reporting projections and partition maintenance are disabled by default. Enable a feature only when required by the scenario, document the exact override, and restore defaults afterward. Never count a disabled scheduler/path as verified merely because the application is healthy.
 
 Perform at least one clean restart cycle after creating representative state: stop/restart the application and broker/database dependencies where safe, then prove durable state, outbox/recovery and UI/API usability survive restart. Record any local-only bootstrap/manual-seeding dependency.
 
@@ -58,7 +72,7 @@ Verify:
 
 - authentication, logout and tenant context;
 - dashboard and its operational projections;
-- platform administration (platform login, tenants, users and administrators), while explicitly recording that platform analytics is currently a placeholder if that remains true in current code;
+- platform administration (platform login, tenants, users and administrators); inspect `/platform/analytics` and classify it as incomplete if it is still implemented by `PlatformPlaceholderPage` rather than treating route presence as capability completion;
 - tenant administration, users, memberships and RBAC;
 - service clients and integration-source administration;
 - source schema, mapping, validation/readiness;
@@ -203,6 +217,14 @@ The report must contain:
   - production-ready.
 
 Do not use an overall numerical score to hide unresolved defects. The conclusion must name the concrete remaining blockers, if any.
+
+## Readiness interpretation
+
+The local audit may establish feature-complete, staging/UAT-ready, and pre-provider release evidence when the corresponding executable checks pass.
+
+It MUST NOT declare the product production-ready solely from this runbook. The current canonical release contract explicitly keeps live-provider certification and broader production-readiness controls separate. Production-ready requires additional evidence for deployment/IaC, backup/restore/DR, controlled capacity/load testing, production observability/SLOs and applicable live-provider certification.
+
+The current pre-channel boundary stops at the provider-neutral worker. Simulated delivery proves that contract only; it does not certify KumoMTA or any future SMS/Telegram/WhatsApp provider.
 
 ## Completion gate
 
