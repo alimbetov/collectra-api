@@ -46,6 +46,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Set;
 import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -115,6 +116,11 @@ class RabbitMqMessageDeliverySmokeIntegrationTest extends AbstractIntegrationTes
     @Autowired ObjectMapper json;
     @Autowired MockMvc mockMvc;
     @Autowired JdbcTemplate jdbc;
+
+    @BeforeEach
+    void isolateOutboxFromEarlierIntegrationTests() {
+        jdbc.update("delete from outbox_events");
+    }
 
     @Test
     void outboxTraversesRealRabbitTopologyIntoDeliveryWorker() throws Exception {
