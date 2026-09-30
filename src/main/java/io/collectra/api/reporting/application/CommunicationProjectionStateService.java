@@ -18,8 +18,9 @@ public class CommunicationProjectionStateService {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public boolean tryMarkBuilding(
+    public UUID tryMarkBuilding(
             UUID tenantId, LocalDate businessDate, Instant calculatedAt, Instant staleBefore) {
+        UUID buildId = UUID.randomUUID();
         int changed =
                 jdbc.update(
                         """
@@ -31,50 +32,52 @@ public class CommunicationProjectionStateService {
                             campaign_rows,
                             failure_rows,
                             calculated_at,
-                            error_message
+                            error_message,
+                            build_id
                         )
-                        values (?, ?, 'BUILDING', 0, 0, 0, ?, null)
+                        values (?, ?, 'BUILDING', 0, 0, 0, ?, null, ?)
                         on conflict (tenant_id, business_date)
                         do update set
                             status = 'BUILDING',
                             calculated_at = excluded.calculated_at,
-                            error_message = null
+                            error_message = null,
+                            build_id = excluded.build_id
                         where communication_reporting_projection_state.status <> 'BUILDING'
                            or communication_reporting_projection_state.calculated_at < ?
                         """,
                         tenantId,
                         businessDate,
                         Timestamp.from(calculatedAt),
+                        buildId,
                         Timestamp.from(staleBefore));
-        return changed == 1;
+        return changed == 1 ? buildId : null;
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void markFailed(
-            UUID tenantId, LocalDate businessDate, Instant calculatedAt, String errorMessage) {
-        jdbc.update(
-                """
-                insert into communication_reporting_projection_state(
-                    tenant_id,
-                    business_date,
-                    status,
-                    revision,
-                    campaign_rows,
-                    failure_rows,
-                    calculated_at,
-                    error_message
-                )
-                values (?, ?, 'FAILED', 0, 0, 0, ?, ?)
-                on conflict (tenant_id, business_date)
-                do update set
-                    status = 'FAILED',
-                    calculated_at = excluded.calculated_at,
-                    error_message = excluded.error_message
-                """,
-                tenantId,
-                businessDate,
-                Timestamp.from(calculatedAt),
-                truncate(errorMessage, 1000));
+    public boolean markFailed(
+            UUID tenantId,
+            LocalDate businessDate,
+            UUID buildId,
+            Instant calculatedAt,
+            String errorMessage) {
+        return jdbc.update(
+                        """
+                        update communication_reporting_projection_state
+                           set status = 'FAILED',
+                               build_id = null,
+                               calculated_at = ?,
+                               error_message = ?
+                         where tenant_id = ?
+                           and business_date = ?
+                           and status = 'BUILDING'
+                           and build_id = ?
+                        """,
+                        Timestamp.from(calculatedAt),
+                        truncate(errorMessage, 1000),
+                        tenantId,
+                        businessDate,
+                        buildId)
+                == 1;
     }
 
     private String truncate(String value, int max) {
