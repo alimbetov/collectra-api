@@ -2,18 +2,16 @@
 
 > **Status note — 2026-09-30:** this directory contains both current implementation contracts and historical slice/FW plans. Historical readiness labels below describe the state at the time those plans were written and are not the authoritative current project status. Use [Collectra System Overview](../architecture/collectra-system-overview.md) for current architecture and [Technical Architecture Audit Ledger](../architecture/technical-audit-ledger.md) for current implementation/production-readiness audit. Detailed historical specs remain valuable for invariants and design rationale unless superseded by a newer canonical contract.
 
-Этот каталог содержит implementation-ready технические задания для backend MVP.
+Этот каталог содержит как действующие implementation contracts, так и исторические slice/FW/VC технические задания. Для текущего статуса проекта используйте [`../README.md`](../README.md) и canonical ledgers; readiness-таблицы ниже являются историческими снимками.
 
-Главный roadmap: [`../roadmap/backend-mvp-roadmap.md`](../roadmap/backend-mvp-roadmap.md).
+Исторический backend roadmap: [`../roadmap/backend-mvp-roadmap.md`](../roadmap/backend-mvp-roadmap.md). Он не является текущим execution plan.
 
-Next active self-service implementation contract:
+Historical Template Studio contract set:
 
-[React Template Studio — T2 implementation-ready](template-studio-t2-implementation-ready.md).
+- [React Template Studio — T2 implementation-ready](template-studio-t2-implementation-ready.md)
+- [Template Studio T2 readiness audit — 2026-09-24](template-studio-t2-readiness-audit-2026-09-24.md)
 
-Readiness audit against current `main`:
-[Template Studio T2 readiness audit — 2026-09-24](template-studio-t2-readiness-audit-2026-09-24.md).
-
-Historical FW9/F2 documents remain reference material only and MUST NOT override the T2 implementation-ready contract above.
+These are retained for implementation rationale; they do not override the current code or canonical audit/release ledgers.
 
 
 Business frontend implementation plan:
