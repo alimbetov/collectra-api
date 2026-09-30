@@ -13,7 +13,7 @@ Historical specs and READY labels are evidence inputs, not closure evidence.
 | Area | Scope | Status |
 |---|---|---|
 | A01 | Product capability coverage | IN_PROGRESS |
-| A02 | E2E business processes | NOT_STARTED |
+| A02 | E2E business processes | IN_PROGRESS |
 | A03 | Architecture | NOT_STARTED |
 | A04 | Domain/state machines | NOT_STARTED |
 | A05 | Data integrity & database | NOT_STARTED |
