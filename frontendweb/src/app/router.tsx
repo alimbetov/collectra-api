@@ -47,6 +47,9 @@ import { ImportErrorsPage } from '../pages/imports/ImportErrorsPage';
 import { ReceivablesPage } from '../pages/receivables/ReceivablesPage';
 import { InvoiceDetailPage } from '../pages/receivables/InvoiceDetailPage';
 import { InvoiceCreatePage } from '../pages/receivables/InvoiceCreatePage';
+import { PaymentsPage } from '../pages/receivables/PaymentsPage';
+import { PaymentCreatePage } from '../pages/receivables/PaymentCreatePage';
+import { PaymentDetailPage } from '../pages/receivables/PaymentDetailPage';
 import { FilesPage } from '../pages/files/FilesPage';
 import { FileDetailPage } from '../pages/files/FileDetailPage';
 import { FileUploadPage } from '../pages/files/FileUploadPage';
@@ -102,6 +105,9 @@ export const router = createBrowserRouter([
       { path: 'receivables', element: <RequirePermission permission="RECEIVABLE_READ"><ReceivablesPage /></RequirePermission> },
       { path: 'receivables/invoices/new', element: <RequirePermission permission="RECEIVABLE_MANAGE"><InvoiceCreatePage /></RequirePermission> },
       { path: 'receivables/invoices/:invoiceId', element: <RequirePermission permission="RECEIVABLE_READ"><InvoiceDetailPage /></RequirePermission> },
+      { path: 'receivables/payments', element: <RequirePermission permission="RECEIVABLE_READ"><PaymentsPage /></RequirePermission> },
+      { path: 'receivables/payments/new', element: <RequirePermission permission="RECEIVABLE_MANAGE"><PaymentCreatePage /></RequirePermission> },
+      { path: 'receivables/payments/:paymentId', element: <RequirePermission permission="RECEIVABLE_READ"><PaymentDetailPage /></RequirePermission> },
       { path: 'contracts', element: <RequirePermission permission="CONTRACT_READ"><ContractsPage /></RequirePermission> },
       { path: 'contracts/:contractId', element: <RequirePermission permission="CONTRACT_READ"><ContractDetailPage /></RequirePermission> },
       { path: 'collections', element: <RequirePermission permission="COLLECTION_READ"><CollectionsPage /></RequirePermission> },
