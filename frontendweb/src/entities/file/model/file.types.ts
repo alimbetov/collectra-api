@@ -1,4 +1,5 @@
-export type FileCategory = 'IMPORT_SOURCE' | 'GENERATED_DOCUMENT' | 'TEMPLATE_ASSET' | 'ATTACHMENT' | 'TEMP';
+export const FILE_CATEGORIES = ['IMPORT_SOURCE', 'REPORT', 'EXPORT', 'ASSET', 'TEMP'] as const;
+export type FileCategory = (typeof FILE_CATEGORIES)[number];
 export type FileStatus = 'UPLOADING' | 'READY' | 'FAILED' | 'DELETE_PENDING' | 'DELETED';
 
 export interface FileDto {
