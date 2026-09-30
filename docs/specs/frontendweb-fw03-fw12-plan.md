@@ -1,5 +1,8 @@
 # FrontendWeb FW3–FW12 — implementation plan
 
+Documentation lifecycle: HISTORICAL — retained for traceability; not a current execution plan.
+Current project status and precedence: [`docs/README.md`](../README.md).
+
 Status: REVIEWED / IMPLEMENTATION GATES IDENTIFIED
 
 Baseline: `main@02515d0`
