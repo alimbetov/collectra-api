@@ -92,7 +92,7 @@ public class CommunicationProjectionRebuildService {
 
                         int updated =
                                 jdbc.update(
-                                """
+                                        """
                                 update communication_reporting_projection_state
                                    set status = 'READY',
                                        revision = revision + 1,
