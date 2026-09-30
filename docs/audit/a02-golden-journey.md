@@ -1,6 +1,8 @@
 # A02 — Golden Journey and Failure Journey Assurance
 
-Baseline: `main@165eb9639fa013f77a24e0a8e2b225df3a94c186`
+Historical audit baseline: `main@165eb9639fa013f77a24e0a8e2b225df3a94c186`
+Current reconciliation branch: `fix/audit-defects-and-release-gate-alignment`
+Candidate evidence SHA: pending exact-SHA CI
 
 Status: **IN PROGRESS**
 
@@ -58,3 +60,8 @@ A02 is CLOSED only when the complete business chain is backed by executable repo
 4. Record every discovered product defect in the assurance ledger; fix P0/P1 in this branch.
 5. Run Spotless, focused tests, full PostgreSQL Testcontainers verify, RabbitMQ smoke, frontend gate.
 6. Record exact SHA and CI run. Only then mark A02 CLOSED.
+
+
+## Pre-Channel Release Gate relationship
+
+A02 owns the Golden/Failure Journey assurance catalogue. `docs/qa/pre-channel-release-gate.md` consumes this evidence for release qualification: PC-18 consumes the positive G01-G18 chain, PC-19 consumes F01-F14 plus its explicit negative-delivery assertions, and PC-20 is the final same-exact-SHA aggregation gate. Do not duplicate an A02 scenario solely to satisfy a second ledger.
