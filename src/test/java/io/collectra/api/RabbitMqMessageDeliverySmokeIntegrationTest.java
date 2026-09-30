@@ -303,6 +303,29 @@ class RabbitMqMessageDeliverySmokeIntegrationTest extends AbstractIntegrationTes
         assertThat(receivables.invoice(tenant.getId(), invoice.getId()).getOutstandingAmount())
                 .isEqualByComparingTo("900.0000");
 
+        var reversed =
+                receivables.reverseAllocation(
+                        tenant.getId(),
+                        payment.getId(),
+                        allocation.getId(),
+                        allocation.getVersion(),
+                        "golden-journey-reversal",
+                        "golden-journey");
+        assertThat(reversed.getStatus().name()).isEqualTo("REVERSED");
+        assertThat(receivables.invoice(tenant.getId(), invoice.getId()).getOutstandingAmount())
+                .isEqualByComparingTo("1000.0000");
+
+        var replacementAllocation =
+                receivables.allocate(
+                        tenant.getId(),
+                        payment.getId(),
+                        UUID.randomUUID(),
+                        invoice.getId(),
+                        new BigDecimal("100.0000"));
+        assertThat(replacementAllocation.getAmount()).isEqualByComparingTo("100.0000");
+        assertThat(receivables.invoice(tenant.getId(), invoice.getId()).getOutstandingAmount())
+                .isEqualByComparingTo("900.0000");
+
         var collectionCase =
                 collections.createCase(
                         tenant.getId(),
