@@ -1,9 +1,9 @@
 # Pre-Channel Release Gate
 
 Status: ACTIVE — FAIL-CLOSED
-Current reconciliation branch: `fix/audit-defects-and-release-gate-alignment`
 Historical baseline: `main@ec6d1ac2b9ac9035ded57de3c3825c011e946d2c`
-Candidate evidence SHA: pending exact-SHA CI
+Current reconciliation baseline: `main@9b3369d52af5bfaf0436019b4b8eb97e51f0b956`
+Active qualification evidence: main CI run #2801 (`36713091538`) is in progress; no PC row is promoted to `VERIFIED` until that exact-SHA run is terminal green.
 
 ## 1. Purpose
 
