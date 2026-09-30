@@ -1,6 +1,5 @@
 package io.collectra.api.document.application;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.collectra.api.document.domain.GeneratedDocument;
@@ -9,7 +8,6 @@ import io.collectra.api.document.domain.OutputFormat;
 import io.collectra.api.document.infrastructure.GeneratedDocumentRepository;
 import io.collectra.api.document.infrastructure.GenerationJobRepository;
 import io.collectra.api.importing.application.MappingExecutionService;
-import io.collectra.api.shared.outbox.OutboxService;
 import io.collectra.api.template.application.TemplateRenderer;
 import io.collectra.api.template.domain.TemplateVersion;
 import io.collectra.api.template.domain.TemplateVersionStatus;
@@ -20,7 +18,6 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.List;
-import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.UUID;
@@ -30,7 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class GenerationJobService {
-    public static final String REQUESTED_EVENT_TYPE = "DOCUMENT_GENERATION_REQUESTED";
+    public static final String REQUESTED_EVENT_TYPE = DocumentGenerationRequestPublisher.EVENT_TYPE;
 
     private final MappingExecutionService mappings;
     private final TemplateVersionRepository versions;
@@ -38,8 +35,7 @@ public class GenerationJobService {
     private final GenerationJobRepository jobs;
     private final GeneratedDocumentRepository documents;
     private final TemplateRenderer renderer;
-    private final OutboxService outbox;
-    private final ObjectMapper json;
+    private final DocumentGenerationRequestPublisher requests;
 
     public GenerationJobService(
             MappingExecutionService mappings,
@@ -48,16 +44,14 @@ public class GenerationJobService {
             GenerationJobRepository jobs,
             GeneratedDocumentRepository documents,
             TemplateRenderer renderer,
-            OutboxService outbox,
-            ObjectMapper json) {
+            DocumentGenerationRequestPublisher requests) {
         this.mappings = mappings;
         this.versions = versions;
         this.templates = templates;
         this.jobs = jobs;
         this.documents = documents;
         this.renderer = renderer;
-        this.outbox = outbox;
-        this.json = json;
+        this.requests = requests;
     }
 
     @Transactional
@@ -141,12 +135,7 @@ public class GenerationJobService {
         if (job == null) {
             throw new IllegalArgumentException("job is required");
         }
-        outbox.append(
-                job.getTenantId(),
-                "GENERATION_JOB",
-                job.getId(),
-                REQUESTED_EVENT_TYPE,
-                serialize(Map.of("tenantId", job.getTenantId(), "jobId", job.getId())));
+        requests.requested(job.getTenantId(), job.getId());
     }
 
     @Transactional(readOnly = true)
@@ -200,14 +189,6 @@ public class GenerationJobService {
                 version.getContentHtml()
                         + "\n"
                         + (version.getStylesheet() == null ? "" : version.getStylesheet()));
-    }
-
-    private String serialize(Object value) {
-        try {
-            return json.writeValueAsString(value);
-        } catch (JsonProcessingException ex) {
-            throw new IllegalStateException("Cannot serialize generation event", ex);
-        }
     }
 
     private String sha256(String value) {
