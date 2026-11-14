@@ -51,6 +51,10 @@ public class SubjectAccessService {
             saveIdempotency(issuer,subject,actor,idempotencyKey,op.id(),op.version());
             return Map.of("operationId",op.id(),"state",op.state(),"version",op.version());
         }
+        // Lock the mandatory registrations until the operation snapshot commits.
+        db.sql("SELECT consumer_id FROM revocation_consumers " +
+            "WHERE required_for_enforcement=true ORDER BY consumer_id FOR SHARE")
+            .query(String.class).list();
         // Capture both required consumers under the same transaction as the operation.
         long mandatory=db.sql("SELECT count(*) FROM revocation_consumers " +
             "WHERE required_for_enforcement=true AND enabled=true AND oauth_client_id IS NOT NULL " +
