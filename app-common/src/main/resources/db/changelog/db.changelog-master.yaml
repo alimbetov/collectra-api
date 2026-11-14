@@ -20,3 +20,10 @@ databaseChangeLog:
         - sqlFile:
             path: db/changelog/r16b-001-dispatch.sql
             relativeToChangelogFile: false
+  - changeSet:
+      id: r16c-001-consumer-binding
+      author: app-common
+      changes:
+        - sqlFile:
+            path: db/changelog/r16c-001-consumer-binding.sql
+            relativeToChangelogFile: false
