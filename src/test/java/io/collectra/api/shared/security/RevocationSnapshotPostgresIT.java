@@ -72,6 +72,14 @@ class RevocationSnapshotPostgresIT {
     }
 
     @Test
+    void unavailableLedgerFailsClosedForPreviouslyActiveSubject() {
+        store.apply(ISS, SUB, 1, "ACTIVE");
+        assertThat(gate.allows(ISS, SUB)).isTrue();
+        db.sql("DROP TABLE collectra_global_access_snapshots").update();
+        assertThat(gate.allows(ISS, SUB)).isFalse();
+    }
+
+    @Test
     void differentSubjectCannotInheritState() {
         store.apply(ISS, SUB, 1, "ACTIVE");
         assertThat(gate.allows(ISS, "different-subject")).isFalse();
