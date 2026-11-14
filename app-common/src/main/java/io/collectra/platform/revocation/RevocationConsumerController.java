@@ -46,16 +46,17 @@ public class RevocationConsumerController {
             .param("iss",ack.issuer()).param("sub",ack.subject()).query(Long.class)
             .optional().orElseThrow(()->new ResponseStatusException(HttpStatus.CONFLICT));
         if(ack.version()>current) throw new ResponseStatusException(HttpStatus.CONFLICT);
-        long epoch=db.sql("SELECT binding_epoch FROM revocation_consumers " +
-            "WHERE consumer_id=:c AND enabled=true")
-            .param("c",caller).query(Long.class).single();
-        db.sql("INSERT INTO revocation_acks(consumer_id,issuer,subject_id,version,binding_epoch) " +
-            "VALUES (:c,:iss,:sub,:v,:epoch) ON CONFLICT (consumer_id,issuer,subject_id) " +
-            "DO UPDATE SET version=CASE WHEN revocation_acks.binding_epoch=EXCLUDED.binding_epoch " +
+        // Bind caller identity and epoch in the same statement, never trusting a stale lookup.
+        int written=db.sql("INSERT INTO revocation_acks(consumer_id,issuer,subject_id,version,binding_epoch) " +
+            "SELECT c.consumer_id,:iss,:sub,:v,c.binding_epoch FROM revocation_consumers c " +
+            "WHERE c.consumer_id=:c AND c.oauth_client_id=:client AND c.enabled=true " +
+            "ON CONFLICT (consumer_id,issuer,subject_id) DO UPDATE SET " +
+            "version=CASE WHEN revocation_acks.binding_epoch=EXCLUDED.binding_epoch " +
             "THEN GREATEST(revocation_acks.version,EXCLUDED.version) ELSE EXCLUDED.version END, " +
             "binding_epoch=EXCLUDED.binding_epoch,applied_at=now()")
-            .param("c",caller).param("iss",ack.issuer())
-            .param("sub",ack.subject()).param("v",ack.version()).param("epoch",epoch).update();
+            .param("c",caller).param("client",jwt.getClaimAsString("azp"))
+            .param("iss",ack.issuer()).param("sub",ack.subject()).param("v",ack.version()).update();
+        if(written!=1) throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Consumer binding changed");
     }
     public record Ack(String issuer,String subject,long version) {}
 
