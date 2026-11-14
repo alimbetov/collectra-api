@@ -17,6 +17,7 @@ APP_COMMON_JWKS_URI=https://keycloak.example/realms/shared/protocol/openid-conne
 APP_COMMON_API_AUDIENCE=app-common-api mvn spring-boot:run
 ```
 
-Run tests: `mvn test`. The initial integration proof gate deliberately stays RED
-until real Keycloak signed JWT and audience-negative tests are provided.
+Run tests: `mvn test`. Three unit tests check accepted, wrong and absent audiences. These do not
+prove signature verification or integration with real Keycloak; the real-dependency
+integration gate remains pending.
 No test execution or deployment is claimed by this commit.
