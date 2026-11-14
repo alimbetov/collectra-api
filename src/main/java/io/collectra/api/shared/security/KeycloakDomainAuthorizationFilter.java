@@ -24,6 +24,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public class KeycloakDomainAuthorizationFilter extends OncePerRequestFilter {
     private final boolean enabled;
     private final VerifiedIdentityLinkRepository links;
+    private final GlobalRevocationGate revocation;
     private final UserAccountRepository users;
     private final TenantMembershipRepository memberships;
     private final RoleRepository roles;
@@ -32,12 +33,12 @@ public class KeycloakDomainAuthorizationFilter extends OncePerRequestFilter {
     private final String issuer;
 
     public KeycloakDomainAuthorizationFilter(
-            VerifiedIdentityLinkRepository links,UserAccountRepository users,
+            VerifiedIdentityLinkRepository links,GlobalRevocationGate revocation,UserAccountRepository users,
             TenantMembershipRepository memberships,RoleRepository roles,
             PlatformUserRoleRepository platformRoles,TenantRepository tenants,
             @Value("${collectra.security.keycloak.enabled:false}") boolean enabled,
             @Value("${collectra.security.keycloak.issuer:}") String issuer) {
-        this.links=links;this.users=users;this.memberships=memberships;
+        this.links=links;this.revocation=revocation;this.users=users;this.memberships=memberships;
         this.roles=roles;this.platformRoles=platformRoles;this.tenants=tenants;
         this.enabled=enabled;this.issuer=issuer;
     }
@@ -51,6 +52,7 @@ public class KeycloakDomainAuthorizationFilter extends OncePerRequestFilter {
         Jwt jwt=bearer.getToken();
         if(!issuer.equals(jwt.getIssuer().toString())) { deny(response);return; }
         try {
+            if(!revocation.allows(issuer,jwt.getSubject())) {deny(response);return;}
             var localId=links.verifiedLocalUser(issuer,jwt.getSubject()).orElse(null);
             if(localId==null) {deny(response);return;}
             var user=users.findById(localId).orElse(null);
