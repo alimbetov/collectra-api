@@ -71,16 +71,16 @@ public class SubjectAccessService {
 
     @Transactional(readOnly = true)
     public boolean isAllowed(String issuer, String subject) {
-        // No ledger row means not explicitly blocked. DB failures propagate to the validator.
-        return !isBlocked(issuer, subject);
-    }
-
-    // Local database read is not yet wired into every resource server. Never treat this
-    // method alone as proof that an already-issued JWT is globally revoked.
-    @Transactional(readOnly = true)
-    public boolean isBlocked(String issuer, String subject) {
+        // Fail closed for unregistered identities and on database errors.
         return db.sql("SELECT state FROM subject_access_state WHERE issuer=:iss AND subject_id=:sub")
             .param("iss",issuer).param("sub",subject).query(String.class)
-            .optional().map("BLOCKED"::equals).orElse(false);
+            .optional().map("ACTIVE"::equals).orElse(false);
     }
+
+    @Transactional(readOnly = true)
+    public boolean isBlocked(String issuer, String subject) {
+        // Unknown is not ACTIVE and therefore cannot be authorized.
+        return !isAllowed(issuer,subject);
+    }
+
 }
