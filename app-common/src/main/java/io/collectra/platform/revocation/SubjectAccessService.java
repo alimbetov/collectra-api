@@ -32,7 +32,24 @@ public class SubjectAccessService {
             var previous=existing.get();
             if(!previous.subject().equals(subject))
                 throw new ResponseStatusException(HttpStatus.CONFLICT, "Idempotency key reused for another subject");
-            return Map.of("operationId",previous.operation(),"state","STATE_COMMITTED","version",previous.version());
+            String currentState=db.sql("SELECT state FROM enforcement_operations WHERE id=:id")
+                .param("id",previous.operation()).query(String.class).single();
+            return Map.of("operationId",previous.operation(),"state",currentState,"version",previous.version());
+        }
+        // Serialize all distinct idempotency keys for the same subject as well.
+        db.sql("SELECT 1 FROM (SELECT pg_advisory_xact_lock(hashtextextended(:key,0))) locked")
+            .param("key","subject|"+issuer+"|"+subject).query(Integer.class).single();
+        var latest=db.sql("SELECT o.id,o.target_version,o.state FROM enforcement_operations o " +
+            "JOIN subject_access_state s ON s.issuer=o.issuer AND s.subject_id=o.subject_id " +
+            "AND s.version=o.target_version WHERE s.issuer=:iss AND s.subject_id=:sub " +
+            "AND s.state='BLOCKED' ORDER BY o.created_at DESC LIMIT 1")
+            .param("iss",issuer).param("sub",subject)
+            .query((rs,n)->new ExistingOperation(rs.getObject(1,UUID.class),rs.getLong(2),rs.getString(3)))
+            .optional();
+        if(latest.isPresent()) {
+            var op=latest.get();
+            saveIdempotency(issuer,subject,actor,idempotencyKey,op.id(),op.version());
+            return Map.of("operationId",op.id(),"state",op.state(),"version",op.version());
         }
         // Capture both required consumers under the same transaction as the operation.
         long mandatory=db.sql("SELECT count(*) FROM revocation_consumers " +
@@ -60,13 +77,17 @@ public class SubjectAccessService {
         db.sql("INSERT INTO access_state_outbox(id,issuer,subject_id,target_version,event_type) " +
             "VALUES (:id,:iss,:sub,:v,'SUBJECT_BLOCKED')")
             .param("id",UUID.randomUUID()).param("iss",issuer).param("sub",subject).param("v",version).update();
-        db.sql("INSERT INTO subject_block_idempotency(issuer,actor_subject,idempotency_key," +
-            "request_subject,operation_id,target_version) VALUES (:iss,:actor,:key,:sub,:op,:v)")
-            .param("iss",issuer).param("actor",actor).param("key",idempotencyKey)
-            .param("sub",subject).param("op",operation).param("v",version).update();
+        saveIdempotency(issuer,subject,actor,idempotencyKey,operation,version);
         return Map.of("operationId",operation,"state","STATE_COMMITTED","version",version);
     }
 
+    private void saveIdempotency(String issuer,String subject,String actor,String key,UUID operation,long version) {
+        db.sql("INSERT INTO subject_block_idempotency(issuer,actor_subject,idempotency_key," +
+            "request_subject,operation_id,target_version) VALUES (:iss,:actor,:key,:sub,:op,:v)")
+            .param("iss",issuer).param("actor",actor).param("key",key)
+            .param("sub",subject).param("op",operation).param("v",version).update();
+    }
+    private record ExistingOperation(UUID id,long version,String state) {}
     private record IdempotentBlock(String subject, UUID operation, long version) {}
 
     @Transactional(readOnly = true)
