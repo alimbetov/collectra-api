@@ -3,7 +3,7 @@ Status: PROPOSED CONSOLIDATED BASELINE / IMPLEMENTATION HOLD
 Date: 2026-11-14
 Branch: feat/iam-shared-platform
 Replaces: APP-COMMON-R0 sections 1–17 for forward implementation
-Decision authorities: ADR-IAM-005 (JWT), ADR-IAM-006 (internal control plane as refined), ADR-IAM-007 (one shared end-user realm), ADR-IAM-008 (Collectra-only business tenancy)
+Decision authorities: ADR-IAM-005 (JWT), ADR-IAM-006 (internal control plane as refined), ADR-IAM-007 (one shared end-user realm), ADR-IAM-008 (Collectra-only business tenancy), ADR-IAM-009 (R1.2 security/sessions/notifications/onboarding/migration)
 Traceability: docs/specs/app-common-r1-user-journey-traceability.md
 
 ## 1. Product boundary and non-goals
@@ -34,7 +34,7 @@ Public app signup, external customer organizations/billing, central business RBA
 No second global user-password table in App Common. Minimal App Common user metadata may be cached with version/freshness and must not become an alternative identity authority.
 
 ## 3. Authentication and first entry
-- Browser/mobile: Authorization Code + PKCE S256, allowlisted redirect URIs/origins, secure session storage policy and CSRF protection appropriate to chosen SPA/BFF topology. **BFF vs SPA token storage remains an explicit open decision**.
+- Browser/mobile: Authorization Code + PKCE S256, allowlisted redirect URIs/origins, secure session storage policy and CSRF protection appropriate to chosen SPA/BFF topology. **ADR-IAM-009 selects confidential BFF for web; mobile uses public-client Authorization Code + PKCE in system browser.**
 - Machine: Client Credentials with separate confidential clients, least-privilege scopes, API audience and secret rotation; optionally mTLS.
 - Same `iss` and `sub` across apps, different `aud` and client authorization. Access token for API A must be rejected by API B; ID token must never be accepted as API bearer.
 - First login to a new app may provision an app-local profile idempotently under unique `(issuer,subject)` per app; **Collectra tenant membership is created only under its own explicit onboarding/invitation rules**, not automatically from SSO.
@@ -85,10 +85,10 @@ The companion **APP-COMMON-R1 traceability matrix** maps **all US-01..US-24** to
 ## 12. Outstanding decisions and blockers
 | ID | Decision | Status |
 |---|---|---|
-| DEC-R1-01 | SPA token storage vs BFF; session cookies and CSRF | OPEN |
+| DEC-R1-01 | Web BFF, mobile PKCE, secure cookie/CSRF | DECIDED by ADR-IAM-009; timeout values pending verification |
 | DEC-R1-02 | Keycloak version, operator realm bootstrap, MFA policy | OPEN |
-| DEC-R1-03 | JWT lifetime, global revocation and app suspension enforcement SLA | OPEN |
-| DEC-R1-04 | Notification SMTP provider, DELIVERY_UNKNOWN reconciliation | OPEN |
+| DEC-R1-03 | Versioned global block ledger and API-side fail-closed enforcement | DECIDED by ADR-IAM-009; 30s/5m targets pending proof |
+| DEC-R1-04 | Outbox, bounded retries, consent classes, no blind resend of DELIVERY_UNKNOWN | DECIDED by ADR-IAM-009; provider selection remains OPEN |
 | DEC-R1-05 | Shared profile attribute ownership, verified email freshness | OPEN |
 | DEC-R1-06 | Consent/preferences ownership, deletion/retention across apps | OPEN |
 | DEC-R1-07 | Real deployment topology, secrets manager, network ingress | OPEN |
@@ -101,3 +101,6 @@ The companion **APP-COMMON-R1 traceability matrix** maps **all US-01..US-24** to
 
 ## 14. Source precedence and migration from R0
 This consolidated R1 is the forward implementation baseline. R0 remains historical, including superseded per-app realms and duplicate amendments; do not implement from its contradictory passages. ADR-IAM-007/008 and this R1 settle shared end-user realm, SSO and Collectra-only business tenancy. The traceability matrix is authoritative for US-01..24 mapping. Any future change must edit the canonical R1 sections and associated matrix **in place**, not append an override paragraph.
+
+## 15. R1.2 binding decisions — ADR-IAM-009
+The five architecture decisions on global JWT revocation, BFF/web and mobile sessions, email delivery semantics, per-application OAuth client provisioning, and verified Collectra legacy identity linking are **ACCEPTED DESIGN** in ADR-IAM-009. ADR-IAM-009 supersedes conflicting statements in sections 3–9 and decision register 12. Security block enforcement target 30s, access-token TTL 5m, BFF session 30m/12h and SMTP three attempts are proposed test baselines, not demonstrated SLAs. Implementation and independent S2 approval remain HOLD.
