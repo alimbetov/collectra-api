@@ -74,7 +74,7 @@ public class AuthorizationVersionFilter extends OncePerRequestFilter {
 
     private boolean validUserToken(JwtAuthenticationToken jwt, Number version) {
         try {
-            UUID userId = UUID.fromString(jwt.getToken().getSubject());
+            UUID userId = UUID.fromString(jwt.getName());
             UUID tenantId = UUID.fromString(jwt.getToken().getClaimAsString("tenant_id"));
             UUID membershipId = UUID.fromString(jwt.getToken().getClaimAsString("membership_id"));
             boolean userValid = users.findById(userId)
