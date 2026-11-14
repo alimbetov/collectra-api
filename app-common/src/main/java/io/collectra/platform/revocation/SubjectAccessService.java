@@ -34,6 +34,12 @@ public class SubjectAccessService {
         return Map.of("operationId",operation,"state","STATE_COMMITTED","version",version);
     }
 
+    @Transactional(readOnly = true)
+    public boolean isAllowed(String issuer, String subject) {
+        // No ledger row means not explicitly blocked. DB failures propagate to the validator.
+        return !isBlocked(issuer, subject);
+    }
+
     // Local database read is not yet wired into every resource server. Never treat this
     // method alone as proof that an already-issued JWT is globally revoked.
     @Transactional(readOnly = true)
