@@ -1,0 +1,12 @@
+{
+  "name": "client roles",
+  "protocol": "openid-connect",
+  "protocolMapper": "oidc-usermodel-client-role-mapper",
+  "consentRequired": false,
+  "config": {
+    "access.token.claim": "true",
+    "claim.name": "resource_access.${client_id}.roles",
+    "jsonType.label": "String",
+    "multivalued": "true"
+  }
+}

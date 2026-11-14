@@ -86,7 +86,7 @@ public class PlatformAdministratorController {
     }
 
     private UUID actorId(JwtAuthenticationToken authentication) {
-        return UUID.fromString(authentication.getToken().getSubject());
+        return UUID.fromString(authentication.getName());
     }
 
     record CreateRequest(

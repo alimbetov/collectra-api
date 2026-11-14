@@ -32,7 +32,10 @@ public class CurrentUserController {
 
     @GetMapping
     UserLifecycleService.MeResponse me(JwtAuthenticationToken authentication) {
-        return lifecycle.me(userId(authentication), TenantContext.requireTenantId(), membershipId(authentication));
+        return lifecycle.me(
+                userId(authentication),
+                TenantContext.requireTenantId(),
+                membershipId(authentication));
     }
 
     @PatchMapping
@@ -52,7 +55,8 @@ public class CurrentUserController {
     void changePassword(
             JwtAuthenticationToken authentication,
             @Valid @RequestBody ChangePasswordRequest request) {
-        lifecycle.changePassword(userId(authentication), request.currentPassword(), request.newPassword());
+        lifecycle.changePassword(
+                userId(authentication), request.currentPassword(), request.newPassword());
     }
 
     @GetMapping("/sessions")
@@ -67,7 +71,7 @@ public class CurrentUserController {
     }
 
     private UUID userId(JwtAuthenticationToken authentication) {
-        return UUID.fromString(authentication.getToken().getSubject());
+        return UUID.fromString(authentication.getName());
     }
 
     private UUID membershipId(JwtAuthenticationToken authentication) {

@@ -1,0 +1,133 @@
+name: collectra-iam-smoke
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: smoke
+      POSTGRES_PASSWORD: ${IAM_DB_PASSWORD:?}
+      POSTGRES_DB: postgres
+    volumes:
+      - iam_postgres:/var/lib/postgresql/data
+      - ./scripts/iam/smoke-init.sql:/docker-entrypoint-initdb.d/01-smoke.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smoke -d postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.4.2
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: smoke
+      KC_DB_PASSWORD: ${IAM_DB_PASSWORD:?}
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${IAM_KC_BOOTSTRAP_PASSWORD:?}
+      KC_HOSTNAME: http://localhost:${IAM_KC_PORT:-18180}
+    ports:
+      - "127.0.0.1:${IAM_KC_PORT:-18180}:8080"
+    volumes:
+      - ./scripts/iam/realm-iam-smoke.json:/opt/keycloak/data/import/realm-iam-smoke.json:ro
+      - ./scripts/iam/kc-admin-roles-mapper.json:/opt/keycloak/data/smoke/kc-admin-roles-mapper.json:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  rabbitmq:
+    image: rabbitmq:3.12-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: smoke
+      RABBITMQ_DEFAULT_PASS: ${IAM_RABBIT_PASSWORD:?}
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  rustfs:
+    image: rustfs/rustfs:latest
+    environment:
+      RUSTFS_ACCESS_KEY: ${IAM_STORAGE_ACCESS_KEY:?}
+      RUSTFS_SECRET_KEY: ${IAM_STORAGE_SECRET_KEY:?}
+      RUSTFS_ADDRESS: ":9000"
+      RUSTFS_CONSOLE_ENABLE: "false"
+      RUSTFS_VOLUMES: /data
+      RUSTFS_OBS_LOG_DIRECTORY: /logs
+    volumes:
+      - iam_rustfs:/data
+      - iam_rustfs_logs:/logs
+
+  app-common:
+    image: eclipse-temurin:17-jre
+    command: ["java", "-jar", "/app/app.jar"]
+    volumes:
+      - ./app-common/target/app-common-0.1.0-SNAPSHOT.jar:/app/app.jar:ro
+    environment:
+      APP_COMMON_JDBC_URL: jdbc:postgresql://postgres:5432/app_common
+      APP_COMMON_DB_USER: smoke
+      APP_COMMON_DB_PASSWORD: ${IAM_DB_PASSWORD:?}
+      APP_COMMON_PORT: 8090
+      APP_COMMON_ISSUER_URI: http://localhost:${IAM_KC_PORT:-18180}/realms/shared
+      APP_COMMON_JWKS_URI: http://keycloak:8080/realms/shared/protocol/openid-connect/certs
+      APP_COMMON_API_AUDIENCE: app-common-api
+      APP_COMMON_KEYCLOAK_URL: http://keycloak:8080
+      APP_COMMON_KC_ADMIN_CLIENT_ID: iam-smoke-kc-admin
+      APP_COMMON_KC_ADMIN_CLIENT_SECRET: ${IAM_KC_ADMIN_CLIENT_SECRET:?}
+      APP_COMMON_REVOCATION_DISPATCH_ENABLED: "true"
+      APP_COMMON_REVOCATION_RECONCILE_ENABLED: "true"
+    ports:
+      - "127.0.0.1:${IAM_COMMON_PORT:-18090}:8090"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+
+  collectra-api:
+    image: eclipse-temurin:17-jre
+    command: ["java", "-jar", "/app/app.jar", "--spring.profiles.active=prod"]
+    volumes:
+      - ./target/collectra-api-0.1.0-SNAPSHOT.jar:/app/app.jar:ro
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/collectra
+      DB_USERNAME: smoke
+      DB_PASSWORD: ${IAM_DB_PASSWORD:?}
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_USERNAME: smoke
+      SPRING_RABBITMQ_PASSWORD: ${IAM_RABBIT_PASSWORD:?}
+      API_BASE_URL: http://localhost:${IAM_API_PORT:-18081}
+      COLLECTRA_JWT_SECRET: ${IAM_COLLECTRA_JWT_SECRET:?}
+      COLLECTRA_OTP_PEPPER: ${IAM_OTP_PEPPER:?}
+      COLLECTRA_STORAGE_ENDPOINT: http://rustfs:9000
+      COLLECTRA_STORAGE_ACCESS_KEY: ${IAM_STORAGE_ACCESS_KEY:?}
+      COLLECTRA_STORAGE_SECRET_KEY: ${IAM_STORAGE_SECRET_KEY:?}
+      COLLECTRA_STORAGE_BUCKET: collectra-documents
+      RUSTFS_ENDPOINT: http://rustfs:9000
+      RUSTFS_ACCESS_KEY: ${IAM_STORAGE_ACCESS_KEY:?}
+      RUSTFS_SECRET_KEY: ${IAM_STORAGE_SECRET_KEY:?}
+      COLLECTRA_KEYCLOAK_ENABLED: "true"
+      COLLECTRA_KEYCLOAK_ISSUER: http://localhost:${IAM_KC_PORT:-18180}/realms/shared
+      COLLECTRA_KEYCLOAK_JWKS_URI: http://keycloak:8080/realms/shared/protocol/openid-connect/certs
+      COLLECTRA_REVOCATION_CONSUMER_ENABLED: "true"
+      COLLECTRA_REVOCATION_BASE_URL: http://app-common:8090
+      COLLECTRA_REVOCATION_TOKEN_URL: http://keycloak:8080/realms/shared/protocol/openid-connect/token
+      COLLECTRA_REVOCATION_CLIENT_ID: iam-smoke-consumer
+      COLLECTRA_REVOCATION_CLIENT_SECRET: ${IAM_CONSUMER_CLIENT_SECRET:?}
+    ports:
+      - "127.0.0.1:${IAM_API_PORT:-18081}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      app-common:
+        condition: service_started
+      rustfs:
+        condition: service_started
+
+volumes:
+  iam_postgres:
+  iam_rustfs:
+  iam_rustfs_logs:

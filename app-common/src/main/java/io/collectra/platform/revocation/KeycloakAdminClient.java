@@ -11,16 +11,18 @@ import org.springframework.web.client.RestClient;
 @Component
 public class KeycloakAdminClient {
     private final RestClient http = RestClient.create();
-    private final String base, realm, clientId, secret;
+    private final String base, realm, issuer, clientId, secret;
     public KeycloakAdminClient(
         @Value("${app-common.keycloak.base-url:http://localhost:8180}") String base,
         @Value("${app-common.keycloak.realm:shared}") String realm,
+        @Value("${app-common.security.issuer-uri}") String issuer,
         @Value("${app-common.keycloak.admin-client-id:}") String clientId,
         @Value("${app-common.keycloak.admin-client-secret:}") String secret) {
-        this.base=base; this.realm=realm; this.clientId=clientId; this.secret=secret;
+        this.base=base; this.realm=realm; this.issuer=issuer;
+        this.clientId=clientId; this.secret=secret;
     }
     public void disableAndLogout(String issuer, String subject) {
-        if (!issuer.equals(base + "/realms/" + realm))
+        if (!issuer.equals(this.issuer))
             throw new IllegalArgumentException("Unexpected issuer");
         if (clientId.isBlank() || secret.isBlank())
             throw new IllegalStateException("Keycloak admin credentials not configured");

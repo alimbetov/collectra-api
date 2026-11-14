@@ -1,5 +1,6 @@
 package io.collectra.platform.revocation;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
@@ -9,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -46,6 +48,7 @@ class RevocationHttpAckPostgresIT {
 
     @Autowired MockMvc mvc;
     @Autowired JdbcClient db;
+    @Autowired ObjectMapper mapper;
     @MockBean JwtDecoder decoder;
 
     private Jwt token(String client, String scopes) {
@@ -96,13 +99,13 @@ class RevocationHttpAckPostgresIT {
         db.sql("UPDATE revocation_consumers SET enabled=true,oauth_client_id='collectra-http-negative' WHERE consumer_id='collectra-api'").update();
         db.sql("INSERT INTO subject_access_state(issuer,subject_id,state,version) VALUES (:iss,:sub,'BLOCKED',2)")
             .param("iss",issuer).param("sub",subject).update();
-        String body="{\\"issuer\\":\\""+issuer+"\\",\\"subject\\":\\""+subject+"\\",\\"version\\":2}";
+        String body=mapper.writeValueAsString(Map.of("issuer",issuer,"subject",subject,"version",2));
         when(decoder.decode(anyString())).thenReturn(token("collectra-http-negative","revocations.read"));
         mvc.perform(post("/api/v1/internal/revocations/ack")
             .header("Authorization","Bearer mock").contentType(MediaType.APPLICATION_JSON).content(body))
             .andExpect(status().isForbidden());
         when(decoder.decode(anyString())).thenReturn(token("collectra-http-negative","revocations.ack"));
-        String future=body.replace("\\"version\\":2","\\"version\\":3");
+        String future=mapper.writeValueAsString(Map.of("issuer",issuer,"subject",subject,"version",3));
         mvc.perform(post("/api/v1/internal/revocations/ack")
             .header("Authorization","Bearer mock").contentType(MediaType.APPLICATION_JSON).content(future))
             .andExpect(status().isConflict());
