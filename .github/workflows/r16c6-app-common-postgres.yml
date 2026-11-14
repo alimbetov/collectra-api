@@ -21,7 +21,7 @@ jobs:
           cache: maven
           cache-dependency-path: app-common/pom.xml
       - name: Compile and run PostgreSQL revocation tests
-        run: mvn -B -ntp -Dtest=RevocationConsistencyPostgresIT,RevocationLiquibaseConcurrencyIT,RevocationConfigurationTest test
+        run: mvn -B -ntp -Dtest=RevocationConsistencyPostgresIT,RevocationLiquibaseConcurrencyIT,RevocationConfigurationTest,RevocationHttpAckPostgresIT test
       - name: Upload test reports
         if: always()
         uses: actions/upload-artifact@v4
