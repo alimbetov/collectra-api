@@ -44,7 +44,7 @@ class RevocationConsistencyPostgresIT {
         var reconciler=new EnforcementReconciler(db,true);
         reconciler.reconcile();
         assertState(id,"PROPAGATING");
-        db.sql("INSERT INTO revocation_acks VALUES ('collectra-api','issuer','sub',2)").update();
+        db.sql("INSERT INTO revocation_acks(consumer_id,issuer,subject_id,version) VALUES ('collectra-api','issuer','sub',2)").update();
         reconciler.reconcile();
         assertState(id,"PROPAGATING");
         db.sql("INSERT INTO revocation_acks VALUES ('app-b-api','issuer','sub',1)").update();
