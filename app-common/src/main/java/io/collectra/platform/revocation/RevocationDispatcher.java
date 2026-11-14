@@ -5,6 +5,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.transaction.PlatformTransactionManager;
 
 /** Retryable Keycloak application; distributed consumer delivery is a separate gate. */
 @Component
@@ -12,9 +14,12 @@ public class RevocationDispatcher {
     private final JdbcClient db;
     private final KeycloakAdminClient keycloak;
     private final boolean enabled;
+    private final TransactionTemplate transactions;
     public RevocationDispatcher(JdbcClient db, KeycloakAdminClient keycloak,
+        PlatformTransactionManager transactionManager,
         @Value("${app-common.revocation.dispatch-enabled:false}") boolean enabled) {
         this.db=db; this.keycloak=keycloak; this.enabled=enabled;
+        this.transactions=new TransactionTemplate(transactionManager);
     }
     @Scheduled(fixedDelayString="${app-common.revocation.dispatch-delay-ms:5000}")
     public void dispatch() {
@@ -31,12 +36,17 @@ public class RevocationDispatcher {
             if (claimed==0) continue;
             try {
                 keycloak.disableAndLogout(event.issuer(),event.subject());
-                db.sql("UPDATE access_state_outbox SET keycloak_applied_at=now(), published_at=now(), " +
-                    "last_error=NULL WHERE id=:id").param("id",event.id()).update();
-                db.sql("UPDATE enforcement_operations SET state='PROPAGATING' " +
-                    "WHERE issuer=:iss AND subject_id=:sub AND target_version=:v AND state='STATE_COMMITTED'")
-                    .param("iss",event.issuer()).param("sub",event.subject())
-                    .param("v",event.version()).update();
+                // Keycloak is an external side effect: retry safely if the process crashes.
+                // Persist its success and operation transition in ONE local transaction.
+                transactions.executeWithoutResult(status -> {
+                    db.sql("UPDATE access_state_outbox SET keycloak_applied_at=now(), published_at=now(), " +
+                        "last_error=NULL WHERE id=:id AND published_at IS NULL")
+                        .param("id",event.id()).update();
+                    db.sql("UPDATE enforcement_operations SET state='PROPAGATING' " +
+                        "WHERE issuer=:iss AND subject_id=:sub AND target_version=:v AND state='STATE_COMMITTED'")
+                        .param("iss",event.issuer()).param("sub",event.subject())
+                        .param("v",event.version()).update();
+                });
             } catch (RuntimeException e) {
                 db.sql("UPDATE access_state_outbox SET last_error=:error, " +
                     "next_attempt_at=now()+interval '2 minutes' WHERE id=:id")
