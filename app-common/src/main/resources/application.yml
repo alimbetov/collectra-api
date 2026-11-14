@@ -19,3 +19,11 @@ management:
     web:
       exposure:
         include: health,info
+  keycloak:
+    base-url: ${APP_COMMON_KEYCLOAK_URL:http://localhost:8180}
+    realm: shared
+    admin-client-id: ${APP_COMMON_KC_ADMIN_CLIENT_ID:}
+    admin-client-secret: ${APP_COMMON_KC_ADMIN_CLIENT_SECRET:}
+  revocation:
+    dispatch-enabled: ${APP_COMMON_REVOCATION_DISPATCH_ENABLED:false}
+    dispatch-delay-ms: 5000
