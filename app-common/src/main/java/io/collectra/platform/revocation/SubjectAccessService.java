@@ -21,7 +21,7 @@ public class SubjectAccessService {
         if (issuer == null || issuer.isBlank() || subject == null || subject.isBlank())
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Issuer and subject required");
         // Serialize identical keys, including concurrent first requests, inside one transaction.
-        db.sql("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))")
+        db.sql("SELECT 1 FROM (SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))) locked")
             .param("key",issuer+"|"+actor+"|"+idempotencyKey).query(Long.class).single();
         var existing=db.sql("SELECT request_subject,operation_id,target_version FROM subject_block_idempotency " +
             "WHERE issuer=:iss AND actor_subject=:actor AND idempotency_key=:key")
