@@ -27,12 +27,12 @@ class RevocationConsistencyPostgresIT {
             CREATE TABLE access_state_outbox(id uuid PRIMARY KEY,issuer text NOT NULL,subject_id text NOT NULL,
             target_version bigint NOT NULL,keycloak_applied_at timestamptz);
             CREATE TABLE revocation_consumers(consumer_id text PRIMARY KEY,enabled boolean NOT NULL,
-            required_for_enforcement boolean NOT NULL,oauth_client_id text);
-            CREATE TABLE enforcement_operation_consumers(operation_id uuid NOT NULL,consumer_id text NOT NULL,oauth_client_id text NOT NULL,PRIMARY KEY(operation_id,consumer_id));
+            required_for_enforcement boolean NOT NULL,oauth_client_id text,binding_epoch bigint NOT NULL DEFAULT 1);
+            CREATE TABLE enforcement_operation_consumers(operation_id uuid NOT NULL,consumer_id text NOT NULL,oauth_client_id text NOT NULL,binding_epoch bigint NOT NULL DEFAULT 1,PRIMARY KEY(operation_id,consumer_id));
             CREATE TABLE revocation_acks(consumer_id text NOT NULL,issuer text NOT NULL,
-            subject_id text NOT NULL,version bigint NOT NULL,PRIMARY KEY(consumer_id,issuer,subject_id));
+            subject_id text NOT NULL,version bigint NOT NULL,binding_epoch bigint NOT NULL DEFAULT 1,PRIMARY KEY(consumer_id,issuer,subject_id));
             """).update();
-        db.sql("INSERT INTO revocation_consumers VALUES ('collectra-api',true,true,'collectra-consumer'),('app-b-api',true,true,'appb-consumer')").update();
+        db.sql("INSERT INTO revocation_consumers(consumer_id,enabled,required_for_enforcement,oauth_client_id) VALUES ('collectra-api',true,true,'collectra-consumer'),('app-b-api',true,true,'appb-consumer')").update();
     }
     @Test void bothMandatoryAcksRequiredForEnforced() {
         UUID id=UUID.randomUUID();
@@ -85,8 +85,20 @@ class RevocationConsistencyPostgresIT {
         new EnforcementReconciler(db,true).reconcile();
         assertState(id,"PROPAGATING");
     }
+    @Test void staleAckBindingEpochCannotEnforce() {
+        UUID id=UUID.randomUUID();
+        db.sql("INSERT INTO enforcement_operations VALUES (:id,'issuer','sub',2,'PROPAGATING')")
+            .param("id",id).update();
+        db.sql("INSERT INTO access_state_outbox VALUES (:id,'issuer','sub',2,now())")
+            .param("id",UUID.randomUUID()).update();
+        snapshot(id);
+        db.sql("INSERT INTO revocation_acks(consumer_id,issuer,subject_id,version,binding_epoch) VALUES " +
+            "('collectra-api','issuer','sub',2,1),('app-b-api','issuer','sub',2,0)").update();
+        new EnforcementReconciler(db,true).reconcile();
+        assertState(id,"PROPAGATING");
+    }
     private void snapshot(UUID id) {
-        db.sql("INSERT INTO enforcement_operation_consumers VALUES (:id,'collectra-api','collectra-consumer'),(:id,'app-b-api','appb-consumer')")
+        db.sql("INSERT INTO enforcement_operation_consumers(operation_id,consumer_id,oauth_client_id) VALUES (:id,'collectra-api','collectra-consumer'),(:id,'app-b-api','appb-consumer')")
             .param("id",id).update();
     }
     private void assertState(UUID id,String expected) {
