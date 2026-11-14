@@ -39,6 +39,33 @@ class RevocationLiquibaseConcurrencyIT {
             "WHERE consumer_id IN ('collectra-api','app-b-api')").update();
     }
 
+    @Test void blockPersistsWhileMandatoryConsumerIsOffline() {
+        String subject="offline-"+UUID.randomUUID();
+        tx.executeWithoutResult(s->new SubjectEnrollmentService(db).initialize("issuer",subject));
+        db.sql("UPDATE revocation_consumers SET enabled=false,oauth_client_id=NULL " +
+            "WHERE consumer_id='app-b-api'").update();
+        try {
+            Map<String,Object> result=tx.execute(s->new SubjectAccessService(db)
+                .block("issuer",subject,"actor","request-"+UUID.randomUUID()));
+            assertThat(db.sql("SELECT state FROM subject_access_state WHERE issuer='issuer' AND subject_id=:sub")
+                .param("sub",subject).query(String.class).single()).isEqualTo("BLOCKED");
+            assertThat(db.sql("SELECT count(*) FROM enforcement_operation_consumers WHERE operation_id=:id")
+                .param("id",result.get("operationId")).query(Long.class).single()).isEqualTo(2L);
+            assertThat(db.sql("SELECT oauth_client_id FROM enforcement_operation_consumers " +
+                "WHERE operation_id=:id AND consumer_id='app-b-api'")
+                .param("id",result.get("operationId")).query(String.class).optional()).isEmpty();
+            db.sql("UPDATE enforcement_operations SET state='PROPAGATING' WHERE id=:id")
+                .param("id",result.get("operationId")).update();
+            new EnforcementReconciler(db,true).reconcile();
+            assertThat(db.sql("SELECT state FROM enforcement_operations WHERE id=:id")
+                .param("id",result.get("operationId")).query(String.class).single())
+                .isEqualTo("PROPAGATING");
+        } finally {
+            db.sql("UPDATE revocation_consumers SET enabled=true,oauth_client_id='appb-test' " +
+                "WHERE consumer_id='app-b-api'").update();
+        }
+    }
+
     @Test void concurrentReplayCreatesExactlyOneOperation() throws Exception {
         String subject="concurrent-"+UUID.randomUUID(),key="request-"+UUID.randomUUID();
         tx.executeWithoutResult(s->new SubjectEnrollmentService(db).initialize("issuer",subject));
