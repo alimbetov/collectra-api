@@ -17,8 +17,14 @@ BEGIN
     ) THEN
       RAISE EXCEPTION 'IAM-R0 schema % missing or owned by unexpected role', s.schema_name;
     END IF;
-    IF has_schema_privilege('public', s.schema_name, 'USAGE')
-       OR has_schema_privilege('public', s.schema_name, 'CREATE') THEN
+    IF EXISTS (
+      SELECT 1
+      FROM pg_namespace n
+      CROSS JOIN LATERAL aclexplode(COALESCE(n.nspacl, acldefault('n', n.nspowner))) acl
+      WHERE n.nspname = s.schema_name
+        AND acl.grantee = 0
+        AND acl.privilege_type IN ('USAGE', 'CREATE')
+    ) THEN
       RAISE EXCEPTION 'IAM-R0 schema % grants privileges to PUBLIC', s.schema_name;
     END IF;
   END LOOP;
