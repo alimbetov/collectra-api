@@ -34,3 +34,10 @@ databaseChangeLog:
         - sqlFile:
             path: db/changelog/r16d-001-mandatory-consumers.sql
             relativeToChangelogFile: false
+  - changeSet:
+      id: r16e-001-operation-consumer-snapshot
+      author: app-common
+      changes:
+        - sqlFile:
+            path: db/changelog/r16e-001-operation-consumer-snapshot.sql
+            relativeToChangelogFile: false
