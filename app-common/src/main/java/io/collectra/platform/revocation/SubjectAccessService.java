@@ -34,8 +34,15 @@ public class SubjectAccessService {
                 throw new ResponseStatusException(HttpStatus.CONFLICT, "Idempotency key reused for another subject");
             return Map.of("operationId",previous.operation(),"state","STATE_COMMITTED","version",previous.version());
         }
-        if (issuer == null || issuer.isBlank() || subject == null || subject.isBlank())
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Issuer and subject required");
+        // Capture both required consumers under the same transaction as the operation.
+        long mandatory=db.sql("SELECT count(*) FROM revocation_consumers " +
+            "WHERE required_for_enforcement=true AND enabled=true AND oauth_client_id IS NOT NULL " +
+            "AND consumer_id IN ('collectra-api','app-b-api')")
+            .query(Long.class).single();
+        long totalRequired=db.sql("SELECT count(*) FROM revocation_consumers WHERE required_for_enforcement=true")
+            .query(Long.class).single();
+        if(mandatory!=2 || totalRequired!=2)
+            throw new ResponseStatusException(HttpStatus.CONFLICT,"Mandatory consumers not ready");
         // Unknown subjects require explicit privileged enrollment.
         long version = db.sql("UPDATE subject_access_state SET state='BLOCKED',version=version+1,updated_at=now() " +
             "WHERE issuer=:iss AND subject_id=:sub RETURNING version")
@@ -45,6 +52,11 @@ public class SubjectAccessService {
         db.sql("INSERT INTO enforcement_operations(id,issuer,subject_id,target_version,state) " +
             "VALUES (:id,:iss,:sub,:v,'STATE_COMMITTED')")
             .param("id",operation).param("iss",issuer).param("sub",subject).param("v",version).update();
+        int captured=db.sql("INSERT INTO enforcement_operation_consumers(operation_id,consumer_id,oauth_client_id) " +
+            "SELECT :op,consumer_id,oauth_client_id FROM revocation_consumers " +
+            "WHERE required_for_enforcement=true AND enabled=true AND oauth_client_id IS NOT NULL")
+            .param("op",operation).update();
+        if(captured!=2) throw new IllegalStateException("Incomplete consumer obligation snapshot");
         db.sql("INSERT INTO access_state_outbox(id,issuer,subject_id,target_version,event_type) " +
             "VALUES (:id,:iss,:sub,:v,'SUBJECT_BLOCKED')")
             .param("id",UUID.randomUUID()).param("iss",issuer).param("sub",subject).param("v",version).update();
