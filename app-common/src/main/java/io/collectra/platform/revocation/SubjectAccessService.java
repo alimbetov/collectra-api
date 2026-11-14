@@ -56,14 +56,12 @@ public class SubjectAccessService {
             "WHERE required_for_enforcement=true ORDER BY consumer_id FOR SHARE")
             .query(String.class).list();
         // Capture both required consumers under the same transaction as the operation.
-        long mandatory=db.sql("SELECT count(*) FROM revocation_consumers " +
-            "WHERE required_for_enforcement=true AND enabled=true AND oauth_client_id IS NOT NULL " +
-            "AND consumer_id IN ('collectra-api','app-b-api')")
+        // A security block must commit even when mandatory consumers are offline.
+        // Missing bindings are captured as pending obligations and cannot satisfy ENFORCED.
+        long required=db.sql("SELECT count(*) FROM revocation_consumers WHERE required_for_enforcement=true")
             .query(Long.class).single();
-        long totalRequired=db.sql("SELECT count(*) FROM revocation_consumers WHERE required_for_enforcement=true")
-            .query(Long.class).single();
-        if(mandatory!=2 || totalRequired!=2)
-            throw new ResponseStatusException(HttpStatus.CONFLICT,"Mandatory consumers not ready");
+        if(required!=2) throw new ResponseStatusException(HttpStatus.CONFLICT,
+            "Mandatory consumer topology incomplete");
         // Unknown subjects require explicit privileged enrollment.
         long version = db.sql("UPDATE subject_access_state SET state='BLOCKED',version=version+1,updated_at=now() " +
             "WHERE issuer=:iss AND subject_id=:sub RETURNING version")
@@ -75,7 +73,7 @@ public class SubjectAccessService {
             .param("id",operation).param("iss",issuer).param("sub",subject).param("v",version).update();
         int captured=db.sql("INSERT INTO enforcement_operation_consumers(operation_id,consumer_id,oauth_client_id,binding_epoch) " +
             "SELECT :op,consumer_id,oauth_client_id,binding_epoch FROM revocation_consumers " +
-            "WHERE required_for_enforcement=true AND enabled=true AND oauth_client_id IS NOT NULL")
+            "WHERE required_for_enforcement=true")
             .param("op",operation).update();
         if(captured!=2) throw new IllegalStateException("Incomplete consumer obligation snapshot");
         db.sql("INSERT INTO access_state_outbox(id,issuer,subject_id,target_version,event_type) " +
