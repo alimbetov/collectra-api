@@ -52,8 +52,8 @@ public class SubjectAccessService {
         db.sql("INSERT INTO enforcement_operations(id,issuer,subject_id,target_version,state) " +
             "VALUES (:id,:iss,:sub,:v,'STATE_COMMITTED')")
             .param("id",operation).param("iss",issuer).param("sub",subject).param("v",version).update();
-        int captured=db.sql("INSERT INTO enforcement_operation_consumers(operation_id,consumer_id,oauth_client_id) " +
-            "SELECT :op,consumer_id,oauth_client_id FROM revocation_consumers " +
+        int captured=db.sql("INSERT INTO enforcement_operation_consumers(operation_id,consumer_id,oauth_client_id,binding_epoch) " +
+            "SELECT :op,consumer_id,oauth_client_id,binding_epoch FROM revocation_consumers " +
             "WHERE required_for_enforcement=true AND enabled=true AND oauth_client_id IS NOT NULL")
             .param("op",operation).update();
         if(captured!=2) throw new IllegalStateException("Incomplete consumer obligation snapshot");
