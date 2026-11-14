@@ -35,10 +35,12 @@ public class EnforcementReconciler {
                   SELECT 1 FROM revocation_acks a
                   WHERE a.consumer_id=oc.consumer_id AND a.issuer=o.issuer
                     AND a.subject_id=o.subject_id AND a.version>=o.target_version
+                    AND a.binding_epoch=oc.binding_epoch
                     AND EXISTS (
                       SELECT 1 FROM revocation_consumers c
                       WHERE c.consumer_id=oc.consumer_id
                         AND c.oauth_client_id=oc.oauth_client_id
+                        AND c.binding_epoch=oc.binding_epoch
                         AND c.enabled=true
                     )
                 )
