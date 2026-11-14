@@ -54,3 +54,26 @@ Constraints:
 - Existing customer, invoice, collection and communication business relations remain intact.
 
 Gate: NO Keycloak migration or login cutover before independent security review and executable PostgreSQL + HTTP E2E evidence.
+
+## Mandatory verified email for every application user (IAM-R0.3)
+
+- Each realm (Collectra, App B, future applications) MUST require a non-empty email for user registration and account activation. Keycloak realm email verification is mandatory; social-provider email claims must be evaluated for verified status, not trusted merely because present.
+- Social providers that return no email, an unverified email, or a private relay address require an explicit completion/verification flow before normal application activation. A verified Apple private relay address is acceptable if it is deliverable and the application's sender is properly configured.
+- No automatic identity linking across realms or on email equality. Email is contact information, never a cross-application identity key.
+- Keep an application-scoped verified email projection only where required, with a defined synchronization owner and update protocol. Keycloak is the authentication identity authority; application business records remain local.
+- Email change requires verification of the new address before using it for ordinary notifications; do not silently replace the verified destination. A user who loses access to their email must have a controlled recovery path.
+- Notification API MUST resolve recipient addresses in the authenticated application/realm context and MUST reject or suppress ordinary email delivery to an unverified or missing address. Verification emails are an explicit exception. Marketing messages additionally require purpose-specific consent and suppression checks.
+- Do not grant access to a newly created application account until the registration and verified-email policy for that realm has passed.
+- Avoid global email uniqueness across realms. Within each realm, adopt a documented email uniqueness/account-linking policy and test its behavior for local and social registration.
+- Require explicit delivery observability: accepted/queued/sent is not proof of inbox delivery.
+
+### Mandatory acceptance tests
+
+1. Email/password registration without email is rejected.
+2. Google/Apple login without a verified email enters verification/completion, not an active account.
+3. Verified social email permits activation without bypassing application membership checks.
+4. Same verified email in Collectra and App B creates two independent realm identities.
+5. Email change does not redirect notifications until new address verification succeeds.
+6. Notification API cannot read another application's recipient email.
+7. Ordinary notifications to missing/unverified email are suppressed; verification email remains allowed.
+8. Revoked/blocked user and marketing opt-out policies are enforced separately from email verification.
