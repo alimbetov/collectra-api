@@ -13,3 +13,10 @@ databaseChangeLog:
         - sqlFile:
             path: db/changelog/r16-001-revocation-idempotency.sql
             relativeToChangelogFile: false
+  - changeSet:
+      id: r16b-001-dispatch
+      author: app-common
+      changes:
+        - sqlFile:
+            path: db/changelog/r16b-001-dispatch.sql
+            relativeToChangelogFile: false
