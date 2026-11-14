@@ -93,6 +93,14 @@ public class SubjectAccessService {
     private record IdempotentBlock(String subject, UUID operation, long version) {}
 
     @Transactional(readOnly = true)
+    public boolean isEnabledConsumerClient(String client) {
+        if (client == null || client.isBlank()) return false;
+        return db.sql("SELECT EXISTS (SELECT 1 FROM revocation_consumers " +
+                "WHERE oauth_client_id=:client AND enabled=true)")
+            .param("client",client).query(Boolean.class).single();
+    }
+
+    @Transactional(readOnly = true)
     public boolean isAllowed(String issuer, String subject) {
         // Fail closed for unregistered identities and on database errors.
         return db.sql("SELECT state FROM subject_access_state WHERE issuer=:iss AND subject_id=:sub")
