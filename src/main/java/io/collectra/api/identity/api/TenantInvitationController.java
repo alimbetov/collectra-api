@@ -53,7 +53,7 @@ public class TenantInvitationController {
     }
 
     private UUID userId(JwtAuthenticationToken authentication) {
-        return UUID.fromString(authentication.getToken().getSubject());
+        return UUID.fromString(authentication.getName());
     }
 
     record InviteRequest(@Email @NotBlank String email, Set<UUID> roleIds) {}

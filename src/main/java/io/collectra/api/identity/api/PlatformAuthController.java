@@ -40,10 +40,11 @@ public class PlatformAuthController {
     @PostMapping("/logout-all")
     @PreAuthorize("hasAuthority('ROLE_PLATFORM_SUPER_ADMIN')")
     ResponseEntity<Void> logoutAll(JwtAuthenticationToken authentication) {
-        auth.logoutAll(UUID.fromString(authentication.getToken().getSubject()));
+        auth.logoutAll(UUID.fromString(authentication.getName()));
         return ResponseEntity.noContent().build();
     }
 
     record LoginRequest(@NotBlank String email, @NotBlank String password) {}
+
     record TokenRequest(@NotBlank String refreshToken) {}
 }

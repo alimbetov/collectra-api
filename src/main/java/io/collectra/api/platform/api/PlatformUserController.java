@@ -111,7 +111,7 @@ public class PlatformUserController {
     }
 
     private UUID actorId(JwtAuthenticationToken authentication) {
-        return UUID.fromString(authentication.getToken().getSubject());
+        return UUID.fromString(authentication.getName());
     }
 
     record MembershipStatusRequest(

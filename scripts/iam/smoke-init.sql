@@ -1,0 +1,3 @@
+CREATE DATABASE keycloak;
+CREATE DATABASE app_common;
+CREATE DATABASE collectra;

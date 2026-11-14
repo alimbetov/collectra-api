@@ -44,6 +44,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -148,7 +149,7 @@ class RabbitMqMessageDeliverySmokeIntegrationTest extends AbstractIntegrationTes
         String customerExternalId = "RABBIT-C-" + UUID.randomUUID();
         String invoiceExternalId = "RABBIT-I-" + UUID.randomUUID();
         String paymentExternalId = "RABBIT-P-" + UUID.randomUUID();
-        LocalDate businessDate = LocalDate.now();
+        LocalDate businessDate = LocalDate.now(ZoneOffset.UTC);
 
         SourceFixture customerSource =
                 source(

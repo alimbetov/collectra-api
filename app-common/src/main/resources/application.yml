@@ -1,0 +1,32 @@
+spring:
+  datasource:
+    url: ${APP_COMMON_JDBC_URL:jdbc:postgresql://localhost:5433/app_common}
+    username: ${APP_COMMON_DB_USER:app_common}
+    password: ${APP_COMMON_DB_PASSWORD:}
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+  application:
+    name: app-common
+server:
+  port: ${APP_COMMON_PORT:8090}
+app-common:
+  security:
+    issuer-uri: ${APP_COMMON_ISSUER_URI:http://localhost:8180/realms/shared}
+    jwk-set-uri: ${APP_COMMON_JWKS_URI:http://localhost:8180/realms/shared/protocol/openid-connect/certs}
+    audience: ${APP_COMMON_API_AUDIENCE:app-common-api}
+  keycloak:
+    base-url: ${APP_COMMON_KEYCLOAK_URL:http://localhost:8180}
+    realm: shared
+    admin-client-id: ${APP_COMMON_KC_ADMIN_CLIENT_ID:}
+    admin-client-secret: ${APP_COMMON_KC_ADMIN_CLIENT_SECRET:}
+  revocation:
+    dispatch-enabled: ${APP_COMMON_REVOCATION_DISPATCH_ENABLED:false}
+    dispatch-delay-ms: 5000
+    reconcile-enabled: ${APP_COMMON_REVOCATION_RECONCILE_ENABLED:false}
+    reconcile-delay-ms: 5000
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

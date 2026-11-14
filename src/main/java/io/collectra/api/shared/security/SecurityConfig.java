@@ -8,6 +8,7 @@ import java.util.List;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.convert.converter.Converter;
@@ -41,7 +42,9 @@ public class SecurityConfig {
 
     @Bean
     SecurityFilterChain security(
-            HttpSecurity http, AuthorizationVersionFilter authorizationVersionFilter)
+            HttpSecurity http,
+            AuthorizationVersionFilter authorizationVersionFilter,
+            KeycloakDomainAuthorizationFilter keycloakDomainAuthorizationFilter)
             throws Exception {
         return http.csrf(csrf -> csrf.disable())
                 .sessionManagement(
@@ -90,7 +93,9 @@ public class SecurityConfig {
                                         .authenticated())
                 .oauth2ResourceServer(
                         oauth2 -> oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtConverter())))
-                .addFilterAfter(authorizationVersionFilter, BearerTokenAuthenticationFilter.class)
+                .addFilterAfter(
+                        keycloakDomainAuthorizationFilter, BearerTokenAuthenticationFilter.class)
+                .addFilterAfter(authorizationVersionFilter, KeycloakDomainAuthorizationFilter.class)
                 .addFilterAfter(new TenantContextFilter(), AuthorizationVersionFilter.class)
                 .build();
     }
@@ -119,6 +124,10 @@ public class SecurityConfig {
     }
 
     @Bean
+    @ConditionalOnProperty(
+            name = "collectra.security.keycloak.enabled",
+            havingValue = "false",
+            matchIfMissing = true)
     JwtDecoder jwtDecoder(SecretKey key) {
         NimbusJwtDecoder decoder =
                 NimbusJwtDecoder.withSecretKey(key).macAlgorithm(MacAlgorithm.HS256).build();
@@ -138,6 +147,9 @@ public class SecurityConfig {
 
     private Collection<GrantedAuthority> extractAuthorities(Jwt jwt) {
         java.util.ArrayList<GrantedAuthority> authorities = new java.util.ArrayList<>();
+        // Keycloak claims are never interpreted as Collectra tenant roles.
+        // The legacy claims below are trusted only for the legacy issuer.
+        if (!"collectra-api".equals(jwt.getClaimAsString("iss"))) return List.of();
         String tokenType = jwt.getClaimAsString("token_type");
         if ("user".equals(tokenType)) {
             authorities.add(new SimpleGrantedAuthority("ROLE_HUMAN"));

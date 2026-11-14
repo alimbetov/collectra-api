@@ -1,0 +1,65 @@
+databaseChangeLog:
+  - changeSet:
+      id: r15-001-registry-revocation
+      author: app-common
+      changes:
+        - sqlFile:
+            path: db/changelog/r15-001-registry-revocation.sql
+            relativeToChangelogFile: false
+  - changeSet:
+      id: r16-001-revocation-idempotency
+      author: app-common
+      changes:
+        - sqlFile:
+            path: db/changelog/r16-001-revocation-idempotency.sql
+            relativeToChangelogFile: false
+  - changeSet:
+      id: r16b-001-dispatch
+      author: app-common
+      changes:
+        - sqlFile:
+            path: db/changelog/r16b-001-dispatch.sql
+            relativeToChangelogFile: false
+  - changeSet:
+      id: r16c-001-consumer-binding
+      author: app-common
+      changes:
+        - sqlFile:
+            path: db/changelog/r16c-001-consumer-binding.sql
+            relativeToChangelogFile: false
+  - changeSet:
+      id: r16d-001-mandatory-consumers
+      author: app-common
+      changes:
+        - sqlFile:
+            path: db/changelog/r16d-001-mandatory-consumers.sql
+            relativeToChangelogFile: false
+  - changeSet:
+      id: r16e-001-operation-consumer-snapshot
+      author: app-common
+      changes:
+        - sqlFile:
+            path: db/changelog/r16e-001-operation-consumer-snapshot.sql
+            relativeToChangelogFile: false
+  - changeSet:
+      id: r16f-001-ack-binding-epoch
+      author: app-common
+      changes:
+        - sqlFile:
+            path: db/changelog/r16f-001-ack-binding-epoch.sql
+            relativeToChangelogFile: false
+            splitStatements: false
+  - changeSet:
+      id: r16g-001-consumer-recovery-audit
+      author: app-common
+      changes:
+        - sqlFile:
+            path: db/changelog/r16g-001-consumer-recovery-audit.sql
+            relativeToChangelogFile: false
+  - changeSet:
+      id: r16h-001-pending-consumer-obligations
+      author: app-common
+      changes:
+        - sqlFile:
+            path: db/changelog/r16h-001-pending-consumer-obligations.sql
+            relativeToChangelogFile: false

@@ -1,0 +1,31 @@
+name: R1.6C.6 App Common PostgreSQL
+on:
+  workflow_dispatch:
+  push:
+    branches: [feat/iam-shared-platform]
+    paths:
+      - 'app-common/**'
+      - '.github/workflows/r16c6-app-common-postgres.yml'
+jobs:
+  postgres-revocation:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app-common
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+          cache-dependency-path: app-common/pom.xml
+      - name: Compile and run PostgreSQL revocation tests
+        run: mvn -B -ntp -Dtest=RevocationConsistencyPostgresIT,RevocationLiquibaseConcurrencyIT,RevocationConfigurationTest,RevocationHttpAckPostgresIT test
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: r16c6-app-common-surefire
+          path: app-common/target/surefire-reports/
+          if-no-files-found: warn

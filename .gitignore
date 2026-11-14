@@ -5,6 +5,7 @@ output/
 !.idea/codeStyles/**
 *.iml
 .env
+output/iam-smoke/
 data/
 *.zip
 frontendweb/node_modules/

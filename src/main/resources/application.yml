@@ -114,6 +114,17 @@ collectra:
       download-ttl: 10m
       upload-ttl: 30m
   security:
+    keycloak:
+      enabled: ${COLLECTRA_KEYCLOAK_ENABLED:false}
+      issuer: ${COLLECTRA_KEYCLOAK_ISSUER:}
+      jwk-set-uri: ${COLLECTRA_KEYCLOAK_JWKS_URI:}
+      revocation-max-age: PT30S
+      revocation-consumer-enabled: ${COLLECTRA_REVOCATION_CONSUMER_ENABLED:false}
+      revocation-base-url: ${COLLECTRA_REVOCATION_BASE_URL:}
+      revocation-token-url: ${COLLECTRA_REVOCATION_TOKEN_URL:}
+      revocation-client-id: ${COLLECTRA_REVOCATION_CLIENT_ID:}
+      revocation-client-secret: ${COLLECTRA_REVOCATION_CLIENT_SECRET:}
+      revocation-poll-ms: 5000
     access-token-ttl: PT15M
     refresh-token-ttl: 30d
     platform-bootstrap:

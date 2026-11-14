@@ -15,7 +15,7 @@ public class PlatformAccessController {
 
     @GetMapping("/me")
     PlatformPrincipalResponse me(JwtAuthenticationToken authentication) {
-        return new PlatformPrincipalResponse(UUID.fromString(authentication.getToken().getSubject()));
+        return new PlatformPrincipalResponse(UUID.fromString(authentication.getName()));
     }
 
     record PlatformPrincipalResponse(UUID userId) {}

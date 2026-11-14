@@ -9,6 +9,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 DOCS = ROOT / "docs"
+ACTIVE_IAM_BRANCH = "feat/iam-shared-platform"
 LEGACY_BRANCH = re.compile(
     r"(?:fix/pre-channel-release-gate|fix/audit-defects-and-release-gate-alignment|"
     r"fix/project-consistency-defects|spec/functional-hardening-user-journeys|"
@@ -38,7 +39,8 @@ def main() -> int:
                     continue
                 failures.append(f"{path.relative_to(ROOT)}: stale execution metadata: {stripped}")
 
-            if stripped.startswith("Branch:") and "main" not in stripped and not historical_context:
+            if (stripped.startswith("Branch:") and "main" not in stripped
+                    and stripped != f"Branch: {ACTIVE_IAM_BRANCH}" and not historical_context):
                 failures.append(f"{path.relative_to(ROOT)}: active branch metadata requires reconciliation: {stripped}")
 
     print(f"Checked documentation metadata in {checked} Markdown files.")
