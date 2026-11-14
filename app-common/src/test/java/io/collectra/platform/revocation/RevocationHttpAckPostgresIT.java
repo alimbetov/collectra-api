@@ -88,4 +88,25 @@ class RevocationHttpAckPostgresIT {
         assertThat(db.sql("SELECT binding_epoch FROM revocation_acks WHERE consumer_id='collectra-api' AND issuer=:iss AND subject_id=:sub")
             .param("iss",issuer).param("sub",subject).query(Long.class).single()).isEqualTo(oldEpoch);
     }
+
+    @Test
+    void httpAckRejectsMissingScopeAndFutureVersion() throws Exception {
+        String issuer="https://issuer.example/realms/shared";
+        String subject="negative-ack-"+UUID.randomUUID();
+        db.sql("UPDATE revocation_consumers SET enabled=true,oauth_client_id='collectra-http-negative' WHERE consumer_id='collectra-api'").update();
+        db.sql("INSERT INTO subject_access_state(issuer,subject_id,state,version) VALUES (:iss,:sub,'BLOCKED',2)")
+            .param("iss",issuer).param("sub",subject).update();
+        String body="{\\"issuer\\":\\""+issuer+"\\",\\"subject\\":\\""+subject+"\\",\\"version\\":2}";
+        when(decoder.decode(anyString())).thenReturn(token("collectra-http-negative","revocations.read"));
+        mvc.perform(post("/api/v1/internal/revocations/ack")
+            .header("Authorization","Bearer mock").contentType(MediaType.APPLICATION_JSON).content(body))
+            .andExpect(status().isForbidden());
+        when(decoder.decode(anyString())).thenReturn(token("collectra-http-negative","revocations.ack"));
+        String future=body.replace("\\"version\\":2","\\"version\\":3");
+        mvc.perform(post("/api/v1/internal/revocations/ack")
+            .header("Authorization","Bearer mock").contentType(MediaType.APPLICATION_JSON).content(future))
+            .andExpect(status().isConflict());
+        assertThat(db.sql("SELECT count(*) FROM revocation_acks WHERE issuer=:iss AND subject_id=:sub")
+            .param("iss",issuer).param("sub",subject).query(Long.class).single()).isZero();
+    }
 }
