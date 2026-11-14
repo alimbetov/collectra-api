@@ -78,6 +78,37 @@ class RevocationLiquibaseConcurrencyIT {
             .block("issuer",subject,"actor","request-"+UUID.randomUUID()));
         assertThat(replay.get("state")).isEqualTo("PROPAGATING");
     }
+    @Test void auditedRecoveryRequiresNewEpochAckBeforeEnforcement() {
+        String subject="recovery-"+UUID.randomUUID();
+        tx.executeWithoutResult(s->new SubjectEnrollmentService(db).initialize("issuer",subject));
+        Map<String,Object> result=tx.execute(s->new SubjectAccessService(db)
+            .block("issuer",subject,"actor","request-"+UUID.randomUUID()));
+        UUID operation=(UUID)result.get("operationId");
+        long version=(long)result.get("version");
+        db.sql("UPDATE enforcement_operations SET state='PROPAGATING' WHERE id=:id")
+            .param("id",operation).update();
+        db.sql("UPDATE access_state_outbox SET keycloak_applied_at=now() " +
+            "WHERE issuer='issuer' AND subject_id=:sub").param("sub",subject).update();
+        for(String consumer:List.of("collectra-api","app-b-api")) {
+            db.sql("INSERT INTO revocation_acks(consumer_id,issuer,subject_id,version,binding_epoch) " +
+                "SELECT consumer_id,'issuer',:sub,:v,binding_epoch FROM revocation_consumers WHERE consumer_id=:c")
+                .param("sub",subject).param("v",version).param("c",consumer).update();
+        }
+        db.sql("UPDATE revocation_consumers SET oauth_client_id='appb-new' WHERE consumer_id='app-b-api'").update();
+        tx.executeWithoutResult(s->new ConsumerBindingRecoveryService(db)
+            .rebind(operation,"app-b-api","operator","client rotation"));
+        new EnforcementReconciler(db,true).reconcile();
+        assertThat(db.sql("SELECT state FROM enforcement_operations WHERE id=:id")
+            .param("id",operation).query(String.class).single()).isEqualTo("PROPAGATING");
+        assertThat(db.sql("SELECT count(*) FROM enforcement_consumer_rebindings WHERE operation_id=:id")
+            .param("id",operation).query(Long.class).single()).isEqualTo(1L);
+        db.sql("UPDATE revocation_acks SET binding_epoch=(SELECT binding_epoch FROM revocation_consumers " +
+            "WHERE consumer_id='app-b-api') WHERE consumer_id='app-b-api' AND subject_id=:sub")
+            .param("sub",subject).update();
+        new EnforcementReconciler(db,true).reconcile();
+        assertThat(db.sql("SELECT state FROM enforcement_operations WHERE id=:id")
+            .param("id",operation).query(String.class).single()).isEqualTo("ENFORCED");
+    }
     @Test void rebindInvalidatesEarlierAcknowledgement() {
         String subject="epoch-"+UUID.randomUUID();
         tx.executeWithoutResult(s->new SubjectEnrollmentService(db).initialize("issuer",subject));
