@@ -1,4 +1,10 @@
 spring:
+  datasource:
+    url: ${APP_COMMON_JDBC_URL:jdbc:postgresql://localhost:5433/app_common}
+    username: ${APP_COMMON_DB_USER:app_common}
+    password: ${APP_COMMON_DB_PASSWORD:}
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.yaml
   application:
     name: app-common
 server:
