@@ -71,7 +71,7 @@ public class KeycloakDomainAuthorizationFilter extends OncePerRequestFilter {
                 granted.add(new SimpleGrantedAuthority("ROLE_PLATFORM_SUPER_ADMIN"));
             } else {
                 UUID tenantId=UUID.fromString(selected);
-                if(!tenantId.equals(user.getTenantId()) || tenants.findById(tenantId).isEmpty()) {
+                if(!tenantId.equals(user.getTenantId()) || tenants.findById(tenantId).filter(t->t.active()).isEmpty()) {
                     deny(response);return;
                 }
                 var membership=memberships.findByTenantIdAndUserId(tenantId,localId)
