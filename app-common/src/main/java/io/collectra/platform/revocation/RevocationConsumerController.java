@@ -32,7 +32,7 @@ public class RevocationConsumerController {
             .param("iss",issuer).param("sub",subject)
             .query((rs,n)->Map.<String,Object>of("state",rs.getString("state"),
                 "version",rs.getLong("version"))).optional()
-            .orElse(Map.of("state","ACTIVE","version",0L));
+            .orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND,"Subject not initialized"));
     }
 
     @PostMapping("/ack")
@@ -40,7 +40,7 @@ public class RevocationConsumerController {
     @PreAuthorize("hasAuthority('SCOPE_revocations.ack')")
     public void ack(@AuthenticationPrincipal Jwt jwt,@RequestBody Ack ack) {
         String caller=consumer(jwt);
-        if(ack.issuer()==null || ack.subject()==null || ack.version()<0)
+        if(ack.issuer()==null || ack.subject()==null || ack.version()<1)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
         long current=db.sql("SELECT version FROM subject_access_state WHERE issuer=:iss AND subject_id=:sub")
             .param("iss",ack.issuer()).param("sub",ack.subject()).query(Long.class)
