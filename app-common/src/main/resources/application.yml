@@ -1,0 +1,15 @@
+spring:
+  application:
+    name: app-common
+server:
+  port: ${APP_COMMON_PORT:8090}
+app-common:
+  security:
+    issuer-uri: ${APP_COMMON_ISSUER_URI:http://localhost:8180/realms/shared}
+    jwk-set-uri: ${APP_COMMON_JWKS_URI:http://localhost:8180/realms/shared/protocol/openid-connect/certs}
+    audience: ${APP_COMMON_API_AUDIENCE:app-common-api}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
