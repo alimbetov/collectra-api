@@ -239,3 +239,6 @@ Additional executable cases:
 - SPEC-10 foreign realm ownership marker cannot be adopted.
 
 **Release sequence:** (1) independent design S2 review; (2) real PostgreSQL/Keycloak/HTTP RED fixtures; (3) minimal implementation and GREEN; (4) Collectra React browser E2E; (5) fault injection, backup restore and measured SLO; (6) production approval. Do not mark any criterion PASS without recorded executable evidence.
+
+## 14. Mandatory user-journey coverage gate (normative)
+The companion specification `docs/specs/app-common-r0-user-journey-simulation.md` is the authoritative functional journey catalog for APP-COMMON-R0.3: US-01..US-24, three detailed reasoned traces, and GAP-01..GAP-12. This **design simulation is not runtime verification**. Each implemented capability must trace to a journey and a positive, negative, concurrent/failure test with CI evidence. The release cannot claim full functional coverage while P0/P1 journeys remain unverified. Prioritize US-01/02/03/09/11/13/14/20 and independent S2 review before GREEN implementation.
