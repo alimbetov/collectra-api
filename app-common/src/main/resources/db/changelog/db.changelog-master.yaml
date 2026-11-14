@@ -6,3 +6,10 @@ databaseChangeLog:
         - sqlFile:
             path: db/changelog/r15-001-registry-revocation.sql
             relativeToChangelogFile: false
+  - changeSet:
+      id: r16-001-revocation-idempotency
+      author: app-common
+      changes:
+        - sqlFile:
+            path: db/changelog/r16-001-revocation-idempotency.sql
+            relativeToChangelogFile: false
