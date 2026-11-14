@@ -87,3 +87,6 @@ Phase A: S2 reviews the 24 traces and gaps, identifies contradictions, approves 
 
 ## Status
 **24 user/system journeys specified; 3 manually reasoned detailed simulations; 12 functional gaps identified. 0 executable journeys demonstrated in this document.** No claim that all functionality is implemented.
+
+## Shared identity revision — ADR-IAM-007 (binding)
+The original US-01, US-13 and same-email isolation scenarios assumed per-app realms. **Those assumptions are superseded**. US-01 now provisions an OIDC client/audience in a shared end-user realm; US-13 now verifies same global `sub` across two applications, distinct app-local UUIDs, cross-API audience isolation, and SSO without second registration. Global account blocking and per-app blocking are distinct. App decommissioning never deletes the global realm. Add SSO-01..SSO-12 from ADR-IAM-007 to the acceptance matrix. All previously specified failure, notification, MFA, audit and migration journeys remain applicable unless contradicted by this amendment. These are reasoned design traces, not executed tests.
