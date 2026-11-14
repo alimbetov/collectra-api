@@ -60,26 +60,35 @@ public class RevocationSnapshotConsumer {
                 || clientId.isBlank()
                 || secret.isBlank())
             throw new IllegalStateException("Revocation consumer credentials missing");
-        // Each subject is reconciled independently; failure leaves old snapshot to expire.
-        var subjects =
-                db.sql(
-                                "SELECT subject_id FROM collectra_identity_links "
-                                        + "WHERE issuer=:issuer AND status='VERIFIED' ORDER BY subject_id LIMIT 10000")
-                        .param("issuer", issuer)
-                        .query(String.class)
-                        .list();
-        for (String subject : subjects) {
-            try {
-                synchronize(subject);
-            } catch (RuntimeException ex) {
-                // Deliberately no token, subject or secret logging. Old snapshot expires.
+        // Keyset pagination prevents starvation beyond the first 10,000 identities.
+        // Reuse one short-lived service token for this reconciliation pass.
+        String token = serviceToken();
+        String after = "";
+        while (true) {
+            var subjects =
+                    db.sql(
+                                    "SELECT subject_id FROM collectra_identity_links "
+                                            + "WHERE issuer=:issuer AND status='VERIFIED' "
+                                            + "AND subject_id > :after ORDER BY subject_id LIMIT 250")
+                            .param("issuer", issuer)
+                            .param("after", after)
+                            .query(String.class)
+                            .list();
+            if (subjects.isEmpty()) return;
+            for (String subject : subjects) {
+                try {
+                    synchronize(subject, token);
+                } catch (RuntimeException ex) {
+                    // Snapshot expires fail-closed. No subject identifiers or credentials logged.
+                }
             }
+            after = subjects.get(subjects.size() - 1);
+            if (subjects.size() < 250) return;
         }
     }
 
     @SuppressWarnings("unchecked")
-    public void synchronize(String subject) {
-        if (!enabled) throw new IllegalStateException("Consumer disabled");
+    private String serviceToken() {
         var form = new org.springframework.util.LinkedMultiValueMap<String, String>();
         form.add("grant_type", "client_credentials");
         form.add("client_id", clientId);
@@ -93,7 +102,15 @@ public class RevocationSnapshotConsumer {
                         .body(Map.class);
         if (response == null || !(response.get("access_token") instanceof String token))
             throw new IllegalStateException("No service token");
-        // Use URI builder for percent-encoding subject and issuer.
+        return token;
+    }
+
+    public void synchronize(String subject) {
+        if (!enabled) throw new IllegalStateException("Consumer disabled");
+        synchronize(subject, serviceToken());
+    }
+
+    private void synchronize(String subject, String token) {
         var snapshot =
                 http.get()
                         .uri(
