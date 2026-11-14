@@ -42,7 +42,8 @@ public class SecurityConfig {
 
     @Bean
     SecurityFilterChain security(
-            HttpSecurity http, AuthorizationVersionFilter authorizationVersionFilter)
+            HttpSecurity http, AuthorizationVersionFilter authorizationVersionFilter,
+            KeycloakDomainAuthorizationFilter keycloakDomainAuthorizationFilter)
             throws Exception {
         return http.csrf(csrf -> csrf.disable())
                 .sessionManagement(
@@ -91,7 +92,8 @@ public class SecurityConfig {
                                         .authenticated())
                 .oauth2ResourceServer(
                         oauth2 -> oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtConverter())))
-                .addFilterAfter(authorizationVersionFilter, BearerTokenAuthenticationFilter.class)
+                .addFilterAfter(keycloakDomainAuthorizationFilter, BearerTokenAuthenticationFilter.class)
+                .addFilterAfter(authorizationVersionFilter, KeycloakDomainAuthorizationFilter.class)
                 .addFilterAfter(new TenantContextFilter(), AuthorizationVersionFilter.class)
                 .build();
     }
