@@ -56,3 +56,10 @@ databaseChangeLog:
         - sqlFile:
             path: db/changelog/r16g-001-consumer-recovery-audit.sql
             relativeToChangelogFile: false
+  - changeSet:
+      id: r16h-001-pending-consumer-obligations
+      author: app-common
+      changes:
+        - sqlFile:
+            path: db/changelog/r16h-001-pending-consumer-obligations.sql
+            relativeToChangelogFile: false
