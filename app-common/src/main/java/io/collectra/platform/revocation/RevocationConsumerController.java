@@ -2,6 +2,8 @@ package io.collectra.platform.revocation;
 
 import java.util.Map;
 import org.springframework.http.HttpStatus;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -11,7 +13,11 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/v1/internal/revocations")
 public class RevocationConsumerController {
     private final JdbcClient db;
-    public RevocationConsumerController(JdbcClient db) { this.db=db; }
+    private final boolean ackEnabled;
+    public RevocationConsumerController(JdbcClient db,
+        @Value("${app-common.revocation.ack-enabled:false}") boolean ackEnabled) {
+        this.db=db; this.ackEnabled=ackEnabled;
+    }
 
     @GetMapping("/{subject}")
     @PreAuthorize("hasAuthority('SCOPE_revocations.read')")
@@ -27,6 +33,8 @@ public class RevocationConsumerController {
     @ResponseStatus(HttpStatus.ACCEPTED)
     @PreAuthorize("hasAuthority('SCOPE_revocations.ack')")
     public void ack(@RequestBody Ack ack) {
+        if (!ackEnabled) throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+            "Consumer identity binding is not yet implemented");
         // Registration of consumers is an operator-owned operation, not implicit on ACK.
         int n=db.sql("INSERT INTO revocation_acks(consumer_id,issuer,subject_id,version) " +
             "VALUES (:c,:iss,:sub,:v) ON CONFLICT (consumer_id,issuer,subject_id) " +
