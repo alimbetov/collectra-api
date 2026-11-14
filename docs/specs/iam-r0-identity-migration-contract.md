@@ -77,3 +77,11 @@ Gate: NO Keycloak migration or login cutover before independent security review 
 6. Notification API cannot read another application's recipient email.
 7. Ordinary notifications to missing/unverified email are suppressed; verification email remains allowed.
 8. Revoked/blocked user and marketing opt-out policies are enforced separately from email verification.
+
+## IAM-R0.3 implementation evidence and outstanding integration
+
+- Added `VerifiedEmailPolicy` and `VerifiedEmailPolicyTest` for issuer-scoped, verified-email eligibility.
+- These are **pure unit-level primitives only**, not wired into current registration or message delivery. Do not mark mandatory email or email verification as enforced in production.
+- The lightweight syntax check is not a replacement for Jakarta Bean Validation `@Email` at the API boundary or Keycloak's verified email state.
+- Pending: configure Keycloak per-realm `registrationEmailAsUsername`/required email and verify-email flow; decide supported provider claim mapping; implement recipient resolution and verification-message exception; apply policy in Notification API; test email change, account disable, and application isolation through HTTP E2E.
+- Pending: execute Maven tests/CI on exact SHA; no test execution is claimed by this commit.
