@@ -1,6 +1,7 @@
 package io.collectra.platform.security;
 
 import org.springframework.beans.factory.annotation.Value;
+import io.collectra.platform.revocation.RevocationTokenValidator;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -32,11 +33,12 @@ public class ResourceServerSecurity {
     JwtDecoder jwtDecoder(
         @Value("${app-common.security.issuer-uri}") String issuer,
         @Value("${app-common.security.jwk-set-uri}") String jwkSetUri,
-        @Value("${app-common.security.audience}") String audience) {
+        @Value("${app-common.security.audience}") String audience,
+        RevocationTokenValidator revocation) {
         NimbusJwtDecoder decoder = NimbusJwtDecoder.withJwkSetUri(jwkSetUri).build();
         OAuth2TokenValidator<Jwt> audienceValidator = requiredAudience(audience);
         decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
-            JwtValidators.createDefaultWithIssuer(issuer), audienceValidator));
+            JwtValidators.createDefaultWithIssuer(issuer), audienceValidator, revocation));
         return decoder;
     }
 
