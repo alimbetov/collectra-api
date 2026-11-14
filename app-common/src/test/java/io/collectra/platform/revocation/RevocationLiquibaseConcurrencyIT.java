@@ -63,6 +63,21 @@ class RevocationLiquibaseConcurrencyIT {
         } finally {pool.shutdownNow();}
     }
 
+    @Test void distinctKeysForAlreadyBlockedSubjectReuseOperationAndVersion() {
+        String subject="duplicate-"+UUID.randomUUID();
+        tx.executeWithoutResult(s->new SubjectEnrollmentService(db).initialize("issuer",subject));
+        Map<String,Object> first=tx.execute(s->new SubjectAccessService(db)
+            .block("issuer",subject,"actor","request-"+UUID.randomUUID()));
+        Map<String,Object> second=tx.execute(s->new SubjectAccessService(db)
+            .block("issuer",subject,"actor","request-"+UUID.randomUUID()));
+        assertThat(second.get("operationId")).isEqualTo(first.get("operationId"));
+        assertThat(second.get("version")).isEqualTo(first.get("version"));
+        db.sql("UPDATE enforcement_operations SET state='PROPAGATING' WHERE id=:id")
+            .param("id",first.get("operationId")).update();
+        Map<String,Object> replay=tx.execute(s->new SubjectAccessService(db)
+            .block("issuer",subject,"actor","request-"+UUID.randomUUID()));
+        assertThat(replay.get("state")).isEqualTo("PROPAGATING");
+    }
     @Test void rebindInvalidatesEarlierAcknowledgement() {
         String subject="epoch-"+UUID.randomUUID();
         tx.executeWithoutResult(s->new SubjectEnrollmentService(db).initialize("issuer",subject));
