@@ -36,10 +36,7 @@ public class SubjectAccessService {
         }
         if (issuer == null || issuer.isBlank() || subject == null || subject.isBlank())
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Issuer and subject required");
-        // PostgreSQL serializes competing updates for the same subject via row lock.
-        db.sql("INSERT INTO subject_access_state(issuer,subject_id,state,version) " +
-            "VALUES (:iss,:sub,'ACTIVE',1) ON CONFLICT (issuer,subject_id) DO NOTHING")
-            .param("iss",issuer).param("sub",subject).update();
+        // Unknown subjects require explicit privileged enrollment.
         long version = db.sql("UPDATE subject_access_state SET state='BLOCKED',version=version+1,updated_at=now() " +
             "WHERE issuer=:iss AND subject_id=:sub RETURNING version")
             .param("iss",issuer).param("sub",subject).query(Long.class).single();
