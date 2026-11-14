@@ -14,7 +14,26 @@ public class SubjectAccessService {
     public SubjectAccessService(JdbcClient db) { this.db = db; }
 
     @Transactional
-    public Map<String,Object> block(String issuer, String subject) {
+    public Map<String,Object> block(String issuer, String subject, String actor, String idempotencyKey) {
+        if(actor==null || actor.isBlank() || idempotencyKey==null ||
+                !idempotencyKey.matches("[A-Za-z0-9._:-]{8,160}"))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Valid Idempotency-Key required");
+        if (issuer == null || issuer.isBlank() || subject == null || subject.isBlank())
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Issuer and subject required");
+        // Serialize identical keys, including concurrent first requests, inside one transaction.
+        db.sql("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))")
+            .param("key",issuer+"|"+actor+"|"+idempotencyKey).query(Long.class).single();
+        var existing=db.sql("SELECT request_subject,operation_id,target_version FROM subject_block_idempotency " +
+            "WHERE issuer=:iss AND actor_subject=:actor AND idempotency_key=:key")
+            .param("iss",issuer).param("actor",actor).param("key",idempotencyKey)
+            .query((rs,n)->new IdempotentBlock(rs.getString(1),rs.getObject(2,UUID.class),rs.getLong(3)))
+            .optional();
+        if(existing.isPresent()) {
+            var previous=existing.get();
+            if(!previous.subject().equals(subject))
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Idempotency key reused for another subject");
+            return Map.of("operationId",previous.operation(),"state","STATE_COMMITTED","version",previous.version());
+        }
         if (issuer == null || issuer.isBlank() || subject == null || subject.isBlank())
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Issuer and subject required");
         // PostgreSQL serializes competing updates for the same subject via row lock.
@@ -31,8 +50,14 @@ public class SubjectAccessService {
         db.sql("INSERT INTO access_state_outbox(id,issuer,subject_id,target_version,event_type) " +
             "VALUES (:id,:iss,:sub,:v,'SUBJECT_BLOCKED')")
             .param("id",UUID.randomUUID()).param("iss",issuer).param("sub",subject).param("v",version).update();
+        db.sql("INSERT INTO subject_block_idempotency(issuer,actor_subject,idempotency_key," +
+            "request_subject,operation_id,target_version) VALUES (:iss,:actor,:key,:sub,:op,:v)")
+            .param("iss",issuer).param("actor",actor).param("key",idempotencyKey)
+            .param("sub",subject).param("op",operation).param("v",version).update();
         return Map.of("operationId",operation,"state","STATE_COMMITTED","version",version);
     }
+
+    private record IdempotentBlock(String subject, UUID operation, long version) {}
 
     @Transactional(readOnly = true)
     public boolean isAllowed(String issuer, String subject) {
