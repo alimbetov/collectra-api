@@ -27,3 +27,5 @@ management:
   revocation:
     dispatch-enabled: ${APP_COMMON_REVOCATION_DISPATCH_ENABLED:false}
     dispatch-delay-ms: 5000
+    reconcile-enabled: ${APP_COMMON_REVOCATION_RECONCILE_ENABLED:false}
+    reconcile-delay-ms: 5000
