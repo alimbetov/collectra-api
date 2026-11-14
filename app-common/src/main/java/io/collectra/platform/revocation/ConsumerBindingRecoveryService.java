@@ -1,6 +1,5 @@
 package io.collectra.platform.revocation;
 
-import java.util.Map;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -39,7 +38,7 @@ public class ConsumerBindingRecoveryService {
             .param("consumer",consumerId)
             .query((rs,n)->new Binding(rs.getString(1),rs.getLong(2))).optional()
             .orElseThrow(()->new ResponseStatusException(HttpStatus.CONFLICT,"Consumer not ready"));
-        if(current.epoch()<=old.get().epoch())
+        if(current.epoch()<=old.epoch())
             throw new ResponseStatusException(HttpStatus.CONFLICT,"Recovery requires a newer binding epoch");
         db.sql("UPDATE enforcement_operation_consumers SET oauth_client_id=:client,binding_epoch=:epoch " +
                 "WHERE operation_id=:op AND consumer_id=:consumer")
@@ -49,7 +48,7 @@ public class ConsumerBindingRecoveryService {
                 "old_oauth_client_id,old_binding_epoch,new_oauth_client_id,new_binding_epoch,actor,reason) " +
                 "VALUES (:id,:op,:consumer,:oldClient,:oldEpoch,:newClient,:newEpoch,:actor,:reason)")
             .param("id",UUID.randomUUID()).param("op",operationId).param("consumer",consumerId)
-            .param("oldClient",old.get().client()).param("oldEpoch",old.get().epoch())
+            .param("oldClient",old.client()).param("oldEpoch",old.epoch())
             .param("newClient",current.client()).param("newEpoch",current.epoch())
             .param("actor",actor).param("reason",reason).update();
     }
