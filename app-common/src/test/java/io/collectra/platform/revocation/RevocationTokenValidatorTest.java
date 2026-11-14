@@ -39,4 +39,48 @@ class RevocationTokenValidatorTest {
         when(service.isAllowed("https://id.example/realms/shared", "user-1")).thenReturn(true);
         assertThat(new RevocationTokenValidator(service).validate(jwt()).hasErrors()).isFalse();
     }
+
+    private Jwt consumerJwt(String client, String scope) {
+        Instant now=Instant.now();
+        return Jwt.withTokenValue("machine")
+            .header("alg","RS256")
+            .issuer("https://id.example/realms/shared")
+            .subject("service-account-subject")
+            .audience(List.of("app-common-api"))
+            .issuedAt(now).expiresAt(now.plusSeconds(300))
+            .claim("azp",client).claim("scope",scope).build();
+    }
+
+    @Test
+    void registeredMachineConsumerDoesNotRequireHumanEnrollment() {
+        SubjectAccessService service=mock(SubjectAccessService.class);
+        when(service.isEnabledConsumerClient("collectra-client")).thenReturn(true);
+        assertThat(new RevocationTokenValidator(service).validate(
+            consumerJwt("collectra-client","revocations.read revocations.ack")).hasErrors()).isFalse();
+        verify(service,never()).isAllowed(anyString(),anyString());
+    }
+
+    @Test
+    void unregisteredMachineConsumerFailsClosed() {
+        SubjectAccessService service=mock(SubjectAccessService.class);
+        assertThat(new RevocationTokenValidator(service).validate(
+            consumerJwt("unknown-client","revocations.ack")).hasErrors()).isTrue();
+    }
+
+    @Test
+    void ordinaryTokenWithAzpStillRequiresHumanLedger() {
+        SubjectAccessService service=mock(SubjectAccessService.class);
+        assertThat(new RevocationTokenValidator(service).validate(
+            consumerJwt("collectra-client","profile email")).hasErrors()).isTrue();
+        verify(service).isAllowed(anyString(),anyString());
+    }
+
+    @Test
+    void registryFailureDeniesMachineConsumer() {
+        SubjectAccessService service=mock(SubjectAccessService.class);
+        when(service.isEnabledConsumerClient("collectra-client"))
+            .thenThrow(new IllegalStateException("database unavailable"));
+        assertThat(new RevocationTokenValidator(service).validate(
+            consumerJwt("collectra-client","revocations.ack")).hasErrors()).isTrue();
+    }
 }
