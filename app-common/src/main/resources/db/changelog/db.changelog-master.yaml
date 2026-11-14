@@ -41,3 +41,10 @@ databaseChangeLog:
         - sqlFile:
             path: db/changelog/r16e-001-operation-consumer-snapshot.sql
             relativeToChangelogFile: false
+  - changeSet:
+      id: r16f-001-ack-binding-epoch
+      author: app-common
+      changes:
+        - sqlFile:
+            path: db/changelog/r16f-001-ack-binding-epoch.sql
+            relativeToChangelogFile: false
