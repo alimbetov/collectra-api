@@ -39,7 +39,8 @@ public class SubjectAccessService {
         // Unknown subjects require explicit privileged enrollment.
         long version = db.sql("UPDATE subject_access_state SET state='BLOCKED',version=version+1,updated_at=now() " +
             "WHERE issuer=:iss AND subject_id=:sub RETURNING version")
-            .param("iss",issuer).param("sub",subject).query(Long.class).single();
+            .param("iss",issuer).param("sub",subject).query(Long.class).optional()
+            .orElseThrow(()->new ResponseStatusException(HttpStatus.CONFLICT,"Subject not enrolled"));
         UUID operation = UUID.randomUUID();
         db.sql("INSERT INTO enforcement_operations(id,issuer,subject_id,target_version,state) " +
             "VALUES (:id,:iss,:sub,:v,'STATE_COMMITTED')")
