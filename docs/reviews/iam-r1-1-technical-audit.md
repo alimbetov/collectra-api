@@ -71,3 +71,6 @@ No explicit CSRF state/nonce matrix, account recovery abuse scenarios, stolen in
 5. Release only with executable evidence and zero open P0/P1 findings.
 
 Verdict: architectural direction is reasonable, but **NOT APPROVED FOR IMPLEMENTATION AS FINAL SPECIFICATION** until P0 contradictions are resolved. No code changes or tests executed in this review.
+
+## Resolution update — 2026-11-14
+The five P0 design contradictions (AUD-01..AUD-05) now have canonical proposed resolutions in `docs/specs/iam-r1-2-canonical-multiapp-identity-contract.md`. AUD-06..AUD-12 also have normative directions there. This resolves the **documentation decision gaps**, not implementation, runtime verification or independent S2 sign-off. Maintain DESIGN HOLD for production and migration until executable PostgreSQL/Keycloak/HTTP/SMTP tests pass, exact version settings are validated, and external review is obtained. App-B is a reference app contract, not a verified deployed application.
