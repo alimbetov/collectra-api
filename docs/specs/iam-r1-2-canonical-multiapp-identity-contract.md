@@ -82,3 +82,78 @@ No PASS claim without exact SHA, commands and execution artifacts. No main merge
 
 ## 11. Deployment inputs still required
 Public hostnames, production SMTP provider/credentials, Keycloak pinned version and immutable digest, secret store and per-app OAuth provider credentials. These are external inputs, not unresolved ownership or isolation rules. Production approval remains blocked until provided and tested.
+
+## 12. Final architecture hardening decisions (IAM-R1.3 addendum, normative)
+
+This section resolves A1–A6 from the final systems architecture review. It supersedes conflicting earlier sections. Status remains DESIGN BASELINE, not implementation proof.
+
+### A1 — Availability, isolation and disaster recovery
+- Realm isolation is **logical**, not fault isolation. All realms sharing one Keycloak cluster, database instance, network or SMTP provider share those failure domains. Document this in the operational risk register.
+- Initial production target: Keycloak >=2 replicas across failure zones where supported, reverse proxy with health checks, PostgreSQL managed HA or primary+standby with tested failover, separate DB LOGIN roles for Keycloak, IAM metadata and Notification. Avoid cross-schema privileges; use migration-only DDL credentials.
+- Targets (subject to infrastructure sizing validation): IAM availability 99.9% monthly, RPO <=15 minutes, RTO <=60 minutes. Backups encrypted, at least daily full + WAL/PITR sufficient for RPO; retention >=30 days subject to retention policy. Restore drill before launch and quarterly thereafter.
+- During Keycloak outage, existing signed access JWTs may be validated using cached JWKS **only while cryptographically valid and local authorization remains ACTIVE**; no new login, reset or MFA step-up. Fail closed for operations needing fresh authentication. Do not extend token TTL or bypass verification. SMTP outage must not activate unverified accounts.
+- Capacity, DB connection budgets, session cache topology and key rotation are deployment deliverables with load tests, not assumed from the target.
+
+### A2 — Single authoritative onboarding state owner
+- Keycloak owns `email_verified` and pending `VERIFY_EMAIL`. **No application `registration_intent` exists before verified identity** in R1.3. Therefore `PENDING_VERIFICATION` is not a persisted application state.
+- Application intent states are `VERIFIED -> PROVISIONING -> ACTIVE | FAILED_RETRYABLE | CANCELLED`. Only trusted issuer/subject with current verified email may create an intent. `ACTIVE` means the local user, tenant (if applicable), identity link and membership committed.
+- Use a unique `(application_id,issuer,subject)` registration key and an independent idempotency key scoped to application + actor + operation. Repeated requests return the same intent/result. Define explicit 409 for slug collision; reserve slug transactionally with 24-hour expiry and uniqueness against both active tenants and unexpired reservations.
+- The intent and business provisioning occur in application-owned PostgreSQL; a transactional outbox schedules retries and reconciliation. Never claim a distributed transaction with Keycloak. A failed local transaction leaves the intent retryable and no authorized local account.
+- App-B's onboarding has no tenant/slug unless App-B's own contract explicitly opts in.
+
+### A3 — Identifier ownership and trust boundaries
+| Identifier | Authority | Trust rule |
+|---|---|---|
+| `applicationId` | Platform Application Registry | server-resolved from registered OIDC client/audience and deployment config; never blindly accepted from payload |
+| `issuer` | Keycloak realm | exact allowlist, signature and audience validation |
+| `subject` | Keycloak realm | valid only together with issuer |
+| `localUserId` | application-owned DB | resolved from active identity mapping |
+| `tenantId` | Collectra | server-selected and checked against membership |
+| `membershipId` | Collectra | resolved from active tenant membership, not a JWT/client assertion |
+- No global user IDs, roles, tenants or automatic email matching. Notification routing uses authenticated application identity and tenant-scoped server-side recipient resolution.
+- Platform operator authorization is separate from application end-user permissions; application administrators cannot self-provision realms or change shared SMTP credentials.
+
+### A4 — Recoverable credential migration protocol
+- Persist `identity_migration_job(id, local_user_id, issuer, subject?, state, attempt_count, last_error_code, created_at, updated_at)` with unique active job per local user. States: `PREPARED -> KEYCLOAK_IDENTITY_READY -> OWNERSHIP_VERIFIED -> CUTOVER_COMMITTED` or `RETRYABLE_FAILURE / MANUAL_REVIEW`.
+- Keycloak identity provisioning is idempotent by persisted job correlation; after timeouts reconcile by trusted Keycloak ID and job marker, **never by email alone**. If Keycloak user exists but local commit fails, retry reconciliation, do not provision another identity.
+- Acquire application user row lock for final cutover; in one DB transaction set credential_authority=KEYCLOAK, clear password_hash, revoke local refresh sessions, increment authorization_version, activate identity link and audit. Legacy password operations lock/check authority in the same transaction.
+- A migration may not commit before ownership proof and verified email. On failed cutover keep legacy authority only if it was never committed; after commit never restore old password hashes. Detect and alert on stranded jobs.
+- Validate local JWT invalidation policy on exact runtime: revoked refresh sessions are not sufficient to invalidate already issued access JWTs. For protected requests, enforce local account status and authorization version; maximum residual window must be bounded and measured.
+
+### A5 — Privileged MFA assurance contract
+- Keycloak is the MFA credential authority, but **application business roles define privileged operations**. A realm-wide optional MFA policy does not satisfy mandatory admin MFA.
+- For `PLATFORM_SUPER_ADMIN`, `TENANT_ADMIN` and App-B-declared privileged roles, require server-verified assurance equivalent to a completed second factor, with `auth_time` no older than **10 minutes** for high-risk actions. Define a pinned realm-specific mapping of Keycloak authentication flow outcomes to signed `acr/amr` claims; never assume generic claim presence implies MFA.
+- If claims are missing, stale, ambiguous or cannot be independently verified against pinned flow, deny the privileged action and trigger Keycloak step-up. After role promotion/demotion, immediately re-evaluate local privileges and require fresh step-up; never trust cached admin status.
+- Administrator MFA reset: two authorized approvers, identity verification, immutable audit, recovery session with limited scope, forced MFA re-enrollment. No email-only bypass or self-approval.
+- Acceptance includes normal user promoted to admin while logged in, admin loses TOTP, stale token after demotion, and spoofed/absent `amr`.
+
+### A6 — Application Registry and provisioning contract
+- Implement a small internal **Application Registry module** in shared IAM infrastructure; do not create a new network microservice at R1.3. It stores `application_id`, realm issuer, lifecycle state, allowed client IDs/audiences, owner, notification policy, config version and audit timestamps. No credentials, passwords or global user directory.
+- States: `REGISTERED -> CONFIGURING -> ACTIVE -> SUSPENDED -> DECOMMISSIONED`. Only platform operators with two-person approval may activate, suspend or decommission applications. Decommission requires retention/export approval, token/client disablement, notification suppression and documented data deletion.
+- Provisioning workflow: register app -> reserve unique realm identifier -> provision Keycloak realm and OIDC clients from versioned config -> configure SMTP/MFA/policies -> validate issuer/audience and isolation -> register Notification Service routing -> activate after tests. All operations idempotent and audited; partial failures leave CONFIGURING, never ACTIVE.
+- Each app owns its local profile, permissions, user IDs and business schema. Registry is **control plane**, not an online dependency for every business request; distribute versioned configuration to runtime with safe invalidation and suspension semantics.
+- Client secrets, SMTP credentials and social IdP secrets remain in secret store. Rotate and revoke by application without changing other realms. Decommission must never cascade-delete another application's users.
+
+## 13. Operational and functional release tests added by IAM-R1.3
+- HA-01 Keycloak node loss with valid cached JWKS: existing authorized API request works; new login/step-up fails safely if whole service unavailable.
+- HA-02 PostgreSQL failover, backup restore, RPO/RTO measured and recorded.
+- HA-03 SMTP outage: pending verification cannot activate; retry and alert observed.
+- ONB-01 duplicate verified registration requests yield one intent, tenant and admin membership.
+- ONB-02 slug reservation collision/expiry and concurrent claims are deterministic.
+- ONB-03 failed provisioning leaves retryable intent and no partial ACTIVE account.
+- ID-01 malicious client-supplied applicationId/tenantId/membershipId cannot change authorization.
+- MIG-01 timeout after Keycloak identity creation reconciles to same subject; no email-based auto-link.
+- MIG-02 concurrent legacy reset and credential cutover yield one valid credential authority.
+- MFA-01 user promoted to admin requires new step-up; old JWT alone is insufficient.
+- MFA-02 spoofed/absent/stale assurance claims and demoted admin denied.
+- APP-01 App-B provisioning does not change Collectra realm, clients, roles or notifications.
+- APP-02 SUSPENDED app denied new auth and notifications according to published suspension SLA.
+- APP-03 failed realm provisioning cannot activate application; retry is idempotent.
+- APP-04 secret rotation/decommission does not affect other applications.
+- Every case requires actual integration evidence, SHA, commands, assertions and CI artifacts. Production gate: zero open P0/P1, independent S2 review, restore drill and threat-model signoff.
+
+## 14. Remaining prerequisites and approval
+- Pin actual Keycloak version/digest and prove the exact MFA claim mapping, token revocation and realm configuration through integration tests.
+- Choose actual infrastructure topology, DB privileges, secret store, sender domain and SMTP provider; measure stated SLO/RPO/RTO targets.
+- Inventory actual Collectra React routes and any mobile clients, and define App-B's real business contract when its repository becomes available.
+- The architecture decision set is complete for an implementation baseline; **no implementation, production security or test PASS is implied**.
