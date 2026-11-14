@@ -180,3 +180,62 @@ Threats to cover: confused deputy between audiences, stolen service token, compr
 - DEC-12 Token TTL, `azp` allowlists, operator realm, BFF/session pattern.
 - DEC-13 DB/schema topology, migration tooling, audit retention and residency.
 All decisions require named owner, recorded acceptance and matching integration tests. No undocumented defaults may be treated as production-approved.
+
+## 13. R0.2 executable contract refinement (normative; design decisions, not implementation evidence)
+
+### 13.1 Canonical decisions vs environment-specific choices
+The following are **approved design defaults for R0 test fixtures**, not assertions that infrastructure exists: Java 17+, Spring Boot 3.x, PostgreSQL 15+, Spring Security OAuth2 Resource Server, Keycloak as OIDC provider, Liquibase for versioned migrations (align with existing Collectra stack), Testcontainers for integration, React for Admin UI, and durable PostgreSQL outbox for notifications. RabbitMQ is a delivery accelerator and must not be a correctness dependency. Production Keycloak version/digest, SMTP provider, secrets manager, deployment topology, domain, residency and operator approval mechanism remain explicitly OPEN until independently approved.
+
+The App Common repository must be created separately; no move of Collectra business user/tenant/role tables. A single App Common modular monolith is the initial deployable, with Keycloak and PostgreSQL as separate processes. Notification is an internal module with a separately scalable worker process allowed when throughput justifies it.
+
+### 13.2 Exact lifecycle and transition table
+`application_registry.state` is **desired business lifecycle**, not a guarantee that external Keycloak or API enforcement has converged. `provisioning_job.state` and `enforcement_operation.state` are independent. Never add `SUSPENDING` to the application lifecycle enum.
+
+| From | Command | To | Preconditions |
+|---|---|---|---|
+| absent | register | REGISTERED | unique code and realm reservation, authorized operator |
+| REGISTERED | provision | CONFIGURING | approved immutable desired configuration |
+| CONFIGURING | activate | ACTIVE | provisioning SUCCEEDED, policy validation, independent approval |
+| ACTIVE | suspend | SUSPENDED | durable operation created; enforcement status remains separately pending |
+| SUSPENDED | reactivate | ACTIVE | reconciliation, policy verification, independent approval |
+| REGISTERED/CONFIGURING/ACTIVE/SUSPENDED | decommission | DECOMMISSIONED | two-person approval, retention/export and revocation plan |
+
+A `suspend` request returns `202` with `operationId` and `enforcementStatus=PENDING`; status becomes `ENFORCED` only when Keycloak new-login control, notification stop and resource-server suspension policy have acknowledged. `PARTIALLY_ENFORCED` or `FAILED` must never be presented as fully secured. Resource servers require authenticated, monotonically versioned policy updates and report applied version. Proposed R0 fixture: status policy max age 60s; enforce within 60s under healthy infrastructure; after TTL expiry fail closed. These numbers are **test defaults pending operational approval**, not production SLO commitments.
+
+### 13.3 API envelope and idempotency contract
+For mutating operator endpoints use `Idempotency-Key` header (UUID or opaque 16–128 ASCII characters), authenticated operator/client scope, canonical request hash, and a 24-hour deduplication window. A retry with same key+hash returns same resource/operation ID; different hash -> `409 IDEMPOTENCY_CONFLICT`. The key must be stored atomically with the local command and outbox. `POST /applications/{id}/activate|suspend|decommission` returns `202` and `operationId` where external effects are pending. `GET /api/v1/platform/operations/{operationId}` returns desired state, observed enforcement steps, last error code, retryability and timestamps; it must not expose secrets.
+
+Errors use RFC 9457 Problem Details with stable `type`, `title`, `status`, `detail`, `instance`, `code`, `correlationId`. Never expose whether an unrelated realm or recipient exists. Use `401` for invalid/missing bearer credential; `403` for valid token lacking privilege; `409` for lifecycle/idempotency conflicts; `422` for semantic configuration errors; `429` for quota; `503` for unavailable dependencies.
+
+### 13.4 Recipient resolution and delivery state machine
+The normal app notification API accepts only app-scoped `recipientRef`, not arbitrary email addresses. App Common derives `applicationId` from validated machine identity. Collectra exposes a **private** recipient resolution contract, authenticated using dedicated service credentials with the Collectra resolver audience; response includes `recipientRef`, `verifiedEmail`, `verifiedAt`, `verificationVersion`, `accountActive`, `notificationClass`, `allowed`, `expiresAt`. Response must be integrity-protected by authenticated TLS and strict caller authorization; no signature requirement when protected by a mutually authenticated trusted channel. TTL <=60s in the test fixture, but **no cached assertion may override a new revocation**. Re-resolve immediately before provider submission. This is a cross-service dependency of notifications only, not normal business API calls.
+
+Notification states: `ACCEPTED -> QUEUED -> SENDING -> PROVIDER_ACCEPTED -> DELIVERED` where delivery evidence exists. `SENDING -> DELIVERY_UNKNOWN` on ambiguous provider result. `QUEUED/SENDING -> RETRYABLE_FAILURE` only where retry is safe; `PERMANENT_FAILURE` on definitive rejection; `CANCELLED` only before irrevocable provider acceptance. `DELIVERED` is not emitted from bare SMTP 250 alone. Terminal/transition rules are enforced by DB constraints/service state machine and monotonic event sequence; late callbacks cannot regress state. Duplicate provider callbacks are deduplicated by provider event ID and scoped provider account.
+
+For `DELIVERY_UNKNOWN`, do not automatically resend security-sensitive or non-idempotent email without provider deduplication support or explicit policy; expose manual reconciliation and alert. Promise **at-least-once processing**, not exactly-once external delivery.
+
+### 13.5 Trust and operator bootstrap
+App Common operator realm must be isolated from Collectra realm and must have its own dedicated API audience. Bootstrap of first platform operator is an audited deployment operation using one-time privileged credentials in a secrets manager, with forced MFA enrollment and credential rotation; no permanent default admin account or hardcoded password. Two-person approvals are tied to **distinct immutable operator subjects**, not sessions or email addresses; requester cannot approve own operation. Break-glass access requires time-limited elevation, immutable audit and post-incident review.
+
+### 13.6 Token revocation, roles and session compatibility
+Keycloak JWTs are authoritative authentication evidence; they are **not** authoritative Collectra membership/role snapshots. The Collectra adapter resolves active `(issuer,subject)` mapping and checks local user status, tenant membership and authorization version. Current-user endpoints must not parse `sub` as a UUID. Existing local JWTs may only be accepted behind a time-limited migration feature flag with a distinct legacy issuer/audience and a measured retirement date; never treat legacy and Keycloak tokens as interchangeable. Invalid token -> 401; valid token but revoked business permission -> 403; locally blocked user -> deny under documented security policy. Add tests for a role change between token issue and API call.
+
+### 13.7 Schema minimum and indexes
+Required App Common tables: `applications` (unique code, realm name, config version), `application_clients` (unique application/client ID), `provisioning_jobs` (unique active application+desired config version), `enforcement_operations` (application, desired version, observed step acknowledgments), `idempotency_records` (unique app/actor/endpoint/key), `notification_requests` (unique application/idempotency key, canonical request hash), `notification_attempts` (unique request/attempt), `notification_outbox` (claim lease/fencing token), `notification_provider_events` (unique provider account/event ID), `platform_audit_events` (append-only). Avoid storing raw JWT, Keycloak passwords, refresh tokens or SMTP credentials. Actual DDL, data types, migrations and constraints require PostgreSQL RED tests before implementation.
+
+### 13.8 Source consistency cleanup and release gates
+Sections 3 and 5 list initial fields/states; **this section refines them** with operation status, idempotency and `DELIVERY_UNKNOWN`. Historical IAM-R1.2 statements about `PENDING_VERIFICATION` are superseded by R1.3: Keycloak owns unverified signup, app-owned provisioning begins only after verified identity. ADR-IAM-003 is historical and does not designate Collectra as platform. `App-B` is a test realm fixture. Any code-level behavior that differs from these contracts is a defect or requires a new ADR.
+
+Additional executable cases:
+- SPEC-01 same idempotency key, different payload -> 409 without second side effect;
+- SPEC-02 concurrent suspend/reactivate with optimistic version -> exactly one accepted transition;
+- SPEC-03 partial suspension reports PARTIALLY_ENFORCED and never claims access revoked;
+- SPEC-04 stale policy cache fails closed after configured TTL;
+- SPEC-05 queued email recipient changes address -> only freshly verified address eligible;
+- SPEC-06 SMTP ambiguous result remains DELIVERY_UNKNOWN, no blind duplicate;
+- SPEC-07 two-person approval rejects same immutable subject in distinct sessions;
+- SPEC-08 legacy JWT sub parsing path replaced without breaking local user UUID references;
+- SPEC-09 provider callbacks duplicate/out-of-order cannot regress delivery status;
+- SPEC-10 foreign realm ownership marker cannot be adopted.
+
+**Release sequence:** (1) independent design S2 review; (2) real PostgreSQL/Keycloak/HTTP RED fixtures; (3) minimal implementation and GREEN; (4) Collectra React browser E2E; (5) fault injection, backup restore and measured SLO; (6) production approval. Do not mark any criterion PASS without recorded executable evidence.
