@@ -47,7 +47,7 @@ public class AuthorizationVersionFilter extends OncePerRequestFilter {
 
     private boolean validPlatformToken(JwtAuthenticationToken jwt, Number version) {
         try {
-            UUID userId = UUID.fromString(jwt.getToken().getSubject());
+            UUID userId = UUID.fromString(jwt.getName());
             return users.findById(userId)
                     .map(user -> version != null && user.getTenantId() == null
                             && "ACTIVE".equals(user.getStatus())
