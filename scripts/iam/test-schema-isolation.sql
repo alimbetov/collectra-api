@@ -6,6 +6,7 @@ BEGIN;
 CREATE ROLE iam_r01_collectra_test NOLOGIN;
 CREATE ROLE iam_r01_identity_test NOLOGIN;
 CREATE ROLE iam_r01_notification_test NOLOGIN;
+CREATE ROLE iam_r01_outsider_test NOLOGIN;
 CREATE SCHEMA iam_r01_collectra AUTHORIZATION iam_r01_collectra_test;
 CREATE SCHEMA iam_r01_identity AUTHORIZATION iam_r01_identity_test;
 CREATE SCHEMA iam_r01_notification AUTHORIZATION iam_r01_notification_test;
@@ -54,7 +55,14 @@ BEGIN
       END IF;
     END LOOP;
   END LOOP;
+  FOREACH privilege IN ARRAY ARRAY['USAGE','CREATE'] LOOP
+    IF has_schema_privilege('iam_r01_outsider_test', 'iam_r01_collectra', privilege)
+       OR has_schema_privilege('iam_r01_outsider_test', 'iam_r01_identity', privilege)
+       OR has_schema_privilege('iam_r01_outsider_test', 'iam_r01_notification', privilege) THEN
+      RAISE EXCEPTION 'Outsider unexpectedly has schema privilege %', privilege;
+    END IF;
+  END LOOP;
 END
-$$;
+$;
 ROLLBACK;
 SELECT 'IAM-R0.1 isolated fixture ACL assertions passed (rolled back)' AS result;
