@@ -1,8 +1,8 @@
 package io.collectra.api.shared.security;
 
-import io.collectra.api.identity.infrastructure.UserAccountRepository;
-import io.collectra.api.identity.infrastructure.TenantMembershipRepository;
 import io.collectra.api.identity.infrastructure.PlatformUserRoleRepository;
+import io.collectra.api.identity.infrastructure.TenantMembershipRepository;
+import io.collectra.api.identity.infrastructure.UserAccountRepository;
 import io.collectra.api.integration.infrastructure.ServiceClientRepository;
 import jakarta.servlet.*;
 import jakarta.servlet.http.*;
@@ -20,6 +20,7 @@ public class AuthorizationVersionFilter extends OncePerRequestFilter {
     private final TenantMembershipRepository memberships;
     private final PlatformUserRoleRepository platformRoles;
     private final ServiceClientRepository clients;
+
     public AuthorizationVersionFilter(
             UserAccountRepository users,
             TenantMembershipRepository memberships,
@@ -30,17 +31,27 @@ public class AuthorizationVersionFilter extends OncePerRequestFilter {
         this.platformRoles = platformRoles;
         this.clients = clients;
     }
-    @Override protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
-            FilterChain chain) throws ServletException, IOException {
+
+    @Override
+    protected void doFilterInternal(
+            HttpServletRequest request, HttpServletResponse response, FilterChain chain)
+            throws ServletException, IOException {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication instanceof JwtAuthenticationToken jwt) {
             Number version = jwt.getToken().getClaim("authorization_version");
             String type = jwt.getToken().getClaimAsString("token_type");
-            boolean valid = "service".equals(type)
-                    ? validServiceToken(jwt, version)
-                    : "user".equals(type) ? validUserToken(jwt, version)
-                    : "platform_user".equals(type) && validPlatformToken(jwt, version);
-            if (!valid) { SecurityContextHolder.clearContext(); response.sendError(401, "Token is no longer valid"); return; }
+            boolean valid =
+                    "service".equals(type)
+                            ? validServiceToken(jwt, version)
+                            : "user".equals(type)
+                                    ? validUserToken(jwt, version)
+                                    : "platform_user".equals(type)
+                                            && validPlatformToken(jwt, version);
+            if (!valid) {
+                SecurityContextHolder.clearContext();
+                response.sendError(401, "Token is no longer valid");
+                return;
+            }
         }
         chain.doFilter(request, response);
     }
@@ -49,10 +60,14 @@ public class AuthorizationVersionFilter extends OncePerRequestFilter {
         try {
             UUID userId = UUID.fromString(jwt.getName());
             return users.findById(userId)
-                    .map(user -> version != null && user.getTenantId() == null
-                            && "ACTIVE".equals(user.getStatus())
-                            && user.getAuthorizationVersion() == version.longValue())
-                    .orElse(false)
+                            .map(
+                                    user ->
+                                            version != null
+                                                    && user.getTenantId() == null
+                                                    && "ACTIVE".equals(user.getStatus())
+                                                    && user.getAuthorizationVersion()
+                                                            == version.longValue())
+                            .orElse(false)
                     && platformRoles.hasSuperAdminRole(userId);
         } catch (RuntimeException invalidClaim) {
             return false;
@@ -63,10 +78,14 @@ public class AuthorizationVersionFilter extends OncePerRequestFilter {
         try {
             UUID tenantId = UUID.fromString(jwt.getToken().getClaimAsString("tenant_id"));
             return clients.findById(UUID.fromString(jwt.getToken().getSubject()))
-                            .map(client -> version != null && client.active()
-                                    && tenantId.equals(client.getTenantId())
-                                    && client.getAuthorizationVersion() == version.longValue()).orElse(false)
-                    ;
+                    .map(
+                            client ->
+                                    version != null
+                                            && client.active()
+                                            && tenantId.equals(client.getTenantId())
+                                            && client.getAuthorizationVersion()
+                                                    == version.longValue())
+                    .orElse(false);
         } catch (RuntimeException invalidClaim) {
             return false;
         }
@@ -77,13 +96,23 @@ public class AuthorizationVersionFilter extends OncePerRequestFilter {
             UUID userId = UUID.fromString(jwt.getName());
             UUID tenantId = UUID.fromString(jwt.getToken().getClaimAsString("tenant_id"));
             UUID membershipId = UUID.fromString(jwt.getToken().getClaimAsString("membership_id"));
-            boolean userValid = users.findById(userId)
-                    .map(user -> version != null && "ACTIVE".equals(user.getStatus())
-                            && user.getAuthorizationVersion() == version.longValue())
-                    .orElse(false);
-            return userValid && memberships.findByIdAndTenantId(membershipId, tenantId)
-                    .map(membership -> membership.active() && userId.equals(membership.getUserId()))
-                    .orElse(false);
+            boolean userValid =
+                    users.findById(userId)
+                            .map(
+                                    user ->
+                                            version != null
+                                                    && "ACTIVE".equals(user.getStatus())
+                                                    && user.getAuthorizationVersion()
+                                                            == version.longValue())
+                            .orElse(false);
+            return userValid
+                    && memberships
+                            .findByIdAndTenantId(membershipId, tenantId)
+                            .map(
+                                    membership ->
+                                            membership.active()
+                                                    && userId.equals(membership.getUserId()))
+                            .orElse(false);
         } catch (RuntimeException invalidClaim) {
             return false;
         }

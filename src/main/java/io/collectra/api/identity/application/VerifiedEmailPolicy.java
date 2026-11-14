@@ -3,8 +3,8 @@ package io.collectra.api.identity.application;
 import java.util.Locale;
 
 /**
- * Policy for application-scoped notification recipients. Keycloak owns email verification;
- * callers must supply a verified claim from the trusted application's issuer.
+ * Policy for application-scoped notification recipients. Keycloak owns email verification; callers
+ * must supply a verified claim from the trusted application's issuer.
  */
 public final class VerifiedEmailPolicy {
     private VerifiedEmailPolicy() {}

@@ -9,12 +9,19 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class VerifiedIdentityLinkRepository {
     private final JdbcClient db;
-    public VerifiedIdentityLinkRepository(JdbcClient db) { this.db = db; }
+
+    public VerifiedIdentityLinkRepository(JdbcClient db) {
+        this.db = db;
+    }
 
     public Optional<UUID> verifiedLocalUser(String issuer, String subject) {
         if (issuer == null || subject == null) return Optional.empty();
-        return db.sql("SELECT collectra_user_id FROM collectra_identity_links " +
-                "WHERE issuer=:iss AND subject_id=:sub AND status='VERIFIED'")
-            .param("iss", issuer).param("sub", subject).query(UUID.class).optional();
+        return db.sql(
+                        "SELECT collectra_user_id FROM collectra_identity_links "
+                                + "WHERE issuer=:iss AND subject_id=:sub AND status='VERIFIED'")
+                .param("iss", issuer)
+                .param("sub", subject)
+                .query(UUID.class)
+                .optional();
     }
 }

@@ -19,16 +19,25 @@ class VerifiedEmailPolicyTest {
 
     @Test
     void notificationRequiresCorrectRealmVerifiedEmailAndEnabledRecipient() {
-        assertTrue(VerifiedEmailPolicy.canSend(COLLECTRA, COLLECTRA, "person@example.com", true, true));
-        assertFalse(VerifiedEmailPolicy.canSend(COLLECTRA, OTHER, "person@example.com", true, true));
-        assertFalse(VerifiedEmailPolicy.canSend(COLLECTRA, COLLECTRA, "person@example.com", false, true));
-        assertFalse(VerifiedEmailPolicy.canSend(COLLECTRA, COLLECTRA, "person@example.com", true, false));
+        assertTrue(
+                VerifiedEmailPolicy.canSend(
+                        COLLECTRA, COLLECTRA, "person@example.com", true, true));
+        assertFalse(
+                VerifiedEmailPolicy.canSend(COLLECTRA, OTHER, "person@example.com", true, true));
+        assertFalse(
+                VerifiedEmailPolicy.canSend(
+                        COLLECTRA, COLLECTRA, "person@example.com", false, true));
+        assertFalse(
+                VerifiedEmailPolicy.canSend(
+                        COLLECTRA, COLLECTRA, "person@example.com", true, false));
         assertFalse(VerifiedEmailPolicy.canSend(null, COLLECTRA, "person@example.com", true, true));
     }
 
     @Test
     void normalizesContactWithoutLinkingAcrossRealms() {
-        assertEquals("person@example.com", VerifiedEmailPolicy.normalizedEmail(" Person@Example.COM "));
-        assertThrows(IllegalArgumentException.class, () -> VerifiedEmailPolicy.normalizedEmail(null));
+        assertEquals(
+                "person@example.com", VerifiedEmailPolicy.normalizedEmail(" Person@Example.COM "));
+        assertThrows(
+                IllegalArgumentException.class, () -> VerifiedEmailPolicy.normalizedEmail(null));
     }
 }
