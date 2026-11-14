@@ -114,6 +114,10 @@ collectra:
       download-ttl: 10m
       upload-ttl: 30m
   security:
+    keycloak:
+      enabled: ${COLLECTRA_KEYCLOAK_ENABLED:false}
+      issuer: ${COLLECTRA_KEYCLOAK_ISSUER:}
+      jwk-set-uri: ${COLLECTRA_KEYCLOAK_JWKS_URI:}
     access-token-ttl: PT15M
     refresh-token-ttl: 30d
     platform-bootstrap:
