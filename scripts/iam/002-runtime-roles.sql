@@ -18,7 +18,11 @@ BEGIN
   END LOOP;
 END
 $$;
-GRANT CONNECT ON DATABASE :"DBNAME" TO iam_keycloak_runtime, iam_identity_runtime, iam_notification_runtime, iam_audit_reader;
+DO $
+BEGIN
+  EXECUTE format('GRANT CONNECT ON DATABASE %I TO iam_keycloak_runtime, iam_identity_runtime, iam_notification_runtime, iam_audit_reader', current_database());
+END
+$;
 GRANT USAGE, CREATE ON SCHEMA keycloak TO iam_keycloak_runtime;
 GRANT USAGE ON SCHEMA identity TO iam_identity_runtime;
 GRANT USAGE ON SCHEMA notification TO iam_notification_runtime;
