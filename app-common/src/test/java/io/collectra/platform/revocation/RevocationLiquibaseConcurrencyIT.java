@@ -3,7 +3,6 @@ package io.collectra.platform.revocation;
 import static org.assertj.core.api.Assertions.*;
 import java.util.*;
 import java.util.concurrent.*;
-import liquibase.Scope;
 import liquibase.command.CommandScope;
 import org.junit.jupiter.api.*;
 import org.springframework.jdbc.core.simple.JdbcClient;
