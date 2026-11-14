@@ -46,11 +46,16 @@ public class RevocationConsumerController {
             .param("iss",ack.issuer()).param("sub",ack.subject()).query(Long.class)
             .optional().orElseThrow(()->new ResponseStatusException(HttpStatus.CONFLICT));
         if(ack.version()>current) throw new ResponseStatusException(HttpStatus.CONFLICT);
-        db.sql("INSERT INTO revocation_acks(consumer_id,issuer,subject_id,version) " +
-            "VALUES (:c,:iss,:sub,:v) ON CONFLICT (consumer_id,issuer,subject_id) " +
-            "DO UPDATE SET version=GREATEST(revocation_acks.version,EXCLUDED.version),applied_at=now()")
+        long epoch=db.sql("SELECT binding_epoch FROM revocation_consumers " +
+            "WHERE consumer_id=:c AND enabled=true")
+            .param("c",caller).query(Long.class).single();
+        db.sql("INSERT INTO revocation_acks(consumer_id,issuer,subject_id,version,binding_epoch) " +
+            "VALUES (:c,:iss,:sub,:v,:epoch) ON CONFLICT (consumer_id,issuer,subject_id) " +
+            "DO UPDATE SET version=CASE WHEN revocation_acks.binding_epoch=EXCLUDED.binding_epoch " +
+            "THEN GREATEST(revocation_acks.version,EXCLUDED.version) ELSE EXCLUDED.version END, " +
+            "binding_epoch=EXCLUDED.binding_epoch,applied_at=now()")
             .param("c",caller).param("iss",ack.issuer())
-            .param("sub",ack.subject()).param("v",ack.version()).update();
+            .param("sub",ack.subject()).param("v",ack.version()).param("epoch",epoch).update();
     }
     public record Ack(String issuer,String subject,long version) {}
 
