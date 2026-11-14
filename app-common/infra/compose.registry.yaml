@@ -1,0 +1,17 @@
+services:
+  app-common-db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: app_common
+      POSTGRES_USER: app_common
+      POSTGRES_PASSWORD: ${APP_COMMON_DB_PASSWORD:?set APP_COMMON_DB_PASSWORD}
+    ports:
+      - "127.0.0.1:5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL","pg_isready -U app_common -d app_common"]
+      interval: 5s
+      retries: 20
+    volumes:
+      - app_common_data:/var/lib/postgresql/data
+volumes:
+  app_common_data:
