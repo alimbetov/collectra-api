@@ -106,3 +106,77 @@ DEC-07 Collectra legacy migration cohort, rollback window and cutover schedule.
 
 ## 11. Source precedence
 ADR-IAM-004 defines product boundaries; ADR-IAM-005 defines bearer tokens; IAM-R1.2/R1.3 defines identity, migration, MFA and recovery. This document operationalizes them and does not claim that App Common repository, runtime, tests or CI already exist.
+
+## 12. R0.1 architecture hardening — binding implementation contracts (2026-11-14)
+
+This section is normative and resolves ambiguities in sections 1–11. **No code or integration test is claimed implemented.** Design approval is conditional on the decisions below and the independent S2 gate.
+
+### 12.1 Authority and service-boundary matrix
+| Actor | Authentication | Authorized operations | Explicit prohibition |
+|---|---|---|---|
+| App Common platform operator | App Common operator realm; human OIDC + MFA | Application lifecycle, security policy, approved realm configuration | Collectra business RBAC or tenant membership mutation |
+| Collectra end user | Collectra realm; OIDC Authorization Code + PKCE | Collectra business APIs under local RBAC | App Common operator endpoints |
+| Collectra backend | Collectra realm confidential machine client, Client Credentials | App-scoped Notification API, allowed operational integration | Other app notifications or platform administration |
+| Keycloak provisioner | Dedicated restricted admin service account | Realm/client configuration within approved policy | Business database writes |
+| Notification worker | Internal workload identity | Consume scoped delivery jobs, provider submission | Realm provisioning or business-role changes |
+
+App Common operator identities must be isolated from Collectra business users; identical email or human owner does not confer cross-context permissions. **Do not use a single audience for all App Common APIs.** Resolve caller application identity from validated issuer, client identity and audience/scope; payload applicationId is never an authorization source.
+
+### 12.2 Application suspension semantics — eliminate the JWT paradox
+The following are distinct operations and must not be described as equivalent:
+1. `SUSPEND_LOGIN`: disable app's new login/token acquisition via supported Keycloak policy and client/realm configuration; already issued JWTs can remain valid.
+2. `SUSPEND_NOTIFICATION`: deny new app-scoped notification submissions and prevent queued unsent deliveries according to explicit cancellation policy.
+3. `SUSPEND_API_ACCESS`: distribute a signed/versioned application status policy to the consuming resource server; resource server checks local cached application status on every protected request and rejects suspended apps.
+
+**R0 default:** `SUSPENDED` means all three actions requested. App Common control plane records desired state, tracks observed state for each enforcement point and exposes `SUSPENDING` as an *operation status*, not an additional application lifecycle state. The API must not report enforcement complete until all mandatory acknowledgments arrive. Unknown acknowledgments -> operation `PARTIALLY_ENFORCED`, alert and block subsequent sensitive lifecycle transitions. Publish and test propagation target (proposed <=60 seconds when infrastructure healthy); until enforcement acknowledgment, never claim immediate JWT revocation. During control-plane outage, business API may use last known trusted status with bounded cache age; on stale status beyond configured TTL, **fail closed** for protected requests if suspension guarantees require it. This is an availability/security tradeoff to be approved before production.
+
+Keycloak logout/revocation is not a substitute for resource-server suspension checks. A JWT is cryptographically valid until expiry even after client disablement unless resource server performs extra state checks.
+
+### 12.3 Notification delivery and idempotency semantics
+`POST /api/v1/notifications/email` requires `Idempotency-Key` header, scoped to authenticated application + endpoint + request fingerprint. Persist request hash and result; same key/same payload returns original notification ID and state, same key/different payload -> 409. The operation must atomically persist request + outbox. Worker claims with PostgreSQL row locking/lease and fencing, bounded attempts and backoff; crashes release lease for retry.
+
+Exactly-once external email delivery **cannot be guaranteed** from PostgreSQL + SMTP. A timeout after SMTP provider acceptance produces `DELIVERY_UNKNOWN`, not a safe blind resend; retry policy depends on provider idempotency support and message class. `PROVIDER_ACCEPTED` is transport acceptance; `DELIVERED` requires trustworthy provider delivery evidence; absent evidence retain `PROVIDER_ACCEPTED` or `DELIVERY_UNKNOWN`, never infer inbox delivery. Add `DELIVERY_UNKNOWN` to the notification state set in section 5. Templates are versioned, typed and variable-allowlisted; secrets/action tokens never logged. Recovery/verification emails remain Keycloak-managed.
+
+Consent: distinguish transactional/security notifications from marketing; do not treat absence of marketing consent as a reason to suppress necessary security notices, but still enforce verified recipient and lawful basis. Define per-class retention and throttling. Cross-app recipient reference is always rejected.
+
+### 12.4 Verified recipient resolution — signed contract
+Preferred R0 design: app-owned `POST /internal/notification-recipient/resolve` called by App Common with mTLS or audience-restricted Client Credentials. Input: app-derived scope, recipientRef, notification class, correlation ID. Output: verified address, verification timestamp/version, class-specific consent/lawful-basis decision, TTL and signed/integrity-protected assertion or secure channel evidence. No generic recipient lookup endpoint exposed to other apps. Resolve immediately before delivery (not just enqueue); reject mismatched app, stale verification, invalid signature, revoked user or unverified email. For security events Keycloak remains email authority and must not depend on this resolver. Failure -> retryable delivery failure, never send to stale cached address. Record only minimal PII and encrypted-at-rest recipient snapshots where required for retry/audit.
+
+### 12.5 Realm provisioning reconciliation and configuration drift
+Desired realm/client configuration is immutable, versioned and signed by deployment pipeline. Store provisioning job correlation ID, desired config hash, observed realm ID/client IDs and per-step checkpoints. Every step is safe to retry after timeout: read by stable realm/client identifier, compare expected ownership marker and config hash, then create/update only if owned. Never adopt an existing realm merely because its name matches. Unknown ownership -> MANUAL_REVIEW. Detect drift periodically; alert and block activation for security-sensitive drift (redirect URIs, grant types, audiences, signing keys, MFA flow). Destructive drift remediation requires approval; never automatically delete users or credentials. Require exact Keycloak version and API integration fixture before GREEN.
+
+### 12.6 OAuth2 audience, JWT claims and lifecycle
+Enforce audience as a required array/string containing the exact resource API identifier; `azp` or `client_id` must match allowed clients for that realm/resource. Explicitly reject tokens with missing `aud`, wrong token type, cross-realm issuer or wrong resource client. Prefer short-lived access tokens (initial proposed 5 minutes, subject to measured UX/security review), refresh token rotation and safe browser storage via BFF/secure cookies when applicable. Local authorization changes must take effect independently of token expiry by checking current user/membership/authorization_version. Separate `401 invalid token` from `403 insufficient business permission`; application suspension error is documented without leaking sensitive state.
+
+### 12.7 PostgreSQL and isolation requirements
+Use separate database roles for App Common runtime, App Common migration, Keycloak runtime, and Collectra runtime; no shared superuser. Enforce unique `(application_id,idempotency_key)`, unique realm ownership, optimistic config version, notification lease/fencing and application status policy version constraints in PostgreSQL. Test race conditions with real PostgreSQL, not H2. Secrets never in tables as plaintext. Database schema names and migration engine must be pinned before DDL. Cross-app isolation must be proven at API, token, DB privileges and notification worker boundaries.
+
+### 12.8 Data protection and security threat model
+Threats to cover: confused deputy between audiences, stolen service token, compromised operator, forged MFA claims, redirect URI injection, realm takeover by name collision, recipient spoofing, stale suspension cache, duplicate SMTP delivery, replayed provider webhooks, lost outbox messages, and cross-tenant disclosure. Require rate limits, audit correlation, secret rotation, provider webhook signature/timestamp/replay checks, restricted admin network and immutable audit export. Privacy and data residency requirements are release gates, not assumptions.
+
+### 12.9 Contract-first proof gates (new tests)
+- HARD-01 Valid JWT after Keycloak client disablement is rejected by Collectra only **after** resource-server suspension policy propagation; measured SLA, no false immediate-revocation claim.
+- HARD-02 Missing/stale suspension policy beyond approved TTL fails closed.
+- HARD-03 Notification same idempotency key/same payload returns same ID; changed payload -> 409.
+- HARD-04 SMTP accepted then response timeout -> DELIVERY_UNKNOWN; no unjustified DELIVERED claim or unbounded resend.
+- HARD-05 Worker crash after claim, concurrent workers and lease expiry -> bounded attempts and no lost requests.
+- HARD-06 Recipient email changed or unverified between queue and send -> send blocked.
+- HARD-07 Cross-app machine token cannot invoke another app's notification or resolver.
+- HARD-08 Provisioning timeout after Keycloak realm creation reconciles to same realm without duplicate.
+- HARD-09 Foreign pre-existing realm with same name/ownership mismatch -> MANUAL_REVIEW, no takeover.
+- HARD-10 Security-sensitive realm config drift blocks activation and raises alert.
+- HARD-11 Operator token cannot mutate Collectra business roles; Collectra business admin cannot invoke App Common operator API.
+- HARD-12 Token missing/wrong audience, wrong `azp`, wrong issuer, ID token and forged MFA claim rejected.
+- HARD-13 PostgreSQL role isolation prevents App Common runtime from reading Collectra business tables.
+- HARD-14 Keycloak unavailable: existing valid JWT + fresh trusted local policy follows approved behavior; new login/step-up unavailable.
+- HARD-15 Provider webhook replay, signature mismatch and out-of-order event cannot forge DELIVERED.
+- HARD-16 Two-person approval cannot be satisfied by same operator under multiple sessions.
+
+### 12.10 Decision register — mandatory before implementation release
+- DEC-08 Suspension propagation SLA, status-policy transport, cache TTL and fail-closed/availability choice.
+- DEC-09 SMTP provider idempotency capability and policy for DELIVERY_UNKNOWN.
+- DEC-10 Recipient resolver trust transport, assertion schema, verification freshness and ownership.
+- DEC-11 Provisioning ownership markers, config drift remediation and pinned Keycloak release.
+- DEC-12 Token TTL, `azp` allowlists, operator realm, BFF/session pattern.
+- DEC-13 DB/schema topology, migration tooling, audit retention and residency.
+All decisions require named owner, recorded acceptance and matching integration tests. No undocumented defaults may be treated as production-approved.
