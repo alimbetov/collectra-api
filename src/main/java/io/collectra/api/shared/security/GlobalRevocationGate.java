@@ -24,14 +24,14 @@ public class GlobalRevocationGate {
             return false;
         try {
             return db.sql(
-                        "SELECT EXISTS (SELECT 1 FROM collectra_global_access_snapshots "
-                                + "WHERE issuer=:iss AND subject_id=:sub AND state='ACTIVE' "
-                                + "AND refreshed_at >= now() - (:max_age * interval '1 second'))")
-                .param("iss", issuer)
-                .param("sub", subject)
-                .param("max_age", maxAge.toMillis() / 1000.0)
-                .query(Boolean.class)
-                .single();
+                            "SELECT EXISTS (SELECT 1 FROM collectra_global_access_snapshots "
+                                    + "WHERE issuer=:iss AND subject_id=:sub AND state='ACTIVE' "
+                                    + "AND refreshed_at >= now() - (:max_age * interval '1 second'))")
+                    .param("iss", issuer)
+                    .param("sub", subject)
+                    .param("max_age", maxAge.toMillis() / 1000.0)
+                    .query(Boolean.class)
+                    .single();
         } catch (DataAccessException unavailable) {
             // No database means no trustworthy proof of ACTIVE access.
             return false;
