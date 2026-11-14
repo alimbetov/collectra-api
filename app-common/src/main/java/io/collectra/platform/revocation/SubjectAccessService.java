@@ -34,6 +34,8 @@ public class SubjectAccessService {
         return Map.of("operationId",operation,"state","STATE_COMMITTED","version",version);
     }
 
+    // Local database read is not yet wired into every resource server. Never treat this
+    // method alone as proof that an already-issued JWT is globally revoked.
     @Transactional(readOnly = true)
     public boolean isBlocked(String issuer, String subject) {
         return db.sql("SELECT state FROM subject_access_state WHERE issuer=:iss AND subject_id=:sub")
