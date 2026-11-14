@@ -1,0 +1,8 @@
+databaseChangeLog:
+  - changeSet:
+      id: r15-001-registry-revocation
+      author: app-common
+      changes:
+        - sqlFile:
+            path: db/changelog/r15-001-registry-revocation.sql
+            relativeToChangelogFile: false
