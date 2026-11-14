@@ -61,8 +61,7 @@ public class RevocationSnapshotConsumer {
                 || secret.isBlank())
             throw new IllegalStateException("Revocation consumer credentials missing");
         // Keyset pagination prevents starvation beyond the first 10,000 identities.
-        // Reuse one short-lived service token for this reconciliation pass.
-        String token = serviceToken();
+        // Refresh service credentials per page to bound token age.
         String after = "";
         while (true) {
             var subjects =
@@ -75,6 +74,7 @@ public class RevocationSnapshotConsumer {
                             .query(String.class)
                             .list();
             if (subjects.isEmpty()) return;
+            String token = serviceToken();
             for (String subject : subjects) {
                 try {
                     synchronize(subject, token);
