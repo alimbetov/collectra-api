@@ -48,3 +48,4 @@ databaseChangeLog:
         - sqlFile:
             path: db/changelog/r16f-001-ack-binding-epoch.sql
             relativeToChangelogFile: false
+            splitStatements: false
