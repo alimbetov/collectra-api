@@ -149,7 +149,7 @@ public class SecurityConfig {
         java.util.ArrayList<GrantedAuthority> authorities = new java.util.ArrayList<>();
         // Keycloak claims are never interpreted as Collectra tenant roles.
         // The legacy claims below are trusted only for the legacy issuer.
-        if (!"collectra-api".equals(jwt.getIssuer().toString())) return List.of();
+        if (!"collectra-api".equals(jwt.getClaimAsString("iss"))) return List.of();
         String tokenType = jwt.getClaimAsString("token_type");
         if ("user".equals(tokenType)) {
             authorities.add(new SimpleGrantedAuthority("ROLE_HUMAN"));
