@@ -14,11 +14,6 @@ app-common:
     issuer-uri: ${APP_COMMON_ISSUER_URI:http://localhost:8180/realms/shared}
     jwk-set-uri: ${APP_COMMON_JWKS_URI:http://localhost:8180/realms/shared/protocol/openid-connect/certs}
     audience: ${APP_COMMON_API_AUDIENCE:app-common-api}
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health,info
   keycloak:
     base-url: ${APP_COMMON_KEYCLOAK_URL:http://localhost:8180}
     realm: shared
@@ -29,3 +24,9 @@ management:
     dispatch-delay-ms: 5000
     reconcile-enabled: ${APP_COMMON_REVOCATION_RECONCILE_ENABLED:false}
     reconcile-delay-ms: 5000
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
