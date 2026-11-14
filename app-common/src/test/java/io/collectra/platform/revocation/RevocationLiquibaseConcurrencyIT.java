@@ -66,6 +66,56 @@ class RevocationLiquibaseConcurrencyIT {
         }
     }
 
+    @Test void offlineConsumerRecoveryRejectsOldAckUntilNewBindingAcknowledges() {
+        String subject="recover-offline-"+UUID.randomUUID();
+        tx.executeWithoutResult(s->new SubjectEnrollmentService(db).initialize("issuer",subject));
+        db.sql("UPDATE revocation_consumers SET enabled=false,oauth_client_id=NULL " +
+            "WHERE consumer_id='app-b-api'").update();
+        try {
+            Map<String,Object> result=tx.execute(s->new SubjectAccessService(db)
+                .block("issuer",subject,"actor","request-"+UUID.randomUUID()));
+            UUID op=(UUID)result.get("operationId");
+            long version=(long)result.get("version");
+            long oldEpoch=db.sql("SELECT binding_epoch FROM enforcement_operation_consumers " +
+                "WHERE operation_id=:op AND consumer_id='app-b-api'")
+                .param("op",op).query(Long.class).single();
+            db.sql("UPDATE enforcement_operations SET state='PROPAGATING' WHERE id=:op")
+                .param("op",op).update();
+            db.sql("UPDATE access_state_outbox SET keycloak_applied_at=now() " +
+                "WHERE issuer='issuer' AND subject_id=:sub").param("sub",subject).update();
+            db.sql("INSERT INTO revocation_acks(consumer_id,issuer,subject_id,version,binding_epoch) " +
+                "SELECT consumer_id,'issuer',:sub,:v,binding_epoch FROM revocation_consumers " +
+                "WHERE consumer_id='collectra-api'")
+                .param("sub",subject).param("v",version).update();
+            // Simulate a stale ACK created before the consumer was rebound.
+            db.sql("INSERT INTO revocation_acks(consumer_id,issuer,subject_id,version,binding_epoch) " +
+                "VALUES ('app-b-api','issuer',:sub,:v,:epoch)")
+                .param("sub",subject).param("v",version).param("epoch",oldEpoch).update();
+            db.sql("UPDATE revocation_consumers SET enabled=true,oauth_client_id='appb-recovered' " +
+                "WHERE consumer_id='app-b-api'").update();
+            tx.executeWithoutResult(s->new ConsumerBindingRecoveryService(db)
+                .rebind(op,"app-b-api","operator","restore offline consumer"));
+            long newEpoch=db.sql("SELECT binding_epoch FROM enforcement_operation_consumers " +
+                "WHERE operation_id=:op AND consumer_id='app-b-api'")
+                .param("op",op).query(Long.class).single();
+            assertThat(newEpoch).isGreaterThan(oldEpoch);
+            new EnforcementReconciler(db,true).reconcile();
+            assertThat(db.sql("SELECT state FROM enforcement_operations WHERE id=:op")
+                .param("op",op).query(String.class).single()).isEqualTo("PROPAGATING");
+            assertThat(db.sql("SELECT old_oauth_client_id FROM enforcement_consumer_rebindings " +
+                "WHERE operation_id=:op").param("op",op).query(String.class).optional()).isEmpty();
+            db.sql("UPDATE revocation_acks SET binding_epoch=:epoch " +
+                "WHERE consumer_id='app-b-api' AND issuer='issuer' AND subject_id=:sub")
+                .param("epoch",newEpoch).param("sub",subject).update();
+            new EnforcementReconciler(db,true).reconcile();
+            assertThat(db.sql("SELECT state FROM enforcement_operations WHERE id=:op")
+                .param("op",op).query(String.class).single()).isEqualTo("ENFORCED");
+        } finally {
+            db.sql("UPDATE revocation_consumers SET enabled=true,oauth_client_id='appb-test' " +
+                "WHERE consumer_id='app-b-api'").update();
+        }
+    }
+
     @Test void concurrentReplayCreatesExactlyOneOperation() throws Exception {
         String subject="concurrent-"+UUID.randomUUID(),key="request-"+UUID.randomUUID();
         tx.executeWithoutResult(s->new SubjectEnrollmentService(db).initialize("issuer",subject));
