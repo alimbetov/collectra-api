@@ -94,11 +94,12 @@ public class KeycloakDomainAuthorizationFilter extends OncePerRequestFilter {
                 jwt.getHeaders(),claims);
             SecurityContextHolder.getContext().setAuthentication(
                 new JwtAuthenticationToken(local,granted,localId.toString()));
-            chain.doFilter(request,response);
         } catch(RuntimeException e) {
             SecurityContextHolder.clearContext();
             deny(response);
+            return;
         }
+        chain.doFilter(request,response);
     }
     private static void deny(HttpServletResponse response)throws IOException {
         SecurityContextHolder.clearContext();
