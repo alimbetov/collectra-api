@@ -21,7 +21,10 @@ public class RevocationTokenValidator implements OAuth2TokenValidator<Jwt> {
             // Registered machine clients are authenticated by signature, issuer, audience,
             // scope and their enabled OAuth binding; they are not human access subjects.
             String client = jwt.getClaimAsString("azp");
-            if (client != null && !client.isBlank()) {
+            String scopes = jwt.getClaimAsString("scope");
+            boolean consumerScope = scopes != null && java.util.Arrays.stream(scopes.split(" "))
+                .anyMatch(s -> s.equals("revocations.read") || s.equals("revocations.ack"));
+            if (client != null && !client.isBlank() && consumerScope) {
                 if (!access.isEnabledConsumerClient(client)) return deny();
                 return OAuth2TokenValidatorResult.success();
             }
