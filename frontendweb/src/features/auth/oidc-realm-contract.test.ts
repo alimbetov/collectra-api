@@ -30,7 +30,7 @@ describe('IAM-R3.2 browser OIDC realm contract', () => {
   });
 
   it('allows only the explicit development callback and origin', () => {
-    expect(client?.redirectUris).toEqual(['http://localhost:5173/auth/callback']);
+    expect(client?.redirectUris).toEqual(['http://localhost:8090/api/v1/iam/callback']);
     expect(client?.webOrigins).toEqual(['http://localhost:5173']);
   });
 
