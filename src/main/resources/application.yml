@@ -119,6 +119,8 @@ collectra:
       issuer: ${COLLECTRA_KEYCLOAK_ISSUER:}
       jwk-set-uri: ${COLLECTRA_KEYCLOAK_JWKS_URI:}
       revocation-max-age: PT30S
+      # Stale/missing local states are refreshed from AC on demand; excess requests fail closed.
+      revocation-on-demand-max-concurrent: ${COLLECTRA_REVOCATION_ON_DEMAND_MAX_CONCURRENT:8}
       revocation-consumer-enabled: ${COLLECTRA_REVOCATION_CONSUMER_ENABLED:false}
       revocation-base-url: ${COLLECTRA_REVOCATION_BASE_URL:}
       revocation-token-url: ${COLLECTRA_REVOCATION_TOKEN_URL:}
