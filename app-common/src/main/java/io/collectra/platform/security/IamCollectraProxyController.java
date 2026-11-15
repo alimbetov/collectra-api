@@ -85,7 +85,7 @@ public class IamCollectraProxyController {
         URI upstream = URI.create(target.toString().replaceAll("/+$", "") + suffix
                 + (query == null ? "" : "?" + query));
         try {
-            return http.method(HttpMethod.valueOf(request.getMethod())).uri(upstream)
+            return http.get().uri(upstream)
                     .headers(headers -> {
                         headers.setBearerAuth(client.getAccessToken().getTokenValue());
                         if (tenant != null) headers.set("X-Collectra-Tenant-ID", tenant);
@@ -94,7 +94,6 @@ public class IamCollectraProxyController {
                             if (value != null) headers.set(name, value);
                         }
                     })
-                    .body(body == null ? new byte[0] : body)
                     .exchange((req, res) -> {
                         var headers = new HttpHeaders();
                         for (String name : RESPONSE_HEADERS) {
