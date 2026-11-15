@@ -37,7 +37,7 @@ class IamCollectraProxyControllerTest {
         assertThat(controller.forward(request, null, auth, null).getStatusCode().value()).isEqualTo(403);
         when(request.getMethod()).thenReturn("POST");
         when(request.getRequestURI()).thenReturn("/api/v1/iam/collectra/api/v1/identity/me");
-        assertThat(controller.forward(request, null, auth, null).getStatusCode().value()).isEqualTo(403);
+        assertThat(controller.forward(request, null, auth, null).getStatusCode().value()).isEqualTo(405);
     }
 
     @Test void unauthenticatedRequestsNeverReachUpstream() {
