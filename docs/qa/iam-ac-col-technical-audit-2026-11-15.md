@@ -1,6 +1,7 @@
 # IAM AC/COL technical audit — 2026-11-15
 
-Branch: feat/iam-shared-platform. Release gate: HOLD.
+Branch: feat/iam-shared-platform
+Release gate: HOLD.
 
 ## Source of truth
 ADR-IAM-007 and dual-contour context guard. AC and COL are independent services and data owners; BFF is an optional browser adapter, not the IAM platform architecture.
