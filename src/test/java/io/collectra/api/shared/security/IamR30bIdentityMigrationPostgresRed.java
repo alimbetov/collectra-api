@@ -96,6 +96,48 @@ class IamR30bIdentityMigrationPostgresRed {
                 .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
     }
 
+
+    @Test
+    void sameGlobalSubjectCannotBeLinkedToTwoCollectraUsers() {
+        UUID otherUser = UUID.randomUUID();
+        db.sql("INSERT INTO user_accounts(id) VALUES (:id)")
+                .param("id", otherUser).update();
+        db.sql("""
+                INSERT INTO collectra_identity_links
+                    (issuer,subject_id,collectra_user_id,status,verified_at)
+                VALUES ('issuer','shared-subject',:uid,'VERIFIED',now())
+                """).param("uid", localUser).update();
+        assertThatThrownBy(() -> db.sql("""
+                INSERT INTO collectra_identity_links
+                    (issuer,subject_id,collectra_user_id,status,verified_at)
+                VALUES ('issuer','shared-subject',:uid,'VERIFIED',now())
+                """).param("uid", otherUser).update())
+                .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+        assertThat(new VerifiedIdentityLinkRepository(db)
+                .verifiedLocalUser("issuer", "shared-subject")).contains(localUser);
+    }
+
+    @Test
+    void revokedLinkMustNotAuthenticateLocalUser() {
+        db.sql("""
+                INSERT INTO collectra_identity_links
+                    (issuer,subject_id,collectra_user_id,status)
+                VALUES ('issuer','revoked-subject',:uid,'REVOKED')
+                """).param("uid", localUser).update();
+        assertThat(new VerifiedIdentityLinkRepository(db)
+                .verifiedLocalUser("issuer", "revoked-subject")).isEmpty();
+    }
+
+    @Test
+    void verifiedLinkRequiresVerificationTimestamp() {
+        assertThatThrownBy(() -> db.sql("""
+                INSERT INTO collectra_identity_links
+                    (issuer,subject_id,collectra_user_id,status)
+                VALUES ('issuer','missing-proof',:uid,'VERIFIED')
+                """).param("uid", localUser).update())
+                .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+    }
+
     @Test
     void migratedUserMustHaveDurableCredentialAuthorityStateRed() {
         // RED: current 054 schema stores verified identity link but does not yet persist
