@@ -44,7 +44,7 @@ public class KeycloakOnboardingClient {
                 .headers(h -> h.setBearerAuth(bearer))
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(Map.of("id", subject.toString(), "username", email, "email", email, "enabled", true,
-                        "emailVerified", false, "requiredActions", List.of("VERIFY_EMAIL")))
+                        "emailVerified", false, "requiredActions", List.of("VERIFY_EMAIL", "UPDATE_PASSWORD")))
                 .retrieve().toBodilessEntity();
         URI location = response.getHeaders().getLocation();
         if (location == null || !subject.toString().equals(location.getPath().substring(location.getPath().lastIndexOf('/') + 1)))
