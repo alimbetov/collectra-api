@@ -135,3 +135,46 @@ Implement each stage **RED tests → minimum GREEN implementation → regression
 For every scenario record: ID, code path, expected behavior, test class, test layer, result, exact commit, CI URL, environment, evidence and defect reference. Classify `NOT_IMPLEMENTED`, `IMPLEMENTED_UNVERIFIED`, `FAILED`, `BLOCKED`, `VERIFIED`. If a stage cannot pass, report the blocker, never fabricate test evidence.
 
 **Final acceptance:** R3.1–R3.5 all VERIFIED; zero unresolved P0/P1; no unverified destructive deletion; independent S2 APPROVE; documented production deployment/rollback and incident procedures. Until then App Common user lifecycle remains **NOT FULLY VERIFIED**.
+
+
+## 8. Mandatory two-asset ownership and separate release gates (normative)
+
+**This section is normative for all IAM-R3 stages.** There are **two independent product assets**, not one product with an IAM module:
+
+1. **App Common / Shared IAM Platform (AC)** — reusable identity/security infrastructure. It must run and be qualified without Collectra's business database, receivables modules or tenant-specific business roles. Keycloak remains its external identity authority.
+2. **Collectra Business Platform (COL)** — commercial receivables product and first IAM consumer. It owns business profiles, tenant membership, financial workflows and historical records, and must not become a credential issuer or App Common's platform administration layer.
+
+**Integration (INT)** is a third *acceptance track*, **not** a third product. ZAKAZ is a later independent consumer; its readiness is never included in Collectra or App Common scores.
+
+### 8.1 Per-stage ownership matrix
+
+| Stage | AC — deliver and test independently | COL — deliver and test independently | INT — real cross-boundary proof |
+| --- | --- | --- | --- |
+| R3.1 | Keycloak user provisioning, verification, SMTP, security policy | First-login local profile and tenant onboarding, verified-email access policy | New identity -> verified email -> Collectra local profile, no email-based account takeover |
+| R3.2 | Shared realm, OIDC clients, issuer/audience policies, global sessions | React PKCE/BFF, resource-server JWT validation, local RBAC | Browser login -> scoped Collectra API, forbidden audience/tenant denied |
+| R3.3 | Keycloak reset/TOTP/email change, security audit, abuse limits | UX entry points and local profile notification address synchronization | Password reset and MFA via Keycloak, Collectra session behavior verified |
+| R3.4 | Global block/unblock/delete orchestration, revocation snapshots/ACK, Keycloak admin API | Local account disable, unlink/anonymization and financial-record retention | Block/unblock/delete propagation and retry across service boundaries |
+| R3.5 | AC standalone deployment, PostgreSQL migrations, Keycloak/SMTP E2E, rollback | COL business E2E, migrations, React/browser and business data regression | Exact-SHA full journey, outage/recovery, independent consumer simulation prohibited for final two-consumer gate |
+
+### 8.2 Independent scorecards
+
+**AC-RC:** `REGISTRATION`, `VERIFICATION`, `AUTHENTICATION`, `SSO_SESSIONS`, `RECOVERY`, `MFA`, `ACCOUNT_SECURITY`, `DELETION`, `APP_REGISTRY`, `REVOCATION_ACK`, `OPERATIONS`. Each gate has `status | SHA | test ID | CI URL | environment | reviewer`.
+
+**COL-RC:** `IAM_CLIENT_INTEGRATION`, `LOCAL_USER_MAPPING`, `TENANT_RBAC`, `REACT_LOGIN_UX`, `BUSINESS_E2E`, `FINANCIAL_DATA_INTEGRITY`, `MAIL_DELIVERY`, `OPERATIONS`. Same evidence requirements.
+
+**INT-RC:** `OIDC_CONTRACT`, `AUDIENCE_ISOLATION`, `GLOBAL_BLOCK_PROPAGATION`, `LOCAL_BLOCK_ISOLATION`, `ACCOUNT_DELETION_BOUNDARY`, `FAILURE_RECOVERY`. These are integration gates only.
+
+A passing COL test cannot set AC to VERIFIED, and a passing AC test cannot set COL to VERIFIED. A failed INT gate blocks the integrated release without erasing independently verified capabilities.
+
+### 8.3 Architecture invariants enforced by tests
+
+- AC boots with its own PostgreSQL schema/database and Keycloak without Collectra's business DB; migrations cannot reference Collectra business tables.
+- COL does not store passwords, generate Keycloak reset credentials or assign global platform privileges.
+- `(iss,sub)` identifies the global principal; each application owns its local identity and authorization.
+- AC's app registration and security-event contracts have no hardcoded Collectra business identifiers and support an arbitrary registered consumer set.
+- COL tenant restrictions are not inherited by other consumers, and global operator privileges never imply Collectra business access.
+- Deleting a global identity cannot cascade-delete invoices, payments, immutable audit or legally retained financial records.
+
+### 8.4 Release and extraction discipline
+
+Maintain separate build/test artifacts, versions, changelogs, deployment configuration, backups, monitoring and rollback plans for AC and COL. They may temporarily share the repository and working branch, but this is **not** evidence of independent production deployment. Track `AC-RC`, `COL-RC`, and `INT-RC` separately. No merge to `main` without explicit approval. Future ZAKAZ integration must use the same public contracts, with its own release gate.
