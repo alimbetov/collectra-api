@@ -104,3 +104,6 @@ databaseChangeLog:
       file: db/changelog/changes/054-keycloak-identity-links.sql
   - include:
       file: db/changelog/changes/055-global-revocation-snapshots.sql
+
+  - include:
+      file: db/changelog/changes/056-credential-authority.sql
