@@ -14,6 +14,11 @@ public class VerifiedIdentityLinkRepository {
         this.db = db;
     }
 
+    public boolean hasVerifiedLinkForLocalUser(UUID userId) {
+        return db.sql("SELECT EXISTS (SELECT 1 FROM collectra_identity_links WHERE collectra_user_id=:id AND status='VERIFIED')")
+                .param("id", userId).query(Boolean.class).single();
+    }
+
     public Optional<UUID> verifiedLocalUser(String issuer, String subject) {
         if (issuer == null || subject == null) return Optional.empty();
         return db.sql(
