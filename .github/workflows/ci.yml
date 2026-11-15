@@ -96,3 +96,8 @@ jobs:
           name: app-common-test-reports
           path: app-common/target/surefire-reports/
           if-no-files-found: error
+
+  iam-g2:
+    name: IAM G2 real AC-COL E2E (required release gate)
+    needs: [verify, frontend, app-common]
+    uses: ./.github/workflows/iam-g2-real-dual-contour-e2e.yml
