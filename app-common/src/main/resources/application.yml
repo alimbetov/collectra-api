@@ -1,4 +1,17 @@
 spring:
+  security:
+    oauth2:
+      client:
+        registration:
+          collectra:
+            provider: shared
+            client-id: ${APP_COMMON_OIDC_CLIENT_ID:collectra-web}
+            authorization-grant-type: authorization_code
+            redirect-uri: "{baseUrl}/api/v1/iam/callback"
+            scope: openid,profile,email
+        provider:
+          shared:
+            issuer-uri: ${APP_COMMON_ISSUER_URI:http://localhost:8180/realms/shared}
   datasource:
     url: ${APP_COMMON_JDBC_URL:jdbc:postgresql://localhost:5433/app_common}
     username: ${APP_COMMON_DB_USER:app_common}
@@ -8,6 +21,12 @@ spring:
   application:
     name: app-common
 server:
+  servlet:
+    session:
+      cookie:
+        http-only: true
+        same-site: lax
+        secure: ${APP_COMMON_SESSION_COOKIE_SECURE:true}
   port: ${APP_COMMON_PORT:8090}
 app-common:
   security:
