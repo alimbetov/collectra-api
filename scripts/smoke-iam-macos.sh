@@ -205,10 +205,15 @@ COMMIT;" >/dev/null
 http -X POST "$COMMON/api/v1/platform/subjects/$subject/initialize?issuer=$ISSUER" \
   -H "Authorization: Bearer $operator_token"
 [[ $STATUS == 200 && $(jq -r .state <<< "$RESPONSE") == ACTIVE ]] || { mark 1 FAIL "subject initialize returned HTTP $STATUS"; exit 1; }
-for attempt in $(seq 1 20); do
-  [[ $(sql_collectra "SELECT state FROM collectra_global_access_snapshots WHERE issuer='$ISSUER' AND subject_id='$subject'") == ACTIVE ]] && break
+# COL must autonomously persist and ACK its first ACTIVE snapshot.
+initial_ready=0
+for attempt in $(seq 1 30); do
+  local_state=$(sql_collectra "SELECT state || '|' || version FROM collectra_global_access_snapshots WHERE issuer='$ISSUER' AND subject_id='$subject'")
+  local_ack=$(sql_common "SELECT version FROM revocation_acks WHERE consumer_id='collectra-api' AND issuer='$ISSUER' AND subject_id='$subject'")
+  if [[ $local_state == "ACTIVE|1" && $local_ack == 1 ]]; then initial_ready=1; break; fi
   sleep 2
 done
+[[ $initial_ready == 1 ]] || { mark 1 FAIL 'COL did not autonomously persist and ACK ACTIVE v1'; exit 1; }
 http "$API/api/v1/identity/me" -H "Authorization: Bearer $user_token" \
   -H "X-Collectra-Tenant-ID: $tenant_id"
 [[ $STATUS == 200 && $(jq -r .id <<< "$RESPONSE") == "$user_id" ]] || {
