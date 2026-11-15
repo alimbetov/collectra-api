@@ -50,7 +50,7 @@ public class IamCollectraProxyController {
     }
 
     @RequestMapping("/api/v1/iam/collectra/**")
-    public ResponseEntity<byte[]> forward(HttpServletRequest request, Authentication authentication,
+    public ResponseEntity<byte[]> forward(HttpServletRequest request, jakarta.servlet.http.HttpServletResponse response, Authentication authentication,
             @org.springframework.web.bind.annotation.RequestBody(required = false) byte[] body) {
         if (!(authentication instanceof OAuth2AuthenticationToken oauth)
                 || !(oauth.getPrincipal() instanceof OidcUser))
@@ -69,7 +69,8 @@ public class IamCollectraProxyController {
         if (body != null && body.length > 1024 * 1024) return ResponseEntity.status(413).build();
         var authorize = OAuth2AuthorizeRequest.withClientRegistrationId(oauth.getAuthorizedClientRegistrationId())
                 .principal(authentication)
-                .attribute(HttpServletRequest.class.getName(), request).build();
+                .attribute(HttpServletRequest.class.getName(), request)
+                .attribute(jakarta.servlet.http.HttpServletResponse.class.getName(), response).build();
         var client = clients.authorize(authorize);
         if (client == null || client.getAccessToken() == null)
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
