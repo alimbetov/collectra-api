@@ -55,12 +55,12 @@ public class SubjectAccessService {
         db.sql("SELECT consumer_id FROM revocation_consumers " +
             "WHERE required_for_enforcement=true ORDER BY consumer_id FOR SHARE")
             .query(String.class).list();
-        // Capture both required consumers under the same transaction as the operation.
+        // Capture the required consumers under the same transaction as the operation.
         // A security block must commit even when mandatory consumers are offline.
         // Missing bindings are captured as pending obligations and cannot satisfy ENFORCED.
         long required=db.sql("SELECT count(*) FROM revocation_consumers WHERE required_for_enforcement=true")
             .query(Long.class).single();
-        if(required!=2) throw new ResponseStatusException(HttpStatus.CONFLICT,
+        if(required<1) throw new ResponseStatusException(HttpStatus.CONFLICT,
             "Mandatory consumer topology incomplete");
         // Unknown subjects require explicit privileged enrollment.
         long version = db.sql("UPDATE subject_access_state SET state='BLOCKED',version=version+1,updated_at=now() " +
@@ -75,7 +75,7 @@ public class SubjectAccessService {
             "SELECT :op,consumer_id,oauth_client_id,binding_epoch FROM revocation_consumers " +
             "WHERE required_for_enforcement=true")
             .param("op",operation).update();
-        if(captured!=2) throw new IllegalStateException("Incomplete consumer obligation snapshot");
+        if(captured!=required) throw new IllegalStateException("Incomplete consumer obligation snapshot");
         db.sql("INSERT INTO access_state_outbox(id,issuer,subject_id,target_version,event_type) " +
             "VALUES (:id,:iss,:sub,:v,'SUBJECT_BLOCKED')")
             .param("id",UUID.randomUUID()).param("iss",issuer).param("sub",subject).param("v",version).update();
