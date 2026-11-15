@@ -1,0 +1,52 @@
+name: IAM dual-contour revocation PostgreSQL gate
+on:
+  workflow_dispatch:
+  push:
+    branches: [feat/iam-shared-platform]
+    paths:
+      - 'app-common/src/main/java/io/collectra/platform/revocation/**'
+      - 'app-common/src/test/java/io/collectra/platform/revocation/**'
+      - 'src/main/java/io/collectra/api/shared/security/**'
+      - 'src/test/java/io/collectra/api/shared/security/**'
+      - '.github/workflows/iam-dual-contour-revocation-gate.yml'
+permissions:
+  contents: read
+jobs:
+  ac-revocation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+          cache-dependency-path: app-common/pom.xml
+      - name: AC PostgreSQL HTTP ACK and consistency
+        working-directory: app-common
+        run: mvn -B -ntp -Dtest=RevocationHttpAckPostgresIT,RevocationConsistencyPostgresIT test
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ac-revocation-reports
+          path: app-common/target/surefire-reports/
+          if-no-files-found: error
+  col-revocation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+      - name: COL PostgreSQL snapshot monotonicity and fail-closed
+        run: mvn -B -ntp -Dtest=RevocationSnapshotPostgresIT,GlobalRevocationGateTest,KeycloakDomainAuthorizationFilterTest test
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: col-revocation-reports
+          path: target/surefire-reports/
+          if-no-files-found: error
