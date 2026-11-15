@@ -19,17 +19,19 @@
       "standardFlowEnabled": false,
       "directAccessGrantsEnabled": false,
       "fullScopeAllowed": false,
-      "protocolMappers": [{
-        "name": "collectra-api-audience",
-        "protocol": "openid-connect",
-        "protocolMapper": "oidc-audience-mapper",
-        "consentRequired": false,
-        "config": {
-          "included.custom.audience": "collectra-api",
-          "access.token.claim": "true",
-          "id.token.claim": "false"
+      "protocolMappers": [
+        {
+          "name": "collectra-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.custom.audience": "collectra-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
         }
-      }]
+      ]
     },
     {
       "clientId": "app-b-test",
@@ -41,17 +43,53 @@
       "standardFlowEnabled": false,
       "directAccessGrantsEnabled": false,
       "fullScopeAllowed": false,
-      "protocolMappers": [{
-        "name": "app-b-api-audience",
-        "protocol": "openid-connect",
-        "protocolMapper": "oidc-audience-mapper",
-        "consentRequired": false,
-        "config": {
-          "included.custom.audience": "app-b-api",
-          "access.token.claim": "true",
-          "id.token.claim": "false"
+      "protocolMappers": [
+        {
+          "name": "app-b-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.custom.audience": "app-b-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
         }
-      }]
+      ]
+    },
+    {
+      "clientId": "collectra-web",
+      "name": "Collectra React development OIDC PKCE client",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "serviceAccountsEnabled": false,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "implicitFlowEnabled": false,
+      "fullScopeAllowed": false,
+      "redirectUris": [
+        "http://localhost:5173/auth/callback"
+      ],
+      "webOrigins": [
+        "http://localhost:5173"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      },
+      "protocolMappers": [
+        {
+          "name": "collectra-web-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.custom.audience": "collectra-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ]
     }
   ]
 }
