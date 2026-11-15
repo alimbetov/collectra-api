@@ -269,15 +269,18 @@ state=$(sql_common "SELECT state || '|' || version FROM subject_access_state WHE
 mark 3 PASS "App Common HTTP block committed BLOCKED v$version in PostgreSQL"
 
 CURRENT=4
-denied=0
-for attempt in $(seq 1 20); do
-  http "$API/api/v1/identity/me" -H "Authorization: Bearer $user_token" \
-    -H "X-Collectra-Tenant-ID: $tenant_id"
-  if [[ $STATUS == 401 ]]; then denied=1; break; fi
+# Prove that denial comes from the durable local BLOCKED vN, not an expired ACTIVE snapshot.
+blocked_synced=0
+for attempt in $(seq 1 30); do
+  local_state=$(sql_collectra "SELECT state || '|' || version FROM collectra_global_access_snapshots WHERE issuer='$ISSUER' AND subject_id='$subject'")
+  [[ $local_state == "BLOCKED|$version" ]] && { blocked_synced=1; break; }
   sleep 2
 done
-[[ $denied == 1 ]] || { mark 4 FAIL "old JWT still accepted: HTTP $STATUS"; exit 1; }
-mark 4 PASS 'pre-block JWT rejected by Collectra after consumer synchronization (HTTP 401)'
+[[ $blocked_synced == 1 ]] || { mark 4 FAIL "COL did not persist BLOCKED v$version"; exit 1; }
+http "$API/api/v1/identity/me" -H "Authorization: Bearer $user_token" \
+  -H "X-Collectra-Tenant-ID: $tenant_id"
+[[ $STATUS == 401 ]] || { mark 4 FAIL "old JWT accepted after BLOCKED v$version: HTTP $STATUS"; exit 1; }
+mark 4 PASS "COL persisted BLOCKED v$version and rejected pre-block JWT with HTTP 401"
 
 CURRENT=5
 http "$COMMON/api/v1/internal/revocations/$subject?issuer=$ISSUER" \
