@@ -103,4 +103,36 @@ class KeycloakDomainAuthorizationFilterTest {
         verifyNoInteractions(memberships, roles, platformRoles, tenants);
         verifyNoInteractions(chain);
     }
+
+    @Test
+    void missingIssuerIsDeniedWith401BeforeDomainLookup() throws Exception {
+        var jwt =
+                new Jwt(
+                        "missing-issuer",
+                        Instant.now(),
+                        Instant.now().plusSeconds(300),
+                        Map.of("alg", "RS256"),
+                        Map.of("sub", "global-sub"));
+        SecurityContextHolder.getContext().setAuthentication(new JwtAuthenticationToken(jwt));
+        var filter =
+                new KeycloakDomainAuthorizationFilter(
+                        links,
+                        revocation,
+                        users,
+                        memberships,
+                        roles,
+                        platformRoles,
+                        tenants,
+                        true,
+                        ISSUER);
+        var response = new MockHttpServletResponse();
+        FilterChain chain = mock(FilterChain.class);
+
+        filter.doFilter(new MockHttpServletRequest("GET", "/api/v1/identity/me"), response, chain);
+
+        assertThat(response.getStatus()).isEqualTo(401);
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+        verifyNoInteractions(
+                revocation, links, users, memberships, roles, platformRoles, tenants, chain);
+    }
 }
