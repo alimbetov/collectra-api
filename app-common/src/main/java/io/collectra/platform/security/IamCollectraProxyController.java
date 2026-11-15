@@ -40,8 +40,14 @@ public class IamCollectraProxyController {
                 || target.getRawQuery() != null || target.getRawFragment() != null
                 || target.getUserInfo() != null)
             throw new IllegalArgumentException("Collectra upstream must be a trusted HTTPS URL");
-        var factory = new org.springframework.http.client.SimpleClientHttpRequestFactory();
-        factory.setInstanceFollowRedirects(false);
+        var factory = new org.springframework.http.client.SimpleClientHttpRequestFactory() {
+            @Override
+            protected void prepareConnection(java.net.HttpURLConnection connection, String method)
+                    throws java.io.IOException {
+                super.prepareConnection(connection, method);
+                connection.setInstanceFollowRedirects(false);
+            }
+        };
         factory.setConnectTimeout(3000);
         factory.setReadTimeout(10000);
         http = RestClient.builder().requestFactory(factory).build();
