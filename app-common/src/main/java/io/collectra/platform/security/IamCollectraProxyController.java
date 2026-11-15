@@ -40,11 +40,11 @@ public class IamCollectraProxyController {
                 || target.getRawQuery() != null || target.getRawFragment() != null
                 || target.getUserInfo() != null)
             throw new IllegalArgumentException("Collectra upstream must be a trusted HTTPS URL");
-        http = RestClient.builder().requestFactory(new org.springframework.http.client.SimpleClientHttpRequestFactory() {{
-            setInstanceFollowRedirects(false);
-            setConnectTimeout(3000);
-            setReadTimeout(10000);
-        }}).build();
+        var factory = new org.springframework.http.client.SimpleClientHttpRequestFactory();
+        factory.setInstanceFollowRedirects(false);
+        factory.setConnectTimeout(3000);
+        factory.setReadTimeout(10000);
+        http = RestClient.builder().requestFactory(factory).build();
     }
 
     @RequestMapping("/api/v1/iam/collectra/**")
@@ -99,8 +99,10 @@ public class IamCollectraProxyController {
                             if (values != null) headers.put(name, values);
                         }
                         headers.setCacheControl("no-store");
-                        return new ResponseEntity<>(res.getBody().readNBytes(2 * 1024 * 1024 + 1),
-                                headers, res.getStatusCode());
+                        byte[] responseBody = res.getBody().readNBytes(2 * 1024 * 1024 + 1);
+                        if (responseBody.length > 2 * 1024 * 1024)
+                            return new ResponseEntity<byte[]>(new byte[0], headers, HttpStatus.BAD_GATEWAY);
+                        return new ResponseEntity<>(responseBody, headers, res.getStatusCode());
                     });
         } catch (org.springframework.web.client.RestClientException | java.io.UncheckedIOException ex) {
             return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
