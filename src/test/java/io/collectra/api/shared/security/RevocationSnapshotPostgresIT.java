@@ -186,4 +186,47 @@ class RevocationSnapshotPostgresIT {
             workers.shutdownNow();
         }
     }
+
+    @Test
+    void concurrentDistinctColdSubjectsFailClosedAtConfiguredCapacity() throws Exception {
+        String secondSubject = "subject-2";
+        store.apply(ISS, SUB, 1, "ACTIVE");
+        store.apply(ISS, secondSubject, 1, "ACTIVE");
+        db.sql(
+                        "UPDATE collectra_global_access_snapshots "
+                                + "SET refreshed_at=now()-interval '40 seconds'")
+                .update();
+        var remote = mock(RevocationSnapshotConsumer.class);
+        var started = new CountDownLatch(1);
+        var release = new CountDownLatch(1);
+        doAnswer(
+                        invocation -> {
+                            String subject = invocation.getArgument(0);
+                            if (SUB.equals(subject)) {
+                                started.countDown();
+                                assertThat(release.await(5, TimeUnit.SECONDS)).isTrue();
+                            }
+                            store.apply(ISS, subject, 1, "ACTIVE");
+                            return null;
+                        })
+                .when(remote)
+                .synchronize(anyString());
+        var readThrough = new GlobalRevocationGate(db, remote, Duration.ofSeconds(30), 1);
+        var workers = Executors.newSingleThreadExecutor();
+        try {
+            var first = workers.submit(() -> readThrough.allows(ISS, SUB));
+            assertThat(started.await(5, TimeUnit.SECONDS)).isTrue();
+
+            assertThat(readThrough.allows(ISS, secondSubject)).isFalse();
+            verify(remote, never()).synchronize(secondSubject);
+
+            release.countDown();
+            assertThat(first.get(10, TimeUnit.SECONDS)).isTrue();
+            assertThat(readThrough.allows(ISS, secondSubject)).isTrue();
+            verify(remote, times(1)).synchronize(secondSubject);
+        } finally {
+            release.countDown();
+            workers.shutdownNow();
+        }
+    }
 }
