@@ -312,15 +312,46 @@ http -X POST "$COMMON/api/v1/platform/subjects/$subject/block?issuer=$ISSUER" \
 [[ $STATUS == 202 && $(jq -r .operationId <<< "$RESPONSE") == "$operation" && $(jq -r .version <<< "$RESPONSE") == "$version" ]] || {
   mark 8 FAIL "idempotent replay returned HTTP $STATUS or changed operation"; exit 1;
 }
-"${COMPOSE[@]}" restart collectra-api >/dev/null
-wait_http "$API/actuator/health"
+# Repeat of the same BLOCKED snapshot must advance freshness but not state/version.
+before_replay=$(sql_collectra "SELECT (EXTRACT(EPOCH FROM refreshed_at)*1000)::bigint FROM collectra_global_access_snapshots WHERE issuer='$ISSUER' AND subject_id='$subject'")
+refreshed=0
 for attempt in $(seq 1 20); do
-  http "$API/api/v1/identity/me" -H "Authorization: Bearer $user_token" \
-    -H "X-Collectra-Tenant-ID: $tenant_id"
-  [[ $STATUS == 401 ]] && break
+  after_replay=$(sql_collectra "SELECT (EXTRACT(EPOCH FROM refreshed_at)*1000)::bigint FROM collectra_global_access_snapshots WHERE issuer='$ISSUER' AND subject_id='$subject'")
+  [[ $after_replay -gt $before_replay ]] && { refreshed=1; break; }
   sleep 2
 done
-[[ $STATUS == 401 ]] || { mark 8 FAIL "old JWT accepted after restart: HTTP $STATUS"; exit 1; }
+[[ $refreshed == 1 ]] || { mark 8 FAIL 'COL did not repeat its snapshot pull'; exit 1; }
+[[ $(sql_collectra "SELECT state || '|' || version FROM collectra_global_access_snapshots WHERE issuer='$ISSUER' AND subject_id='$subject'") == "BLOCKED|$version" ]] || {
+  mark 8 FAIL 'repeat delivery changed BLOCKED state or version'; exit 1;
+}
+"${COMPOSE[@]}" restart collectra-api >/dev/null
+wait_http "$API/actuator/health"
+http "$API/api/v1/identity/me" -H "Authorization: Bearer $user_token" \
+  -H "X-Collectra-Tenant-ID: $tenant_id"
+[[ $STATUS == 401 ]] || { mark 8 FAIL "JWT accepted after COL restart: HTTP $STATUS"; exit 1; }
+"${COMPOSE[@]}" stop app-common >/dev/null
+if curl -fsS --max-time 2 "$COMMON/actuator/health" >/dev/null 2>&1; then
+  mark 8 FAIL 'AC reachable during outage'; exit 1;
+fi
+http "$API/api/v1/identity/me" -H "Authorization: Bearer $user_token" \
+  -H "X-Collectra-Tenant-ID: $tenant_id"
+[[ $STATUS == 401 ]] || { mark 8 FAIL "blocked JWT accepted while AC offline: HTTP $STATUS"; exit 1; }
+before_ac_restart=$(sql_collectra "SELECT (EXTRACT(EPOCH FROM refreshed_at)*1000)::bigint FROM collectra_global_access_snapshots WHERE issuer='$ISSUER' AND subject_id='$subject'")
+"${COMPOSE[@]}" start app-common >/dev/null
+wait_http "$COMMON/actuator/health"
+reconnected=0
+for attempt in $(seq 1 35); do
+  after_ac_restart=$(sql_collectra "SELECT (EXTRACT(EPOCH FROM refreshed_at)*1000)::bigint FROM collectra_global_access_snapshots WHERE issuer='$ISSUER' AND subject_id='$subject'")
+  [[ $after_ac_restart -gt $before_ac_restart ]] && { reconnected=1; break; }
+  sleep 2
+done
+[[ $reconnected == 1 ]] || { mark 8 FAIL 'COL did not resume pulls after AC restart'; exit 1; }
+[[ $(sql_common "SELECT version FROM revocation_acks WHERE consumer_id='collectra-api' AND issuer='$ISSUER' AND subject_id='$subject'") == "$version" ]] || {
+  mark 8 FAIL 'ACK changed after AC recovery'; exit 1;
+}
+http "$API/api/v1/identity/me" -H "Authorization: Bearer $user_token" \
+  -H "X-Collectra-Tenant-ID: $tenant_id"
+[[ $STATUS == 401 ]] || { mark 8 FAIL "blocked JWT accepted after recovery: HTTP $STATUS"; exit 1; }
 [[ $(sql_common "SELECT state || '|' || version FROM subject_access_state WHERE issuer='$ISSUER' AND subject_id='$subject'") == "BLOCKED|$version" ]] || {
   mark 8 FAIL 'central state regressed after restart'; exit 1;
 }
@@ -336,4 +367,4 @@ applied=$(sql_common "SELECT keycloak_applied_at IS NOT NULL FROM access_state_o
 enabled=$(kc get "users/$subject" -r shared --fields enabled | jq -r .enabled)
 [[ $enabled == false ]] || { mark 8 FAIL 'Keycloak user remained enabled'; exit 1; }
 [[ $op_state != ENFORCED ]] || { mark 8 FAIL 'operation falsely ENFORCED without App-B'; exit 1; }
-mark 8 PASS "idempotent replay/restart preserved BLOCKED v$version; Keycloak disabled user; operation $op_state (not ENFORCED)"
+mark 8 PASS "duplicate pulls, COL restart and AC outage/recovery preserved BLOCKED v$version; Keycloak disabled; operation $op_state (App-B pending)"
