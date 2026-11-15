@@ -197,6 +197,7 @@ class AuthorizationVersionFilterUnitTest {
         UserAccount user = mock(UserAccount.class);
         when(user.getTenantId()).thenReturn(null);
         when(user.getStatus()).thenReturn("ACTIVE");
+        when(user.getCredentialAuthority()).thenReturn(UserAccount.CredentialAuthority.LEGACY);
         when(user.getAuthorizationVersion()).thenReturn(3L);
         when(users.findById(userId)).thenReturn(Optional.of(user));
         when(platformRoles.hasSuperAdminRole(userId)).thenReturn(true);
@@ -208,6 +209,22 @@ class AuthorizationVersionFilterUnitTest {
 
         verify(chain)
                 .doFilter(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void migratedPlatformUserCannotReuseLegacyJwtAtCurrentAuthorizationVersion()
+            throws Exception {
+        UUID userId = UUID.randomUUID();
+        UserAccount user = mock(UserAccount.class);
+        when(user.getTenantId()).thenReturn(null);
+        when(user.getStatus()).thenReturn("ACTIVE");
+        when(user.getCredentialAuthority()).thenReturn(UserAccount.CredentialAuthority.KEYCLOAK);
+        when(user.getAuthorizationVersion()).thenReturn(3L);
+        when(users.findById(userId)).thenReturn(Optional.of(user));
+        when(platformRoles.hasSuperAdminRole(userId)).thenReturn(true);
+        authenticate(platformJwt(userId, 3L));
+
+        assertRejected();
     }
 
     @Test
@@ -304,7 +321,8 @@ class AuthorizationVersionFilterUnitTest {
     }
 
     private Jwt jwt(Map<String, Object> claims) {
-        Jwt.Builder builder = Jwt.withTokenValue("token").header("alg", "none");
+        Jwt.Builder builder =
+                Jwt.withTokenValue("token").header("alg", "none").issuer("collectra-api");
         claims.forEach(builder::claim);
         return builder.build();
     }
