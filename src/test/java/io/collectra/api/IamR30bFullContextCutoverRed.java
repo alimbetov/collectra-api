@@ -24,7 +24,7 @@ import org.springframework.test.web.servlet.MockMvc;
  * KEYCLOAK_ONLY. Expected RED until the mode and enforcement are implemented.
  */
 @AutoConfigureMockMvc
-@TestPropertySource(properties = "collectra.security.credential-authority-mode=KEYCLOAK_ONLY")
+@TestPropertySource(properties = {\n        "collectra.security.credential-authority-mode=KEYCLOAK_ONLY",\n        "collectra.security.keycloak.enabled=true",\n        "collectra.security.keycloak.issuer=http://localhost:18080/realms/test",\n        "collectra.security.keycloak.jwk-set-uri=http://localhost:18080/realms/test/protocol/openid-connect/certs"\n})
 class IamR30bFullContextCutoverRed extends AbstractIntegrationTest {
     @Autowired MockMvc mvc;
     @Autowired AuthService auth;
