@@ -110,3 +110,6 @@ databaseChangeLog:
 
   - include:
       file: db/changelog/changes/057-keycloak-onboarding.sql
+
+  - include:
+      file: db/changelog/changes/058-onboarding-email-cooldown.sql
