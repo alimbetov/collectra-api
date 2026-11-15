@@ -25,7 +25,7 @@ jobs:
           cache-dependency-path: app-common/pom.xml
       - name: AC PostgreSQL HTTP ACK and consistency
         working-directory: app-common
-        run: mvn -B -ntp -Dtest=RevocationHttpAckPostgresIT,RevocationConsistencyPostgresIT test
+        run: mvn -B -ntp -Dtest=RevocationHttpAckPostgresIT,RevocationConsistencyPostgresIT,RevocationTokenValidatorTest test
       - if: always()
         uses: actions/upload-artifact@v4
         with:
