@@ -70,6 +70,15 @@ services:
       APP_COMMON_DB_PASSWORD: ${IAM_DB_PASSWORD:?}
       APP_COMMON_PORT: 8090
       APP_COMMON_ISSUER_URI: http://localhost:${IAM_KC_PORT:-18180}/realms/shared
+      # Browser OIDC is NOT under test in IAM G2. Do not perform startup discovery
+      # against the public issuer's localhost URL from inside the AC container.
+      # Only the resource-server uses the public issuer and the internal JWKS URL.
+      SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_SHARED_ISSUER_URI: ""
+      SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_SHARED_AUTHORIZATION_URI: http://localhost:${IAM_KC_PORT:-18180}/realms/shared/protocol/openid-connect/auth
+      SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_SHARED_TOKEN_URI: http://keycloak:8080/realms/shared/protocol/openid-connect/token
+      SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_SHARED_JWK_SET_URI: http://keycloak:8080/realms/shared/protocol/openid-connect/certs
+      SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_SHARED_USER_INFO_URI: http://keycloak:8080/realms/shared/protocol/openid-connect/userinfo
+      SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_SHARED_USER_NAME_ATTRIBUTE: sub
       APP_COMMON_JWKS_URI: http://keycloak:8080/realms/shared/protocol/openid-connect/certs
       APP_COMMON_API_AUDIENCE: app-common-api
       APP_COMMON_KEYCLOAK_URL: http://keycloak:8080
