@@ -1,12 +1,7 @@
 name: IAM G2 real dual-contour E2E
 on:
+  workflow_call:
   workflow_dispatch:
-  push:
-    branches: [feat/iam-shared-platform]
-    paths:
-      - 'scripts/smoke-iam-macos.sh'
-      - 'compose.iam-smoke.yaml'
-      - '.github/workflows/iam-g2-real-dual-contour-e2e.yml'
 permissions:
   contents: read
 jobs:
