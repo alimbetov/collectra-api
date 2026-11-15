@@ -178,3 +178,55 @@ A passing COL test cannot set AC to VERIFIED, and a passing AC test cannot set C
 ### 8.4 Release and extraction discipline
 
 Maintain separate build/test artifacts, versions, changelogs, deployment configuration, backups, monitoring and rollback plans for AC and COL. They may temporarily share the repository and working branch, but this is **not** evidence of independent production deployment. Track `AC-RC`, `COL-RC`, and `INT-RC` separately. No merge to `main` without explicit approval. Future ZAKAZ integration must use the same public contracts, with its own release gate.
+
+
+## 9. R3.0 Compatibility & Gap Closure — mandatory implementation plan
+
+**Priority: P0. Must complete before R3.1 feature rollout.** The following findings are grounded in current source inventory, not new runtime execution.
+
+### 9.1 Existing implementation and target conflicts
+
+| Source | Observed behavior | Required transition | Proof |
+| --- | --- | --- | --- |
+| `src/main/java/io/collectra/api/identity/api/AuthController.java` | Legacy tenant register, login/by-slug, refresh, logout, logout-all | Preserve business tenant onboarding but move credentials to Keycloak; version or gate legacy endpoints | Existing users and tenant creation still work; Keycloak-only rejects legacy credentials |
+| `src/main/java/io/collectra/api/shared/security/SecurityConfig.java` | Legacy HS256 decoder by default; Keycloak enabled via flag; CSRF disabled in stateless API | Explicit `LEGACY/MIGRATION/KEYCLOAK_ONLY` modes; fail startup on invalid production configuration; BFF CSRF protection | Startup matrix, downgrade refusal, issuer/audience negatives, CSRF E2E |
+| `frontendweb/src/pages/auth/LoginPage.tsx` | React sends email/password to Collectra API for tenant/platform login | Replace migrated-user path with OIDC authorization redirect and callback; preserve tenant selector as business context | Playwright old/new account journeys |
+| `frontendweb/src/features/auth/model/auth-context.tsx` and `frontendweb/src/shared/auth/token-storage.ts` | Browser refresh token stored in sessionStorage, access token in memory | BFF opaque session cookie, server-side refresh tokens, login/logout/session bootstrap and HTTP client migration | Browser has no refresh token; cookie flags, CSRF and logout tests |
+| `src/main/java/io/collectra/api/shared/security/KeycloakDomainAuthorizationFilter.java` | Keycloak JWT mapped to verified local user, tenant membership, roles from Collectra DB | Preserve business authorization; explicit verified link and no implicit membership | Missing link, wrong tenant header, inactive membership, role-change tests |
+| `src/main/java/io/collectra/api/shared/security/GlobalRevocationGate.java` | Fail-closed local snapshot, freshness window | Preserve monotonic event application and bounded staleness; prove outage behavior | Old JWT rejected, stale cache and DB outage tests |
+| `app-common/src/main/java/io/collectra/platform/registry/PlatformRegistry.java` | Only creates REGISTERED record | Separate R4 provisioning reconciliation and ACTIVE gate; do not claim app onboarding ready | Actual Keycloak client provisioning tests |
+| `app-common/infra/realm-shared.json` | Public registration disabled; machine test clients without standard browser flow | Explicit invitation-first policy and real browser client config | Real Keycloak hosted verification and PKCE |
+| `app-common/src/main/java/io/collectra/platform/revocation/KeycloakAdminClient.java` | Disable/logout only | Add authorized unblock and deletion orchestration as distinct operations | Real Keycloak Admin API, audit, retry and deletion tests |
+| `docs/qa/iam-macos-smoke-report.md` | Historical SMOKE-01..06/08 PASS, SMOKE-07 BLOCKED | Re-run on exact candidate SHA, second real consumer required | CI and macOS reports with environment IDs |
+
+### 9.2 Work packages, acceptance and order
+
+**R3.0A — Inventory & migration contract (P0):** enumerate all auth, platform-auth, invitation, OTP, password recovery, registration, user deletion and tenant onboarding endpoints and their React consumers. Record DB tables/FKs, current JWT issuers and token storage, migration flags, users and credentials. Create endpoint compatibility matrix `existing API → owner → target → flag → rollback → test`. Acceptance: no unclassified auth endpoint and explicit mapping preserving existing user UUID and tenant memberships.
+
+**R3.0B — Credential authority cutover (P0):** implement explicit runtime modes `LEGACY`, `MIGRATION`, `KEYCLOAK_ONLY`; deny accidental fallback/downgrade in non-local environments; link identities only after proof of both account ownerships; no email-only linking. Legacy refresh and password reset disabled for migrated identities. Verify concurrent migration, collisions, rollback before cutover, and incident procedure after legacy token revocation. Acceptance: no account has two simultaneously active credential authorities after cutover.
+
+**R3.2B — React BFF migration (P0):** deliver confidential client + PKCE, server-side encrypted token/session store, secure HttpOnly SameSite cookies, CSRF, proxy/TLS trust and session rotation; refactor React login, auth-context, HTTP client, guards and logout. Acceptance: no browser refresh token, no regression in tenant/platform business authorization.
+
+**R3.4B — Deletion and retention (P0):** define deletion state machine and legal hold policy; split Keycloak identity deletion, Collectra profile deactivation/anonymization and retained financial records; ensure retry-safe saga and secure audit. Acceptance: no orphaned FKs, no unapproved financial deletion, old sessions denied.
+
+**R3.5B — Two-asset qualification (P0):** execute independent `AC-RC`, `COL-RC`, `INT-RC` suites and report each status separately, including independent deployability of App Common. Acceptance: exact-SHA evidence, no mock-only integration proof, S2 approval.
+
+**R4 — App provisioning and shared notification service (P1, separate release):** implement ADR-IAM-009 onboarding and notification contracts in independently deployable components. Do not silently count them as IAM-R3 delivered. Keycloak security emails must work in R3 without depending on unimplemented shared notifications.
+
+### 9.3 Explicit migration and regression test matrix
+
+- `MIG-01` legacy user + verified Keycloak principal preserves Collectra UUID, tenant ID, membership, roles and historical FKs.
+- `MIG-02` same email with different principal never auto-links; collision fails closed.
+- `MIG-03` simultaneous linking attempts create one active link; retry is idempotent.
+- `MIG-04` migrated user cannot authenticate via legacy password/refresh/reset.
+- `MIG-05` `KEYCLOAK_ONLY` fails startup when issuer/audience/clients missing; cannot silently revert to legacy.
+- `MIG-06` pre-cutover rollback preserves business data; post-cutover recovery cannot reactivate revoked legacy tokens.
+- `BFF-01` PKCE/state/nonce and exact redirect allowlist; reject tampered callback.
+- `BFF-02` HttpOnly/Secure/SameSite cookie and CSRF; no refresh token in browser storage or JavaScript-visible API.
+- `BFF-03` local logout versus global logout, session rotation and token refresh after browser restart.
+- `COL-01` cross-tenant header, inactive membership, changed roles, unlinked identity, disabled account and blocked subject all denied.
+- `COL-02` tenant registration/invitation and existing Collectra business Golden Journey unaffected by IAM cutover.
+- `AC-01` App Common starts and runs migrations without Collectra business database.
+- `INT-01` cross-app issuer/audience isolation and real revocation ACK, including consumer outage/recovery.
+
+**Evidence policy:** RED → minimal GREEN → full regression → S2. All test claims must state exact SHA and execution environment. This document does not certify implementation.
