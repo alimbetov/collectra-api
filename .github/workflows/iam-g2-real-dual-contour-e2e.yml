@@ -38,11 +38,15 @@ jobs:
           name: iam-g2-dual-contour-report
           path: target/iam-g2-e2e-report.md
           if-no-files-found: warn
-      - name: Display service state on failure
+      - name: Diagnose AC bootstrap failures without dumping environment or JWTs
         if: failure()
         run: |
           if test -f .env; then
-            docker compose --env-file .env -f compose.iam-smoke.yaml ps || true
+            docker compose --env-file .env -f compose.iam-smoke.yaml ps --all || true
+            docker compose --env-file .env -f compose.iam-smoke.yaml logs --no-color --tail=250 app-common \
+              | grep -Ei 'ERROR|Exception|Caused by|APPLICATION FAILED|Unable to|Failed to|BeanCreation' \
+              | sed -E 's/(secret|password|access_token|refresh_token)([=: ])[^ ]+/REDACTED/Ig' \
+              | tail -n 90 || true
           fi
       - name: Stop disposable G2 infrastructure
         if: always()
