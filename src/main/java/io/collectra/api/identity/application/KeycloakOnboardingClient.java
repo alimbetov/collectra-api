@@ -54,12 +54,23 @@ public class KeycloakOnboardingClient {
         http.put().uri(base + "/admin/realms/" + realm + "/users/" + subject + "/send-verify-email")
                 .headers(h -> h.setBearerAuth(token())).retrieve().toBodilessEntity();
     }
+    public boolean matchesReservedIdentity(UUID subject, String expectedEmail) {
+        Map<String,Object> user = readUser(subject);
+        return user != null && subject.toString().equals(String.valueOf(user.get("id")))
+                && expectedEmail.equalsIgnoreCase(String.valueOf(user.get("email")));
+    }
+
     public boolean verified(UUID subject, String expectedEmail) {
-        @SuppressWarnings("unchecked")
-        Map<String,Object> user = http.get().uri(base + "/admin/realms/" + realm + "/users/" + subject)
-                .headers(h -> h.setBearerAuth(token())).retrieve().body(Map.class);
+        Map<String,Object> user = readUser(subject);
         return user != null && Boolean.TRUE.equals(user.get("enabled"))
                 && Boolean.TRUE.equals(user.get("emailVerified"))
                 && expectedEmail.equalsIgnoreCase(String.valueOf(user.get("email")));
+    }
+
+    private Map<String,Object> readUser(UUID subject) {
+        @SuppressWarnings("unchecked")
+        Map<String,Object> user = http.get().uri(base + "/admin/realms/" + realm + "/users/" + subject)
+                .headers(h -> h.setBearerAuth(token())).retrieve().body(Map.class);
+        return user;
     }
 }
