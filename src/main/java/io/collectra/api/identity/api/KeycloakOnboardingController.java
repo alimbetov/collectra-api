@@ -24,7 +24,7 @@ public class KeycloakOnboardingController {
     public ResponseEntity<Map<String, Object>> register(@Valid @RequestBody StartRequest request) {
         UUID id = service.registerExisting(request.localUserId());
         return ResponseEntity.status(HttpStatus.ACCEPTED)
-                .body(Map.of("onboardingId", id, "status", "VERIFICATION_SENT"));
+                .body(Map.of("onboardingId", id, "status", "PENDING_VERIFICATION"));
     }
 
     @PostMapping("/{id}/activate")
