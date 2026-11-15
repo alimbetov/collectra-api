@@ -28,21 +28,46 @@ public class KeycloakOnboardingService {
         this.db=db; this.users=users; this.keycloak=keycloak; this.migration=migration; this.issuer=issuer;
     }
 
+    /**
+     * Reserve a stable subject in PostgreSQL before contacting Keycloak.
+     * A retry uses the same subject; a partial remote failure never creates
+     * a second local onboarding record.
+     */
     public UUID registerExisting(UUID localUserId) {
-        var user=users.findById(localUserId).orElseThrow(() -> new IllegalArgumentException("Unknown user"));
+        var user = users.findById(localUserId)
+                .orElseThrow(() -> new IllegalArgumentException("Unknown user"));
         if (user.getCredentialAuthority() != io.collectra.api.identity.domain.UserAccount.CredentialAuthority.LEGACY)
             throw new IllegalStateException("Already migrated");
-        if (db.sql("SELECT EXISTS(SELECT 1 FROM collectra_keycloak_onboarding WHERE local_user_id=:id)")
-                .param("id",localUserId).query(Boolean.class).single())
-            throw new IllegalStateException("Onboarding already exists");
         if (issuer.isBlank()) throw new IllegalStateException("Keycloak issuer missing");
-        String email=user.getEmail().trim().toLowerCase(Locale.ROOT);
-        UUID subject=keycloak.createUnverified(email);
-        UUID id=UUID.randomUUID();
-        db.sql("INSERT INTO collectra_keycloak_onboarding(id,local_user_id,subject_id,email) VALUES (:id,:local,:subject,:email)")
-                .param("id",id).param("local",localUserId).param("subject",subject).param("email",email).update();
-        keycloak.sendVerifyEmail(subject);
-        return id;
+        String email = user.getEmail().trim().toLowerCase(Locale.ROOT);
+        UUID id = UUID.randomUUID();
+        UUID subject = UUID.randomUUID();
+        // ON CONFLICT is the concurrency arbiter, not a check-then-insert.
+        db.sql("""
+                INSERT INTO collectra_keycloak_onboarding(id,local_user_id,subject_id,email)
+                VALUES (:id,:local,:subject,:email)
+                ON CONFLICT (local_user_id) DO NOTHING
+                """)
+                .param("id", id).param("local", localUserId)
+                .param("subject", subject).param("email", email).update();
+        var existing = db.sql("""
+                SELECT id,subject_id,email,status FROM collectra_keycloak_onboarding
+                WHERE local_user_id=:local
+                """).param("local", localUserId)
+                .query((rs,n) -> new Reservation((UUID)rs.getObject(1),
+                        (UUID)rs.getObject(2),rs.getString(3),rs.getString(4))).single();
+        if (!existing.email().equals(email) || "VERIFIED".equals(existing.status()))
+            throw new IllegalStateException("Onboarding state conflict");
+        try {
+            keycloak.createUnverified(existing.subject(), existing.email());
+        } catch (org.springframework.web.client.HttpClientErrorException.Conflict conflict) {
+            // Retry after a successful remote create: only accept the exact reserved
+            // subject and email, never search by email to link an unrelated identity.
+            if (!keycloak.matchesReservedIdentity(existing.subject(), existing.email()))
+                throw new IllegalStateException("Reserved Keycloak subject conflict", conflict);
+        }
+        keycloak.sendVerifyEmail(existing.subject());
+        return existing.id();
     }
 
     @Transactional
@@ -62,4 +87,5 @@ public class KeycloakOnboardingService {
                 .param("id",onboardingId).update();
     }
     private record Pending(UUID local,UUID subject,String email,String status) {}
+    private record Reservation(UUID id,UUID subject,String email,String status) {}
 }
