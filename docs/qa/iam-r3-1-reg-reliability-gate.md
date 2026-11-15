@@ -1,6 +1,7 @@
 # IAM-R3.1 — REG-01…REG-07 reliability gate
 
-Branch: `feat/iam-shared-platform`. Status: **IMPLEMENTED — CONDITIONAL; NOT VERIFIED**.
+Branch: feat/iam-shared-platform
+Status: **IMPLEMENTED — CONDITIONAL; NOT VERIFIED**.
 
 ## Implemented
 - Privileged onboarding requires PLATFORM_SUPER_ADMIN, existing local UUID, and legacy authority.
