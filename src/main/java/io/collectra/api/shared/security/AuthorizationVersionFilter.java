@@ -65,7 +65,8 @@ public class AuthorizationVersionFilter extends OncePerRequestFilter {
                                             version != null
                                                     && user.getTenantId() == null
                                                     && "ACTIVE".equals(user.getStatus())
-                                                    && user.getCredentialAuthority() == io.collectra.api.identity.domain.UserAccount.CredentialAuthority.LEGACY
+                                                    && (user.getCredentialAuthority() == io.collectra.api.identity.domain.UserAccount.CredentialAuthority.LEGACY
+                                                            || !"collectra-api".equals(jwt.getToken().getIssuer().toString()))
                                                     && user.getAuthorizationVersion()
                                                             == version.longValue())
                             .orElse(false)
