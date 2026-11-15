@@ -19,7 +19,7 @@ class CredentialAuthorityMigrationServiceTest {
             new CredentialAuthorityMigrationService(users, links, sessions);
 
     @Test void verifiedCutoverKeepsLocalUuidAndInvalidatesLegacyCredentials() {
-        var user = new UserAccount(UUID.randomUUID(), "test@example.org", "hash", SystemRole.USER);
+        var user = new UserAccount(UUID.randomUUID(), "test@example.org", "hash", SystemRole.TENANT_USER);
         UUID id = user.getId();
         long version = user.getAuthorizationVersion();
         when(users.findByIdForCredentialMigration(id)).thenReturn(Optional.of(user));
@@ -36,7 +36,7 @@ class CredentialAuthorityMigrationServiceTest {
     }
 
     @Test void unverifiedLinkNeverChangesCredentialAuthority() {
-        var user = new UserAccount(UUID.randomUUID(), "test@example.org", "hash", SystemRole.USER);
+        var user = new UserAccount(UUID.randomUUID(), "test@example.org", "hash", SystemRole.TENANT_USER);
         when(users.findByIdForCredentialMigration(user.getId())).thenReturn(Optional.of(user));
         assertThatThrownBy(() -> service.migrateVerifiedUser(user.getId()))
                 .isInstanceOf(IllegalStateException.class);
