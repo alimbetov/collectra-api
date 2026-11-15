@@ -33,7 +33,7 @@ jobs:
       - name: Slice 7 focused unit tests
         run: bash scripts/test-slice-07.sh unit
       - name: IAM onboarding and migration PostgreSQL regressions
-        run: mvn --batch-mode --no-transfer-progress -Dtest=KeycloakOnboardingPostgresIT,CredentialAuthorityMigrationPostgresIT test
+        run: mvn --batch-mode --no-transfer-progress -Dtest=KeycloakOnboardingPostgresIT,CredentialAuthorityMigrationPostgresIT,RevocationSnapshotPostgresIT,RevocationSnapshotConsumerBatchPostgresIT test
       - name: Verify with PostgreSQL Testcontainers and critical-core coverage
         run: mvn --batch-mode --no-transfer-progress clean verify -Pslice10a-coverage
       - name: Upload current OpenAPI contract
