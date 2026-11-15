@@ -97,6 +97,44 @@ class RevocationConsistencyPostgresIT {
         new EnforcementReconciler(db,true).reconcile();
         assertState(id,"PROPAGATING");
     }
+    @Test void thirdMandatoryConsumerRequiresItsOwnAck() {
+        db.sql("INSERT INTO revocation_consumers(consumer_id,enabled,required_for_enforcement,oauth_client_id) VALUES ('zakaz-api',true,true,'zakaz-consumer')").update();
+        UUID id=UUID.randomUUID();
+        db.sql("INSERT INTO enforcement_operations VALUES (:id,'issuer','sub',2,'PROPAGATING')")
+            .param("id",id).update();
+        db.sql("INSERT INTO access_state_outbox VALUES (:id,'issuer','sub',2,now())")
+            .param("id",UUID.randomUUID()).update();
+        db.sql("INSERT INTO enforcement_operation_consumers(operation_id,consumer_id,oauth_client_id,binding_epoch) SELECT :id,consumer_id,oauth_client_id,binding_epoch FROM revocation_consumers WHERE required_for_enforcement=true")
+            .param("id",id).update();
+        db.sql("INSERT INTO revocation_acks(consumer_id,issuer,subject_id,version,binding_epoch) VALUES ('collectra-api','issuer','sub',2,1),('app-b-api','issuer','sub',2,1)").update();
+        var reconciler=new EnforcementReconciler(db,true);
+        reconciler.reconcile();
+        assertState(id,"PROPAGATING");
+        db.sql("INSERT INTO revocation_acks VALUES ('zakaz-api','issuer','sub',2,1)").update();
+        reconciler.reconcile();
+        assertState(id,"ENFORCED");
+    }
+    @Test void emptyOperationSnapshotNeverEnforces() {
+        UUID id=UUID.randomUUID();
+        db.sql("INSERT INTO enforcement_operations VALUES (:id,'issuer','sub',2,'PROPAGATING')")
+            .param("id",id).update();
+        db.sql("INSERT INTO access_state_outbox VALUES (:id,'issuer','sub',2,now())")
+            .param("id",UUID.randomUUID()).update();
+        new EnforcementReconciler(db,true).reconcile();
+        assertState(id,"PROPAGATING");
+    }
+    @Test void newRegistryConsumerDoesNotRetroactivelyRewriteSnapshot() {
+        UUID id=UUID.randomUUID();
+        db.sql("INSERT INTO enforcement_operations VALUES (:id,'issuer','sub',2,'PROPAGATING')")
+            .param("id",id).update();
+        db.sql("INSERT INTO access_state_outbox VALUES (:id,'issuer','sub',2,now())")
+            .param("id",UUID.randomUUID()).update();
+        snapshot(id);
+        db.sql("INSERT INTO revocation_consumers(consumer_id,enabled,required_for_enforcement,oauth_client_id) VALUES ('zakaz-api',true,true,'zakaz-consumer')").update();
+        db.sql("INSERT INTO revocation_acks(consumer_id,issuer,subject_id,version,binding_epoch) VALUES ('collectra-api','issuer','sub',2,1),('app-b-api','issuer','sub',2,1)").update();
+        new EnforcementReconciler(db,true).reconcile();
+        assertState(id,"ENFORCED");
+    }
     private void snapshot(UUID id) {
         db.sql("INSERT INTO enforcement_operation_consumers(operation_id,consumer_id,oauth_client_id) VALUES (:id,'collectra-api','collectra-consumer'),(:id,'app-b-api','appb-consumer')")
             .param("id",id).update();
