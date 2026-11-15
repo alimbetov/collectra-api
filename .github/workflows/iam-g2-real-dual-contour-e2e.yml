@@ -1,0 +1,49 @@
+name: IAM G2 real dual-contour E2E
+on:
+  workflow_dispatch:
+  push:
+    branches: [feat/iam-shared-platform]
+    paths:
+      - 'scripts/smoke-iam-macos.sh'
+      - 'compose.iam-smoke.yaml'
+      - '.github/workflows/iam-g2-real-dual-contour-e2e.yml'
+permissions:
+  contents: read
+jobs:
+  ac-col-real-e2e:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      IAM_G2_ALLOW_LINUX_CI: 'true'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+      - name: Install smoke host dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq jq uuid-runtime
+          docker info
+      - name: Real AC and COL with independent PostgreSQL databases and Keycloak
+        run: bash scripts/smoke-iam-macos.sh
+      - name: Upload G2 report (including failures)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: iam-g2-dual-contour-report
+          path: target/iam-g2-e2e-report.md
+          if-no-files-found: warn
+      - name: Display service state on failure
+        if: failure()
+        run: |
+          if test -f .env; then
+            docker compose --env-file .env -f compose.iam-smoke.yaml ps || true
+          fi
+      - name: Stop disposable G2 infrastructure
+        if: always()
+        run: bash scripts/stop-iam-macos.sh
