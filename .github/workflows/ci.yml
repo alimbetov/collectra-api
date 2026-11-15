@@ -9,7 +9,7 @@ on:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v5
         with:
@@ -36,6 +36,13 @@ jobs:
         run: mvn --batch-mode --no-transfer-progress -Dtest=KeycloakOnboardingPostgresIT,CredentialAuthorityMigrationPostgresIT,RevocationSnapshotPostgresIT,RevocationSnapshotConsumerBatchPostgresIT test
       - name: Verify with PostgreSQL Testcontainers and critical-core coverage
         run: mvn --batch-mode --no-transfer-progress clean verify -Pslice10a-coverage
+      - name: Upload Collectra Surefire reports (including failures)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: collectra-test-reports
+          path: target/surefire-reports/
+          if-no-files-found: warn
       - name: Upload current OpenAPI contract
         if: always()
         uses: actions/upload-artifact@v4
