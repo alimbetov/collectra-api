@@ -47,6 +47,13 @@ report() {
     for i in 1 2 3 4 5 6 7 8; do
       printf '| SMOKE-%02d | %s | %s |\n' "$i" "${RESULT[$i]}" "${DETAIL[$i]}"
     done
+    local g2_state="HOLD"
+    if (( code == 0 )) && [[ ${RESULT[1]} == PASS && ${RESULT[2]} == PASS &&
+      ${RESULT[3]} == PASS && ${RESULT[4]} == PASS && ${RESULT[5]} == PASS &&
+      ${RESULT[6]} == PASS && ${RESULT[8]} == PASS ]]; then
+      g2_state="PASS"
+    fi
+    printf '\nG2 dual-contour AC/COL: **%s** (SMOKE-07 App-B excluded; production HOLD).\n' "$g2_state"
     printf '\nBootstrap prerequisites: AC operator, OAuth consumer binding and verified COL identity link are provisioned with disposable PostgreSQL. Credential cutover is transactionally seeded for G2, not through onboarding HTTP.\n'
     printf '\nG2 tests both separate JVMs and PostgreSQL databases, autonomous COL ACK, stale ACTIVE fail-closed, retry, AC outage/recovery, and blocked-token rejection.\n'
     printf '\nLimits: App-B not implemented, so SMOKE-07 and two-consumer ENFORCED remain BLOCKED. Browser OIDC/PKCE, public onboarding and email verification are separate gates. No simulated consumer ACK is issued.\n'
