@@ -4,6 +4,8 @@ set +x
 
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$ROOT"
+mkdir -p "$ROOT/target"
+REPORT="$ROOT/target/iam-g2-e2e-report.md"
 COMPOSE=(docker compose --env-file .env -f compose.iam-smoke.yaml)
 ISSUER=""
 API=""
@@ -45,14 +47,14 @@ report() {
     for i in 1 2 3 4 5 6 7 8; do
       printf '| SMOKE-%02d | %s | %s |\n' "$i" "${RESULT[$i]}" "${DETAIL[$i]}"
     done
-    printf '\nBootstrap prerequisites: operator access state, Consumer OAuth binding and Collectra verified identity link were provisioned in disposable PostgreSQL after Keycloak and tenant creation. They are setup, not HTTP E2E evidence. No App-B implementation was present in this repository; a second ACK was not simulated.\n'
-    printf '\nObserved defects and fixes: invalid JSON escaping in an App Common ACK test; ARM64-incompatible Java image; missing Keycloak user `sub` and admin client-role mappers; Keycloak subject used as a local Collectra user ID; live JAR replacement on rerun. The public issuer and internal Keycloak URL are configured separately.\n'
-    printf '\nRemaining limitations: App-B is absent, so two-Consumer ENFORCED acceptance is BLOCKED. Identity linking and Consumer OAuth binding currently require privileged bootstrap; no end-user HTTP linking workflow is claimed. Browser authorization-code/PKCE login was outside this smoke.\n'
-    printf '\nRun: `./scripts/smoke-iam-macos.sh`  \nStop: `./scripts/stop-iam-macos.sh`  \nLocal secrets: `.env` (Git-ignored); safe template: `.env.example`.\n'
+    printf '\nBootstrap prerequisites: AC operator, OAuth consumer binding and verified COL identity link are provisioned with disposable PostgreSQL. Credential cutover is transactionally seeded for G2, not through onboarding HTTP.\n'
+    printf '\nG2 tests both separate JVMs and PostgreSQL databases, autonomous COL ACK, stale ACTIVE fail-closed, retry, AC outage/recovery, and blocked-token rejection.\n'
+    printf '\nLimits: App-B not implemented, so SMOKE-07 and two-consumer ENFORCED remain BLOCKED. Browser OIDC/PKCE, public onboarding and email verification are separate gates. No simulated consumer ACK is issued.\n'
+    printf '\nRun: ./scripts/smoke-iam-macos.sh ; stop: ./scripts/stop-iam-macos.sh ; report: target/iam-g2-e2e-report.md ; secrets: .env (ignored).\n'
     if (( code != 0 )); then
       printf '\nBlocking issue: runner exited with code `%s`; inspect local container logs without sharing secrets.\n' "$code"
     fi
-  } > docs/qa/iam-macos-smoke-report.md
+  } > "$REPORT"
   [[ -z "$TMP" ]] || rm -f "$TMP"
 }
 trap 'report $?' EXIT
@@ -187,7 +189,19 @@ identity=$(sql_collectra "SELECT id || '|' || tenant_id FROM user_accounts WHERE
 user_id=${identity%%|*}
 tenant_id=${identity##*|}
 [[ $user_id =~ ^[0-9a-fA-F-]{36}$ && $tenant_id =~ ^[0-9a-fA-F-]{36}$ ]] || { mark 1 FAIL 'tenant bootstrap identity missing'; exit 1; }
-sql_collectra "INSERT INTO collectra_identity_links(issuer,subject_id,collectra_user_id,status,verified_at) VALUES ('$ISSUER','$subject','$user_id','VERIFIED',now())" >/dev/null
+# G2 disposable bootstrap, NOT real-user HTTP onboarding acceptance.
+# Keep local UUID, revoke legacy refresh sessions and advance the authorization version atomically.
+sql_collectra "BEGIN;
+INSERT INTO collectra_identity_links(issuer,subject_id,collectra_user_id,status,verified_at)
+VALUES ('$ISSUER','$subject','$user_id','VERIFIED',now());
+UPDATE user_accounts SET credential_authority='KEYCLOAK',
+ authorization_version=authorization_version+1
+WHERE id='$user_id' AND credential_authority='LEGACY';
+UPDATE refresh_sessions SET revoked_at=now() WHERE user_id='$user_id' AND revoked_at IS NULL;
+COMMIT;" >/dev/null
+[[ $(sql_collectra "SELECT credential_authority FROM user_accounts WHERE id='$user_id'") == KEYCLOAK ]] || {
+  mark 1 FAIL 'COL credential authority cutover failed'; exit 1;
+}
 http -X POST "$COMMON/api/v1/platform/subjects/$subject/initialize?issuer=$ISSUER" \
   -H "Authorization: Bearer $operator_token"
 [[ $STATUS == 200 && $(jq -r .state <<< "$RESPONSE") == ACTIVE ]] || { mark 1 FAIL "subject initialize returned HTTP $STATUS"; exit 1; }
