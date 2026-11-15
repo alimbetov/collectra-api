@@ -6,6 +6,7 @@ spring:
           collectra:
             provider: shared
             client-id: ${APP_COMMON_OIDC_CLIENT_ID:collectra-web}
+            client-authentication-method: none
             authorization-grant-type: authorization_code
             redirect-uri: "{baseUrl}/api/v1/iam/callback"
             scope: openid,profile,email
