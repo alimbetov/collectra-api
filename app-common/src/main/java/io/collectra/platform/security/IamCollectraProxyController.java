@@ -7,7 +7,6 @@ import java.util.Set;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -26,7 +25,6 @@ import org.springframework.web.client.RestClient;
 @RestController
 @ConditionalOnProperty(name = "app-common.bff.collectra-proxy-enabled", havingValue = "true")
 public class IamCollectraProxyController {
-    private static final Set<String> METHODS = Set.of("GET", "POST", "PUT", "PATCH", "DELETE");
     private static final Set<String> REQUEST_HEADERS = Set.of("content-type", "accept", "if-match", "if-none-match");
     private static final Set<String> RESPONSE_HEADERS = Set.of("content-type", "etag", "cache-control");
     private final OAuth2AuthorizedClientManager clients;
@@ -55,9 +53,13 @@ public class IamCollectraProxyController {
         if (!(authentication instanceof OAuth2AuthenticationToken oauth)
                 || !(oauth.getPrincipal() instanceof OidcUser))
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        if (!METHODS.contains(request.getMethod())) return ResponseEntity.status(405).build();
+        if (!"GET".equals(request.getMethod())) return ResponseEntity.status(405).build();
         String prefix = "/api/v1/iam/collectra";
-        String path = request.getRequestURI().substring(request.getContextPath().length());
+        String uri = request.getRequestURI();
+        String context = request.getContextPath();
+        if (context == null || uri == null || !uri.startsWith(context + prefix + "/"))
+            return ResponseEntity.badRequest().build();
+        String path = uri.substring(context.length());
         if (!path.startsWith(prefix + "/api/v1/")) return ResponseEntity.badRequest().build();
         String suffix = path.substring(prefix.length());
         if (suffix.contains("..") || suffix.contains("%") || suffix.contains("\\"))
@@ -66,7 +68,7 @@ public class IamCollectraProxyController {
         // CurrentUserController requires ROLE_HUMAN and tenant membership.
         if (!("GET".equals(request.getMethod()) && "/api/v1/identity/me".equals(suffix)))
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        if (body != null && body.length > 1024 * 1024) return ResponseEntity.status(413).build();
+        if (body != null && body.length > 0) return ResponseEntity.badRequest().build();
         var authorize = OAuth2AuthorizeRequest.withClientRegistrationId(oauth.getAuthorizedClientRegistrationId())
                 .principal(authentication)
                 .attribute(HttpServletRequest.class.getName(), request)
