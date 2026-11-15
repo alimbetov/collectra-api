@@ -1,6 +1,7 @@
 # IAM-R3.2 — React / Keycloak / JWT audit and first code slice
 
-Branch: feat/iam-shared-platform. Status: IN PROGRESS; NOT VERIFIED.
+Branch: feat/iam-shared-platform
+Status: IN PROGRESS; NOT VERIFIED.
 
 ## Confirmed repository facts
 - React LoginPage calls legacy /api/v1/auth/login/by-slug or /api/v1/platform/auth/login with password.
