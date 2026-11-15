@@ -8,10 +8,33 @@ on:
       - 'app-common/src/test/java/io/collectra/platform/revocation/**'
       - 'src/main/java/io/collectra/api/shared/security/**'
       - 'src/test/java/io/collectra/api/shared/security/**'
+      - 'scripts/smoke-iam-macos.sh'
+      - 'compose.iam-smoke.yaml'
       - '.github/workflows/iam-dual-contour-revocation-gate.yml'
 permissions:
   contents: read
 jobs:
+  g2-macos-runner-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate macOS G2 script syntax
+        run: bash -n scripts/smoke-iam-macos.sh
+      - name: Validate real AC/COL Docker Compose topology
+        env:
+          IAM_DB_PASSWORD: ci-dummy
+          IAM_KC_BOOTSTRAP_PASSWORD: ci-dummy
+          IAM_KC_ADMIN_CLIENT_SECRET: ci-dummy
+          IAM_OPERATOR_CLIENT_SECRET: ci-dummy
+          IAM_CONSUMER_CLIENT_SECRET: ci-dummy
+          IAM_RABBIT_PASSWORD: ci-dummy
+          IAM_STORAGE_ACCESS_KEY: ci-dummy
+          IAM_STORAGE_SECRET_KEY: ci-dummy
+          IAM_COLLECTRA_JWT_SECRET: ci-dummy
+          IAM_OTP_PEPPER: ci-dummy
+          IAM_USER_PASSWORD: ci-dummy
+        run: docker compose -f compose.iam-smoke.yaml config --quiet
   ac-revocation:
     runs-on: ubuntu-latest
     timeout-minutes: 30
