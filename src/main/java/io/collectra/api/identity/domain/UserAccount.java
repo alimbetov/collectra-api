@@ -6,6 +6,16 @@ import java.util.UUID;
 
 @Entity @Table(name="user_accounts", uniqueConstraints=@UniqueConstraint(name="uk_user_tenant_email", columnNames={"tenant_id","email"}))
 public class UserAccount extends AuditableEntity {
+    public enum CredentialAuthority { LEGACY, KEYCLOAK }
+    @Enumerated(EnumType.STRING)
+    @Column(name = "credential_authority", nullable = false, length = 20)
+    private CredentialAuthority credentialAuthority = CredentialAuthority.LEGACY;
+    public CredentialAuthority getCredentialAuthority() { return credentialAuthority; }
+    public void migrateToKeycloak() {
+        credentialAuthority = CredentialAuthority.KEYCLOAK;
+        authorizationVersion++;
+    }
+
     @Id private UUID id;
     @Column(name="tenant_id") private UUID tenantId;
     @Column(nullable=false, length=254) private String email;
