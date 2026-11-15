@@ -38,17 +38,17 @@ public class KeycloakOnboardingClient {
         if (response == null || !(response.get("access_token") instanceof String value)) throw new IllegalStateException("Missing Keycloak admin token");
         return value;
     }
-    public UUID createUnverified(String email) {
+    public void createUnverified(UUID subject, String email) {
         String bearer = token();
         var response = http.post().uri(base + "/admin/realms/" + realm + "/users")
                 .headers(h -> h.setBearerAuth(bearer))
                 .contentType(MediaType.APPLICATION_JSON)
-                .body(Map.of("username", email, "email", email, "enabled", true,
+                .body(Map.of("id", subject.toString(), "username", email, "email", email, "enabled", true,
                         "emailVerified", false, "requiredActions", List.of("VERIFY_EMAIL")))
                 .retrieve().toBodilessEntity();
         URI location = response.getHeaders().getLocation();
-        if (location == null) throw new IllegalStateException("Keycloak did not return user location");
-        return UUID.fromString(location.getPath().substring(location.getPath().lastIndexOf('/') + 1));
+        if (location == null || !subject.toString().equals(location.getPath().substring(location.getPath().lastIndexOf('/') + 1)))
+            throw new IllegalStateException("Keycloak returned an unexpected subject");
     }
     public void sendVerifyEmail(UUID subject) {
         http.put().uri(base + "/admin/realms/" + realm + "/users/" + subject + "/send-verify-email")
