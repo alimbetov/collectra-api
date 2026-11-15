@@ -60,3 +60,16 @@ Committed in the existing branch:
 **Execution status:** not run from this session; no observed RED, no GREEN, no production cutover. To trigger, use GitHub Actions → IAM R3.0B RED qualification (manual) → Run workflow on `feat/iam-shared-platform`. GitHub may require a workflow to be present on the default branch for manual dispatch; if unavailable, execute the Maven command locally on the feature branch and attach exact-SHA Surefire logs. Do not merge into main merely to enable workflow dispatch.
 
 **Acceptance blockers before production code:** verify RED results, approve durable credential-authority state design, add per-user migrated-state negative tests for login/refresh/reset and concurrency on full Liquibase schema, and obtain S2 review.
+
+
+## R3.0B implementation update — first production cutover guard
+
+Implemented in `feat/iam-shared-platform`:
+- `CredentialAuthorityMode` enum: LEGACY / MIGRATION / KEYCLOAK_ONLY.
+- `CredentialAuthorityStartupValidator`: fail startup when MIGRATION or KEYCLOAK_ONLY is selected without Keycloak enabled.
+- `LegacyCredentialEndpointGate`: in KEYCLOAK_ONLY, return HTTP 410 on POST legacy registration, tenant login, refresh, invitation acceptance, forgot/reset password and platform login/refresh. Mode is server configuration only. Existing LEGACY default behavior remains unchanged.
+- Full-context RED fixture configured to start with Keycloak JWT mode and dummy issuer/JWKS addresses; no actual Keycloak connectivity is claimed.
+
+**Not yet implemented:** per-user MIGRATION guard, durable authority state, legacy JWT denial at token validation boundary, old token family revocation, real OIDC/BFF, Keycloak registration and SMTP. The HTTP filter does not by itself prevent an already-issued legacy JWT from being accepted in a misconfigured deployment; issuer validation and startup consistency require separate negative tests. A KEYCLOAK_ONLY production rollout is **HOLD**.
+
+**Execution:** Maven/Docker and workflow not run or verified in this session. Earlier deliberate RED tests may now differ; re-run and inspect exact-SHA Surefire output before declaring GREEN.
