@@ -183,3 +183,16 @@ Current acceptance: IAM-01 and parts of IAM-04/06, MAIL-01 and controlled reject
 - No `VERIFIED` status based solely on documentation, code presence, mocks or CI skipped tests.
 - Before App Common extraction, freeze public OIDC/service contracts, data ownership, migration and rollback. Prefer an independent S2 architecture/security review.
 - On extraction, migrate platform-owned implementation and documentation to its own repository without rewriting Collectra business history.
+
+
+## 10. Current implementation alignment and authoritative roadmap (2026-11-15)
+
+**Two assets:** App Common / Shared IAM (AC) and Collectra Business Platform (COL) have independent product ownership and release gates. Their integration (INT) is an acceptance track, not a third product. The canonical implementation plan is [IAM-R3 User Lifecycle](../specs/iam-r3-user-lifecycle-implementation-and-tests.md), sections 8–9. Its `R3.0 Compatibility & Gap Closure` is mandatory before R3.1 rollout.
+
+**Current code realities:** Collectra still has legacy `/api/v1/auth/tenants/register`, `/login`, `/login/by-slug`, `/refresh`, `/logout` endpoints and React password login. Its browser refresh token is in `sessionStorage`; ADR-IAM-009 targets BFF HttpOnly cookies. Collectra has a Keycloak domain authorization filter and fail-closed revocation snapshot gate, but identity linking currently requires privileged bootstrap in the historical macOS smoke. App Common registry currently records `REGISTERED` but does not prove Keycloak OIDC client provisioning. Keycloak shared realm has `registrationAllowed=false` and machine-only test clients. Global user deletion/unblock, full browser PKCE, verified-email and password-reset journeys are not accepted as implemented.
+
+**No conflicting authority:** ADR-IAM-007/008 and ADR-IAM-009 govern the one shared end-user realm, Collectra-only business tenancy, and BFF/session/onboarding target. Earlier per-app realm drafts are historical and must not be used as implementation authority. Legacy authentication is a controlled migration concern, not an alternate final architecture. Keycloak transactional SMTP for verification/reset is distinct from Collectra/KumoMTA business delivery and from the future shared Notification Service.
+
+**Implementation order:** IAM-R2 CI/consumer snapshot verified → R3.0A inventory → R3.0B credential cutover safeguards → R3.1 registration/verification → R3.2 + R3.2B browser BFF and authorization → R3.3 recovery/MFA → R3.4 + R3.4B global/local lifecycle and deletion → R3.5 + R3.5B separate AC/COL/INT acceptance. R4 provisioning and shared notifications are separate future milestones, not hidden R3 completion claims.
+
+**Release scorecards:** `AC-RC`, `COL-RC`, `INT-RC` require distinct status, SHA, test ID, environment, CI evidence and S2 reviewer. No global PASS if any required gate is BLOCKED or UNVERIFIED. Preserve financial history, existing Collectra UUID/FKs and app-local RBAC during cutover and deletion. No new branch or merge to main without approval.
