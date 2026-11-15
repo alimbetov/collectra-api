@@ -59,7 +59,7 @@
     },
     {
       "clientId": "collectra-web",
-      "name": "Collectra React development OIDC PKCE client",
+      "name": "Collectra App Common BFF OIDC development client",
       "enabled": true,
       "protocol": "openid-connect",
       "publicClient": true,
@@ -69,7 +69,7 @@
       "implicitFlowEnabled": false,
       "fullScopeAllowed": false,
       "redirectUris": [
-        "http://localhost:5173/auth/callback"
+        "http://localhost:8090/api/v1/iam/callback"
       ],
       "webOrigins": [
         "http://localhost:5173"
