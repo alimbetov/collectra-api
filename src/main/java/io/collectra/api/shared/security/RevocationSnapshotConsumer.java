@@ -1,6 +1,8 @@
 package io.collectra.api.shared.security;
 
 import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -14,8 +16,12 @@ import org.springframework.web.client.RestClient;
  */
 @Component
 public class RevocationSnapshotConsumer {
+    private static final Logger log = LoggerFactory.getLogger(RevocationSnapshotConsumer.class);
+    private static final int BACKGROUND_BATCH_SIZE = 50;
+
     private final JdbcClient db;
     private final RevocationSnapshotStore store;
+    private String scanAfterSubject = "";
     private final RestClient http;
     private final String issuer, base, tokenUrl, clientId, secret;
     private final boolean enabled;
@@ -52,7 +58,7 @@ public class RevocationSnapshotConsumer {
     }
 
     @Scheduled(fixedDelayString = "${collectra.security.keycloak.revocation-poll-ms:5000}")
-    public void reconcile() {
+    public synchronized void reconcile() {
         if (!enabled) return;
         if (issuer.isBlank()
                 || base.isBlank()
@@ -60,30 +66,39 @@ public class RevocationSnapshotConsumer {
                 || clientId.isBlank()
                 || secret.isBlank())
             throw new IllegalStateException("Revocation consumer credentials missing");
-        // Keyset pagination prevents starvation beyond the first 10,000 identities.
-        // Refresh service credentials per page to bound token age.
-        String after = "";
-        while (true) {
-            var subjects =
-                    db.sql(
-                                    "SELECT subject_id FROM collectra_identity_links "
-                                            + "WHERE issuer=:issuer AND status='VERIFIED' "
-                                            + "AND subject_id > :after ORDER BY subject_id LIMIT 250")
-                            .param("issuer", issuer)
-                            .param("after", after)
-                            .query(String.class)
-                            .list();
-            if (subjects.isEmpty()) return;
-            String token = serviceToken();
-            for (String subject : subjects) {
-                try {
-                    synchronize(subject, token);
-                } catch (RuntimeException ex) {
-                    // Snapshot expires fail-closed. No subject identifiers or credentials logged.
-                }
+        // One bounded page per tick. A full unbounded scan can monopolize the scheduler,
+        // while on-demand refresh handles stale identities that are actually signing in.
+        // The keyset cursor advances even if an individual remote subject lookup fails.
+        var subjects =
+                db.sql(
+                                "SELECT subject_id FROM collectra_identity_links "
+                                        + "WHERE issuer=:issuer AND status='VERIFIED' "
+                                        + "AND subject_id > :after ORDER BY subject_id LIMIT :limit")
+                        .param("issuer", issuer)
+                        .param("after", scanAfterSubject)
+                        .param("limit", BACKGROUND_BATCH_SIZE)
+                        .query(String.class)
+                        .list();
+        if (subjects.isEmpty()) {
+            scanAfterSubject = "";
+            return;
+        }
+        String token = serviceToken();
+        int failures = 0;
+        for (String subject : subjects) {
+            try {
+                synchronize(subject, token);
+            } catch (RuntimeException unavailable) {
+                // Fail closed. Never log subjects, bearer tokens or IdP response bodies.
+                failures++;
             }
-            after = subjects.get(subjects.size() - 1);
-            if (subjects.size() < 250) return;
+        }
+        scanAfterSubject = subjects.get(subjects.size() - 1);
+        if (failures > 0) {
+            log.warn(
+                    "Revocation background reconciliation failed for {} of {} subjects; stale access remains fail-closed",
+                    failures,
+                    subjects.size());
         }
     }
 
