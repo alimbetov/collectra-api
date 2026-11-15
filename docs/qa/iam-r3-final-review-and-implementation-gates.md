@@ -48,3 +48,15 @@ The deliberate RED classes are not discovered by ordinary Surefire naming. Do no
 - **COL:** legacy auth operational in code; migration not qualified.
 - **INT:** previous smoke is historical, not proof for current SHA.
 - **Current action:** test code and docs committed only. No Maven/Docker execution, no CI run verification, no production code/migration changes. No claim of observed RED or GREEN.
+
+
+## Implementation kickoff — R3.0B executable evidence
+
+Committed in the existing branch:
+
+- `src/test/java/io/collectra/api/IamR30bFullContextCutoverRed.java`: real `@SpringBootTest`, full Spring Security filter chain, existing Liquibase schema and PostgreSQL Testcontainers via `AbstractIntegrationTest`. It creates a real tenant user through the existing service and expects KEYCLOAK_ONLY to reject legacy password login and legacy refresh over HTTP. This is **expected RED** until a server-configured authority policy exists.
+- `.github/workflows/iam-r30b-red.yml`: **manual-only** workflow that runs isolated structural, PostgreSQL, standalone HTTP and full-context RED tests, captures Surefire XML, Maven log, SHA and run ID as an artifact. A nonzero Maven exit is **not sufficient** to prove behavioral RED: reviewer must confirm compilation succeeded, Docker/Testcontainers started, and the intended assertion failed rather than an infrastructure error.
+
+**Execution status:** not run from this session; no observed RED, no GREEN, no production cutover. To trigger, use GitHub Actions → IAM R3.0B RED qualification (manual) → Run workflow on `feat/iam-shared-platform`. GitHub may require a workflow to be present on the default branch for manual dispatch; if unavailable, execute the Maven command locally on the feature branch and attach exact-SHA Surefire logs. Do not merge into main merely to enable workflow dispatch.
+
+**Acceptance blockers before production code:** verify RED results, approve durable credential-authority state design, add per-user migrated-state negative tests for login/refresh/reset and concurrency on full Liquibase schema, and obtain S2 review.
