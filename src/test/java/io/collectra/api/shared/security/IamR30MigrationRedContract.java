@@ -47,7 +47,7 @@ class IamR30MigrationRedContract {
     @Test
     void migratedIdentitiesMustHaveExplicitLegacyCredentialDenialPolicy() {
         Class<?> policy = requiredClass(
-                "io.collectra.api.identity.application.LegacyCredentialCutoverPolicy");
+                "io.collectra.api.shared.security.LegacyCredentialCutoverPolicy");
         assertThat(Arrays.stream(policy.getDeclaredMethods()).map(Method::getName))
                 .as("Login, refresh and reset must consult a shared migrated-user denial policy")
                 .contains("denyLegacyCredentialForMigratedIdentity");
