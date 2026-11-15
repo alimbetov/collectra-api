@@ -66,7 +66,19 @@ public class KeycloakOnboardingService {
             if (!keycloak.matchesReservedIdentity(existing.subject(), existing.email()))
                 throw new IllegalStateException("Reserved Keycloak subject conflict", conflict);
         }
-        keycloak.sendVerifyEmail(existing.subject());
+        // Atomic conditional update prevents concurrent requests from flooding SMTP.
+        // Reserve before the remote call: a crash cannot trigger an immediate mail storm.
+        int reserved = db.sql("""
+                UPDATE collectra_keycloak_onboarding
+                SET verification_requested_at = now()
+                WHERE id = :id AND status = 'PENDING'
+                  AND (verification_requested_at IS NULL
+                       OR verification_requested_at <= now() - interval '5 minutes')
+                """).param("id", existing.id()).update();
+        if (reserved == 1) {
+            // A failed send is retried after the cooldown; no false activation occurs.
+            keycloak.sendVerifyEmail(existing.subject());
+        }
         return existing.id();
     }
 
