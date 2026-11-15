@@ -1,0 +1,137 @@
+# IAM-R3 — User Lifecycle: implementation and verification specification
+
+**Status:** APPROVAL CANDIDATE / IMPLEMENTATION NOT STARTED BY THIS DOCUMENT  
+**Branch:** `feat/iam-shared-platform` (no new branches; do not merge main)  
+**Product:** App Common / Shared IAM; Collectra is first real consumer; ZAKAZ is a future consumer.  
+**Baseline:** `docs/qa/iam-user-lifecycle-acceptance.md`, ADR-IAM-007/008, IAM-R2 consumer snapshot and revocation logic.
+
+## 0. Goal, boundaries, definition of done
+
+Deliver an actual human user journey: register → receive email → verify → log in via OIDC PKCE → access permitted Collectra action → deny forbidden tenant action → refresh/logout/relogin → recover password → enroll/challenge TOTP → block/revoke → unblock → delete global identity and handle app-local personal data safely.
+
+**Keycloak** owns credentials, verified email, global subject `(iss,sub)`, MFA, identity sessions and identity deletion. **App Common** owns app registration/provisioning, security state, authorized lifecycle orchestration, revocation/ACK, audit and recovery. **Collectra** owns app-local user UUID, memberships, business RBAC, financial records and retention. No cross-app shared business user ID or business DB. One shared **end-user** Keycloak realm, distinct clients and API audiences per application; an optional isolated privileged admin realm is permitted.
+
+No reimplementation of passwords, reset tokens, OTP algorithms or Keycloak OIDC endpoints in App Common. Prefer Keycloak hosted registration, verification, recovery and MFA pages; App Common exposes only needed privileged control-plane operations. Explicitly separate app-local account deactivation from global identity disable/delete.
+
+**Release rule:** Each scenario needs a test name, command, SHA, Keycloak/PostgreSQL/SMTP versions, CI run link, evidence and reviewer. `IMPLEMENTED` is not `VERIFIED`; `VERIFIED` is not `PRODUCTION_READY`. No percentage readiness without measured criteria.
+
+## 1. IAM-R3.0 — baseline and contract freeze (prerequisite)
+
+1. Inventory existing Collectra registration/login/reset/OTP endpoints, React routes, user_accounts mapping, tenant membership and authorization filters. Record exact migration flags, existing users, rollback and source of credentials. No simultaneous independent credential authorities for a migrated user.
+2. Inspect real App Common runtime, Keycloak realm import, CI workflows and IAM-R2 dynamic consumer snapshot. Verify IAM-R2 CI and PostgreSQL GREEN first; do not assume.
+3. Decide onboarding policy: public self-registration vs invitation. For the first release, **invitation or controlled registration is preferred** until rate limits, email delivery and abuse prevention pass. Existing realm has `registrationAllowed=false`; any change must be explicit, documented and tested.
+4. Specify OIDC clients for Collectra React (Authorization Code + PKCE S256, exact redirect allowlist), Collectra API audience, App Common control plane and machine-to-machine clients. Existing `collectra-test` and `app-b-test` machine clients are not browser clients. For Flutter/ZAKAZ, define separate future public native clients; no implementation now.
+5. Define global deletion policy: legal retention of financial data, PII inventory, erasure/anonymization and business-profile ownership; obtain product/legal approval before destructive automation. Test deletion only on disposable identities.
+
+**Exit:** signed identity/authorization/deletion contract, verified IAM-R2 baseline, reproducible local environment, negative tests first.
+
+## 2. IAM-R3.1 — Registration & Verification
+
+**Implementation**
+- Configure one shared user realm, unique verified email policy, Verify Email required action, SMTP sender and Keycloak verification template; do not confuse Keycloak transactional SMTP with Collectra KumoMTA business mail.
+- Choose controlled invite/registration endpoint or Keycloak hosted self-registration; no insecure custom password collection.
+- Apply consistent email normalization and unique identity policy; prevent automatic linking by email alone; for existing Collectra users, link only through explicit verified migration contract preserving local UUID/FKs.
+- Block application access while `email_verified=false` through an enforced server-side policy, not merely UI checks. Treat social-provider email claims according to explicit trust policy.
+- Implement generic anti-enumeration response, throttling and audit without logging action tokens or email content.
+
+**RED → GREEN tests**
+- REG-01 successful registration creates exactly one Keycloak identity.
+- REG-02 verification message delivered via **real Keycloak SMTP → Mailpit**; valid one-time link sets verified flag.
+- REG-03 unverified account denied protected Collectra endpoint; verified account succeeds with local membership.
+- REG-04 missing/invalid email, duplicate email, concurrent duplicate registration rejected/idempotent; no duplicate local profile.
+- REG-05 expired, reused, altered verification links rejected; resend cooldown/rate limits enforced.
+- REG-06 existing-user linking cannot hijack an account by matching email.
+- REG-07 Keycloak/SMTP outage, retry and restart: no unintended activation or duplicate accounts.
+
+**Gate:** real browser + Keycloak + Mailpit + PostgreSQL evidence, no P0/P1.
+
+## 3. IAM-R3.2 — Authentication, Authorization & Sessions
+
+**Implementation**
+- React: standards-based Authorization Code + PKCE S256 and state/nonce; strict redirect URI/origin; choose a secure BFF with server-side session/HttpOnly cookies where feasible; never store long-lived tokens in localStorage.
+- APIs: verify JWKS signature, issuer, `aud`, expiration, not-before, allowed client/scopes and revocation/local user state; fail closed on missing identity or business membership.
+- Idempotent `(issuer,subject)` to Collectra local user mapping; preserve existing local IDs and business history.
+- Separate Collectra business roles from App Common platform scopes; global SSO does not imply Collectra membership.
+- Refresh/logout: define session termination, refresh rotation/reuse behavior, residual JWT access window and global vs app-local logout. Record Keycloak version-dependent behavior.
+
+**Tests**
+- AUTH-01 real browser login, callback/PKCE/state validation, no code/token leakage.
+- AUTH-02 valid JWT accepted; wrong issuer/audience/signature/expired token rejected.
+- AUTH-03 cross-tenant and missing-role requests return 403; no cross-app privilege inheritance.
+- AUTH-04 duplicate first-login and parallel callback create one local mapping.
+- SESSION-01 refresh succeeds per policy; expired/reused refresh rejected.
+- SESSION-02 local logout and global logout; SSO across two distinct clients in same realm when second client is available; do not claim ZAKAZ integrated.
+- SESSION-03 account disabled while token still unexpired: actual API denial measured, not inferred from Keycloak logout.
+- SEC-01 redirect URI tampering, CSRF, state/nonce/PKCE downgrade and browser back-button tests.
+
+**Gate:** real HTTP + Playwright + API security matrix PASS.
+
+## 4. IAM-R3.3 — Recovery, Email Change & MFA
+
+**Implementation**
+- Keycloak hosted Forgot Password/UPDATE_PASSWORD with one-time expiring action links, neutral response for unknown account, no reset token in App Common database/logs.
+- Password policy, retry/rate limits, session invalidation and audit. Define exact access JWT residual lifetime and how revocation is enforced.
+- Email change as verified two-phase transition; unverified new email cannot receive ordinary business notifications or become account recovery authority.
+- Keycloak TOTP enrollment, challenge, reset/recovery policy; mandatory step-up for privileged operators. No development OTP exposure in non-local environments.
+- Abuse controls by IP, account and device/risk where appropriate; monitor brute-force events.
+
+**Tests**
+- REC-01 known/unknown user responses indistinguishable, rate limiting and enumeration checks.
+- REC-02 actual Keycloak reset mail to Mailpit; valid link succeeds, expired/replayed/cross-account link fails.
+- REC-03 old password rejected, new accepted; old refresh/session invalidated as policy requires.
+- EMAIL-01 new address unverified until action complete; old address handling, concurrency and rollback.
+- MFA-01 TOTP enrollment and login; wrong code, replay, expired code, lost factor and privileged recovery.
+- SEC-02 no passwords/OTP/action links in logs, traces, events or GitHub artifacts.
+
+**Gate:** actual Keycloak SMTP and browser recovery/MFA PASS.
+
+## 5. IAM-R3.4 — Account Management, Revocation & Deletion
+
+**Implementation**
+- Separate `APP_DEACTIVATED`, `GLOBAL_BLOCKED`, `GLOBAL_ACTIVE` and `DELETION_REQUESTED/IN_PROGRESS/COMPLETED/FAILED_RETRYABLE` semantics; avoid conflating business access with global identity state.
+- Global block: authenticated privileged request, audit, transactional state/outbox, Keycloak disable/logout, versioned consumer snapshot, authenticated consumer ACK. `ENFORCED` only when actual obligations fulfilled; no simulated second consumer.
+- Unblock: explicit privileged policy, monotonic version, authorized Keycloak enable, app-local state reconciliation, stale BLOCK events cannot override newer ACTIVE state; tests for concurrent block/unblock.
+- Deletion: strongly authenticated or independently approved operator action, re-auth/step-up and confirmation, account suspension first, durable deletion saga with retries, Keycloak delete, revocation, local unlink/anonymization subject to approved retention; no physical deletion of financial ledger or audit records. Avoid unbounded identity PII in tombstones; prevent orphaned foreign keys and unsafe re-registration/relinking.
+- Data subject request policy: retention windows, erasure exceptions, audit, backups and support recovery. No automatic destructive operation against live customer data.
+
+**Tests**
+- BLOCK-01 global block prevents new login and old JWT access according to explicit revocation policy.
+- BLOCK-02 two real consumer ACKs, missing ACK stays PROPAGATING; duplicate/stale ACK, binding epoch, restart and rebind.
+- UNBLOCK-01 authorized unblock restores eligible access; stale events cannot re-block.
+- UNBLOCK-02 forbidden actor cannot unblock; app-local block remains app-local.
+- DELETE-01 disposable user deletion removes Keycloak identity and denies new login and old tokens.
+- DELETE-02 app-local PII cleanup with referential integrity and immutable financial history.
+- DELETE-03 duplicate delete, crash after Keycloak side effect, Keycloak outage, DB outage and retry/recovery.
+- DELETE-04 pending legal hold/retention policy prevents impermissible erasure; security audit is preserved without raw secrets.
+- RACE-01 concurrent block/unblock/delete and event reorder preserve monotonic security state.
+
+**Gate:** PostgreSQL transaction/concurrency tests, real Keycloak Admin API tests, recovery and audit PASS; independent security/privacy review.
+
+## 6. IAM-R3.5 — Full E2E & release certification
+
+**Environment:** disposable Docker Compose/Testcontainers stack with pinned Keycloak, PostgreSQL, Mailpit, App Common, Collectra API and React; RabbitMQ/KumoMTA where a Collectra business notification is part of the scenario. Do not use mock Keycloak, mock SMTP or mocked HTTP ACK as acceptance evidence. Separate unit tests may use mocks.
+
+**Golden Journey**
+1. Register a synthetic new identity; observe Keycloak record and Mailpit verification message.
+2. Verify email; prove unverified access was denied and verified access is allowed only after proper app-local membership.
+3. Login via React PKCE; access permitted Collectra API and reject cross-tenant and wrong-audience calls.
+4. Refresh/logout/relogin; verify session/token behavior.
+5. Request password reset, use SMTP link, login with new password; enroll TOTP and verify challenge.
+6. Block globally, verify Keycloak disabled, old JWT rejected and all registered required consumers ACK (or operation remains PROPAGATING).
+7. Unblock and login; delete disposable identity; verify Keycloak removal, token denial, app-local PII policy and financial-record preservation.
+8. Repeat failures: SMTP unavailable, Keycloak unavailable, PostgreSQL restart, duplicate events, consumer outage and replay.
+9. For future ZAKAZ: separate acceptance extension with same `(iss,sub)`, independent app-local profile and distinct `aud`; not part of the current PASS claim.
+
+**CI**
+- Existing main workflow must run `app-common` Maven and PostgreSQL tests as required job, Collectra backend and frontend tests. Confirm workflow glob matches actual `*IT` and `*Test` classes and does not silently skip tests; prefer explicit Surefire/Failsafe configuration or verifiable discovery.
+- Add lifecycle Keycloak/SMTP integration job and Playwright E2E with exact versions, artifact upload and run summary.
+- Mandatory negative tests and release smoke must run on the exact candidate SHA. Do not weaken security assertions to obtain GREEN.
+- CI failure, missing evidence, skipped required tests or mock-only proof blocks release.
+
+## 7. Delivery discipline and acceptance report
+
+Implement each stage **RED tests → minimum GREEN implementation → regression → independent S2 review**. Keep changes in `feat/iam-shared-platform`, avoid unrelated refactors and new branches, do not merge to main. Each stage updates a separate readiness scorecard for **App Common** and **Collectra**; no combined score.
+
+For every scenario record: ID, code path, expected behavior, test class, test layer, result, exact commit, CI URL, environment, evidence and defect reference. Classify `NOT_IMPLEMENTED`, `IMPLEMENTED_UNVERIFIED`, `FAILED`, `BLOCKED`, `VERIFIED`. If a stage cannot pass, report the blocker, never fabricate test evidence.
+
+**Final acceptance:** R3.1–R3.5 all VERIFIED; zero unresolved P0/P1; no unverified destructive deletion; independent S2 APPROVE; documented production deployment/rollback and incident procedures. Until then App Common user lifecycle remains **NOT FULLY VERIFIED**.
