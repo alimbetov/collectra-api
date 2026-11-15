@@ -5,8 +5,13 @@ import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
+import org.springframework.security.oauth2.core.oidc.user.OidcUser;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.servlet.view.RedirectView;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -43,12 +48,36 @@ public class IamOidcController {
                 "pkceMethod", "S256"));
     }
 
+    @GetMapping("/login")
+    public RedirectView login() {
+        return new RedirectView("/oauth2/authorization/collectra");
+    }
+
+    // /api/v1/iam/callback is consumed by Spring Security OAuth2LoginAuthenticationFilter.
+    // Its state/nonce/PKCE checks must not be reimplemented in a controller.
+
     @GetMapping("/session")
-    public ResponseEntity<Map<String,Object>> session(@AuthenticationPrincipal Jwt jwt) {
+    public ResponseEntity<Map<String,Object>> session(Authentication authentication) {
+        if (!(authentication instanceof OAuth2AuthenticationToken oauth)
+                || !(oauth.getPrincipal() instanceof OidcUser oidc))
+            return ResponseEntity.status(401).cacheControl(CacheControl.noStore())
+                    .body(Map.of("authenticated", false));
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(Map.of(
                 "authenticated", true,
-                "subject", jwt.getSubject(),
-                "issuer", jwt.getIssuer().toString(),
-                "audience", jwt.getAudience()));
+                "subject", oidc.getSubject(),
+                "issuer", oidc.getIssuer().toString()));
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(HttpServletRequest request, HttpServletResponse response) {
+        var session = request.getSession(false);
+        if (session != null) session.invalidate();
+        org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        var cookie = new jakarta.servlet.http.Cookie("JSESSIONID", "");
+        cookie.setHttpOnly(true);
+        cookie.setPath("/");
+        cookie.setMaxAge(0);
+        response.addCookie(cookie);
+        return ResponseEntity.noContent().cacheControl(CacheControl.noStore()).build();
     }
 }
