@@ -25,7 +25,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
  * Tests the bounded scheduling behavior and read-through on-demand authorization.
  */
 class RevocationSnapshotConsumerBatchPostgresIT extends AbstractIntegrationTest {
-    private static final String ISSUER = "https://id.example/realms/shared";
+    private final String issuer = "https://id.example/realms/rev-batch-" + UUID.randomUUID();
 
     @Autowired JdbcClient db;
     @Autowired RevocationSnapshotStore snapshots;
@@ -98,7 +98,7 @@ class RevocationSnapshotConsumerBatchPostgresIT extends AbstractIntegrationTest 
                                 (issuer, subject_id, collectra_user_id, status, verified_at)
                             VALUES (:issuer, :subject, :user, 'VERIFIED', now())
                             """)
-                    .param("issuer", ISSUER)
+                    .param("issuer", issuer)
                     .param("subject", subject)
                     .param("user", user.getId())
                     .update();
@@ -113,7 +113,7 @@ class RevocationSnapshotConsumerBatchPostgresIT extends AbstractIntegrationTest 
         var subjects = enroll(52);
         var consumer =
                 new RevocationSnapshotConsumer(
-                        db, snapshots, ISSUER, base, base + "/token", "machine", "secret", true);
+                        db, snapshots, issuer, base, base + "/token", "machine", "secret", true);
 
         consumer.reconcile();
         assertThat(acknowledgements.get()).isEqualTo(50);
@@ -128,7 +128,7 @@ class RevocationSnapshotConsumerBatchPostgresIT extends AbstractIntegrationTest 
             assertThat(db.sql(
                             "SELECT version FROM collectra_global_access_snapshots "
                                     + "WHERE issuer=:issuer AND subject_id=:subject")
-                            .param("issuer", ISSUER)
+                            .param("issuer", issuer)
                             .param("subject", subject)
                             .query(Long.class)
                             .single())
@@ -145,14 +145,14 @@ class RevocationSnapshotConsumerBatchPostgresIT extends AbstractIntegrationTest 
         String lastSubject = subjects.get(subjects.size() - 1);
         var consumer =
                 new RevocationSnapshotConsumer(
-                        db, snapshots, ISSUER, base, base + "/token", "machine", "secret", true);
+                        db, snapshots, issuer, base, base + "/token", "machine", "secret", true);
         consumer.reconcile();
         assertThat(acknowledgements.get()).isEqualTo(50);
 
         var gate = new GlobalRevocationGate(db, consumer, Duration.ofSeconds(30), 4);
-        assertThat(gate.allows(ISSUER, lastSubject)).isTrue();
+        assertThat(gate.allows(issuer, lastSubject)).isTrue();
         assertThat(acknowledgements.get()).isEqualTo(51);
-        assertThat(gate.allows(ISSUER, lastSubject)).isTrue();
+        assertThat(gate.allows(issuer, lastSubject)).isTrue();
         assertThat(acknowledgements.get()).isEqualTo(51);
     }
 }
