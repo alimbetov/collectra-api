@@ -7,13 +7,22 @@ import java.util.Map;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
 /** Admin API only. Keycloak owns passwords, verification links and SMTP delivery. */
 @Component
 public class KeycloakOnboardingClient {
-    private final RestClient http = RestClient.create();
+    // Bound external IdP calls: an unavailable Keycloak must not hang onboarding workers.
+    private final RestClient http = newHttpClient();
+
+    private static RestClient newHttpClient() {
+        var factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(3000);
+        factory.setReadTimeout(10000);
+        return RestClient.builder().requestFactory(factory).build();
+    }
     private final String base, realm, clientId, clientSecret;
 
     public KeycloakOnboardingClient(
