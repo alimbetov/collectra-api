@@ -53,6 +53,8 @@ public class SecurityConfig {
                         requests ->
                                 requests.requestMatchers(
                                                 "/api/v1/auth/tenants/register",
+                                                "/api/v1/auth/keycloak/registration",
+                                                "/api/v1/auth/keycloak/registration/verification",
                                                 "/api/v1/auth/login",
                                                 "/api/v1/auth/login/by-slug",
                                                 "/api/v1/auth/refresh",
