@@ -43,7 +43,7 @@ jobs:
           java-version: '17'
           cache: maven
       - name: COL PostgreSQL snapshot monotonicity and fail-closed
-        run: mvn -B -ntp -Dtest=RevocationSnapshotPostgresIT,GlobalRevocationGateTest,KeycloakDomainAuthorizationFilterTest test
+        run: mvn -B -ntp -Dtest=RevocationSnapshotPostgresIT,GlobalRevocationGateTest,KeycloakDomainAuthorizationFilterTest,RevocationSnapshotConsumerHttpTest test
       - if: always()
         uses: actions/upload-artifact@v4
         with:
