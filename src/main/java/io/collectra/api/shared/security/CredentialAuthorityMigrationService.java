@@ -27,7 +27,7 @@ public class CredentialAuthorityMigrationService {
 
     @Transactional
     public void migrateVerifiedUser(UUID userId) {
-        UserAccount user = users.findById(userId)
+        UserAccount user = users.findByIdForCredentialMigration(userId)
                 .orElseThrow(() -> new IllegalArgumentException("Unknown local user"));
         if (user.getCredentialAuthority() == UserAccount.CredentialAuthority.KEYCLOAK) {
             return;
