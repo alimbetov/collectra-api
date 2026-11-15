@@ -80,3 +80,25 @@ Add PostgreSQL Testcontainers tests using actual Collectra Liquibase migrations 
 - Existing production behavior: **UNCHANGED**.
 - CI / Keycloak / browser tests on current SHA: **NOT RUN**.
 - R3.0A release gate: **OPEN**, no production cutover.
+
+
+## 6. IAM-R3.0B — committed PostgreSQL and HTTP RED test fixtures
+
+**Source files**
+- `src/test/java/io/collectra/api/shared/security/IamR30bIdentityMigrationPostgresRed.java`: PostgreSQL 16 Testcontainers, runs checked-in SQL migration `054-keycloak-identity-links.sql` on a minimal FK fixture. Tests verified `(iss,sub)` lookup preserving the Collectra UUID, unique local user binding, missing local user FK, and a deliberately failing requirement for durable `user_accounts.credential_authority`. The first three are expected GREEN against current schema; the fourth is expected RED. The column is a **proposed contract**, not yet an approved schema design; R3.0B review must confirm the final persistence model before implementation.
+- `src/test/java/io/collectra/api/shared/security/IamR30bLegacyHttpCutoverRed.java`: standalone Spring MockMvc HTTP RED for legacy tenant login, refresh, password reset and platform login, expecting HTTP 410 under the **future server-configured** KEYCLOAK_ONLY policy. Current controllers have no such policy and these tests are expected RED. The exact HTTP 410 response is a proposed contract to approve; alternative safe 4xx can be selected before GREEN. There is **no client-controlled authority-mode header**.
+- Existing `IamR30MigrationRedContract.java`: structural RED requirements for mode, startup validator and denial policy.
+
+**Explicit run commands (not yet executed):**
+
+```bash
+mvn --batch-mode --no-transfer-progress -Dtest=IamR30MigrationRedContract test
+mvn --batch-mode --no-transfer-progress -Dtest=IamR30bIdentityMigrationPostgresRed test
+mvn --batch-mode --no-transfer-progress -Dtest=IamR30bLegacyHttpCutoverRed test
+```
+
+All three classes use nonstandard `*Red` / `*RedContract` names, requiring explicit `-Dtest` selection and preventing deliberate RED tests from failing unrelated CI jobs. Do not confuse an expected RED with a successfully observed failing execution. Docker/Testcontainers are required for PostgreSQL tests.
+
+**Limits and next qualification:** PostgreSQL fixture applies actual migration 054 SQL but not the complete Liquibase changelog; run full-schema Liquibase tests next. Standalone MockMvc tests use mocked services and do not prove per-user migrated-state denial, real authentication or Spring Security filters; implement full-context HTTP + real PostgreSQL behavioral RED for legacy login, refresh and reset with a migrated user, as well as concurrent linking and rollback. Record Maven output and exact SHA before changing production code.
+
+**Status:** RED fixtures **COMMITTED / NOT EXECUTED**; actual RED evidence **PENDING**; production auth **UNCHANGED**.
