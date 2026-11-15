@@ -8,6 +8,7 @@ import io.collectra.api.identity.infrastructure.RefreshSessionRepository;
 import io.collectra.api.identity.infrastructure.UserAccountRepository;
 import io.collectra.api.shared.error.InvalidRefreshTokenException;
 import io.collectra.api.shared.security.InMemoryRateLimiter;
+import io.collectra.api.shared.security.LegacyCredentialCutoverPolicy;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -34,14 +35,17 @@ public class PlatformAuthService {
     private final SecurityAuditService audit;
     private final Duration refreshTtl;
     private final SecureRandom random = new SecureRandom();
+    private final LegacyCredentialCutoverPolicy credentialPolicy;
 
     public PlatformAuthService(UserAccountRepository users, RefreshSessionRepository sessions,
             PlatformUserRoleRepository platformRoles, PasswordEncoder passwords, JwtService jwt,
             InMemoryRateLimiter limiter, SecurityAuditService audit,
+            LegacyCredentialCutoverPolicy credentialPolicy,
             @Value("${collectra.security.refresh-token-ttl:30d}") Duration refreshTtl) {
         this.users = users; this.sessions = sessions; this.platformRoles = platformRoles;
         this.passwords = passwords; this.jwt = jwt; this.limiter = limiter; this.audit = audit;
         this.refreshTtl = refreshTtl;
+        this.credentialPolicy = credentialPolicy;
     }
 
     @Transactional
@@ -52,6 +56,7 @@ public class PlatformAuthService {
                 .filter(value -> "ACTIVE".equals(value.getStatus()))
                 .filter(value -> platformRoles.hasSuperAdminRole(value.getId()))
                 .orElseThrow(() -> new BadCredentialsException("Invalid credentials"));
+        credentialPolicy.denyLegacyCredentialForMigratedIdentity(user);
         if (!passwords.matches(password, user.getPasswordHash()))
             throw new BadCredentialsException("Invalid credentials");
         PlatformTokens result = issue(user, UUID.randomUUID(), null);
@@ -75,6 +80,7 @@ public class PlatformAuthService {
                 .filter(value -> "ACTIVE".equals(value.getStatus()))
                 .filter(value -> platformRoles.hasSuperAdminRole(value.getId()))
                 .orElseThrow(InvalidRefreshTokenException::new);
+        credentialPolicy.denyLegacyCredentialForMigratedIdentity(user);
         return issue(user, old.getFamilyId(), old);
     }
 
@@ -91,6 +97,7 @@ public class PlatformAuthService {
     }
 
     private PlatformTokens issue(UserAccount user, UUID family, RefreshSession predecessor) {
+        credentialPolicy.denyLegacyCredentialForMigratedIdentity(user);
         byte[] bytes = new byte[48]; random.nextBytes(bytes);
         String raw = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
         RefreshSession session = sessions.save(RefreshSession.platform(user.getId(), hash(raw), family,
