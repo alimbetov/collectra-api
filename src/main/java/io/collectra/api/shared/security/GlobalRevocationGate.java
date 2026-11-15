@@ -96,7 +96,7 @@ public class GlobalRevocationGate {
         if (consumer == null) {
             return false;
         }
-        String key = issuer + "\u0000" + subject;
+        String key = issuer.length() + ":" + issuer + ":" + subject;
         var existing = inFlight.get(key);
         if (existing != null) {
             return await(existing);
