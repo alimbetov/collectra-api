@@ -1,6 +1,8 @@
 # IAM-R3.2B — BFF-to-Collectra implementation slice
 
-Branch: feat/iam-shared-platform. Status: IN PROGRESS, NOT VERIFIED. Production: HOLD.
+Branch: feat/iam-shared-platform
+Status: IN PROGRESS, NOT VERIFIED.
+Production: HOLD.
 
 Implemented:
 - Conditional App Common REST proxy /api/v1/iam/collectra/api/v1/**; default disabled.
