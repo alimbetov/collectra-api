@@ -1,6 +1,7 @@
 # IAM-R3.2 — REST BFF session slice (not release qualified)
 
-Branch: feat/iam-shared-platform. Production switch: HOLD.
+Branch: feat/iam-shared-platform
+Production switch: HOLD.
 
 ## Implemented endpoints
 - GET /api/v1/iam/login -> redirects to Spring Security /oauth2/authorization/collectra.
