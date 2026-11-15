@@ -230,3 +230,7 @@ Maintain separate build/test artifacts, versions, changelogs, deployment configu
 - `INT-01` cross-app issuer/audience isolation and real revocation ACK, including consumer outage/recovery.
 
 **Evidence policy:** RED → minimal GREEN → full regression → S2. All test claims must state exact SHA and execution environment. This document does not certify implementation.
+
+## 10. R3.0A implementation artifact
+
+The source-grounded endpoint inventory, migration ownership matrix, exact executable RED test command, and evidence/status are maintained in [IAM-R3.0A authentication inventory and RED tests](../qa/iam-r3-0a-authentication-inventory-and-red-tests.md). The RED tests are intentionally excluded from normal Maven discovery until run explicitly; they are **not executed** and do not replace PostgreSQL behavioral RED tests required by R3.0B.
