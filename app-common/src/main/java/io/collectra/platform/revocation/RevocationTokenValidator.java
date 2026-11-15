@@ -25,6 +25,10 @@ public class RevocationTokenValidator implements OAuth2TokenValidator<Jwt> {
             boolean consumerScope = scopes != null && java.util.Arrays.stream(scopes.split(" "))
                 .anyMatch(s -> s.equals("revocations.read") || s.equals("revocations.ack"));
             if (client != null && !client.isBlank() && consumerScope) {
+                // A human token with an azp and revocation scopes is not a machine credential.
+                // Keycloak client_credentials tokens carry the service-account username.
+                String username = jwt.getClaimAsString("preferred_username");
+                if (!("service-account-" + client).equals(username)) return deny();
                 if (!access.isEnabledConsumerClient(client)) return deny();
                 return OAuth2TokenValidatorResult.success();
             }
