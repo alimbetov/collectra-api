@@ -31,6 +31,20 @@ class KeycloakDomainAuthorizationFilterTest {
 
     @AfterEach void clear() { SecurityContextHolder.clearContext(); }
 
+    @Test void revokedGlobalIdentityNeverReachesLocalIdentityLookup() throws Exception {
+        when(revocation.allows(ISSUER, "global-sub")).thenReturn(false);
+        var jwt = new Jwt("jwt", Instant.now(), Instant.now().plusSeconds(300),
+                Map.of("alg", "RS256"), Map.of("iss", ISSUER, "sub", "global-sub"));
+        SecurityContextHolder.getContext().setAuthentication(new JwtAuthenticationToken(jwt));
+        var filter = new KeycloakDomainAuthorizationFilter(links, revocation, users, memberships,
+                roles, platformRoles, tenants, true, ISSUER);
+        var response = new MockHttpServletResponse();
+        FilterChain chain = mock(FilterChain.class);
+        filter.doFilter(new MockHttpServletRequest("GET", "/api/v1/identity/me"), response, chain);
+        assertThat(response.getStatus()).isEqualTo(401);
+        verifyNoInteractions(links, users, memberships, roles, platformRoles, tenants, chain);
+    }
+
     @Test void verifiedLinkWithoutCredentialCutoverCannotBecomeAuthenticatedLocalUser() throws Exception {
         UUID localId = UUID.randomUUID();
         var user = mock(UserAccount.class);
