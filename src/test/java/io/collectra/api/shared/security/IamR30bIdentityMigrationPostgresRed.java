@@ -16,10 +16,10 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 /**
- * IAM-R3.0B: real PostgreSQL migration contracts, isolated from ordinary Surefire discovery.
- * Run: mvn -Dtest=IamR30bIdentityMigrationPostgresRed test
+ * IAM-R3.0B: real PostgreSQL migration contracts, isolated from ordinary Surefire discovery. Run:
+ * mvn -Dtest=IamR30bIdentityMigrationPostgresRed test
  *
- * The actual 054 migration SQL is executed against a minimal FK fixture. This is a focused
+ * <p>The actual 054 migration SQL is executed against a minimal FK fixture. This is a focused
  * schema-contract test, NOT a substitute for full Liquibase migration regression.
  */
 @Testcontainers
@@ -32,14 +32,16 @@ class IamR30bIdentityMigrationPostgresRed {
 
     @BeforeEach
     void setup() throws Exception {
-        var source = new DriverManagerDataSource(
-                postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword());
+        var source =
+                new DriverManagerDataSource(
+                        postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword());
         db = JdbcClient.create(source);
         db.sql("DROP TABLE IF EXISTS collectra_identity_links CASCADE").update();
         db.sql("DROP TABLE IF EXISTS user_accounts CASCADE").update();
         db.sql("CREATE TABLE user_accounts (id UUID PRIMARY KEY)").update();
-        try (InputStream stream = new ClassPathResource(
-                "db/changelog/changes/054-keycloak-identity-links.sql").getInputStream()) {
+        try (InputStream stream =
+                new ClassPathResource("db/changelog/changes/054-keycloak-identity-links.sql")
+                        .getInputStream()) {
             String migration = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
             // The checked-in 054 changeset has plain SQL statements without procedural blocks.
             for (String statement : migration.replaceAll("(?m)^--.*$", "").split(";")) {
@@ -47,20 +49,23 @@ class IamR30bIdentityMigrationPostgresRed {
             }
         }
         localUser = UUID.randomUUID();
-        db.sql("INSERT INTO user_accounts(id) VALUES (:id)")
-                .param("id", localUser).update();
+        db.sql("INSERT INTO user_accounts(id) VALUES (:id)").param("id", localUser).update();
     }
 
     @Test
     void verifiedIdentityLinkPreservesExistingCollectraUuid() {
         String issuer = "https://id.example/realms/shared";
         String subject = UUID.randomUUID().toString();
-        db.sql("""
+        db.sql(
+                        """
                 INSERT INTO collectra_identity_links
                     (issuer,subject_id,collectra_user_id,status,verified_at)
                 VALUES (:iss,:sub,:uid,'VERIFIED',now())
                 """)
-                .param("iss", issuer).param("sub", subject).param("uid", localUser).update();
+                .param("iss", issuer)
+                .param("sub", subject)
+                .param("uid", localUser)
+                .update();
         assertThat(new VerifiedIdentityLinkRepository(db).verifiedLocalUser(issuer, subject))
                 .contains(localUser);
     }
@@ -68,18 +73,26 @@ class IamR30bIdentityMigrationPostgresRed {
     @Test
     void differentKeycloakSubjectCannotStealExistingLocalUser() {
         String issuer = "https://id.example/realms/shared";
-        db.sql("""
+        db.sql(
+                        """
                 INSERT INTO collectra_identity_links
                     (issuer,subject_id,collectra_user_id,status,verified_at)
                 VALUES (:iss,'original',:uid,'VERIFIED',now())
                 """)
-                .param("iss", issuer).param("uid", localUser).update();
-        assertThatThrownBy(() -> db.sql("""
+                .param("iss", issuer)
+                .param("uid", localUser)
+                .update();
+        assertThatThrownBy(
+                        () ->
+                                db.sql(
+                                                """
                 INSERT INTO collectra_identity_links
                     (issuer,subject_id,collectra_user_id,status,verified_at)
                 VALUES (:iss,'attacker',:uid,'VERIFIED',now())
                 """)
-                .param("iss", issuer).param("uid", localUser).update())
+                                        .param("iss", issuer)
+                                        .param("uid", localUser)
+                                        .update())
                 .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
         assertThat(new VerifiedIdentityLinkRepository(db).verifiedLocalUser(issuer, "original"))
                 .contains(localUser);
@@ -87,54 +100,76 @@ class IamR30bIdentityMigrationPostgresRed {
 
     @Test
     void identityLinkMustRejectUnknownCollectraUser() {
-        assertThatThrownBy(() -> db.sql("""
+        assertThatThrownBy(
+                        () ->
+                                db.sql(
+                                                """
                 INSERT INTO collectra_identity_links
                     (issuer,subject_id,collectra_user_id,status,verified_at)
                 VALUES ('issuer','unknown',:uid,'VERIFIED',now())
                 """)
-                .param("uid", UUID.randomUUID()).update())
+                                        .param("uid", UUID.randomUUID())
+                                        .update())
                 .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
     }
-
 
     @Test
     void sameGlobalSubjectCannotBeLinkedToTwoCollectraUsers() {
         UUID otherUser = UUID.randomUUID();
-        db.sql("INSERT INTO user_accounts(id) VALUES (:id)")
-                .param("id", otherUser).update();
-        db.sql("""
+        db.sql("INSERT INTO user_accounts(id) VALUES (:id)").param("id", otherUser).update();
+        db.sql(
+                        """
                 INSERT INTO collectra_identity_links
                     (issuer,subject_id,collectra_user_id,status,verified_at)
                 VALUES ('issuer','shared-subject',:uid,'VERIFIED',now())
-                """).param("uid", localUser).update();
-        assertThatThrownBy(() -> db.sql("""
+                """)
+                .param("uid", localUser)
+                .update();
+        assertThatThrownBy(
+                        () ->
+                                db.sql(
+                                                """
                 INSERT INTO collectra_identity_links
                     (issuer,subject_id,collectra_user_id,status,verified_at)
                 VALUES ('issuer','shared-subject',:uid,'VERIFIED',now())
-                """).param("uid", otherUser).update())
+                """)
+                                        .param("uid", otherUser)
+                                        .update())
                 .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
-        assertThat(new VerifiedIdentityLinkRepository(db)
-                .verifiedLocalUser("issuer", "shared-subject")).contains(localUser);
+        assertThat(
+                        new VerifiedIdentityLinkRepository(db)
+                                .verifiedLocalUser("issuer", "shared-subject"))
+                .contains(localUser);
     }
 
     @Test
     void revokedLinkMustNotAuthenticateLocalUser() {
-        db.sql("""
+        db.sql(
+                        """
                 INSERT INTO collectra_identity_links
                     (issuer,subject_id,collectra_user_id,status)
                 VALUES ('issuer','revoked-subject',:uid,'REVOKED')
-                """).param("uid", localUser).update();
-        assertThat(new VerifiedIdentityLinkRepository(db)
-                .verifiedLocalUser("issuer", "revoked-subject")).isEmpty();
+                """)
+                .param("uid", localUser)
+                .update();
+        assertThat(
+                        new VerifiedIdentityLinkRepository(db)
+                                .verifiedLocalUser("issuer", "revoked-subject"))
+                .isEmpty();
     }
 
     @Test
     void verifiedLinkRequiresVerificationTimestamp() {
-        assertThatThrownBy(() -> db.sql("""
+        assertThatThrownBy(
+                        () ->
+                                db.sql(
+                                                """
                 INSERT INTO collectra_identity_links
                     (issuer,subject_id,collectra_user_id,status)
                 VALUES ('issuer','missing-proof',:uid,'VERIFIED')
-                """).param("uid", localUser).update())
+                """)
+                                        .param("uid", localUser)
+                                        .update())
                 .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
     }
 
@@ -142,11 +177,16 @@ class IamR30bIdentityMigrationPostgresRed {
     void migratedUserMustHaveDurableCredentialAuthorityStateRed() {
         // RED: current 054 schema stores verified identity link but does not yet persist
         // an explicit, enforceable credential authority cutover state.
-        assertThat(db.sql("""
+        assertThat(
+                        db.sql(
+                                        """
                 SELECT COUNT(*) FROM information_schema.columns
                 WHERE table_name='user_accounts' AND column_name='credential_authority'
-                """).query(Long.class).single())
-                .as("R3.0B: credential authority must be persisted and enforced by login/refresh/reset")
+                """)
+                                .query(Long.class)
+                                .single())
+                .as(
+                        "R3.0B: credential authority must be persisted and enforced by login/refresh/reset")
                 .isEqualTo(1L);
     }
 }

@@ -9,11 +9,11 @@ import org.junit.jupiter.api.Test;
 /**
  * IAM-R3.0A executable RED contracts.
  *
- * <p>Intentionally excluded from the normal Surefire *Test naming convention. Run explicitly:
- * mvn -Dtest=IamR30MigrationRedContract test
+ * <p>Intentionally excluded from the normal Surefire *Test naming convention. Run explicitly: mvn
+ * -Dtest=IamR30MigrationRedContract test
  *
- * <p>These tests specify the missing migration safety API. They are expected to fail until
- * R3.0B implements the contract; do not mark them PASS or silently disable their assertions.
+ * <p>These tests specify the missing migration safety API. They are expected to fail until R3.0B
+ * implements the contract; do not mark them PASS or silently disable their assertions.
  */
 class IamR30MigrationRedContract {
 
@@ -28,8 +28,7 @@ class IamR30MigrationRedContract {
 
     @Test
     void explicitCredentialAuthorityModesMustExist() {
-        Class<?> mode = requiredClass(
-                "io.collectra.api.shared.security.CredentialAuthorityMode");
+        Class<?> mode = requiredClass("io.collectra.api.shared.security.CredentialAuthorityMode");
         assertThat(mode.isEnum()).as("CredentialAuthorityMode must be an enum").isTrue();
         assertThat(Arrays.stream(mode.getEnumConstants()).map(Object::toString))
                 .contains("LEGACY", "MIGRATION", "KEYCLOAK_ONLY");
@@ -37,8 +36,9 @@ class IamR30MigrationRedContract {
 
     @Test
     void startupMustValidateCredentialAuthorityConfiguration() {
-        Class<?> validator = requiredClass(
-                "io.collectra.api.shared.security.CredentialAuthorityStartupValidator");
+        Class<?> validator =
+                requiredClass(
+                        "io.collectra.api.shared.security.CredentialAuthorityStartupValidator");
         assertThat(Arrays.stream(validator.getDeclaredMethods()).map(Method::getName))
                 .as("Fail-closed startup validation must have an explicit entry point")
                 .contains("validate");
@@ -46,8 +46,8 @@ class IamR30MigrationRedContract {
 
     @Test
     void migratedIdentitiesMustHaveExplicitLegacyCredentialDenialPolicy() {
-        Class<?> policy = requiredClass(
-                "io.collectra.api.shared.security.LegacyCredentialCutoverPolicy");
+        Class<?> policy =
+                requiredClass("io.collectra.api.shared.security.LegacyCredentialCutoverPolicy");
         assertThat(Arrays.stream(policy.getDeclaredMethods()).map(Method::getName))
                 .as("Login, refresh and reset must consult a shared migrated-user denial policy")
                 .contains("denyLegacyCredentialForMigratedIdentity");

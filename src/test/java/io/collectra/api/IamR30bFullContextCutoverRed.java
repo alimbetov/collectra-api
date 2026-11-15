@@ -18,18 +18,19 @@ import org.springframework.test.web.servlet.MockMvc;
  *
  * <p>Run explicitly: mvn -Dtest=IamR30bFullContextCutoverRed test
  *
- * <p>Mode is server-side configuration; the test must NOT supply a mode header.
- * Existing users are created via the current service to retain real UUIDs and
- * refresh sessions; the HTTP boundary must stop issuing legacy credentials in
- * KEYCLOAK_ONLY. Expected RED until the mode and enforcement are implemented.
+ * <p>Mode is server-side configuration; the test must NOT supply a mode header. Existing users are
+ * created via the current service to retain real UUIDs and refresh sessions; the HTTP boundary must
+ * stop issuing legacy credentials in KEYCLOAK_ONLY. Expected RED until the mode and enforcement are
+ * implemented.
  */
 @AutoConfigureMockMvc
-@TestPropertySource(properties = {
-        "collectra.security.credential-authority-mode=KEYCLOAK_ONLY",
-        "collectra.security.keycloak.enabled=true",
-        "collectra.security.keycloak.issuer=http://localhost:18080/realms/test",
-        "collectra.security.keycloak.jwk-set-uri=http://localhost:18080/realms/test/protocol/openid-connect/certs"
-})
+@TestPropertySource(
+        properties = {
+            "collectra.security.credential-authority-mode=KEYCLOAK_ONLY",
+            "collectra.security.keycloak.enabled=true",
+            "collectra.security.keycloak.issuer=http://localhost:18080/realms/test",
+            "collectra.security.keycloak.jwk-set-uri=http://localhost:18080/realms/test/protocol/openid-connect/certs"
+        })
 class IamR30bFullContextCutoverRed extends AbstractIntegrationTest {
     @Autowired MockMvc mvc;
     @Autowired AuthService auth;
@@ -39,12 +40,21 @@ class IamR30bFullContextCutoverRed extends AbstractIntegrationTest {
     void existingTenantUserCannotLoginWithLegacyPasswordInKeycloakOnly() throws Exception {
         String slug = "r30b-" + UUID.randomUUID();
         String email = "migration-" + UUID.randomUUID() + "@example.invalid";
-        AuthService.AuthTokens existing = auth.register(slug, "Migration Test", email, "StrongPassword123!");
+        AuthService.AuthTokens existing =
+                auth.register(slug, "Migration Test", email, "StrongPassword123!");
         assertThat(existing.accessToken()).isNotBlank();
-        var response = mvc.perform(post("/api/v1/auth/login/by-slug")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(json.writeValueAsString(new Login(slug, email, "StrongPassword123!"))))
-                .andReturn().getResponse();
+        var response =
+                mvc.perform(
+                                post("/api/v1/auth/login/by-slug")
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(
+                                                json.writeValueAsString(
+                                                        new Login(
+                                                                slug,
+                                                                email,
+                                                                "StrongPassword123!"))))
+                        .andReturn()
+                        .getResponse();
         assertThat(response.getStatus())
                 .as("KEYCLOAK_ONLY must not issue a legacy JWT for a real existing user")
                 .isBetween(400, 499);
@@ -53,17 +63,27 @@ class IamR30bFullContextCutoverRed extends AbstractIntegrationTest {
     @Test
     void existingRefreshTokenCannotBeExchangedInKeycloakOnly() throws Exception {
         String slug = "r30b-" + UUID.randomUUID();
-        AuthService.AuthTokens existing = auth.register(slug, "Migration Test",
-                "refresh-" + UUID.randomUUID() + "@example.invalid", "StrongPassword123!");
-        var response = mvc.perform(post("/api/v1/auth/refresh")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(json.writeValueAsString(new Refresh(existing.refreshToken()))))
-                .andReturn().getResponse();
+        AuthService.AuthTokens existing =
+                auth.register(
+                        slug,
+                        "Migration Test",
+                        "refresh-" + UUID.randomUUID() + "@example.invalid",
+                        "StrongPassword123!");
+        var response =
+                mvc.perform(
+                                post("/api/v1/auth/refresh")
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(
+                                                json.writeValueAsString(
+                                                        new Refresh(existing.refreshToken()))))
+                        .andReturn()
+                        .getResponse();
         assertThat(response.getStatus())
                 .as("KEYCLOAK_ONLY must reject a previously issued legacy refresh token")
                 .isBetween(400, 499);
     }
 
     record Login(String tenantSlug, String email, String password) {}
+
     record Refresh(String refreshToken) {}
 }

@@ -25,44 +25,69 @@ class RevocationSnapshotConsumerHttpTest {
         acknowledgements = new AtomicInteger();
         store = mock(RevocationSnapshotStore.class);
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
-        server.createContext("/token", exchange -> {
-            byte[] body = "{\"access_token\":\"machine-test-token\"}".getBytes(StandardCharsets.UTF_8);
-            exchange.getResponseHeaders().set("Content-Type", "application/json");
-            exchange.sendResponseHeaders(200, body.length);
-            try (var out = exchange.getResponseBody()) { out.write(body); }
-        });
-        server.createContext("/api/v1/internal/revocations", exchange -> {
-            if (exchange.getRequestURI().getPath().endsWith("/ack")) {
-                acknowledgements.incrementAndGet();
-                exchange.sendResponseHeaders(202, -1);
-            } else {
-                byte[] body = "{\"state\":\"BLOCKED\",\"version\":2}".getBytes(StandardCharsets.UTF_8);
-                exchange.getResponseHeaders().set("Content-Type", "application/json");
-                exchange.sendResponseHeaders(200, body.length);
-                try (var out = exchange.getResponseBody()) { out.write(body); }
-            }
-            exchange.close();
-        });
+        server.createContext(
+                "/token",
+                exchange -> {
+                    byte[] body =
+                            "{\"access_token\":\"machine-test-token\"}"
+                                    .getBytes(StandardCharsets.UTF_8);
+                    exchange.getResponseHeaders().set("Content-Type", "application/json");
+                    exchange.sendResponseHeaders(200, body.length);
+                    try (var out = exchange.getResponseBody()) {
+                        out.write(body);
+                    }
+                });
+        server.createContext(
+                "/api/v1/internal/revocations",
+                exchange -> {
+                    if (exchange.getRequestURI().getPath().endsWith("/ack")) {
+                        acknowledgements.incrementAndGet();
+                        exchange.sendResponseHeaders(202, -1);
+                    } else {
+                        byte[] body =
+                                "{\"state\":\"BLOCKED\",\"version\":2}"
+                                        .getBytes(StandardCharsets.UTF_8);
+                        exchange.getResponseHeaders().set("Content-Type", "application/json");
+                        exchange.sendResponseHeaders(200, body.length);
+                        try (var out = exchange.getResponseBody()) {
+                            out.write(body);
+                        }
+                    }
+                    exchange.close();
+                });
         server.start();
         String base = "http://127.0.0.1:" + server.getAddress().getPort();
-        consumer = new RevocationSnapshotConsumer(mock(JdbcClient.class), store,
-                "https://id.example/realms/shared", base, base + "/token",
-                "collectra-machine", "test-secret", true);
+        consumer =
+                new RevocationSnapshotConsumer(
+                        mock(JdbcClient.class),
+                        store,
+                        "https://id.example/realms/shared",
+                        base,
+                        base + "/token",
+                        "collectra-machine",
+                        "test-secret",
+                        true);
     }
 
-    @AfterEach void stop() { if (server != null) server.stop(0); }
+    @AfterEach
+    void stop() {
+        if (server != null) server.stop(0);
+    }
 
-    @Test void durableApplyPrecedesHttpAckAndRetryIsIdempotent() {
+    @Test
+    void durableApplyPrecedesHttpAckAndRetryIsIdempotent() {
         consumer.synchronize("global-sub");
         consumer.synchronize("global-sub");
         var order = inOrder(store);
-        order.verify(store, times(2)).apply("https://id.example/realms/shared",
-                "global-sub", 2L, "BLOCKED");
+        order.verify(store, times(2))
+                .apply("https://id.example/realms/shared", "global-sub", 2L, "BLOCKED");
         assertThat(acknowledgements.get()).isEqualTo(2);
     }
 
-    @Test void failedLocalApplyMustNotSendAck() {
-        doThrow(new IllegalStateException("database unavailable")).when(store)
+    @Test
+    void failedLocalApplyMustNotSendAck() {
+        doThrow(new IllegalStateException("database unavailable"))
+                .when(store)
                 .apply("https://id.example/realms/shared", "global-sub", 2L, "BLOCKED");
         assertThatThrownBy(() -> consumer.synchronize("global-sub"))
                 .isInstanceOf(IllegalStateException.class);

@@ -29,15 +29,33 @@ class KeycloakDomainAuthorizationFilterTest {
     private final PlatformUserRoleRepository platformRoles = mock(PlatformUserRoleRepository.class);
     private final TenantRepository tenants = mock(TenantRepository.class);
 
-    @AfterEach void clear() { SecurityContextHolder.clearContext(); }
+    @AfterEach
+    void clear() {
+        SecurityContextHolder.clearContext();
+    }
 
-    @Test void revokedGlobalIdentityNeverReachesLocalIdentityLookup() throws Exception {
+    @Test
+    void revokedGlobalIdentityNeverReachesLocalIdentityLookup() throws Exception {
         when(revocation.allows(ISSUER, "global-sub")).thenReturn(false);
-        var jwt = new Jwt("jwt", Instant.now(), Instant.now().plusSeconds(300),
-                Map.of("alg", "RS256"), Map.of("iss", ISSUER, "sub", "global-sub"));
+        var jwt =
+                new Jwt(
+                        "jwt",
+                        Instant.now(),
+                        Instant.now().plusSeconds(300),
+                        Map.of("alg", "RS256"),
+                        Map.of("iss", ISSUER, "sub", "global-sub"));
         SecurityContextHolder.getContext().setAuthentication(new JwtAuthenticationToken(jwt));
-        var filter = new KeycloakDomainAuthorizationFilter(links, revocation, users, memberships,
-                roles, platformRoles, tenants, true, ISSUER);
+        var filter =
+                new KeycloakDomainAuthorizationFilter(
+                        links,
+                        revocation,
+                        users,
+                        memberships,
+                        roles,
+                        platformRoles,
+                        tenants,
+                        true,
+                        ISSUER);
         var response = new MockHttpServletResponse();
         FilterChain chain = mock(FilterChain.class);
         filter.doFilter(new MockHttpServletRequest("GET", "/api/v1/identity/me"), response, chain);
@@ -45,7 +63,8 @@ class KeycloakDomainAuthorizationFilterTest {
         verifyNoInteractions(links, users, memberships, roles, platformRoles, tenants, chain);
     }
 
-    @Test void verifiedLinkWithoutCredentialCutoverCannotBecomeAuthenticatedLocalUser() throws Exception {
+    @Test
+    void verifiedLinkWithoutCredentialCutoverCannotBecomeAuthenticatedLocalUser() throws Exception {
         UUID localId = UUID.randomUUID();
         var user = mock(UserAccount.class);
         when(user.getStatus()).thenReturn("ACTIVE");
@@ -53,11 +72,25 @@ class KeycloakDomainAuthorizationFilterTest {
         when(revocation.allows(ISSUER, "global-sub")).thenReturn(true);
         when(links.verifiedLocalUser(ISSUER, "global-sub")).thenReturn(Optional.of(localId));
         when(users.findById(localId)).thenReturn(Optional.of(user));
-        var jwt = new Jwt("jwt", Instant.now(), Instant.now().plusSeconds(300),
-                Map.of("alg", "RS256"), Map.of("iss", ISSUER, "sub", "global-sub"));
+        var jwt =
+                new Jwt(
+                        "jwt",
+                        Instant.now(),
+                        Instant.now().plusSeconds(300),
+                        Map.of("alg", "RS256"),
+                        Map.of("iss", ISSUER, "sub", "global-sub"));
         SecurityContextHolder.getContext().setAuthentication(new JwtAuthenticationToken(jwt));
-        var filter = new KeycloakDomainAuthorizationFilter(links, revocation, users, memberships,
-                roles, platformRoles, tenants, true, ISSUER);
+        var filter =
+                new KeycloakDomainAuthorizationFilter(
+                        links,
+                        revocation,
+                        users,
+                        memberships,
+                        roles,
+                        platformRoles,
+                        tenants,
+                        true,
+                        ISSUER);
         var request = new MockHttpServletRequest("GET", "/api/v1/identity/me");
         request.addHeader("X-Collectra-Tenant-ID", UUID.randomUUID().toString());
         var response = new MockHttpServletResponse();

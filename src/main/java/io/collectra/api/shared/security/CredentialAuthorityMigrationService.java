@@ -8,9 +8,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Operator-side migration primitive; deliberately not exposed as a public HTTP endpoint.
- * Preserves local UUID and business foreign keys. Existing JWTs become invalid via
- * authorizationVersion increment, and refresh sessions are revoked in the same transaction.
+ * Operator-side migration primitive; deliberately not exposed as a public HTTP endpoint. Preserves
+ * local UUID and business foreign keys. Existing JWTs become invalid via authorizationVersion
+ * increment, and refresh sessions are revoked in the same transaction.
  */
 @Service
 public class CredentialAuthorityMigrationService {
@@ -18,8 +18,10 @@ public class CredentialAuthorityMigrationService {
     private final VerifiedIdentityLinkRepository links;
     private final RefreshSessionRepository sessions;
 
-    public CredentialAuthorityMigrationService(UserAccountRepository users,
-            VerifiedIdentityLinkRepository links, RefreshSessionRepository sessions) {
+    public CredentialAuthorityMigrationService(
+            UserAccountRepository users,
+            VerifiedIdentityLinkRepository links,
+            RefreshSessionRepository sessions) {
         this.users = users;
         this.links = links;
         this.sessions = sessions;
@@ -27,8 +29,9 @@ public class CredentialAuthorityMigrationService {
 
     @Transactional
     public void migrateVerifiedUser(UUID userId) {
-        UserAccount user = users.findByIdForCredentialMigration(userId)
-                .orElseThrow(() -> new IllegalArgumentException("Unknown local user"));
+        UserAccount user =
+                users.findByIdForCredentialMigration(userId)
+                        .orElseThrow(() -> new IllegalArgumentException("Unknown local user"));
         if (user.getCredentialAuthority() == UserAccount.CredentialAuthority.KEYCLOAK) {
             return;
         }

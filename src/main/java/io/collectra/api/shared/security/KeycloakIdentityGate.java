@@ -27,8 +27,12 @@ public class KeycloakIdentityGate {
         if (issuer.isBlank() || !issuer.equals(tokenIssuer)) return false;
         return links.verifiedLocalUser(tokenIssuer, tokenSubject)
                 .flatMap(users::findById)
-                .map(user -> "ACTIVE".equals(user.getStatus())
-                        && user.getCredentialAuthority() == io.collectra.api.identity.domain.UserAccount.CredentialAuthority.KEYCLOAK)
+                .map(
+                        user ->
+                                "ACTIVE".equals(user.getStatus())
+                                        && user.getCredentialAuthority()
+                                                == io.collectra.api.identity.domain.UserAccount
+                                                        .CredentialAuthority.KEYCLOAK)
                 .orElse(false);
     }
 }

@@ -12,12 +12,12 @@ import io.collectra.api.shared.security.LegacyCredentialCutoverPolicy;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.HexFormat;
 import java.util.UUID;
-import java.security.SecureRandom;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -37,13 +37,23 @@ public class PlatformAuthService {
     private final SecureRandom random = new SecureRandom();
     private final LegacyCredentialCutoverPolicy credentialPolicy;
 
-    public PlatformAuthService(UserAccountRepository users, RefreshSessionRepository sessions,
-            PlatformUserRoleRepository platformRoles, PasswordEncoder passwords, JwtService jwt,
-            InMemoryRateLimiter limiter, SecurityAuditService audit,
+    public PlatformAuthService(
+            UserAccountRepository users,
+            RefreshSessionRepository sessions,
+            PlatformUserRoleRepository platformRoles,
+            PasswordEncoder passwords,
+            JwtService jwt,
+            InMemoryRateLimiter limiter,
+            SecurityAuditService audit,
             LegacyCredentialCutoverPolicy credentialPolicy,
             @Value("${collectra.security.refresh-token-ttl:30d}") Duration refreshTtl) {
-        this.users = users; this.sessions = sessions; this.platformRoles = platformRoles;
-        this.passwords = passwords; this.jwt = jwt; this.limiter = limiter; this.audit = audit;
+        this.users = users;
+        this.sessions = sessions;
+        this.platformRoles = platformRoles;
+        this.passwords = passwords;
+        this.jwt = jwt;
+        this.limiter = limiter;
+        this.audit = audit;
         this.refreshTtl = refreshTtl;
         this.credentialPolicy = credentialPolicy;
     }
@@ -52,10 +62,11 @@ public class PlatformAuthService {
     public PlatformTokens login(String email, String password) {
         String normalized = email.trim().toLowerCase();
         limiter.check("platform-login:" + normalized, 5, Duration.ofMinutes(15));
-        UserAccount user = users.findByTenantIdIsNullAndEmailIgnoreCase(normalized)
-                .filter(value -> "ACTIVE".equals(value.getStatus()))
-                .filter(value -> platformRoles.hasSuperAdminRole(value.getId()))
-                .orElseThrow(() -> new BadCredentialsException("Invalid credentials"));
+        UserAccount user =
+                users.findByTenantIdIsNullAndEmailIgnoreCase(normalized)
+                        .filter(value -> "ACTIVE".equals(value.getStatus()))
+                        .filter(value -> platformRoles.hasSuperAdminRole(value.getId()))
+                        .orElseThrow(() -> new BadCredentialsException("Invalid credentials"));
         credentialPolicy.denyLegacyCredentialForMigratedIdentity(user);
         if (!passwords.matches(password, user.getPasswordHash()))
             throw new BadCredentialsException("Invalid credentials");
@@ -66,9 +77,10 @@ public class PlatformAuthService {
 
     @Transactional(noRollbackFor = InvalidRefreshTokenException.class)
     public PlatformTokens refresh(String rawToken) {
-        RefreshSession old = sessions.findByTokenHashForUpdate(hash(rawToken))
-                .filter(session -> "PLATFORM".equals(session.getContextType()))
-                .orElseThrow(InvalidRefreshTokenException::new);
+        RefreshSession old =
+                sessions.findByTokenHashForUpdate(hash(rawToken))
+                        .filter(session -> "PLATFORM".equals(session.getContextType()))
+                        .orElseThrow(InvalidRefreshTokenException::new);
         if (!old.active()) {
             if (old.revoked()) {
                 old.markReuseDetected();
@@ -76,10 +88,11 @@ public class PlatformAuthService {
             }
             throw new InvalidRefreshTokenException();
         }
-        UserAccount user = users.findById(old.getUserId())
-                .filter(value -> "ACTIVE".equals(value.getStatus()))
-                .filter(value -> platformRoles.hasSuperAdminRole(value.getId()))
-                .orElseThrow(InvalidRefreshTokenException::new);
+        UserAccount user =
+                users.findById(old.getUserId())
+                        .filter(value -> "ACTIVE".equals(value.getStatus()))
+                        .filter(value -> platformRoles.hasSuperAdminRole(value.getId()))
+                        .orElseThrow(InvalidRefreshTokenException::new);
         credentialPolicy.denyLegacyCredentialForMigratedIdentity(user);
         return issue(user, old.getFamilyId(), old);
     }
@@ -98,27 +111,35 @@ public class PlatformAuthService {
 
     private PlatformTokens issue(UserAccount user, UUID family, RefreshSession predecessor) {
         credentialPolicy.denyLegacyCredentialForMigratedIdentity(user);
-        byte[] bytes = new byte[48]; random.nextBytes(bytes);
+        byte[] bytes = new byte[48];
+        random.nextBytes(bytes);
         String raw = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
-        RefreshSession session = sessions.save(RefreshSession.platform(user.getId(), hash(raw), family,
-                Instant.now().plus(refreshTtl)));
+        RefreshSession session =
+                sessions.save(
+                        RefreshSession.platform(
+                                user.getId(), hash(raw), family, Instant.now().plus(refreshTtl)));
         if (predecessor != null) {
             predecessor.usedAt(Instant.now());
             predecessor.replaceWith(session.getId());
         }
-        return new PlatformTokens(jwt.issuePlatform(user, platformRoles.roleCodes(user.getId())),
-                raw, "Bearer", jwt.expiresIn());
+        return new PlatformTokens(
+                jwt.issuePlatform(user, platformRoles.roleCodes(user.getId())),
+                raw,
+                "Bearer",
+                jwt.expiresIn());
     }
 
     private String hash(String raw) {
         try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
-                    .digest(raw.getBytes(StandardCharsets.UTF_8)));
+            return HexFormat.of()
+                    .formatHex(
+                            MessageDigest.getInstance("SHA-256")
+                                    .digest(raw.getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException exception) {
             throw new IllegalStateException(exception);
         }
     }
 
-    public record PlatformTokens(String accessToken, String refreshToken, String tokenType,
-            long expiresIn) {}
+    public record PlatformTokens(
+            String accessToken, String refreshToken, String tokenType, long expiresIn) {}
 }

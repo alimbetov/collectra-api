@@ -18,15 +18,19 @@ class CredentialAuthorityMigrationServiceTest {
     private final CredentialAuthorityMigrationService service =
             new CredentialAuthorityMigrationService(users, links, sessions);
 
-    @Test void verifiedCutoverKeepsLocalUuidAndInvalidatesLegacyCredentials() {
-        var user = new UserAccount(UUID.randomUUID(), "test@example.org", "hash", SystemRole.TENANT_USER);
+    @Test
+    void verifiedCutoverKeepsLocalUuidAndInvalidatesLegacyCredentials() {
+        var user =
+                new UserAccount(
+                        UUID.randomUUID(), "test@example.org", "hash", SystemRole.TENANT_USER);
         UUID id = user.getId();
         long version = user.getAuthorizationVersion();
         when(users.findByIdForCredentialMigration(id)).thenReturn(Optional.of(user));
         when(links.hasVerifiedLinkForLocalUser(id)).thenReturn(true);
         service.migrateVerifiedUser(id);
         assertThat(user.getId()).isEqualTo(id);
-        assertThat(user.getCredentialAuthority()).isEqualTo(UserAccount.CredentialAuthority.KEYCLOAK);
+        assertThat(user.getCredentialAuthority())
+                .isEqualTo(UserAccount.CredentialAuthority.KEYCLOAK);
         assertThat(user.getAuthorizationVersion()).isEqualTo(version + 1);
         verify(sessions).revokeAllByUserId(id);
         service.migrateVerifiedUser(id);
@@ -35,8 +39,11 @@ class CredentialAuthorityMigrationServiceTest {
         verify(users, never()).findById(id);
     }
 
-    @Test void unverifiedLinkNeverChangesCredentialAuthority() {
-        var user = new UserAccount(UUID.randomUUID(), "test@example.org", "hash", SystemRole.TENANT_USER);
+    @Test
+    void unverifiedLinkNeverChangesCredentialAuthority() {
+        var user =
+                new UserAccount(
+                        UUID.randomUUID(), "test@example.org", "hash", SystemRole.TENANT_USER);
         when(users.findByIdForCredentialMigration(user.getId())).thenReturn(Optional.of(user));
         assertThatThrownBy(() -> service.migrateVerifiedUser(user.getId()))
                 .isInstanceOf(IllegalStateException.class);

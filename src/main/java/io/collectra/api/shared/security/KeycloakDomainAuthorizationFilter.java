@@ -78,9 +78,11 @@ public class KeycloakDomainAuthorizationFilter extends OncePerRequestFilter {
                 return;
             }
             var user = users.findById(localId).orElse(null);
-            if (user == null || !"ACTIVE".equals(user.getStatus())
+            if (user == null
+                    || !"ACTIVE".equals(user.getStatus())
                     || user.getCredentialAuthority()
-                        != io.collectra.api.identity.domain.UserAccount.CredentialAuthority.KEYCLOAK) {
+                            != io.collectra.api.identity.domain.UserAccount.CredentialAuthority
+                                    .KEYCLOAK) {
                 deny(response);
                 return;
             }

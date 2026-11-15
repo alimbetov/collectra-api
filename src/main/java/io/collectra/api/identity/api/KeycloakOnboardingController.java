@@ -15,12 +15,16 @@ import org.springframework.web.bind.annotation.*;
 @PreAuthorize("hasAuthority('ROLE_PLATFORM_SUPER_ADMIN')")
 public class KeycloakOnboardingController {
     private final KeycloakOnboardingService service;
-    public KeycloakOnboardingController(KeycloakOnboardingService service) { this.service=service; }
+
+    public KeycloakOnboardingController(KeycloakOnboardingService service) {
+        this.service = service;
+    }
 
     @PostMapping
-    public ResponseEntity<Map<String,Object>> register(@Valid @RequestBody StartRequest request) {
-        UUID id=service.registerExisting(request.localUserId());
-        return ResponseEntity.status(HttpStatus.ACCEPTED).body(Map.of("onboardingId",id,"status","VERIFICATION_SENT"));
+    public ResponseEntity<Map<String, Object>> register(@Valid @RequestBody StartRequest request) {
+        UUID id = service.registerExisting(request.localUserId());
+        return ResponseEntity.status(HttpStatus.ACCEPTED)
+                .body(Map.of("onboardingId", id, "status", "VERIFICATION_SENT"));
     }
 
     @PostMapping("/{id}/activate")

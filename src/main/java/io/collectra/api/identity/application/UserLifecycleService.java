@@ -97,7 +97,8 @@ public class UserLifecycleService {
                         ? Set.of(RbacService.TENANT_USER_ROLE)
                         : Set.copyOf(requestedRoleIds);
         validateRoles(tenantId, roleIds);
-        invitations.findAllByTenantIdAndEmailIgnoreCaseAndStatus(tenantId, normalized, "PENDING")
+        invitations
+                .findAllByTenantIdAndEmailIgnoreCaseAndStatus(tenantId, normalized, "PENDING")
                 .forEach(UserInvitation::revoke);
         String raw = randomToken();
         UserInvitation invitation =
@@ -139,7 +140,8 @@ public class UserLifecycleService {
             String rawToken, String password, String displayName, String locale, String timezone) {
         Instant now = Instant.now();
         UserInvitation invitation =
-                invitations.findByTokenHashForUpdate(hash(rawToken))
+                invitations
+                        .findByTokenHashForUpdate(hash(rawToken))
                         .filter(value -> value.activeAt(now))
                         .orElseThrow(() -> new BadCredentialsException("Invalid invitation"));
         if (users.existsByTenantIdAndEmailIgnoreCase(
@@ -173,7 +175,8 @@ public class UserLifecycleService {
     public MeResponse me(UUID userId, UUID tenantId, UUID membershipId) {
         UserAccount user = users.findById(userId).orElseThrow();
         TenantMembership membership =
-                memberships.findByIdAndTenantId(membershipId, tenantId)
+                memberships
+                        .findByIdAndTenantId(membershipId, tenantId)
                         .filter(value -> userId.equals(value.getUserId()))
                         .orElseThrow();
         return new MeResponse(
@@ -218,24 +221,40 @@ public class UserLifecycleService {
         String normalized = email.trim().toLowerCase(Locale.ROOT);
         limiter.check("password-reset:" + tenantId + ":" + normalized, 3, Duration.ofMinutes(30));
         UUID requestId = UUID.randomUUID();
-        String raw = users.findByTenantIdAndEmailIgnoreCase(tenantId, normalized)
-                .filter(user -> "ACTIVE".equals(user.getStatus()))
-                .filter(user -> user.getCredentialAuthority() == UserAccount.CredentialAuthority.LEGACY)
-                .map(user -> {
-                    String token = randomToken();
-                    PasswordResetToken reset = resetTokens.save(
-                            new PasswordResetToken(
-                                    user.getId(), tenantId, hash(token), Instant.now().plus(Duration.ofMinutes(30))));
-                    audit.append(tenantId, "USER", user.getId(), "PASSWORD_RESET_REQUESTED", "SUCCEEDED", null);
-                    outbox.append(
-                            tenantId,
-                            "PasswordReset",
-                            reset.getId(),
-                            "PasswordResetRequested",
-                            "{\"resetId\":\"" + reset.getId() + "\"}");
-                    return token;
-                })
-                .orElse(null);
+        String raw =
+                users.findByTenantIdAndEmailIgnoreCase(tenantId, normalized)
+                        .filter(user -> "ACTIVE".equals(user.getStatus()))
+                        .filter(
+                                user ->
+                                        user.getCredentialAuthority()
+                                                == UserAccount.CredentialAuthority.LEGACY)
+                        .map(
+                                user -> {
+                                    String token = randomToken();
+                                    PasswordResetToken reset =
+                                            resetTokens.save(
+                                                    new PasswordResetToken(
+                                                            user.getId(),
+                                                            tenantId,
+                                                            hash(token),
+                                                            Instant.now()
+                                                                    .plus(Duration.ofMinutes(30))));
+                                    audit.append(
+                                            tenantId,
+                                            "USER",
+                                            user.getId(),
+                                            "PASSWORD_RESET_REQUESTED",
+                                            "SUCCEEDED",
+                                            null);
+                                    outbox.append(
+                                            tenantId,
+                                            "PasswordReset",
+                                            reset.getId(),
+                                            "PasswordResetRequested",
+                                            "{\"resetId\":\"" + reset.getId() + "\"}");
+                                    return token;
+                                })
+                        .orElse(null);
         return new ResetRequestResponse(requestId, exposeTokens ? raw : null);
     }
 
@@ -243,7 +262,8 @@ public class UserLifecycleService {
     public void resetPassword(String rawToken, String newPassword) {
         Instant now = Instant.now();
         PasswordResetToken reset =
-                resetTokens.findByTokenHashForUpdate(hash(rawToken))
+                resetTokens
+                        .findByTokenHashForUpdate(hash(rawToken))
                         .filter(value -> value.activeAt(now))
                         .orElseThrow(() -> new BadCredentialsException("Invalid reset token"));
         UserAccount user = users.findById(reset.getUserId()).orElseThrow();
@@ -251,13 +271,17 @@ public class UserLifecycleService {
         user.changePassword(passwords.encode(newPassword));
         reset.consume(now);
         sessions.revokeAllByUserId(user.getId());
-        audit.append(reset.getTenantId(), "USER", user.getId(), "PASSWORD_RESET", "SUCCEEDED", null);
+        audit.append(
+                reset.getTenantId(), "USER", user.getId(), "PASSWORD_RESET", "SUCCEEDED", null);
     }
 
     @Transactional(readOnly = true)
     public List<SessionResponse> sessions(UUID userId, UUID membershipId) {
-        return sessions.findAllByUserIdAndMembershipIdOrderByCreatedAtDesc(userId, membershipId)
-                .stream().map(SessionResponse::from).toList();
+        return sessions
+                .findAllByUserIdAndMembershipIdOrderByCreatedAtDesc(userId, membershipId)
+                .stream()
+                .map(SessionResponse::from)
+                .toList();
     }
 
     @Transactional
