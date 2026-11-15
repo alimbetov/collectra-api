@@ -76,7 +76,8 @@ class KeycloakOnboardingPostgresIT extends AbstractIntegrationTest {
 
         assertThat(second).isEqualTo(first);
         assertThat(db.sql(
-                        "SELECT count(*) FROM collectra_keycloak_onboarding WHERE local_user_id=:id")
+                        "SELECT count(*) FROM collectra_keycloak_onboarding "
+                                + "WHERE local_user_id=:id")
                         .param("id", user.getId())
                         .query(Long.class)
                         .single())
@@ -101,7 +102,11 @@ class KeycloakOnboardingPostgresIT extends AbstractIntegrationTest {
                 .hasMessageContaining("Reserved Keycloak subject conflict");
 
         assertThat(db.sql(
-                        "SELECT count(*) FROM collectra_keycloak_onboarding WHERE local_user_id=:id AND status='PENDING' AND verification_requested_at IS NULL")
+                        """
+                        SELECT count(*) FROM collectra_keycloak_onboarding
+                        WHERE local_user_id=:id AND status='PENDING'
+                          AND verification_requested_at IS NULL
+                        """)
                         .param("id", user.getId())
                         .query(Long.class)
                         .single())
