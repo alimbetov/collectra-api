@@ -5,6 +5,10 @@ import io.collectra.platform.revocation.RevocationTokenValidator;
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.annotation.Order;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfToken;
+import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
+import org.springframework.security.web.authentication.session.ChangeSessionIdAuthenticationStrategy;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -17,7 +21,6 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.config.http.SessionCreationPolicy;
 
 @Configuration
 @EnableMethodSecurity
@@ -31,6 +34,7 @@ public class ResourceServerSecurity {
                     "/api/v1/iam/callback", "/oauth2/authorization/**").permitAll()
                 .anyRequest().authenticated())
             .csrf(csrf -> csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse()))
+            .sessionManagement(session -> session.sessionFixation(fixation -> fixation.changeSessionId()))
             .oauth2Login(oidc -> oidc
                 .redirectionEndpoint(redirect -> redirect.baseUri("/api/v1/iam/callback"))
                 .defaultSuccessUrl("/api/v1/iam/session", true))
