@@ -43,12 +43,22 @@ public class KumoMtaEmailDeliveryGateway implements DeliveryGateway {
             KumoMtaInjectResponse response = client.inject(toRequest(command));
             if (response != null && response.acceptedSingleRecipient()) {
                 log.info(
-                        "KumoMTA injection accepted tenantId={} messageId={} attemptNo={} httpStatus=200 latencyMs={}",
+                        "KumoMTA injection accepted tenantId={} messageId={} attemptNo={} httpStatus=200 successCount={} failCount={} latencyMs={}",
                         command.tenantId(),
                         command.messageId(),
                         command.attemptNo(),
+                        response.successCount(),
+                        response.failCount(),
                         elapsedMillis(started));
                 return new DeliveryResult.Accepted(null);
+            }
+            if (response != null) {
+                log.warn(
+                        "KumoMTA injection response tenantId={} messageId={} httpStatus=200 successCount={} failCount={}",
+                        command.tenantId(),
+                        command.messageId(),
+                        response.successCount(),
+                        response.failCount());
             }
             return reject(command, errors.classifyResponse(response), "200", started);
         } catch (RuntimeException failure) {

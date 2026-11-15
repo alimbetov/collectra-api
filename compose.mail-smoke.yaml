@@ -1,0 +1,21 @@
+name: collectra-mail-smoke
+services:
+  kumomta:
+    image: ghcr.io/kumocorp/kumomta:latest
+    volumes:
+      - ./scripts/mail/policy:/opt/kumomta/etc/policy:ro
+      - mail_kumo_spool:/var/spool/kumomta
+    ports:
+      - "127.0.0.1:${MAIL_KUMO_PORT:-18000}:8000"
+    depends_on:
+      - mailpit
+    restart: unless-stopped
+
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "127.0.0.1:${MAIL_MAILPIT_PORT:-18025}:8025"
+    restart: unless-stopped
+
+volumes:
+  mail_kumo_spool:
