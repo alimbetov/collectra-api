@@ -63,7 +63,8 @@ public class KeycloakDomainAuthorizationFilter extends OncePerRequestFilter {
             return;
         }
         Jwt jwt = bearer.getToken();
-        if (!issuer.equals(jwt.getIssuer().toString())) {
+        // A structurally incomplete token must be rejected, never cause an unhandled NPE.
+        if (jwt.getIssuer() == null || !issuer.equals(jwt.getIssuer().toString())) {
             deny(response);
             return;
         }
