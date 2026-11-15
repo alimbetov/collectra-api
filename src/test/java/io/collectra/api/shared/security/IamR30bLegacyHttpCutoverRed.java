@@ -20,8 +20,9 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 /**
  * IAM-R3.0B HTTP RED. Standalone MVC verifies the HTTP boundary contract only.
- * It intentionally expects KEYCLOAK_ONLY to reject legacy credential endpoints,
- * while current controllers still delegate to the legacy services.
+ * It specifies the future KEYCLOAK_ONLY HTTP outcome; current standalone controllers
+ * have no server-side authority-mode gate and are therefore expected to fail these assertions.
+ * Credential authority MUST be server configuration, NEVER a request header.
  *
  * Run explicitly: mvn -Dtest=IamR30bLegacyHttpCutoverRed test
  * A later GREEN test MUST use the full Spring Security filter chain, actual persistence,
@@ -36,7 +37,6 @@ class IamR30bLegacyHttpCutoverRed {
                 .thenReturn(new AuthService.AuthTokens("legacy-access", "legacy-refresh", "Bearer", 300));
         var mvc = MockMvcBuilders.standaloneSetup(new AuthController(service)).build();
         mvc.perform(post("/api/v1/auth/login")
-                        .header("X-Test-Credential-Authority", "KEYCLOAK_ONLY")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"tenantId\":\"" + tenant + "\",\"email\":\"test@example.invalid\",\"password\":\"legacy-password\"}"))
                 .andExpect(status().isGone());
@@ -49,7 +49,6 @@ class IamR30bLegacyHttpCutoverRed {
                 .thenReturn(new AuthService.AuthTokens("legacy-access", "legacy-refresh", "Bearer", 300));
         var mvc = MockMvcBuilders.standaloneSetup(new AuthController(service)).build();
         mvc.perform(post("/api/v1/auth/refresh")
-                        .header("X-Test-Credential-Authority", "KEYCLOAK_ONLY")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"refreshToken\":\"legacy-refresh\"}"))
                 .andExpect(status().isGone());
@@ -60,7 +59,6 @@ class IamR30bLegacyHttpCutoverRed {
         UserLifecycleService service = mock(UserLifecycleService.class);
         var mvc = MockMvcBuilders.standaloneSetup(new AccountLifecycleController(service)).build();
         mvc.perform(post("/api/v1/auth/password/reset")
-                        .header("X-Test-Credential-Authority", "KEYCLOAK_ONLY")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"token\":\"legacy-reset-token\",\"newPassword\":\"new-password-12345\"}"))
                 .andExpect(status().isGone());
@@ -73,7 +71,6 @@ class IamR30bLegacyHttpCutoverRed {
                 .thenReturn(new PlatformAuthService.PlatformTokens("legacy-access", "legacy-refresh", "Bearer", 300));
         var mvc = MockMvcBuilders.standaloneSetup(new PlatformAuthController(service)).build();
         mvc.perform(post("/api/v1/platform/auth/login")
-                        .header("X-Test-Credential-Authority", "KEYCLOAK_ONLY")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"email\":\"operator@example.invalid\",\"password\":\"legacy-password\"}"))
                 .andExpect(status().isGone());
