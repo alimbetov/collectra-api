@@ -1,0 +1,54 @@
+name: IAM R3.0B RED qualification (manual)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  iam-r30b-red:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+      - name: Verify Docker availability
+        run: docker info
+      - name: Execute deliberately failing RED contracts
+        id: red
+        shell: bash
+        run: |
+          set +e
+          mkdir -p red-evidence
+          mvn --batch-mode --no-transfer-progress \
+            -Dtest=IamR30MigrationRedContract,IamR30bIdentityMigrationPostgresRed,IamR30bLegacyHttpCutoverRed,IamR30bFullContextCutoverRed \
+            test > red-evidence/maven.log 2>&1
+          code=$?
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          echo "Maven exit code: $code" | tee red-evidence/exit-code.txt
+          cp -r target/surefire-reports red-evidence/ 2>/dev/null || true
+          exit 0
+      - name: Record provenance
+        shell: bash
+        run: |
+          printf 'SHA=%s\nRUN_ID=%s\nMAVEN_EXIT=%s\n' \
+            "$GITHUB_SHA" "$GITHUB_RUN_ID" "${{ steps.red.outputs.exit_code }}" \
+            > red-evidence/provenance.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: iam-r30b-red-${{ github.sha }}
+          path: red-evidence/
+          retention-days: 14
+      - name: Enforce expected RED exit
+        shell: bash
+        run: |
+          if [ "${{ steps.red.outputs.exit_code }}" = "0" ]; then
+            echo "Unexpected GREEN: inspect test discovery and assertions" >&2
+            exit 1
+          fi
+          echo "Nonzero Maven exit observed; inspect Surefire XML to distinguish expected assertion failures from compilation, infrastructure or Docker errors."
