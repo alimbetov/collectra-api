@@ -21,6 +21,7 @@ import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
@@ -55,6 +56,8 @@ class RevocationHttpAckPostgresIT {
     @Autowired JdbcClient db;
     @Autowired ObjectMapper mapper;
     @MockBean JwtDecoder decoder;
+    // HTTP ACK contract does not exercise browser OIDC; never discover an external issuer here.
+    @MockBean ClientRegistrationRepository registrations;
 
     private Jwt token(String client, String scopes) {
         Instant now=Instant.now();
