@@ -219,7 +219,34 @@ http "$API/api/v1/identity/me" -H "Authorization: Bearer $user_token" \
 [[ $STATUS == 200 && $(jq -r .id <<< "$RESPONSE") == "$user_id" ]] || {
   mark 1 FAIL "real Keycloak JWT to Collectra returned HTTP $STATUS or wrong local user"; exit 1;
 }
-mark 1 PASS 'Keycloak password grant JWT accepted by Collectra tenant API (HTTP 200)'
+# Outage while the ACTIVE snapshot ages beyond 30s: deny the old JWT, then recover.
+"${COMPOSE[@]}" stop app-common >/dev/null
+if curl -fsS --max-time 2 "$COMMON/actuator/health" >/dev/null 2>&1; then
+  mark 1 FAIL 'AC remained reachable after stop'; exit 1
+fi
+stale=0
+for attempt in $(seq 1 45); do
+  stale=$(sql_collectra "SELECT refreshed_at < now() - interval '31 seconds' FROM collectra_global_access_snapshots WHERE issuer='$ISSUER' AND subject_id='$subject'")
+  [[ $stale == t ]] && break
+  sleep 1
+done
+[[ $stale == t ]] || { mark 1 FAIL 'ACTIVE snapshot did not age beyond 30 seconds'; exit 1; }
+http "$API/api/v1/identity/me" -H "Authorization: Bearer $user_token" \
+  -H "X-Collectra-Tenant-ID: $tenant_id"
+[[ $STATUS == 401 ]] || { mark 1 FAIL "stale ACTIVE granted access: HTTP $STATUS"; exit 1; }
+before_recovery=$(sql_collectra "SELECT (EXTRACT(EPOCH FROM refreshed_at)*1000)::bigint FROM collectra_global_access_snapshots WHERE issuer='$ISSUER' AND subject_id='$subject'")
+"${COMPOSE[@]}" start app-common >/dev/null
+wait_http "$COMMON/actuator/health"
+recovered=0
+for attempt in $(seq 1 35); do
+  after_recovery=$(sql_collectra "SELECT (EXTRACT(EPOCH FROM refreshed_at)*1000)::bigint FROM collectra_global_access_snapshots WHERE issuer='$ISSUER' AND subject_id='$subject'")
+  http "$API/api/v1/identity/me" -H "Authorization: Bearer $user_token" \
+    -H "X-Collectra-Tenant-ID: $tenant_id"
+  if [[ $after_recovery -gt $before_recovery && $STATUS == 200 ]]; then recovered=1; break; fi
+  sleep 2
+done
+[[ $recovered == 1 ]] || { mark 1 FAIL 'ACTIVE user did not recover after AC restart'; exit 1; }
+mark 1 PASS 'local KEYCLOAK user ACTIVE, automatic ACK, stale ACTIVE fail-closed, recovered 200'
 
 CURRENT=2
 http -X POST "$COMMON/api/v1/platform/subjects/$subject/block?issuer=$ISSUER" \
