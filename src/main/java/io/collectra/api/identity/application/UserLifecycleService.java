@@ -16,6 +16,7 @@ import io.collectra.api.identity.infrastructure.UserAccountRepository;
 import io.collectra.api.identity.infrastructure.UserInvitationRepository;
 import io.collectra.api.shared.outbox.OutboxService;
 import io.collectra.api.shared.security.InMemoryRateLimiter;
+import io.collectra.api.shared.security.LegacyCredentialCutoverPolicy;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -50,6 +51,7 @@ public class UserLifecycleService {
     private final OutboxService outbox;
     private final InMemoryRateLimiter limiter;
     private final boolean exposeTokens;
+    private final LegacyCredentialCutoverPolicy credentialPolicy;
     private final SecureRandom random = new SecureRandom();
 
     public UserLifecycleService(
@@ -65,6 +67,7 @@ public class UserLifecycleService {
             SecurityAuditService audit,
             OutboxService outbox,
             InMemoryRateLimiter limiter,
+            LegacyCredentialCutoverPolicy credentialPolicy,
             @Value("${collectra.security.expose-development-tokens:false}") boolean exposeTokens) {
         this.invitations = invitations;
         this.resetTokens = resetTokens;
@@ -79,6 +82,7 @@ public class UserLifecycleService {
         this.outbox = outbox;
         this.limiter = limiter;
         this.exposeTokens = exposeTokens;
+        this.credentialPolicy = credentialPolicy;
     }
 
     @Transactional
@@ -200,6 +204,7 @@ public class UserLifecycleService {
     @Transactional
     public void changePassword(UUID userId, String currentPassword, String newPassword) {
         UserAccount user = users.findById(userId).orElseThrow();
+        credentialPolicy.denyLegacyCredentialForMigratedIdentity(user);
         if (!passwords.matches(currentPassword, user.getPasswordHash())) {
             throw new BadCredentialsException("Invalid credentials");
         }
@@ -215,6 +220,7 @@ public class UserLifecycleService {
         UUID requestId = UUID.randomUUID();
         String raw = users.findByTenantIdAndEmailIgnoreCase(tenantId, normalized)
                 .filter(user -> "ACTIVE".equals(user.getStatus()))
+                .filter(user -> user.getCredentialAuthority() == UserAccount.CredentialAuthority.LEGACY)
                 .map(user -> {
                     String token = randomToken();
                     PasswordResetToken reset = resetTokens.save(
@@ -241,6 +247,7 @@ public class UserLifecycleService {
                         .filter(value -> value.activeAt(now))
                         .orElseThrow(() -> new BadCredentialsException("Invalid reset token"));
         UserAccount user = users.findById(reset.getUserId()).orElseThrow();
+        credentialPolicy.denyLegacyCredentialForMigratedIdentity(user);
         user.changePassword(passwords.encode(newPassword));
         reset.consume(now);
         sessions.revokeAllByUserId(user.getId());
