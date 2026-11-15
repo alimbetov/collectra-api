@@ -26,15 +26,11 @@ class IamOidcControllerTest {
                 () -> new IamOidcController("http://id.example/realms/shared", "collectra-web"));
     }
 
-    @Test void sessionReturnsJwtIdentityWithoutCredentialMaterial() {
+    @Test void sessionRejectsNonOidcAuthentication() {
         var controller = new IamOidcController("https://id.example/realms/shared", "collectra-web");
-        Jwt jwt = new Jwt("sensitive-token", Instant.now(), Instant.now().plusSeconds(60),
-                java.util.Map.of("alg", "RS256"),
-                java.util.Map.of("sub", "user-123", "iss", "https://id.example/realms/shared",
-                        "aud", List.of("app-common-api")));
-        var response = controller.session(jwt);
-        assertThat(response.getBody()).containsEntry("authenticated", true)
-                .containsEntry("subject", "user-123");
-        assertThat(response.getBody()).doesNotContainKeys("accessToken", "refreshToken", "password");
+        var response = controller.session(null);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(response.getBody()).containsEntry("authenticated", false);
+        assertThat(response.getHeaders().getCacheControl()).contains("no-store");
     }
 }
