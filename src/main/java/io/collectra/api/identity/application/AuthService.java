@@ -6,6 +6,7 @@ import io.collectra.api.identity.infrastructure.*;
 import io.collectra.api.shared.error.InvalidRefreshTokenException;
 import io.collectra.api.shared.outbox.OutboxService;
 import io.collectra.api.shared.security.InMemoryRateLimiter;
+import io.collectra.api.shared.security.LegacyCredentialCutoverPolicy;
 import io.collectra.api.tenant.domain.Tenant;
 import io.collectra.api.tenant.infrastructure.TenantRepository;
 import java.nio.charset.StandardCharsets;
@@ -32,6 +33,7 @@ public class AuthService {
     private final SecurityAuditService audit;
     private final Duration refreshTtl;
     private final SecureRandom random = new SecureRandom();
+    private final LegacyCredentialCutoverPolicy credentialPolicy;
 
     public AuthService(
             TenantRepository tenants,
@@ -44,6 +46,7 @@ public class AuthService {
             OutboxService outbox,
             InMemoryRateLimiter limiter,
             SecurityAuditService audit,
+            LegacyCredentialCutoverPolicy credentialPolicy,
             @Value("${collectra.security.refresh-token-ttl:30d}") Duration refreshTtl) {
         this.tenants = tenants;
         this.users = users;
@@ -56,6 +59,7 @@ public class AuthService {
         this.refreshTtl = refreshTtl;
         this.limiter = limiter;
         this.audit = audit;
+        this.credentialPolicy = credentialPolicy;
     }
 
     @Transactional
@@ -112,6 +116,7 @@ public class AuthService {
                 users.findByTenantIdAndEmailIgnoreCase(tenantId, email)
                         .filter(account -> "ACTIVE".equals(account.getStatus()))
                         .orElseThrow(() -> new BadCredentialsException("Invalid credentials"));
+        credentialPolicy.denyLegacyCredentialForMigratedIdentity(user);
         if (!passwords.matches(password, user.getPasswordHash()))
             throw new BadCredentialsException("Invalid credentials");
         TenantMembership membership =
@@ -148,6 +153,7 @@ public class AuthService {
                 users.findById(old.getUserId())
                         .filter(u -> "ACTIVE".equals(u.getStatus()))
                         .orElseThrow(InvalidRefreshTokenException::new);
+        credentialPolicy.denyLegacyCredentialForMigratedIdentity(user);
         TenantMembership membership =
                 memberships
                         .findByIdAndTenantId(old.getMembershipId(), old.getTenantId())
@@ -177,6 +183,7 @@ public class AuthService {
             TenantMembership membership,
             UUID family,
             RefreshSession predecessor) {
+        credentialPolicy.denyLegacyCredentialForMigratedIdentity(user);
         byte[] bytes = new byte[48];
         random.nextBytes(bytes);
         String raw = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
