@@ -107,3 +107,6 @@ databaseChangeLog:
 
   - include:
       file: db/changelog/changes/056-credential-authority.sql
+
+  - include:
+      file: db/changelog/changes/057-keycloak-onboarding.sql
