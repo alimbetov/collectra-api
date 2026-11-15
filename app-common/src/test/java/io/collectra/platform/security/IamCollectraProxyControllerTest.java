@@ -25,7 +25,7 @@ class IamCollectraProxyControllerTest {
 
     @Test void unauthenticatedRequestsNeverReachUpstream() {
         var controller = new IamCollectraProxyController(manager, "http://localhost:8080");
-        var response = controller.forward(mock(HttpServletRequest.class), null, null);
+        var response = controller.forward(mock(HttpServletRequest.class), null, null, null);
         assertThat(response.getStatusCode().value()).isEqualTo(401);
     }
 }
