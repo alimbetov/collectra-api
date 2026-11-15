@@ -29,7 +29,7 @@ report() {
   if (( code != 0 && CURRENT > 0 )) && [[ ${RESULT[$CURRENT]} == BLOCKED ]]; then
     mark "$CURRENT" FAIL "runner stopped before the scenario completed"
   fi
-  os=$(sw_vers -productVersion 2>/dev/null || printf 'unknown')
+  os=$(sw_vers -productVersion 2>/dev/null || uname -s)
   arch=$(uname -m)
   sha=$(git rev-parse HEAD)
   docker_version=$(docker version --format '{{.Server.Version}}' 2>/dev/null || printf 'unavailable')
@@ -39,7 +39,7 @@ report() {
     printf 'Run UTC: %s  \n' "$(date -u '+%Y-%m-%d %H:%M:%S')"
     printf 'Source HEAD: `%s`  \n' "$sha"
     printf 'Working tree: `%s`  \n' "$(git status --porcelain | wc -l | tr -d ' ') changed paths (including this report)"
-    printf 'macOS: `%s` / `%s`  \n' "$os" "$arch"
+    printf 'Runner OS: `%s` / `%s`  \n' "$os" "$arch"
     printf 'Java: `%s`  \n' "$(java -version 2>&1 | head -n 1)"
     printf 'Docker: `%s`  \n' "$docker_version"
     printf 'Keycloak: `%s`  \n\n' "$keycloak_version"
@@ -67,8 +67,13 @@ report() {
 trap 'report $?' EXIT
 
 need() { command -v "$1" >/dev/null || { echo "Missing tool: $1" >&2; exit 2; }; }
-for tool in docker java mvn curl jq openssl sw_vers uuidgen; do need "$tool"; done
-[[ $(uname -s) == Darwin ]] || { echo 'NOT RUN ON MACOS: this runner requires macOS' >&2; exit 2; }
+for tool in docker java mvn curl jq openssl uuidgen; do need "$tool"; done
+if [[ $(uname -s) == Darwin ]]; then
+  need sw_vers
+elif [[ $(uname -s) != Linux || ${IAM_G2_ALLOW_LINUX_CI:-false} != true ]]; then
+  echo 'BLOCKED: run this smoke on macOS or on explicitly enabled disposable Linux CI' >&2
+  exit 2
+fi
 docker info >/dev/null
 
 if [[ ! -f .env ]]; then
