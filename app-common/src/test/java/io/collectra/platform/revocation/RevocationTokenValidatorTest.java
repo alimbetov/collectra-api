@@ -48,7 +48,8 @@ class RevocationTokenValidatorTest {
             .subject("service-account-subject")
             .audience(List.of("app-common-api"))
             .issuedAt(now).expiresAt(now.plusSeconds(300))
-            .claim("azp",client).claim("scope",scope).build();
+            .claim("azp",client).claim("preferred_username","service-account-"+client)
+            .claim("scope",scope).build();
     }
 
     @Test
@@ -58,6 +59,23 @@ class RevocationTokenValidatorTest {
         assertThat(new RevocationTokenValidator(service).validate(
             consumerJwt("collectra-client","revocations.read revocations.ack")).hasErrors()).isFalse();
         verify(service,never()).isAllowed(anyString(),anyString());
+    }
+
+    @Test
+    void humanJwtWithRevocationScopesCannotUseMachineBypass() {
+        SubjectAccessService service=mock(SubjectAccessService.class);
+        when(service.isEnabledConsumerClient("collectra-client")).thenReturn(true);
+        Jwt human=Jwt.withTokenValue("human")
+            .header("alg","RS256")
+            .issuer("https://id.example/realms/shared")
+            .subject("user-1")
+            .audience(List.of("app-common-api"))
+            .issuedAt(Instant.now()).expiresAt(Instant.now().plusSeconds(300))
+            .claim("azp","collectra-client")
+            .claim("preferred_username","human-user")
+            .claim("scope","revocations.read").build();
+        assertThat(new RevocationTokenValidator(service).validate(human).hasErrors()).isTrue();
+        verify(service,never()).isEnabledConsumerClient(anyString());
     }
 
     @Test
