@@ -32,7 +32,12 @@ import org.testcontainers.junit.jupiter.Testcontainers;
     "app-common.security.issuer-uri=https://issuer.example/realms/shared",
     "app-common.security.jwk-set-uri=https://issuer.example/keys",
     "app-common.security.audience=app-common",
-    "app-common.revocation.reconcile-enabled=false"
+    "app-common.revocation.reconcile-enabled=false",
+    "spring.security.oauth2.client.provider.shared.authorization-uri=http://localhost:8180/realms/shared/protocol/openid-connect/auth",
+    "spring.security.oauth2.client.provider.shared.token-uri=http://localhost:8180/realms/shared/protocol/openid-connect/token",
+    "spring.security.oauth2.client.provider.shared.jwk-set-uri=http://localhost:8180/realms/shared/protocol/openid-connect/certs",
+    "spring.security.oauth2.client.provider.shared.user-info-uri=http://localhost:8180/realms/shared/protocol/openid-connect/userinfo",
+    "spring.security.oauth2.client.provider.shared.user-name-attribute=sub"
 })
 @AutoConfigureMockMvc
 @Testcontainers
@@ -59,6 +64,7 @@ class RevocationHttpAckPostgresIT {
             .subject("service-"+client)
             .issuedAt(now).expiresAt(now.plusSeconds(300))
             .claim("azp",client)
+            .claim("preferred_username","service-account-"+client)
             .claim("aud",List.of("app-common"))
             .claim("scope",scopes)
             .build();
