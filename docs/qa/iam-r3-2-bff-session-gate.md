@@ -18,7 +18,7 @@ Security chain: separate stateful OIDC browser routes from stateless JWT resourc
 2. **BFF-to-Collectra API forwarding is NOT implemented**. Current React still sends legacy bearer token and stores legacy refresh token in sessionStorage. Do not enable the new flow for React until authenticated proxy/API delegation is designed and tested.
 3. Default HttpSession and OAuth2AuthorizedClientRepository are not production durable across instances. Configure Spring Session with Redis or JDBC, session fixation/rotation and restart recovery.
 4. Validate authorization-code replay, mismatched state, PKCE downgrade, nonce, expired sessions, CSRF, cookie flags, login CSRF and cross-origin requests.
-5. Validate real Keycloak client import, correct redirect URI for App Common host (not React host). The current realm collectra-web redirect URI is http://localhost:5173/auth/callback; BFF expects /api/v1/iam/callback on App Common host. Align the client configuration and CORS/host strategy before E2E.
+5. Validate real Keycloak client import, correct redirect URI for App Common host (not React host). Development realm redirect URI has been aligned to http://localhost:8090/api/v1/iam/callback. Browser origin is http://localhost:5173. Validate actual import, host strategy, cookie behavior and CSRF before E2E.
 6. Verify global logout redirects and revocation semantics, and that local logout does not imply global SSO logout.
 7. Existing Collectra domain JWT gate must reject legacy authority for Keycloak tokens; complete JWT/API tests.
 8. IAM-R3.1 real SMTP/REG-01..07 remains open.
