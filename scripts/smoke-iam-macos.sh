@@ -182,9 +182,12 @@ token() {
 }
 operator_token=$(token iam-smoke-operator "$IAM_OPERATOR_CLIENT_SECRET")
 consumer_token=$(token iam-smoke-consumer "$IAM_CONSUMER_CLIENT_SECRET")
-user_token=$(curl -fsS --max-time 10 -X POST "$ISSUER/protocol/openid-connect/token" \
+user_token_response=$(curl -fsS --max-time 10 -X POST "$ISSUER/protocol/openid-connect/token" \
   -d grant_type=password -d client_id=iam-smoke-user \
-  --data-urlencode "username=$email" --data-urlencode "password=$IAM_USER_PASSWORD" | jq -er .access_token)
+  --data-urlencode "username=$email" --data-urlencode "password=$IAM_USER_PASSWORD")
+user_token=$(jq -er .access_token <<< "$user_token_response")
+user_token_expires_at=$(( $(date +%s) + $(jq -er .expires_in <<< "$user_token_response") ))
+unset user_token_response
 
 http() {
   STATUS=$(curl -sS --max-time 15 -o "$TMP" -w '%{http_code}' "$@")
@@ -281,6 +284,10 @@ state=$(sql_common "SELECT state || '|' || version FROM subject_access_state WHE
 mark 3 PASS "App Common HTTP block committed BLOCKED v$version in PostgreSQL"
 
 CURRENT=4
+# A 401 from an already-expired token is not evidence of revocation.
+(( user_token_expires_at > $(date +%s) + 15 )) || {
+  mark 4 FAIL 'pre-block JWT already expired; denial cannot prove revocation'; exit 1;
+}
 # Prove that denial comes from the durable local BLOCKED vN, not an expired ACTIVE snapshot.
 blocked_synced=0
 for attempt in $(seq 1 30); do
