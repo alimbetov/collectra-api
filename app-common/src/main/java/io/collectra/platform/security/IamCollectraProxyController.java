@@ -62,9 +62,9 @@ public class IamCollectraProxyController {
         String suffix = path.substring(prefix.length());
         if (suffix.contains("..") || suffix.contains("%") || suffix.contains("\\"))
             return ResponseEntity.badRequest().build();
-        // Credential and IAM administration endpoints are not exposed through the BFF.
-        if (suffix.startsWith("/api/v1/auth/") || suffix.startsWith("/api/v1/platform/auth/")
-                || suffix.startsWith("/api/v1/platform/iam/") || suffix.startsWith("/api/v1/integration/service-token"))
+        // Positive route allowlist. Expand only after endpoint-level security review.
+        // CurrentUserController requires ROLE_HUMAN and tenant membership.
+        if (!("GET".equals(request.getMethod()) && "/api/v1/identity/me".equals(suffix)))
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         if (body != null && body.length > 1024 * 1024) return ResponseEntity.status(413).build();
         var authorize = OAuth2AuthorizeRequest.withClientRegistrationId(oauth.getAuthorizedClientRegistrationId())
