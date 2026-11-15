@@ -23,12 +23,16 @@ public class EnforcementReconciler {
               AND EXISTS (SELECT 1 FROM access_state_outbox x
                 WHERE x.issuer=o.issuer AND x.subject_id=o.subject_id
                   AND x.target_version=o.target_version AND x.keycloak_applied_at IS NOT NULL)
-              AND (SELECT count(*) FROM enforcement_operation_consumers oc
-                   WHERE oc.operation_id=o.id) = 2
               AND EXISTS (SELECT 1 FROM enforcement_operation_consumers oc
-                   WHERE oc.operation_id=o.id AND oc.consumer_id='collectra-api')
-              AND EXISTS (SELECT 1 FROM enforcement_operation_consumers oc
-                   WHERE oc.operation_id=o.id AND oc.consumer_id='app-b-api')
+                   WHERE oc.operation_id=o.id)
+              AND NOT EXISTS (
+                SELECT 1 FROM revocation_consumers c
+                WHERE c.required_for_enforcement=true
+                  AND NOT EXISTS (
+                    SELECT 1 FROM enforcement_operation_consumers oc
+                    WHERE oc.operation_id=o.id AND oc.consumer_id=c.consumer_id
+                  )
+              )
               AND NOT EXISTS (
                 SELECT 1 FROM enforcement_operation_consumers oc
                 WHERE oc.operation_id=o.id AND NOT EXISTS (
