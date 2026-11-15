@@ -291,14 +291,17 @@ http "$COMMON/api/v1/internal/revocations/$subject?issuer=$ISSUER" \
 mark 5 PASS "OAuth Consumer fetched BLOCKED v$version over HTTP"
 
 CURRENT=6
-http -X POST "$COMMON/api/v1/internal/revocations/ack" \
-  -H "Authorization: Bearer $consumer_token" -H 'Content-Type: application/json' \
-  -d "$(jq -nc --arg issuer "$ISSUER" --arg subject "$subject" --argjson version "$version" \
-    '{issuer:$issuer,subject:$subject,version:$version}')"
-[[ $STATUS == 202 ]] || { mark 6 FAIL "HTTP ACK returned $STATUS"; exit 1; }
-ack=$(sql_common "SELECT version FROM revocation_acks WHERE consumer_id='collectra-api' AND issuer='$ISSUER' AND subject_id='$subject'")
-[[ $ack == "$version" ]] || { mark 6 FAIL "ACK database version is $ack"; exit 1; }
-mark 6 PASS "service OAuth HTTP ACK persisted v$version in PostgreSQL"
+# No POST /ack from the runner: only the running COL application can create this ACK.
+auto_ack=0
+for attempt in $(seq 1 30); do
+  ack=$(sql_common "SELECT version FROM revocation_acks WHERE consumer_id='collectra-api' AND issuer='$ISSUER' AND subject_id='$subject'")
+  [[ $ack == "$version" ]] && { auto_ack=1; break; }
+  sleep 2
+done
+[[ $auto_ack == 1 ]] || { mark 6 FAIL "COL failed to autonomously ACK BLOCKED v$version"; exit 1; }
+binding_ok=$(sql_common "SELECT EXISTS (SELECT 1 FROM revocation_acks a JOIN revocation_consumers c USING (consumer_id) WHERE a.consumer_id='collectra-api' AND a.issuer='$ISSUER' AND a.subject_id='$subject' AND a.version=$version AND a.binding_epoch=c.binding_epoch AND c.oauth_client_id='iam-smoke-consumer')")
+[[ $binding_ok == t ]] || { mark 6 FAIL 'ACK binding epoch or OAuth client mismatch'; exit 1; }
+mark 6 PASS "COL automatically ACKed BLOCKED v$version; AC PostgreSQL binding epoch matches"
 
 CURRENT=7
 mark 7 BLOCKED 'no real App-B executable in repository; no second Consumer/ACK simulated'
