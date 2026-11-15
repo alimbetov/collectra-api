@@ -3,6 +3,8 @@ package io.collectra.platform.security;
 import org.springframework.beans.factory.annotation.Value;
 import io.collectra.platform.revocation.RevocationTokenValidator;
 import org.springframework.context.annotation.Bean;
+import org.springframework.core.annotation.Order;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -21,6 +23,22 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 @EnableMethodSecurity
 public class ResourceServerSecurity {
     @Bean
+    @Order(1)
+    SecurityFilterChain browserOidcSecurity(HttpSecurity http) throws Exception {
+        return http.securityMatcher("/api/v1/iam/**", "/oauth2/authorization/**")
+            .authorizeHttpRequests(auth -> auth
+                .requestMatchers("/api/v1/iam/oidc/config", "/api/v1/iam/login",
+                    "/api/v1/iam/callback", "/oauth2/authorization/**").permitAll()
+                .anyRequest().authenticated())
+            .csrf(csrf -> csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse()))
+            .oauth2Login(oidc -> oidc
+                .redirectionEndpoint(redirect -> redirect.baseUri("/api/v1/iam/callback"))
+                .defaultSuccessUrl("/api/v1/iam/session", true))
+            .build();
+    }
+
+    @Bean
+    @Order(2)
     SecurityFilterChain apiSecurity(HttpSecurity http) throws Exception {
         return http
             .csrf(csrf -> csrf.disable())
