@@ -65,7 +65,7 @@ public class IamOidcController {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(Map.of(
                 "authenticated", true,
                 "subject", oidc.getSubject(),
-                "issuer", oidc.getIssuer().toString()));
+                "issuer", oidc.getIdToken().getIssuer().toString()));
     }
 
     @PostMapping("/logout")
