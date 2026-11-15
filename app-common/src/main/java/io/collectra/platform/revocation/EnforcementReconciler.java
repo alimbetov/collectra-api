@@ -26,14 +26,6 @@ public class EnforcementReconciler {
               AND EXISTS (SELECT 1 FROM enforcement_operation_consumers oc
                    WHERE oc.operation_id=o.id)
               AND NOT EXISTS (
-                SELECT 1 FROM revocation_consumers c
-                WHERE c.required_for_enforcement=true
-                  AND NOT EXISTS (
-                    SELECT 1 FROM enforcement_operation_consumers oc
-                    WHERE oc.operation_id=o.id AND oc.consumer_id=c.consumer_id
-                  )
-              )
-              AND NOT EXISTS (
                 SELECT 1 FROM enforcement_operation_consumers oc
                 WHERE oc.operation_id=o.id AND NOT EXISTS (
                   SELECT 1 FROM revocation_acks a
