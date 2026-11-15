@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 interface RealmClient {
   clientId: string;
@@ -14,7 +15,7 @@ interface RealmClient {
 }
 
 const realm = JSON.parse(
-  readFileSync(new URL('../../../../app-common/infra/realm-shared.json', import.meta.url), 'utf8'),
+  readFileSync(resolve(process.cwd(), '../app-common/infra/realm-shared.json'), 'utf8'),
 ) as { clients: RealmClient[] };
 
 describe('IAM-R3.2 browser OIDC realm contract', () => {
