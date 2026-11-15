@@ -212,8 +212,7 @@ class AuthorizationVersionFilterUnitTest {
     }
 
     @Test
-    void migratedPlatformUserCannotReuseLegacyJwtAtCurrentAuthorizationVersion()
-            throws Exception {
+    void migratedPlatformUserCannotReuseLegacyJwtAtCurrentAuthorizationVersion() throws Exception {
         UUID userId = UUID.randomUUID();
         UserAccount user = mock(UserAccount.class);
         when(user.getTenantId()).thenReturn(null);
